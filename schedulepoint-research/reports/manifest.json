@@ -1,0 +1,73 @@
+{
+  "workspace": "schedulepoint-research",
+  "description": "Research workspace for SchedulePoint application analysis: navigation structure, screen inventory, and evidence collection.",
+  "version": "0.1.0",
+  "created": "2026-07-30",
+  "structure": {
+    "RESEARCH-RULES.md": "Read-only navigation rules for Claude for Chrome: permitted controls, prohibited mutating actions, and the 'if uncertain, do not click' policy governing all ischedule.md exploration",
+    "reports/": "Written findings, indices, and tracking documents",
+    "reports/inbox/": "Unsorted/raw notes and evidence awaiting triage into the main reports",
+    "screenshots/navigation/": "Evidence of top-level nav, menus, and routing between major sections",
+    "screenshots/schedule/": "Evidence of scheduling/calendar screens and interactions",
+    "screenshots/requests/": "Evidence of request workflows (submission, approval, status)",
+    "screenshots/vacation/": "Evidence of vacation/time-off related screens",
+    "screenshots/picklist/": "Evidence of picklist/shift-bid or selection-list screens",
+    "screenshots/admin/": "Evidence of admin-facing configuration and management screens",
+    "screenshots/errors/": "Evidence of error states, validation messages, and failure modes"
+  },
+  "namingConvention": "Use generic, descriptive filenames only: <area>-<screen-or-state>-<sequence>.png (e.g. schedule-week-view-01.png, requests-submit-error-02.png). No personal names, phone numbers, patient identifiers, employee IDs, or other sensitive data in filenames or file contents.",
+  "requiredFiles": [
+    "reports/manifest.json",
+    "reports/source-page-index.md",
+    "reports/evidence-register.md",
+    "reports/unresolved-questions.md",
+    "MASTER-CHECKLIST.md"
+  ],
+  "phaseReports": [
+    {
+      "file": "reports/01-application-map.md",
+      "phase": 1,
+      "title": "Application map — screen inventory, IA, domain glossary",
+      "status": "complete; role model section superseded by phase 2 report"
+    },
+    {
+      "file": "reports/02-role-permission-matrix.md",
+      "phase": 3,
+      "title": "Role, account, group, and permission surfaces audit",
+      "status": "complete",
+      "mergePolicy": "Updates/corrects Phase 1 by stable ID (ADM-05, NAV-02, SYS-01, SYS-02) rather than duplicating; adds new IDs ADM-11, SYS-05, GRP-01, ROLE-01"
+    },
+    {
+      "file": "reports/03-user-workflows.md",
+      "phase": 4,
+      "title": "User-facing workflows (login, requests, opportunities, swaps, profile, notifications, proxy, calendar subscription)",
+      "status": "complete",
+      "mergePolicy": "Adds new IDs WF-01..WF-23; references SCH-01/02/03/04/05, VAC-01/02, PL-01/02/03, CON-01, DOC-01 rather than redescribing them"
+    },
+    {
+      "file": "reports/04-master-schedule.md",
+      "phase": 5,
+      "title": "Master schedule deep dive: cell interactions, Shifts/Credits split, audit/provenance log, draft/publish/lock behaviour",
+      "status": "complete",
+      "mergePolicy": "Expands SCH-02/03/04 and WF-05/WF-05a rather than redescribing; Given/When/Then acceptance criteria included"
+    },
+    {
+      "file": "reports/05-scheduling-engine.md",
+      "phase": 6,
+      "title": "Scheduling configuration, rules, and builds: full authoring-form field inventory for Builds, Pattern Rules, Staff Rules, Valid Groups; Pick Shifts constraint",
+      "status": "complete",
+      "mergePolicy": "Deepens ADM-01..ADM-11 field-level detail rather than duplicating; resolves Phase 1's open Valid Groups question"
+    },
+    {
+      "file": "reports/06-requests-vacation-opportunities.md",
+      "phase": 7,
+      "title": "Requests, vacation, opportunities, swaps, and approvals lifecycle audit with Mermaid state diagrams and Given/When/Then criteria",
+      "status": "complete",
+      "mergePolicy": "Adds lifecycle IDs LC-01..LC-05; references VAC-01/02, ADM-08, WF-08..13 rather than redescribing; major new finding: irreversible type-to-confirm Vacation-to-Master-Schedule TRANSFER"
+    }
+  ],
+  "validation": {
+    "script": "validate.sh",
+    "purpose": "Confirms all required files and directories exist and required files are non-empty"
+  }
+}
