@@ -84,6 +84,16 @@ Open questions discovered during research that need follow-up, clarification fro
 | 77 | Why does three different date-serialization formats coexist across sibling `/api/*` endpoints — is this consistent in responses too? | technical | 2026-07-30 | open | Phase 11; ISO YYYY-MM-DD, US MM/DD/YYYY, and "MMM D, YYYY" all observed across different endpoints in the same session |
 | 78 | What is the exact purpose/schema of the "jobs" API resource (`/api/jobs`, `/api/jobs/JobsForRequest`)? | technical | 2026-07-30 | open | Phase 11; name and call sites observed, payload/purpose inferred only |
 
+## Phase 12 disposition (2026-07-30)
+
+Phase 12 created no new source-site questions — it performed no ischedule.md navigation. Instead it **carried existing open questions forward as SchedulePoint test requirements** rather than closing them. The mapping is recorded in [11-edge-cases-and-qa.md](11-edge-cases-and-qa.md) §16.
+
+Questions carried forward with a named SchedulePoint test: #20 (Picklist Admin flag vs. actual capability → QA-AUTH-007, contradiction C-02), #31 (two withdrawal surfaces → QA-REQ-006/011, C-03), #35 (calendar-feed token strength → QA-SEC-009), #51 (picklist turn timers → QA-A11Y-014, QA-PICK-006), #60 (Contacts vs. Users roster discrepancy → QA-SEC-014, C-06), #62 (bulk-messaging composition → QA-SEC-013), #63 (focus styling → QA-A11Y-001), #64 (icon-button names → QA-A11Y-002), #65 (exact responsive breakpoint → QA-A11Y-016), #66 (Contacts overflow → QA-A11Y-015), #67 (aria-live purpose → QA-A11Y-013), #69 (validation/error presentation → QA-A11Y-004/005), #70 (zoom/reflow → QA-A11Y-016), #72 (SignalR payloads → QA-PICK-012, C-04), #73 (transport availability → QA-PERF-006/011, C-04), #74 (duplicate-request root cause → QA-PERF-001..004), #75 (session timeout → QA-AUTH-001/002), #76 (anti-forgery mechanism → QA-AUTH-012), #77 (date-format inconsistency → QA-DATE-001).
+
+Explicitly **not** carried forward: the two unopened PDF documents in the documents library (never opened by instruction in every phase, and no SchedulePoint requirement derives from their contents) and the tour-library behaviour (#loaded-but-never-fired; no requirement derives from it).
+
+**Status of all remaining questions: open against ischedule.md, permanently.** Broad research against the source site is closed after Phase 12. Any future source-site interaction requires a specific, separately-authorized comparison need.
+
 ## Status values
 
 - `open` — no answer yet

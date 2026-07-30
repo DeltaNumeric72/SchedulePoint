@@ -85,6 +85,12 @@ Do not include names, phone numbers, patient details, or other sensitive data �
 | 77 | navigation | Gravatar third-party avatar request (hashed email) | all pages | n/a | n/a | documented | Phase 11; privacy finding — **T-05 recommendation**, hashed identifier sent to third party on every page load |
 | 78 | navigation | Zendesk support widget 503-broken | all pages | n/a | n/a | documented | Phase 11; **T-08 recommendation** — silently broken third-party integration, no user-visible fallback |
 
+## Phase 12 note (2026-07-30)
+
+**Phase 12 added no page-index entries.** The edge-case and QA catalogue ([11-edge-cases-and-qa.md](11-edge-cases-and-qa.md)) was derived entirely from reports 01-10; no ischedule.md page was visited, and no navigation path was exercised. Entries 1-78 remain the complete record of pages observed. Index position 79 is reserved in [evidence-register.md](evidence-register.md) for the Phase 12 artifact itself, which is a derived document rather than a page observation.
+
+Broad research against the source site is closed after Phase 12.
+
 ## Legend
 
 - **Status**: `not started` / `in progress` / `documented` / `needs review`

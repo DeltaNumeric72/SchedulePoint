@@ -1,6 +1,6 @@
 {
   "workspace": "schedulepoint-research",
-  "description": "Research workspace for SchedulePoint application analysis: navigation structure, screen inventory, and evidence collection.",
+  "description": "Research workspace for SchedulePoint application analysis: navigation structure, screen inventory, evidence collection, and the Phase 12 edge-case/QA catalogue. Broad research against ischedule.md is closed after Phase 12.",
   "version": "0.1.0",
   "created": "2026-07-30",
   "structure": {
@@ -27,7 +27,7 @@
     {
       "file": "reports/01-application-map.md",
       "phase": 1,
-      "title": "Application map — screen inventory, IA, domain glossary",
+      "title": "Application map \u2014 screen inventory, IA, domain glossary",
       "status": "complete; role model section superseded by phase 2 report"
     },
     {
@@ -70,7 +70,7 @@
       "phase": 8,
       "title": "Picklist system: preparation, execution, notifications/escalation, real-time behaviour, completion/correction, with Mermaid diagrams and Given/When/Then criteria",
       "status": "complete",
-      "mergePolicy": "References PLM-01, PL-01/02, DASH-01, DA-01, ADM-01/05, WF-05a rather than redescribing. Contains a documented, self-corrected safety incident (§0) — an 'Add Room' control created a real room in a live ON HOLD picklist on first click with no preview/confirm step; the accidentally-created room was identified and deleted within the same tool-call sequence, verified back to its prior count."
+      "mergePolicy": "References PLM-01, PL-01/02, DASH-01, DA-01, ADM-01/05, WF-05a rather than redescribing. Contains a documented, self-corrected safety incident (\u00a70) \u2014 an 'Add Room' control created a real room in a live ON HOLD picklist on first click with no preview/confirm step; the accidentally-created room was identified and deleted within the same tool-call sequence, verified back to its prior count."
     },
     {
       "file": "reports/08-supporting-modules.md",
@@ -92,6 +92,13 @@
       "title": "Technical observations: frontend stack, routes, API resource catalogue (API-01..14), request/response patterns, auth/session, real-time (SignalR), caching/performance, client-vs-server responsibility matrix, SchedulePoint implications (T-01..T-10)",
       "status": "complete",
       "mergePolicy": "17-section structure per instructions; all identifiers sanitized (GROUP_ID/USER_ID/PICKLIST_ID/YYYY-MM-DD placeholders); no request replayed/modified/guessed, no cookie/token/storage values recorded (names only). Major findings: confirms a SignalR 'picklist' real-time hub exists (closes part of Phase 8's gap without triggering a live picklist); a concrete N+1-style duplicate-request defect (~25-40x identical calls from one click); a hashed-email leak to Gravatar on every page load; Zendesk support widget silently 503-broken on every page load."
+    },
+    {
+      "file": "reports/11-edge-cases-and-qa.md",
+      "phase": 12,
+      "title": "Edge cases and QA catalogue: 175 prioritized SchedulePoint test cases across 13 categories, with evidence classification, contradictions register, and carried-forward gaps",
+      "status": "complete; final broad research phase against ischedule.md",
+      "mergePolicy": "Derived entirely from reports 01-10 with no new source-site navigation. Adds stable QA IDs (QA-TEN/AUTH/SCH/REQ/OPP/PICK/RPT/NOT/DATE/CON/SEC/PERF/A11Y-NNN) referencing existing screen, workflow, lifecycle, RA/F, API and T IDs rather than redescribing them. Every case carries one of five evidence classifications (OBSERVED, INFERRED, UNRESOLVED, SP-REQ, SP-IMP); inferences are never promoted to observations. Encodes six hard SchedulePoint requirements: SP-HR-1 no email-derived identifier to any third-party avatar provider; SP-HR-2 one user action must not generate duplicate equivalent requests; SP-HR-3 visible keyboard-focus indicator on every interactive element; SP-HR-4 accessible name on every icon-only control; SP-HR-5 every critical workflow keyboard-operable; SP-HR-6 errors/validation/status changes programmatically communicated. Records 7 unresolved contradictions (C-01..C-07) without silently resolving them, and carries 14 gaps forward as future SchedulePoint tests. 67 MVP blockers. No source-site data created, modified, submitted, downloaded, imported, exported, or invalidated; no safety incident."
     }
   ],
   "validation": {
