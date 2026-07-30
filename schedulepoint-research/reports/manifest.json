@@ -85,6 +85,13 @@
       "title": "Responsive and accessibility behaviour: layout at desktop/tablet/phone widths, keyboard focus, heading/ARIA/color-only findings, SchedulePoint recommendations (F-01..F-08)",
       "status": "complete",
       "mergePolicy": "Adds RA-01..RA-19 and F-01..F-08; references SCH-01/02/03/04/05, VAC-01, CON-01, DOC-01, PLM-01, ADM-05 rather than redescribing their functional behavior. No new action surface opened solely for testing; only Tab/Shift+Tab/Escape used, no Enter/Space on action controls. Bonus finding: passive heading-text inspection resolved Phase 9's open question about what the Master Schedule Print menu produces (5 'Create X Report' dialogs, including a previously-unknown 'DayXShift Report' type)."
+    },
+    {
+      "file": "reports/10-technical-observations.md",
+      "phase": 11,
+      "title": "Technical observations: frontend stack, routes, API resource catalogue (API-01..14), request/response patterns, auth/session, real-time (SignalR), caching/performance, client-vs-server responsibility matrix, SchedulePoint implications (T-01..T-10)",
+      "status": "complete",
+      "mergePolicy": "17-section structure per instructions; all identifiers sanitized (GROUP_ID/USER_ID/PICKLIST_ID/YYYY-MM-DD placeholders); no request replayed/modified/guessed, no cookie/token/storage values recorded (names only). Major findings: confirms a SignalR 'picklist' real-time hub exists (closes part of Phase 8's gap without triggering a live picklist); a concrete N+1-style duplicate-request defect (~25-40x identical calls from one click); a hashed-email leak to Gravatar on every page load; Zendesk support widget silently 503-broken on every page load."
     }
   ],
   "validation": {

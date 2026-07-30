@@ -79,6 +79,11 @@ Do not include names, phone numbers, patient details, or other sensitive data �
 | 71 | schedule | RA-12 Heading hierarchy gap + bonus Print-menu resolution | `/app/schedulenew` | n/a | n/a | documented | Phase 10; **F-03 high-priority recommendation**; also resolved unresolved-questions.md #57 via passive heading-text read |
 | 72 | schedule | RA-13/14 ARIA labeling gaps (unlabeled buttons, unlabeled dialogs) | `/app/schedulenew` | n/a | n/a | documented | Phase 10; **F-02/F-04 high-priority recommendations** — Prev/Next date arrows confirmed unlabeled across nearly every schedule screen |
 | 73 | schedule | RA-09/10 Modal focus trap + Escape-to-close — positive findings | `/app` Swap Shift modal | n/a | n/a | documented | Phase 10; **F-08 recommendation to preserve this pattern** |
+| 74 | admin | TECH-04 pickordersadmin duplicate-request defect | `/admin/picklists` row selection | n/a | n/a | documented | Phase 11; **T-01 high-priority recommendation** — ~25-40x identical GET requests from one click |
+| 75 | schedule | API-05..14 catalogue (works/workdays/requests/opportunities/shiftgroup/VacationYear/picklistsadmin/pickordersadmin) | multiple `/api/*` endpoints | n/a | n/a | documented | Phase 11; sanitized route patterns, see reports/10-technical-observations.md §5 |
+| 76 | navigation | SignalR "picklist" real-time hub confirmed | all pages (connects on every load) | n/a | n/a | documented | Phase 11; partially resolves Phase 8's real-time gap — hub exists and connects, message content still unresolved (picklist never active) |
+| 77 | navigation | Gravatar third-party avatar request (hashed email) | all pages | n/a | n/a | documented | Phase 11; privacy finding — **T-05 recommendation**, hashed identifier sent to third party on every page load |
+| 78 | navigation | Zendesk support widget 503-broken | all pages | n/a | n/a | documented | Phase 11; **T-08 recommendation** — silently broken third-party integration, no user-visible fallback |
 
 ## Legend
 
