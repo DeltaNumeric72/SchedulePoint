@@ -78,6 +78,13 @@
       "title": "Supporting modules and remaining coverage gaps: reports/statistics, contacts/messaging, documents, profile/notifications/help/integrations",
       "status": "complete",
       "mergePolicy": "References CON-01, DOC-01, PL-01/02/03, ADM-01/04, SYS-03/04 rather than redescribing. Executed under strengthened safety boundary (no clicking of Add/New/Create/Import/etc. verbs); evidence gathered via DOM/href inspection rather than speculative clicks. No mutation occurred; one no-op click on a stub Help link recorded as a non-incident."
+    },
+    {
+      "file": "reports/09-responsive-accessibility.md",
+      "phase": 10,
+      "title": "Responsive and accessibility behaviour: layout at desktop/tablet/phone widths, keyboard focus, heading/ARIA/color-only findings, SchedulePoint recommendations (F-01..F-08)",
+      "status": "complete",
+      "mergePolicy": "Adds RA-01..RA-19 and F-01..F-08; references SCH-01/02/03/04/05, VAC-01, CON-01, DOC-01, PLM-01, ADM-05 rather than redescribing their functional behavior. No new action surface opened solely for testing; only Tab/Shift+Tab/Escape used, no Enter/Space on action controls. Bonus finding: passive heading-text inspection resolved Phase 9's open question about what the Master Schedule Print menu produces (5 'Create X Report' dialogs, including a previously-unknown 'DayXShift Report' type)."
     }
   ],
   "validation": {

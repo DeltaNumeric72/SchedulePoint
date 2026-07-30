@@ -72,6 +72,13 @@ Do not include names, phone numbers, patient details, or other sensitive data �
 | 64 | navigation | SM-03 Contacts row interactivity | `/app/contacts` | n/a | n/a | needs review | Phase 9; cursor:pointer observed, click deliberately untested — future test requirement recorded |
 | 65 | navigation | SM-05 Documents — no search/filter exists | `/app/documents` | n/a | n/a | documented | Phase 9; confirmed via full interactive-element read |
 | 66 | admin | SM-09 Full navigable surface — negative finding | all screens | n/a | n/a | documented | Phase 9; no new screens found beyond existing inventory after a final link/href sweep |
+| 67 | schedule | RA-01 App shell responsive breakpoint (sidebar→hamburger) | all screens | screenshots/schedule/ | n/a | documented | Phase 10; breakpoint bracketed 768-1512px, exact value unresolved |
+| 68 | schedule | RA-02 Calendar/schedule grid shrink-to-fit behavior | `/app`, `/app/schedulenew` | screenshots/schedule/ | n/a | documented | Phase 10; no horizontal overflow at phone width, confirmed via scrollWidth measurement |
+| 69 | navigation | RA-03 Contacts table horizontal overflow — layout failure | `/app/contacts` | screenshots/navigation/ | n/a | documented | Phase 10; 270px overflow at phone width, page-level not table-scoped scroll; screenshot contains real PII, not reproduced in report |
+| 70 | schedule | RA-07 Global focus-visibility gap (outline:none) | all screens | n/a | n/a | documented | Phase 10; **F-01 high-priority recommendation** — no visible focus indicator found on any sampled element |
+| 71 | schedule | RA-12 Heading hierarchy gap + bonus Print-menu resolution | `/app/schedulenew` | n/a | n/a | documented | Phase 10; **F-03 high-priority recommendation**; also resolved unresolved-questions.md #57 via passive heading-text read |
+| 72 | schedule | RA-13/14 ARIA labeling gaps (unlabeled buttons, unlabeled dialogs) | `/app/schedulenew` | n/a | n/a | documented | Phase 10; **F-02/F-04 high-priority recommendations** — Prev/Next date arrows confirmed unlabeled across nearly every schedule screen |
+| 73 | schedule | RA-09/10 Modal focus trap + Escape-to-close — positive findings | `/app` Swap Shift modal | n/a | n/a | documented | Phase 10; **F-08 recommendation to preserve this pattern** |
 
 ## Legend
 
