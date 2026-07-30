@@ -67,6 +67,11 @@ Do not include names, phone numbers, patient details, or other sensitive data �
 | 59 | picklist | Choose List cross-group aggregation | `/app/picklist` | screenshots/picklist/ | n/a | documented | Phase 8; shows both group memberships' active-picklist status on one screen without switching context |
 | 60 | picklist | Picklist Manager "last synced N minutes ago" staleness indicator | `/admin/picklists` | screenshots/picklist/ | n/a | documented | Phase 8; evidence against a pure real-time push model — manual refresh control present |
 | 61 | picklist | Completed picklist Email distribution modal | `/admin/picklists` Email button on COMPLETED row | screenshots/picklist/ | n/a | documented | Phase 8; "Pick List / Work Assignment / Both" choices, not sent |
+| 62 | navigation | SM-01 Help stub link | `/vacation/index` Help button | n/a | n/a | documented | Phase 9; href = `/Help/ComingSoon.pdf` — unimplemented placeholder, not opened |
+| 63 | schedule | SM-02 Print/Export/Share controls (Master Schedule, On Call, Shift Statistics) | multiple screens | screenshots/schedule/,screenshots/admin/ | n/a | needs review | Phase 9; existence/labels catalogued via DOM only, none activated; Stipend confirmed as export-type-only, no dedicated screen |
+| 64 | navigation | SM-03 Contacts row interactivity | `/app/contacts` | n/a | n/a | needs review | Phase 9; cursor:pointer observed, click deliberately untested — future test requirement recorded |
+| 65 | navigation | SM-05 Documents — no search/filter exists | `/app/documents` | n/a | n/a | documented | Phase 9; confirmed via full interactive-element read |
+| 66 | admin | SM-09 Full navigable surface — negative finding | all screens | n/a | n/a | documented | Phase 9; no new screens found beyond existing inventory after a final link/href sweep |
 
 ## Legend
 

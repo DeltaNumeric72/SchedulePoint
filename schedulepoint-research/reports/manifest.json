@@ -71,6 +71,13 @@
       "title": "Picklist system: preparation, execution, notifications/escalation, real-time behaviour, completion/correction, with Mermaid diagrams and Given/When/Then criteria",
       "status": "complete",
       "mergePolicy": "References PLM-01, PL-01/02, DASH-01, DA-01, ADM-01/05, WF-05a rather than redescribing. Contains a documented, self-corrected safety incident (§0) — an 'Add Room' control created a real room in a live ON HOLD picklist on first click with no preview/confirm step; the accidentally-created room was identified and deleted within the same tool-call sequence, verified back to its prior count."
+    },
+    {
+      "file": "reports/08-supporting-modules.md",
+      "phase": 9,
+      "title": "Supporting modules and remaining coverage gaps: reports/statistics, contacts/messaging, documents, profile/notifications/help/integrations",
+      "status": "complete",
+      "mergePolicy": "References CON-01, DOC-01, PL-01/02/03, ADM-01/04, SYS-03/04 rather than redescribing. Executed under strengthened safety boundary (no clicking of Add/New/Create/Import/etc. verbs); evidence gathered via DOM/href inspection rather than speculative clicks. No mutation occurred; one no-op click on a stub Help link recorded as a non-incident."
     }
   ],
   "validation": {

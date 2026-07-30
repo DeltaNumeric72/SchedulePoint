@@ -60,6 +60,12 @@ Open questions discovered during research that need follow-up, clarification fro
 | 54 | Does the "Locked→Unlock" toggle on a COMPLETED picklist actually reopen it for editing, and what happens to already-distributed final assignments if so? | picklist | 2026-07-30 | open | Phase 8; not tested — explicitly prohibited ("never reopen a picklist") |
 | 55 | Do other "Add"/"New" controls elsewhere in the product also commit instantly like the picklist's "Add Room" (§0 incident), or was that control specifically anomalous? | product-wide / UX safety | 2026-07-30 | open | Phase 8; discovered via an actual incident — every other "Add" control encountered in phases 1-7 was assumed (not proven) to stage a draft before commit |
 | 56 | What do the two PDF files in the "ischedule documents" category (scheduling/shift-change guidance) actually say? | picklist / documents | 2026-07-30 | open | Phase 8; seen listed, not opened — downloading requires explicit permission not sought this session |
+| 57 | What do the Master Schedule Print-menu's Schedule/Picklist/Stipend/Requests options actually produce (format, preview step, one-time side effects)? | reports | 2026-07-30 | open | Phase 9; all four are `href="#"` JS-driven controls, none clicked. Future test: click each individually in an explicitly-authorized session |
+| 58 | What do On Call's and Shift Statistics' Print/Share buttons actually do? | reports | 2026-07-30 | open | Phase 9; same reasoning as #57 |
+| 59 | What happens when a Contacts row is clicked? | navigation | 2026-07-30 | open | Phase 9; cursor:pointer observed via computed style, deliberately left untested per the strengthened safety boundary. Future test: click exactly one row in an authorized session and observe |
+| 60 | Why does the Contacts screen show 66 rows vs. the Users/Staff admin table's 94 rows for the same group? | navigation / roles | 2026-07-30 | open | Phase 9; suggests Contacts applies its own filter (e.g. excludes View/Telecom functional accounts) — exact rule unconfirmed |
+| 61 | Do other Help buttons exist elsewhere in the product, and if so do they point to the same ComingSoon.pdf stub or different content? | navigation | 2026-07-30 | open | Phase 9; only one Help button (Vacation) was ever noticed across all 9 phases |
+| 62 | What are the composition fields, templates, attachment options, and validation for Contacts' Send Email / Send SMS bulk actions? | messaging | 2026-07-30 | open | Phase 9; forms never opened — both are explicitly prohibited click targets |
 
 ## Status values
 
