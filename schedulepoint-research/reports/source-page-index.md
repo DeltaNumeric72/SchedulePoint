@@ -62,6 +62,11 @@ Do not include names, phone numbers, patient details, or other sensitive data �
 | 54 | vacation | LC-01b TRANSFER VACATIONS TO MASTER SCHEDULE | `/vacation/index` TRANSFER button | screenshots/vacation/ | transfer-vacations-01.png (pending) | documented | Phase 7; **major finding** — irreversible, type-to-confirm ("PUBLISH") batch write into Master Schedule; not submitted |
 | 55 | vacation | Batch Entry Off/On menu | `/vacation/index` Batch Entry Off ▾ | screenshots/vacation/ | n/a | needs review | Phase 7; only opened to menu-label level, form content unresolved |
 | 56 | requests | LC-02 Shift-group-scoped "OFF {X}" requests | unresolved — creation surface not located | screenshots/requests/ | n/a | needs review | Phase 7; history/status observed via WF-10, creation path still open |
+| 57 | picklist | Picklist Import (Staff/Work) re-sync confirmation | `/admin/picklists` Import buttons | screenshots/picklist/ | n/a | documented | Phase 8; NOT a file upload — erase-and-resync confirmation only; external OR-slate file import mechanism still unlocated |
+| 58 | picklist | Room creation control ("Add Room") — SAFETY INCIDENT | `/admin/picklists` Work panel Add button | screenshots/picklist/ | n/a | documented | Phase 8; **creates instantly, no preview/confirm** — see reports/07-picklist-system.md §0 for full incident record; accidental room deleted immediately after creation |
+| 59 | picklist | Choose List cross-group aggregation | `/app/picklist` | screenshots/picklist/ | n/a | documented | Phase 8; shows both group memberships' active-picklist status on one screen without switching context |
+| 60 | picklist | Picklist Manager "last synced N minutes ago" staleness indicator | `/admin/picklists` | screenshots/picklist/ | n/a | documented | Phase 8; evidence against a pure real-time push model — manual refresh control present |
+| 61 | picklist | Completed picklist Email distribution modal | `/admin/picklists` Email button on COMPLETED row | screenshots/picklist/ | n/a | documented | Phase 8; "Pick List / Work Assignment / Both" choices, not sent |
 
 ## Legend
 

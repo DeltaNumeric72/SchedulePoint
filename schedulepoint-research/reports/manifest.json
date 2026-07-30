@@ -64,6 +64,13 @@
       "title": "Requests, vacation, opportunities, swaps, and approvals lifecycle audit with Mermaid state diagrams and Given/When/Then criteria",
       "status": "complete",
       "mergePolicy": "Adds lifecycle IDs LC-01..LC-05; references VAC-01/02, ADM-08, WF-08..13 rather than redescribing; major new finding: irreversible type-to-confirm Vacation-to-Master-Schedule TRANSFER"
+    },
+    {
+      "file": "reports/07-picklist-system.md",
+      "phase": 8,
+      "title": "Picklist system: preparation, execution, notifications/escalation, real-time behaviour, completion/correction, with Mermaid diagrams and Given/When/Then criteria",
+      "status": "complete",
+      "mergePolicy": "References PLM-01, PL-01/02, DASH-01, DA-01, ADM-01/05, WF-05a rather than redescribing. Contains a documented, self-corrected safety incident (§0) — an 'Add Room' control created a real room in a live ON HOLD picklist on first click with no preview/confirm step; the accidentally-created room was identified and deleted within the same tool-call sequence, verified back to its prior count."
     }
   ],
   "validation": {

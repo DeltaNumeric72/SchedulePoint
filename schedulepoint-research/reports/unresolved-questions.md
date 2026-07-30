@@ -54,6 +54,12 @@ Open questions discovered during research that need follow-up, clarification fro
 | 48 | Does Shift Swap require partner acceptance, Scheduler approval, both, or neither? | requests / swaps | 2026-07-30 | open | Phase 7; form opened, not submitted; no swap-shaped entry seen in request history |
 | 49 | What resolves a race if two staff attempt to claim the same posted Opportunity simultaneously? | requests / opportunities | 2026-07-30 | open | Phase 7; claim side never observed (single-account research limitation) |
 | 50 | Does the vacation-approval or opportunity/swap lifecycle send any notification (email/SMS/push)? | notifications | 2026-07-30 | open | Phase 7; no explicit toggle found for these specific events |
+| 51 | What does live picklist execution actually look like (current picker, timer, room-selection UI, confirmation, failure/retry)? | picklist | 2026-07-30 | open | Phase 8; no active picklist was available across any of the 8 phases — the single largest remaining gap in this research effort |
+| 52 | Where/how is external OR/case-slate data actually ingested, if not via the Picklist Manager Import buttons (confirmed to be erase-and-resync, not file upload)? | picklist / integrations | 2026-07-30 | open | Phase 8; Group Settings' "ImportStrip" field is the only remaining hint that a file-based import exists somewhere |
+| 53 | Does the picklist notification system have any observable delivery-status, failure, retry, or duplicate-protection behavior? | notifications / picklist | 2026-07-30 | open | Phase 8; no delivery log or status indicator found anywhere in the product |
+| 54 | Does the "Locked→Unlock" toggle on a COMPLETED picklist actually reopen it for editing, and what happens to already-distributed final assignments if so? | picklist | 2026-07-30 | open | Phase 8; not tested — explicitly prohibited ("never reopen a picklist") |
+| 55 | Do other "Add"/"New" controls elsewhere in the product also commit instantly like the picklist's "Add Room" (§0 incident), or was that control specifically anomalous? | product-wide / UX safety | 2026-07-30 | open | Phase 8; discovered via an actual incident — every other "Add" control encountered in phases 1-7 was assumed (not proven) to stage a draft before commit |
+| 56 | What do the two PDF files in the "ischedule documents" category (scheduling/shift-change guidance) actually say? | picklist / documents | 2026-07-30 | open | Phase 8; seen listed, not opened — downloading requires explicit permission not sought this session |
 
 ## Status values
 
