@@ -113,6 +113,13 @@
       "title": "Product glossary: 75 normalized terms (TERM-001..075) reconciling iSchedule.MD vocabulary into a single SchedulePoint terminology, with split/merge/rename/avoid dispositions",
       "status": "complete",
       "mergePolicy": "Derived entirely from reports 01-11 plus the final coverage audit; no source-site navigation. Introduces the TERM-### namespace (no collision with existing F-##, SM-##, RA-##, WF-##, LC-##, ADM-##, QA-* namespaces). Every term carries 10 required fields including preferred SchedulePoint term, source term(s), classification (OBS/INF/UNR/SP-REQ/SP-REC), confidence, ambiguities, and a retain/rename/split/merge/introduce/avoid disposition. Preserves rather than resolves contradictions C-01, C-02, C-03, C-05, C-06. Flags the three-way '...Group' naming collision (Staff Group / Shift Group / Valid Group), the four-way overload of 'Pick', the three-way overload of 'Shift', and the two unrelated uses of 'Publish' and 'Transfer'. Marks TERM-062 (instant-commit Add) and TERM-070 (clinical case detail) as explicit do-not-replicate/exclude items."
+    },
+    {
+      "file": "reports/13-feature-inventory.md",
+      "phase": 13,
+      "title": "Feature inventory: 46 deduplicated capabilities (FEAT-001..054) with SchedulePoint dispositions, a Mermaid MVP dependency map, and four contradiction-blocked decisions",
+      "status": "complete",
+      "mergePolicy": "Derived entirely from reports 01-11 plus the final coverage audit; no source-site navigation. Introduces the FEAT-### namespace. Merges by stable ID -- a capability documented across five source reports gets one entry. 46 distinct features carrying 52 disposition assignments (features may hold a dual disposition where capability and mechanism differ): 25 MVP, 10 POST-MVP, 6 REQUIRES DECISION, 6 SOURCE DEFECT -- DO NOT REPLICATE, 4 REPLACE WITH ORIGINAL SCHEDULEPOINT DESIGN, 1 EXCLUDED, 0 DEFERRED. Disposition table is generated programmatically from the feature blocks, not hand-tallied. Six source defects catalogued explicitly (FEAT-047 delete-by-default inspection click; FEAT-048 instant-commit Add; FEAT-049 request amplification; FEAT-052 third-party avatar identifier leak; FEAT-053 silently broken third-party widget; FEAT-054 accessibility baseline failures), mapping to hard requirements SP-HR-1..SP-HR-6. FEAT-051 (clinical case detail) EXCLUDED from MVP. Contradictions C-02, C-03, C-04, C-06 preserved as explicit blocking decisions with options, consequences, and a recommended direction marked pending product-owner approval."
     }
   ],
   "validation": {

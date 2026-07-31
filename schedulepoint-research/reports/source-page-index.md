@@ -92,6 +92,7 @@ Do not include names, phone numbers, patient details, or other sensitive data â€
 | 84 | admin | SM-14 Second Help destination confirmed | `/admin/builds` and `/admin/staffshiftfte` Help links (`href` inspection only) | n/a | n/a | documented | Coverage audit; resolves unresolved-questions.md #61 â€” Help is product-wide, destinations vary (one real file, others share the ComingSoon.pdf stub) |
 | 85 | navigation | NAV-03 Header notification-banner template | persistent chrome, all pages (hidden/zero-size DOM node) | n/a | n/a | documented | Coverage audit; previously-undocumented "active picklist" banner mechanism, found via computed-style inspection only |
 | 86 | all | TERM-001..075 Product glossary (derived artifact) | n/a -- consolidation of reports 01-11 | reports/ | n/a | documented | Phase 13; no page observation, a derived normalization artifact. See [12-product-glossary.md](12-product-glossary.md) |
+| 87 | all | FEAT-001..054 Feature inventory (derived artifact) | n/a -- consolidation of reports 01-11 | reports/ | n/a | documented | Phase 13; derived normalization artifact, no page observation. See [13-feature-inventory.md](13-feature-inventory.md) |
 
 ## Phase 12 note (2026-07-30)
 
