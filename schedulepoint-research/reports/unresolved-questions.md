@@ -17,7 +17,7 @@ Open questions discovered during research that need follow-up, clarification fro
 | 11 | What do "Proxy Locked" / "Notification Locked" (Users admin table) do to a user's Notification Settings screen? | notifications / admin | 2026-07-30 | open | |
 | 12 | Purpose of "Report Box" field on Group Settings | admin | 2026-07-30 | open | |
 | 13 | What exactly do Setup / Planner / Build / Fix Picks / Publish do in the Builds pipeline? | admin / builds | 2026-07-30 | open | Not clicked — high blast radius, includes "Erase Master Schedule" |
-| 14 | Meaning of "Action Time" column on Staff (Users) admin table | admin / roles | 2026-07-30 | open | Possibly a per-user pick-turn time limit in seconds |
+| 14 | Meaning of "Action Time" column on Staff (Users) admin table | admin / roles | 2026-07-30 | answered | **Resolved by public source (PUB-045):** the group "can set a time limit for how long a staff gets to pick before requesting intervention", corroborating Action Time / Alert Pick Time as a per-turn time budget. Exact units and per-user override semantics still need SBX-024 |
 | 15 | Purpose/schema of "Valid Groups" beyond the list of names | admin | 2026-07-30 | answered | Resolved in Phase 6 (05-scheduling-engine.md §"ADM-09"): "Group One" = shift codes, "Group Two" = pick-order positions; restricts which draft positions are legal for a given shift set. Observed instance was unrestricted (all 30 positions); restrictive case inferred but not directly observed |
 | 16 | Where does a staff member actually submit a *new* request (the request submission form itself was not located)? | requests | 2026-07-30 | open | |
 | 17 | Is the app's mobile story a responsive web layout, or purely phone-channel (SMS/voice) picking? | mobile | 2026-07-30 | open | Window-resize test was inconclusive this pass |
@@ -32,7 +32,7 @@ Open questions discovered during research that need follow-up, clarification fro
 | 26 | What determines whether a Locum-role row has "Show In Grid: Yes" vs "No"? | roles / admin | 2026-07-30 | open | Manual per-row toggle vs. derived from current assignments — unclear |
 | 27 | Who is eligible to be selected as a "Pick Proxy" (same group only? same role? unrestricted)? | notifications / proxy | 2026-07-30 | open | Combobox option list was not enumerated (custom widget; avoided to prevent unnecessary PII capture and accidental selection) |
 | 28 | Does a lower-privileged account see both of its groups in the site switcher, or only operate in one at a time? | roles / group-switching | 2026-07-30 | open | |
-| 29 | What do the actual login form and password-reset flow look like (fields, MFA, lockout)? | auth | 2026-07-30 | open | Deliberately not observed — would require signing out with no recovery credentials available |
+| 29 | What do the actual login form and password-reset flow look like (fields, MFA, lockout)? | auth | 2026-07-30 | answered | **Resolved without signing out (PUB-067, PUB-069):** the public `/users/login` and `/users/forgotpassword` pages were observed directly. Email-as-username + password, a "Stay signed in (Personal Device)" option, **no SSO and no MFA**, and an emailed reset link that **doubles as the new-user activation path**. Lockout behaviour still unobserved (no submission) — see SBX-005 |
 | 30 | Where are shift-group-scoped "OFF {X}" requests (e.g. "OFF {All Call}") created, if not via the Vacation grid's week-cell click? | requests | 2026-07-30 | open | Searched My Schedule and Vacation thoroughly; not located |
 | 31 | Do the My Requests panel's per-row DELETE and the Vacation grid's badge-click Remove act on the same underlying record for vacation-type requests? | requests | 2026-07-30 | open | |
 | 32 | Does Shift Swap require the proposed partner's acceptance, or is it Scheduler-approved unilaterally like vacation? | requests / swaps | 2026-07-30 | open | No equivalent "Approval Required" setting found for swaps specifically |
@@ -80,11 +80,39 @@ Open questions discovered during research that need follow-up, clarification fro
 | 73 | Is WebSocket transport available server-side at all, or does SignalR only ever offer long-polling for this deployment? | technical | 2026-07-30 | open | Phase 11; transport negotiated to longPolling in every observed session; negotiation response body (which would list available transports) not inspected |
 | 74 | What is the root cause of the `/api/pickordersadmin` duplicate-request burst (~25-40x per click)? | technical / performance | 2026-07-30 | open | Phase 11; diagnosable only via DevTools initiator/call-stack inspection or source access, neither available |
 | 75 | What is ischedule.md's session/idle-timeout duration? | technical / auth | 2026-07-30 | open | Phase 11; session persisted across the entire multi-hour, multi-phase research effort with no observed expiry |
-| 76 | Does ischedule.md use an anti-forgery token, and if so what mechanism/name? | technical / security | 2026-07-30 | open | Phase 11; no POST/PUT/DELETE request was ever triggered to observe one |
+| 76 | Does ischedule.md use an anti-forgery token, and if so what mechanism/name? | technical / security | 2026-07-30 | answered | **Resolved (PUB-068):** a hidden `__RequestVerificationToken` field is present on both public forms — the ASP.NET framework convention. **Field name only; no value was read or recorded.** Confirms the Phase 11 inference |
 | 77 | Why does three different date-serialization formats coexist across sibling `/api/*` endpoints — is this consistent in responses too? | technical | 2026-07-30 | open | Phase 11; ISO YYYY-MM-DD, US MM/DD/YYYY, and "MMM D, YYYY" all observed across different endpoints in the same session |
 | 78 | What is the exact purpose/schema of the "jobs" API resource (`/api/jobs`, `/api/jobs/JobsForRequest`)? | technical | 2026-07-30 | open | Phase 11; name and call sites observed, payload/purpose inferred only |
 | 79 | What does the unlabeled `<select>` in the Contacts Send Email dialog do (template? signature? something else)? | messaging | 2026-07-30 | open | Coverage audit; found via hidden-DOM read alongside the rest of #62's field schema, not individually identified |
 | 80 | What condition selects the "REQUEST" vs. "Confirm" button label on the Vacation Block Selection modal (same shared template)? | vacation | 2026-07-30 | open | Coverage audit; both labels coexist in the same hidden dialog markup, purpose of the distinction not determined |
+
+## Public-source reconciliation disposition (2026-07-30)
+
+A targeted public-source functionality-gap reconciliation ([17-public-source-gap-addendum.md](17-public-source-gap-addendum.md)) inspected the public marketing site, the full FAQ, the pricing document, and the application's own public authentication pages. It **resolved three long-standing questions from evidence that required no mutating action**:
+
+- **#14 (`Action Time` meaning)** — **answered.** The public source states the group "can set a time limit for how long a staff gets to pick before requesting intervention" (PUB-045), corroborating `Action Time` / `Alert Pick Time` as a per-turn time budget.
+- **#29 (login form and password-reset flow)** — **answered.** Both public pages were observed **without signing out** (PUB-067, PUB-069): email-as-username, password field, a "Stay signed in (Personal Device)" option, no SSO and no MFA, and an emailed reset link that **doubles as the new-user activation path**.
+- **#76 (anti-forgery mechanism)** — **answered.** A hidden `__RequestVerificationToken` field is present on both public forms (PUB-068), the ASP.NET framework convention. **Field name only; no value was read or recorded.**
+
+**Partially informed, not closed:** #33 (opportunity notification — public source asserts automatic email fan-out to all group members, but recipient rules and opt-outs remain unobserved), #60/**C-06** (the Telecom role's confirmed switchboard purpose supports the service-account-exclusion hypothesis for the directory shortfall), #32/#48 (public source indicates scheduler review of staff-made changes is **configurable**, not mandatory).
+
+**New questions raised by this reconciliation:**
+
+| # | Question | Area | Raised On | Status | Notes |
+|---|----------|------|-----------|--------|-------|
+| 81 | What does the group-level `Pick List Access` checkbox actually gate, and does it explain C-02? | roles / picklist | 2026-07-30 | open | Newly observed Group Settings field (GAP-17), never documented in any prior phase. Test: SBX-002 |
+| 82 | What is the `Payment Due Date` field used for, and is subscription state enforced in-product? | admin / commercial | 2026-07-30 | open | Newly observed (GAP-18); supports the edition/entitlement model (C-12) |
+| 83 | Where is staff **work percentage** stored, given picklist balancing is described as "by work percentage"? | scheduling engine | 2026-07-30 | open | GAP-01; no such field found on the roster |
+| 84 | How are template / alternating-week assignments authored? | scheduling engine | 2026-07-30 | open | GAP-02; publicly claimed (PUB-007), no surface located |
+| 85 | Where are staff preference attributes (e.g. "likes 16-hour call") stored for rules to read? | scheduling engine | 2026-07-30 | open | GAP-03; implied by a published rule example |
+| 86 | What do the Planner and workbench actually show for conflict detection and build quality? | admin / builds | 2026-07-30 | open | GAP-05; the product's headline verification capability, never observed. Test: SBX-016 |
+| 87 | How are skill sets / qualifications / credentials represented? | scheduling engine | 2026-07-30 | open | GAP-06; publicly claimed, **no credential/certification/expiry concept exists anywhere**. Test: SBX-019 |
+| 88 | Does a "group email address" feature exist, or is it provisioned out of band? | communications | 2026-07-30 | open | GAP-15 / C-11; a standard-edition inclusion with no corresponding field |
+| 89 | How do the three picklist operating modes (paper / manual / integrated) differ in-product? | picklist | 2026-07-30 | open | GAP-11; commercially distinct, no mode switch observed. Test: SBX-020 |
+| 90 | What are the surgical-booking integration contracts, direction, scheduling, and reconciliation semantics? | integrations | 2026-07-30 | open | GAP-12; EXTERNAL SPECIFICATION REQUIRED. Tests: SBX-028, SBX-029 |
+| 91 | Is push notification a real channel, a roadmap item, or marketing overreach? | notifications | 2026-07-30 | open | **C-10**; publicly claimed, absent from the notification settings screen |
+| 92 | Does de-identification occur at the ingestion boundary, given clinical detail was observed in-product? | privacy / integrations | 2026-07-30 | open | **C-09**; must never be tested against production data. Test: SBX-029 |
+| 93 | Is the product named SchedulePoint or SchedulePilot? | product | 2026-07-30 | open | PO-DEC-00; this task's brief used SchedulePilot, the repository and reports 12-16 use SchedulePoint |
 
 ## Coverage audit disposition (2026-07-30)
 

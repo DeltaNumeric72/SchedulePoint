@@ -95,6 +95,8 @@ Do not include names, phone numbers, patient details, or other sensitive data â€
 | 87 | all | FEAT-001..054 Feature inventory (derived artifact) | n/a -- consolidation of reports 01-11 | reports/ | n/a | documented | Phase 13; derived normalization artifact, no page observation. See [13-feature-inventory.md](13-feature-inventory.md) |
 | 88 | all | ENT-001..040 Domain model (derived artifact) | n/a -- consolidation of reports 01-11 | reports/ | n/a | documented | Phase 13; derived conceptual model, no page observation. See [14-domain-model.md](14-domain-model.md) |
 | 89 | all | STM-001..021 State machines (derived artifact) | n/a -- consolidation of reports 01-11 | reports/ | n/a | documented | Phase 13; derived conceptual lifecycles, no page observation. See [15-state-machines.md](15-state-machines.md) |
+| 90 | navigation | Public marketing site + full FAQ + pricing PDF | `https://ischedule.md/` (homepage, 8 FAQ panels), `https://ischedule.md/ischedule.md.pricing.pdf` | reports/ | n/a | documented | Public-source reconciliation 2026-07-30; PUB-001..066. See [17-public-source-gap-addendum.md](17-public-source-gap-addendum.md) |
+| 91 | navigation | Public authentication pages | `https://ischedule.md/users/login`, `https://ischedule.md/users/forgotpassword` | reports/ | n/a | documented | Public-source reconciliation 2026-07-30; PUB-067..070. Observed WITHOUT signing out -- resolves unresolved #29 and #76. Neither form submitted |
 
 ## Phase 12 note (2026-07-30)
 
