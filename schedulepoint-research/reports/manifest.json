@@ -1,6 +1,6 @@
 {
   "workspace": "schedulepoint-research",
-  "description": "Research workspace for SchedulePoint application analysis: navigation structure, screen inventory, evidence collection, and the Phase 12 edge-case/QA catalogue. Broad research against ischedule.md is closed after Phase 12.",
+  "description": "Research workspace for SchedulePoint application analysis: navigation structure, screen inventory, evidence collection, the Phase 12 edge-case/QA catalogue, and a final coverage-reconciliation audit. Broad research against ischedule.md is closed after Phase 12 and reconfirmed closed after the coverage audit.",
   "version": "0.1.0",
   "created": "2026-07-30",
   "structure": {
@@ -99,6 +99,13 @@
       "title": "Edge cases and QA catalogue: 175 prioritized SchedulePoint test cases across 13 categories, with evidence classification, contradictions register, and carried-forward gaps",
       "status": "complete; final broad research phase against ischedule.md",
       "mergePolicy": "Derived entirely from reports 01-10 with no new source-site navigation. Adds stable QA IDs (QA-TEN/AUTH/SCH/REQ/OPP/PICK/RPT/NOT/DATE/CON/SEC/PERF/A11Y-NNN) referencing existing screen, workflow, lifecycle, RA/F, API and T IDs rather than redescribing them. Every case carries one of five evidence classifications (OBSERVED, INFERRED, UNRESOLVED, SP-REQ, SP-IMP); inferences are never promoted to observations. Encodes six hard SchedulePoint requirements: SP-HR-1 no email-derived identifier to any third-party avatar provider; SP-HR-2 one user action must not generate duplicate equivalent requests; SP-HR-3 visible keyboard-focus indicator on every interactive element; SP-HR-4 accessible name on every icon-only control; SP-HR-5 every critical workflow keyboard-operable; SP-HR-6 errors/validation/status changes programmatically communicated. Records 7 unresolved contradictions (C-01..C-07) without silently resolving them, and carries 14 gaps forward as future SchedulePoint tests. 67 MVP blockers. No source-site data created, modified, submitted, downloaded, imported, exported, or invalidated; no safety incident."
+    },
+    {
+      "file": "reports/final-coverage-audit.md",
+      "phase": "coverage-audit",
+      "title": "Final coverage audit: navigation-to-report reconciliation across both group memberships, 7 newly discovered passively-observed surfaces, cross-group corroboration of one open contradiction, and one live-picklist state noted but deliberately not pursued",
+      "status": "complete; PASSED WITH NON-BLOCKING GAPS",
+      "mergePolicy": "Reconciles the full navigation surface (both groups, all 34 previously-documented screens) against reports 01-12 via passive href/hidden-DOM inspection only (no clicks on any Add/New/Create/Send/Save/Publish-type control). Adds 7 new stable IDs (CAL-01, SM-10..SM-14, NAV-03) for surfaces found via the same zero-click hidden-dialog-inspection technique Phase 10 used for the Print-menu discovery. Resolves or partially resolves unresolved-questions.md #39, #58, #60, #61, #62. Confirms full 22-route sidebar/admin parity across both groups (reconfirms GRP-01). Discovers incidentally that a live picklist is active in the account's other group membership; per this audit's explicit brief, deliberately does not pursue Dashboard/Picklist Manager/room-selection investigation of it \u2014 records only that the aggregate progress-bar state exists. No mutation, no safety incident. Does not begin Phase 13."
     }
   ],
   "validation": {

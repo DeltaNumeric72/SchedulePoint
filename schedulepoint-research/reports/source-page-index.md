@@ -84,12 +84,23 @@ Do not include names, phone numbers, patient details, or other sensitive data �
 | 76 | navigation | SignalR "picklist" real-time hub confirmed | all pages (connects on every load) | n/a | n/a | documented | Phase 11; partially resolves Phase 8's real-time gap — hub exists and connects, message content still unresolved (picklist never active) |
 | 77 | navigation | Gravatar third-party avatar request (hashed email) | all pages | n/a | n/a | documented | Phase 11; privacy finding — **T-05 recommendation**, hashed identifier sent to third party on every page load |
 | 78 | navigation | Zendesk support widget 503-broken | all pages | n/a | n/a | documented | Phase 11; **T-08 recommendation** — silently broken third-party integration, no user-visible fallback |
+| 79 | schedule | CAL-01 Calendar Event creation dialog | `/app/schedulenew` "Calendar events" row (hidden dialog, not opened) | n/a | n/a | documented | Coverage audit; resolves part of unresolved-questions.md #39 via hidden-DOM read only |
+| 80 | navigation | SM-10 On Call contact dialog (Email/SMS) | `/app/oncalltoday` (hidden dialog `dialogSendSMS`) | n/a | n/a | documented | Coverage audit; refines WF-07 (phone chips are not `tel:` links; open a channel-choice dialog instead) |
+| 81 | reports | SM-11 "Create On Call Schedule Report" dialog | `/app/oncalltoday` Print button (hidden dialog, title read only) | n/a | n/a | documented | Coverage audit; 6th report type in the "Create X Report" family; partially resolves unresolved-questions.md #58 |
+| 82 | reports | SM-12 "Sharing Statistics Report" dialog | `/admin/shiftstatistics` Share button (hidden dialog `printStatModal`) | n/a | n/a | documented | Coverage audit; resolves unresolved-questions.md #58 for Shift Statistics |
+| 83 | navigation | SM-13 Contacts Send Email/Send SMS field schema | `/app/contacts` (hidden dialogs `dialogSendEmail`/`dialogSendSMS`) | n/a | n/a | documented | Coverage audit; resolves unresolved-questions.md #62 field-schema portion; one unlabeled `<select>` purpose still open |
+| 84 | admin | SM-14 Second Help destination confirmed | `/admin/builds` and `/admin/staffshiftfte` Help links (`href` inspection only) | n/a | n/a | documented | Coverage audit; resolves unresolved-questions.md #61 — Help is product-wide, destinations vary (one real file, others share the ComingSoon.pdf stub) |
+| 85 | navigation | NAV-03 Header notification-banner template | persistent chrome, all pages (hidden/zero-size DOM node) | n/a | n/a | documented | Coverage audit; previously-undocumented "active picklist" banner mechanism, found via computed-style inspection only |
 
 ## Phase 12 note (2026-07-30)
 
 **Phase 12 added no page-index entries.** The edge-case and QA catalogue ([11-edge-cases-and-qa.md](11-edge-cases-and-qa.md)) was derived entirely from reports 01-10; no ischedule.md page was visited, and no navigation path was exercised. Entries 1-78 remain the complete record of pages observed. Index position 79 is reserved in [evidence-register.md](evidence-register.md) for the Phase 12 artifact itself, which is a derived document rather than a page observation.
 
 Broad research against the source site is closed after Phase 12.
+
+## Coverage audit note (2026-07-30)
+
+A final, bounded coverage-reconciliation pass added entries 79-85 above, all found via passive `href`/hidden-DOM inspection of already-safe pages (no click on any new control). See [final-coverage-audit.md](final-coverage-audit.md) for full detail, including one live-picklist state that was observed to exist but deliberately not pursued per that report's explicit brief. **COVERAGE AUDIT PASSED WITH NON-BLOCKING GAPS.** No further broad navigation of ischedule.md is planned.
 
 ## Legend
 
