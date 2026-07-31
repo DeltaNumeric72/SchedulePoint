@@ -39,7 +39,7 @@
 **Def:** The primary scheduling and permission scope. A Group has its own staff roster, shift catalogue, rules, vacation block, picklists, settings, and schedule. **A user's role is a property of their membership in a specific Group, not of their account.**
 **Actors:** all · **Feat:** FEAT-001, FEAT-002, FEAT-003 · **Ent:** ENT-002, ENT-006
 **Ev:** 01-app §1, ADM-01; 02-role §4 (GRP-01), §5; 10-technical §4 (`groupId` in every data-bound route)
-**Amb:** The source's own UI calls the same thing a "Group" in admin screens (`/admin/groups`, "Group Settings") and a "Site" in the top-bar switcher ("THP C Site"). Both refer to the identical `groupId` entity. See TERM-003.
+**Amb:** The source's own UI calls the same thing a "Group" in admin screens (`/admin/groups`, "Group Settings") and a "Site" in the top-bar switcher (where entries are labelled `<SITE_NAME> Site`). Both refer to the identical `groupId` entity. See TERM-003.
 **Disp:** **RETAIN** as the canonical term. Group is the scheduling scope; Site (TERM-003) must not be treated as a synonym in SchedulePoint.
 
 #### TERM-003 · Site
