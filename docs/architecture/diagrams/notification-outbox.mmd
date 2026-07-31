@@ -1,0 +1,28 @@
+sequenceDiagram
+    participant U as Scheduler
+    participant W as Web / API
+    participant DB as PostgreSQL
+    participant R as Outbox relay
+    participant N as Notification Delivery
+    participant P as Provider adapter
+
+    U->>W: Publish schedule
+    activate W
+    W->>DB: BEGIN
+    W->>DB: create schedule_version + assignments
+    W->>DB: INSERT outbox_events (SchedulePublished)
+    W->>DB: INSERT audit_events
+    W->>DB: COMMIT
+    deactivate W
+    W-->>U: Published (notifications will follow)
+
+    Note over DB,R: Commit is the only guarantee needed.<br/>A provider outage cannot roll this back.
+
+    R->>DB: claim outbox row
+    R->>N: domain event
+    N->>N: resolve intents (affected memberships)
+    N->>N: render per recipient, per channel
+    N->>P: dispatch (idempotency key)
+    P-->>N: outcome
+    N->>DB: record delivery_attempt
+    Note over N,DB: failure -> backoff + jitter -> dead-letter.<br/>Never a silent discard.

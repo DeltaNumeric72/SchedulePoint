@@ -1,0 +1,17 @@
+flowchart TD
+    REQ["Request"] --> E{"1 · Organization<br/>entitlement?"}
+    E -->|no| D1["DENY<br/><i>module not purchased</i>"]
+    E -->|yes| A{"2 · Group / module<br/>availability?"}
+    A -->|no| D2["DENY<br/><i>module not enabled for this group</i>"]
+    A -->|yes| R{"3 · Membership role<br/>in this group?"}
+    R -->|no| D3["DENY<br/><i>no role here</i>"]
+    R -->|yes| C{"4 · Explicit action<br/>capability?"}
+    C -->|no| D4["DENY<br/><i>role lacks this capability</i>"]
+    C -->|yes| O{"Object-level check<br/><i>tenant + scope</i>"}
+    O -->|fail| D5["DENY"]
+    O -->|pass| RLS{"PostgreSQL RLS<br/><i>defence in depth</i>"}
+    RLS -->|fail| D6["DENY<br/><i>should be unreachable</i>"]
+    RLS -->|pass| OK["ALLOW"]
+
+    classDef deny fill:#fde8e8,stroke:#b91c1c
+    class D1,D2,D3,D4,D5,D6 deny

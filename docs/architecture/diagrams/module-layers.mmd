@@ -1,0 +1,46 @@
+graph TD
+    subgraph L0["L0 · Platform"]
+        M25["M-25 Platform Administration"]
+        M24["M-24 Audit History"]
+    end
+    subgraph L1["L1 · Identity, Tenancy, Access"]
+        M01["M-01 Identity"]
+        M02["M-02 Organizations & Groups"]
+        M03["M-03 Memberships & Roles"]
+        M04["M-04 Entitlements"]
+        M05["M-05 Qualifications"]
+        M06["M-06 Scheduling Configuration"]
+    end
+    subgraph L2["L2 · Ingestion"]
+        M08["M-08 Ingestion Privacy<br/><i>no dependencies</i>"]
+        M07["M-07 Integrations"]
+    end
+    subgraph L3["L3 · Schedule Core"]
+        M09["M-09 Schedule Demand"]
+        M10["M-10 Schedule Generation"]
+        M11["M-11 Assignments"]
+        M12["M-12 Schedule Publication"]
+    end
+    subgraph L4["L4 · Staff Workflows"]
+        M13["M-13 Requests"]
+        M14["M-14 Vacation"]
+        M15["M-15 Opportunities"]
+        M16["M-16 Swaps & Transfers"]
+        M17["M-17 Picklists"]
+    end
+    subgraph L5["L5 · Delivery & Output"]
+        M18["M-18 Notification Preferences"]
+        M19["M-19 Notification Delivery"]
+        M20["M-20 Contacts & Communications"]
+        M21["M-21 Reports & Statistics"]
+        M22["M-22 Calendar Feeds"]
+        M23["M-23 Documents"]
+    end
+
+    M07 --> M08
+    L1 --> L3
+    L3 --> L4
+    L4 -.->|"domain events only"| L5
+
+    classDef gate fill:#fde8e8,stroke:#b91c1c,stroke-width:3px
+    class M08 gate

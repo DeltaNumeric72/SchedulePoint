@@ -1,0 +1,45 @@
+graph TB
+    subgraph initial["Initial deployable components"]
+        WEB["Web / API<br/><i>process</i><br/>HTTP, session, authorization,<br/>domain modules"]
+        BGW["Background workers<br/><i>process</i><br/>notifications, reports,<br/>imports, outbox"]
+        SOLVER["Scheduling workers<br/><i>process</i><br/>CPU-bound solver runs"]
+        RT["Real-time coordinator<br/><i>process</i><br/>server-authoritative<br/>picklist turn state"]
+    end
+
+    subgraph data["Data and infrastructure"]
+        PG[("PostgreSQL<br/>system of record<br/>+ durable job queue<br/>+ RLS policies")]
+        OBJ[("Object storage<br/>documents, reports")]
+    end
+
+    subgraph external["External"]
+        PROV["Notification providers<br/>email / SMS / voice / push"]
+        HOSP["Hospital systems"]
+        OTEL["Observability"]
+    end
+
+    BROWSER["Browser"] -->|HTTPS| WEB
+    BROWSER -.->|"WebSocket<br/>page-scoped only"| RT
+
+    WEB --> PG
+    BGW --> PG
+    SOLVER --> PG
+    RT --> PG
+
+    WEB -->|"enqueue<br/>transactionally"| PG
+    PG -.->|"dequeue"| BGW
+    PG -.->|"dequeue"| SOLVER
+
+    BGW --> OBJ
+    WEB --> OBJ
+    BGW --> PROV
+    HOSP -->|"certified connector<br/>via ingestion boundary"| BGW
+
+    WEB --> OTEL
+    BGW --> OTEL
+    SOLVER --> OTEL
+    RT --> OTEL
+
+    classDef proc fill:#e8f4ea,stroke:#2d6a4f,stroke-width:2px
+    classDef store fill:#fff4e6,stroke:#b45309,stroke-width:2px
+    class WEB,BGW,SOLVER,RT proc
+    class PG,OBJ store

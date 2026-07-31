@@ -1,0 +1,41 @@
+graph TB
+    subgraph people[People]
+        STAFF["Staff member<br/>clinician"]
+        SCHED["Scheduler"]
+        ORGADMIN["Organization<br/>administrator"]
+        TELECOM["Notification-only user<br/>switchboard"]
+        SUPPORT["SchedulePoint<br/>support personnel"]
+        PLATOP["Platform operator"]
+    end
+
+    SP["SchedulePoint<br/><i>workforce scheduling platform</i>"]
+
+    subgraph ext[External systems]
+        IDP["Identity provider<br/>OIDC SSO"]
+        EMAIL["Email provider"]
+        SMSVOICE["SMS and voice provider"]
+        PUSH["Push provider"]
+        HOSP["Hospital surgical<br/>booking systems"]
+        OBJ["Object storage"]
+        OBS["Observability platform"]
+        CAL["Calendar clients"]
+    end
+
+    STAFF -->|"views schedule, requests,<br/>picks work"| SP
+    SCHED -->|"builds, reviews, publishes,<br/>approves, runs picklists"| SP
+    ORGADMIN -->|"manages users, roles,<br/>entitlements"| SP
+    TELECOM -->|"reads on-call directory"| SP
+    SUPPORT -->|"audited, time-limited<br/>impersonation"| SP
+    PLATOP -->|"grants entitlements,<br/>certifies connectors"| SP
+
+    SP -->|"authenticates via"| IDP
+    SP -->|"sends notifications"| EMAIL
+    SP -->|"sends SMS, places calls"| SMSVOICE
+    SP -->|"delivers push"| PUSH
+    HOSP -->|"work-item data<br/>via certified connector"| SP
+    SP -->|"documents, reports"| OBJ
+    SP -->|"traces, metrics, logs"| OBS
+    CAL -->|"subscribes to<br/>revocable feed"| SP
+
+    classDef boundary fill:#e8f0fe,stroke:#1a56db,stroke-width:3px
+    class SP boundary

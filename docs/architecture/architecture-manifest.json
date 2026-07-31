@@ -1,0 +1,299 @@
+{
+  "name": "SchedulePoint Architecture Proposal",
+  "version": "0.1.0-proposed",
+  "generated": "2026-07-31",
+  "status": "PROPOSED",
+  "approved": false,
+  "implemented": false,
+  "notes": [
+    "No application code, migration, service, UI component, deployment resource, or infrastructure exists.",
+    "No test named in this package has been executed.",
+    "No production gate is passed.",
+    "No ADR is accepted.",
+    "No compliance certification or readiness is claimed.",
+    "No independent architecture review has occurred."
+  ],
+  "cleanRoom": {
+    "sourceCodeReproduced": false,
+    "proprietaryAlgorithmReproduced": false,
+    "sourceProductAccessedDuringThisTask": false,
+    "unresolvedSourceBehaviourAsserted": false
+  },
+  "documents": [
+    {
+      "file": "01-architecture-overview.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "02-technology-stack.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "03-system-context-and-containers.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "04-domain-boundaries.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "05-tenancy-entitlements-authorization.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "06-data-architecture.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "07-schedule-and-publication.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "08-automated-scheduling-engine.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "09-requests-vacation-opportunities-transfers.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "10-picklist-and-realtime.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "11-notifications-and-communications.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "12-integrations-and-ingestion-privacy.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "13-reports-calendars-and-documents.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "14-security-and-privacy.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "15-audit-and-observability.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "16-testing-and-environments.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "17-deployment-and-operations.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "18-capability-traceability.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "19-risks-and-decisions.md",
+      "status": "PROPOSED"
+    }
+  ],
+  "readme": "README.md",
+  "decisionRecords": [
+    {
+      "file": "decisions/ADR-0001-application-topology.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "decisions/ADR-0002-primary-technology-stack.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "decisions/ADR-0003-database-and-tenancy-strategy.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "decisions/ADR-0004-authorization-architecture.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "decisions/ADR-0005-entitlement-architecture.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "decisions/ADR-0006-solver-architecture.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "decisions/ADR-0007-schedule-versioning.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "decisions/ADR-0008-realtime-picklist-transport.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "decisions/ADR-0009-job-and-event-reliability.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "decisions/ADR-0010-notification-architecture.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "decisions/ADR-0011-ingestion-privacy-boundary.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "decisions/ADR-0012-connector-architecture.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "decisions/ADR-0013-audit-architecture.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "decisions/ADR-0014-file-and-report-storage.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "decisions/ADR-0015-deployment-topology.md",
+      "status": "PROPOSED"
+    }
+  ],
+  "diagrams": [
+    "diagrams/authorization-layers.mmd",
+    "diagrams/containers.mmd",
+    "diagrams/module-layers.mmd",
+    "diagrams/notification-outbox.mmd",
+    "diagrams/system-context.mmd"
+  ],
+  "references": [
+    "references/official-technical-sources.md"
+  ],
+  "drafts": {
+    "files": [
+      "drafts/CLAUDE.md",
+      "drafts/AGENTS.md"
+    ],
+    "installedAtRepositoryRoot": false
+  },
+  "validation": "validate.py",
+  "capabilities": {
+    "baselineSource": "schedulepoint-research/reports/19-schedulepoint-production-capability-baseline.md",
+    "total": 58,
+    "mappedInTraceability": 58,
+    "mappedOnlyToFutureWork": 0,
+    "unmapped": 0,
+    "byGate": {
+      "G-ARCH": 5,
+      "G-PROD": 34,
+      "G-BETA": 15,
+      "G-CONN": 4
+    },
+    "byMilestone": {
+      "foundation": 15,
+      "beta": 24,
+      "alpha": 13,
+      "post-beta": 3,
+      "post-production": 1,
+      "continuous": 2
+    },
+    "byDisposition": {
+      "REQUIRED FOR PRODUCTION": 47,
+      "SUPERSEDED BY SAFER SCHEDULEPOINT BEHAVIOUR": 4,
+      "ADMINISTRATIVE FALLBACK OR OVERRIDE": 1,
+      "REQUIRED PLATFORM CAPABILITY AND NAMED CONNECTOR": 1,
+      "EXTERNAL SPECIFICATION REQUIRED BEFORE CONNECTOR CERTIFICATION": 4,
+      "REQUIRED PLATFORM CAPABILITY WITH CUSTOMER-SPECIFIC CONNECTOR": 1
+    },
+    "architectureBlocking": [
+      "CAP-001",
+      "CAP-002",
+      "CAP-006",
+      "CAP-057",
+      "CAP-055"
+    ]
+  },
+  "decisions": {
+    "approved": [
+      "PO-DEC-00",
+      "PO-DEC-02",
+      "PO-DEC-04",
+      "PO-DEC-08",
+      "PO-DEC-18"
+    ],
+    "approvedCount": 5,
+    "pending": [
+      "PO-DEC-01",
+      "PO-DEC-03",
+      "PO-DEC-05",
+      "PO-DEC-06",
+      "PO-DEC-07",
+      "PO-DEC-09",
+      "PO-DEC-11",
+      "PO-DEC-12",
+      "PO-DEC-13",
+      "PO-DEC-14",
+      "PO-DEC-15",
+      "PO-DEC-16",
+      "PO-DEC-17",
+      "PO-DEC-19",
+      "PO-DEC-20",
+      "PO-DEC-21",
+      "PO-DEC-22",
+      "PO-DEC-23"
+    ],
+    "pendingCount": 18,
+    "pendingSilentlyApproved": false,
+    "registerDiscrepancy": {
+      "id": "PO-DEC-10",
+      "description": "Locum billing rule; defined in report 17 but absent from report 24's decision register.",
+      "status": "flagged, not resolved"
+    }
+  },
+  "gates": {
+    "G-ARCH": {
+      "passed": false
+    },
+    "G-BETA": {
+      "passed": false
+    },
+    "G-PROD": {
+      "passed": false
+    },
+    "G-CONN": {
+      "passed": false
+    }
+  },
+  "knownGaps": [
+    "Incident-response plan not written",
+    "RPO and RTO targets not set",
+    "Cloud provider, region, and data residency undecided",
+    "Ten operational runbooks named but unwritten",
+    "No vendor payload specification for any named connector",
+    "No solver benchmark executed",
+    "Independent Codex architecture review pending"
+  ],
+  "risks": {
+    "registerFile": "19-risks-and-decisions.md",
+    "total": 26
+  },
+  "threatModel": {
+    "file": "14-security-and-privacy.md",
+    "total": 23
+  },
+  "invariants": {
+    "file": "01-architecture-overview.md",
+    "total": 12
+  },
+  "modules": {
+    "file": "04-domain-boundaries.md",
+    "total": 25,
+    "layers": 6
+  },
+  "sandboxTests": {
+    "file": "16-testing-and-environments.md",
+    "total": 39,
+    "executed": 0
+  }
+}
