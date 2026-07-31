@@ -97,6 +97,12 @@ Do not include names, phone numbers, patient details, or other sensitive data â€
 | 89 | all | STM-001..021 State machines (derived artifact) | n/a -- consolidation of reports 01-11 | reports/ | n/a | documented | Phase 13; derived conceptual lifecycles, no page observation. See [15-state-machines.md](15-state-machines.md) |
 | 90 | navigation | Public marketing site + full FAQ + pricing PDF | `https://ischedule.md/` (homepage, 8 FAQ panels), `https://ischedule.md/ischedule.md.pricing.pdf` | reports/ | n/a | documented | Public-source reconciliation 2026-07-30; PUB-001..066. See [17-public-source-gap-addendum.md](17-public-source-gap-addendum.md) |
 | 91 | navigation | Public authentication pages | `https://ischedule.md/users/login`, `https://ischedule.md/users/forgotpassword` | reports/ | n/a | documented | Public-source reconciliation 2026-07-30; PUB-067..070. Observed WITHOUT signing out -- resolves unresolved #29 and #76. Neither form submitted |
+| 92 | all | CAP-001..068 Production capability baseline (derived) | n/a -- consolidation of reports 01-18 | reports/ | n/a | documented | AUTHORITATIVE for production scope. See [19-schedulepoint-production-capability-baseline.md](19-schedulepoint-production-capability-baseline.md) |
+| 93 | all | C-01..C-12 Contradiction resolutions (derived) | n/a | reports/ | n/a | documented | See [20-contradiction-resolution-register.md](20-contradiction-resolution-register.md) |
+| 94 | admin | Automated scheduling production requirements (derived) | n/a | reports/ | n/a | documented | Clean-room engine specification. See [21-automated-scheduling-production-requirements.md](21-automated-scheduling-production-requirements.md) |
+| 95 | all | Functional traceability matrix (generated) | n/a | reports/ | n/a | documented | Machine-checkable. See [22-functional-traceability-matrix.md](22-functional-traceability-matrix.md) |
+| 96 | all | Pre-architecture evidence plan (derived) | n/a | reports/ | n/a | documented | See [23-pre-architecture-evidence-plan.md](23-pre-architecture-evidence-plan.md) |
+| 97 | all | Production completeness gates (derived) | n/a | reports/ | n/a | documented | See [24-production-completeness-gates.md](24-production-completeness-gates.md) |
 
 ## Phase 12 note (2026-07-30)
 

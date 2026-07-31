@@ -2,6 +2,16 @@
 
 **Phase:** 13 — research consolidation. **Source:** reports 01–11 plus the final coverage audit. **No source-site navigation was performed in this phase.**
 
+
+> ## ⚠ AMENDED AFTER PUBLIC-SOURCE RECONCILIATION — this version is authoritative
+>
+> **Amended 2026-07-30.** Updated after [17-public-source-gap-addendum.md](17-public-source-gap-addendum.md); now part of the production-capability baseline ([19-schedulepoint-production-capability-baseline.md](19-schedulepoint-production-capability-baseline.md)).
+>
+> **Applied here:** AMD-04, 05, 06, 09, 10 — four new machines **STM-022..STM-025** in §Group 8, and amendments recorded in §Group 9. **STM-001's expanded build lifecycle is specified in [21-automated-scheduling-production-requirements.md](21-automated-scheduling-production-requirements.md) §4, which governs.**
+> **No existing state-machine ID was renumbered or removed.**
+>
+> **Product name:** `SchedulePoint` — **PO-DEC-00 APPROVED**.
+
 **Scope boundary:** these are **conceptual lifecycles**, not implementation designs. No API, endpoint, storage mechanism, or framework is specified.
 
 **Honesty rule applied throughout:** where source behaviour was never observed, the diagram says so. **No transition was invented to make a diagram look complete.** Every machine separates (a) the confirmed portion, (b) the unresolved portion, (c) the recommended SchedulePoint design, and (d) any decision still owed by the product owner.
@@ -383,7 +393,7 @@ stateDiagram-v2
 **Notif:** counterpart on proposal; initiator on response; both parties on execution or failure.
 **Cancel:** `withdrawn` by the initiator before the counterpart accepts; either party may decline.
 **Ev:** 03-user WF-13 (the multi-select checklist implies a genuine exchange, not a give-away) · **Conf:** Low
-**Open:** as STM-009 — the approval model is **UNRESOLVED**. **REQUIRES DECISION.**
+**Open:** ~~the approval model is UNRESOLVED~~ — **AMENDED by AMD-05.** The public source states staff changes "**can be** reviewed by the scheduler before they are finalized" (PUB-026), indicating review is **configurable, not mandatory**. **SchedulePoint decision:** counterpart acceptance is always required; scheduler review is a **per-group policy** (`review-required` \| `review-optional`). Validate via SBX-014c. See CAP-026 and PO-DEC-02.
 **QA:** QA-OPP-009, QA-OPP-010, QA-OPP-011
 
 ```mermaid
@@ -857,3 +867,173 @@ stateDiagram-v2
 - Feature IDs (`FEAT-###`) — [13-feature-inventory.md](13-feature-inventory.md)
 - Entity IDs (`ENT-###`) — [14-domain-model.md](14-domain-model.md)
 - QA cases, contradictions `C-01`..`C-07`, hard requirements `SP-HR-1`..`SP-HR-6` — [11-edge-cases-and-qa.md](11-edge-cases-and-qa.md)
+
+---
+
+## Group 8 — Machines added by the public-source reconciliation (2026-07-30)
+
+### STM-022 · Credential validity lifecycle
+**Purpose:** govern whether a held qualification confers eligibility on a given assignment date.
+**Actors:** administrator, system · **Entity:** ENT-043 QualificationHolding · **Feature:** FEAT-058
+**States:** `pending-verification` · `valid` · `expiring-soon` · `expired` · `revoked`
+**Initial:** `pending-verification` · **Terminal:** `expired`, `revoked`
+
+| From → To | Actor | Precondition | Server guard |
+|---|---|---|---|
+| `pending-verification` → `valid` | administrator | evidence recorded | validity window set |
+| `valid` → `expiring-soon` | system | within the warning window | warning threshold is group-configurable |
+| `valid`/`expiring-soon` → `expired` | system | `validUntil` passed | **automatic; never requires human action** |
+| `expiring-soon`/`expired` → `valid` | administrator | renewed | new validity window; prior window retained |
+| any → `revoked` | administrator | — | reason mandatory |
+
+**Side effects:** eligibility recomputed for **all future assignments**, which may surface new conflict findings (FEAT-059).
+**Audit:** every transition, and **any assignment made despite an invalid holding**, with an override reason.
+**Notif:** holder and scheduler on `expiring-soon`, `expired`, and `revoked`.
+**Invalid:** treating "today's" validity as authoritative for a future assignment; silently expiring without notification.
+**Cancel:** n/a. **Expiry:** is the machine. **Retry:** n/a.
+**Recovery:** renewal restores eligibility forward, never retroactively legitimises a past assignment.
+**Concurrency:** renewal racing an expiry sweep must converge to one validity window.
+**Idempotency:** repeated expiry sweeps are no-ops.
+**Ev:** no source equivalent — **GAP-06**; derived from PUB-018 · **Conf:** `SCHEDULEPOINT DECISION`
+**Open:** warning-window length is a group configuration. **QA:** QA-SCH-006 · **SBX:** SBX-019
+
+```mermaid
+stateDiagram-v2
+    [*] --> pending_verification
+    pending_verification --> valid: evidence recorded
+    valid --> expiring_soon: warning window reached
+    valid --> expired: validUntil passed
+    expiring_soon --> expired: validUntil passed
+    expiring_soon --> valid: renewed
+    expired --> valid: renewed
+    valid --> revoked: revoked (reason required)
+    expiring_soon --> revoked: revoked
+    expired --> [*]
+    revoked --> [*]
+    note right of expired
+        Eligibility is evaluated against the
+        ASSIGNMENT DATE, never "today".
+        A shift six months out is checked
+        against validity on that date.
+    end note
+```
+
+### STM-023 · Import batch lifecycle
+**Purpose:** govern one ingestion attempt from an external surgical-booking system.
+**Actors:** platform service · **Entity:** ENT-045 ImportBatch · **Feature:** FEAT-055, FEAT-062
+**States:** `received` · `validating` · `de-identifying` · `reconciling` · `applied` · `quarantined` · `rejected` · `failed`
+**Initial:** `received` · **Terminal:** `applied`, `quarantined`, `rejected`, `failed`
+
+| From → To | Actor | Precondition | Server guard |
+|---|---|---|---|
+| `received` → `validating` | system | connector certified and active | **idempotency key checked first — a duplicate returns the existing batch** |
+| `validating` → `de-identifying` | system | schema valid | **positive allow-list**, never a deny-list |
+| `validating` → `rejected` | system | schema invalid | payload content not retained |
+| `de-identifying` → `quarantined` | system | unexpected identifying field present | **content never persisted, logged, or audited** |
+| `de-identifying` → `reconciling` | system | boundary clean | |
+| `reconciling` → `applied` | system | conflicts resolvable | manual items never silently destroyed |
+| `reconciling` → `quarantined` | system | unresolvable conflict | human review required |
+| any → `failed` | system | infrastructure error | **atomic — no partial batch persists** |
+
+**Side effects:** `applied` creates or updates ENT-031 WorkItems with `origin = imported`.
+**Audit:** every batch, outcome, rejection reason, and quarantine decision.
+**Notif:** administrators on `quarantined`, `rejected`, and `failed`. **Silent failure is prohibited.**
+**Invalid:** persisting any patient-identifying field; overwriting a manually-created work item without reconciliation; committing a partial batch.
+**Cancel:** an in-flight batch may be cancelled before `applied`. **Expiry:** quarantined batches expire per retention policy.
+**Retry:** safe by construction — the idempotency key makes re-delivery a no-op.
+**Recovery:** replay from the dead-letter store after the cause is fixed.
+**Concurrency:** two batches for the same date reconcile deterministically by receipt order.
+**Idempotency:** **mandatory.**
+**Ev:** PUB-034, PUB-036; GAP-12, GAP-19 · **Conf:** Low (`EXTERNAL SPECIFICATION REQUIRED`)
+**Open:** direction, scheduling, and payload contract are per-connector external specifications. **QA:** QA-CON-003, QA-CON-009, QA-SEC-006 · **SBX:** SBX-028, SBX-029
+
+```mermaid
+stateDiagram-v2
+    [*] --> received
+    received --> validating: idempotency key checked
+    validating --> rejected: schema invalid (content not retained)
+    validating --> de_identifying: schema valid
+    de_identifying --> quarantined: identifying field detected
+    de_identifying --> reconciling: boundary clean
+    reconciling --> quarantined: unresolvable conflict
+    reconciling --> applied: work items created/updated
+    received --> failed: infrastructure error
+    validating --> failed: infrastructure error
+    applied --> [*]
+    rejected --> [*]
+    quarantined --> [*]
+    failed --> [*]
+    note right of de_identifying
+        Positive ALLOW-LIST, never deny-list.
+        Rejected content never reaches storage,
+        logs, or audit payloads.
+        Connector-certification gate (C-09).
+    end note
+```
+
+### STM-024 · Entitlement lifecycle
+**Purpose:** govern activation of a product module for an organization or group.
+**Actors:** platform operator, org administrator · **Entity:** ENT-041 · **Feature:** FEAT-057
+**States:** `not-entitled` · `active` · `suspended` · `revoked`
+**Initial:** `not-entitled` · **Terminal:** `revoked`
+
+| From → To | Actor | Precondition | Server guard |
+|---|---|---|---|
+| `not-entitled` → `active` | platform/org admin | **module dependencies satisfied** | e.g. integrated picklist mode requires the integration entitlement |
+| `active` → `suspended` | platform/org admin | — | **surfaces hide; data is retained untouched** |
+| `suspended` → `active` | platform/org admin | dependencies still satisfied | |
+| `active`/`suspended` → `revoked` | platform/org admin | — | **data retained; export offered before revocation** |
+
+**Side effects:** gated feature surfaces appear or hide. **No data is ever deleted by an entitlement change.**
+**Audit:** every grant, suspension, revocation, and dependency override.
+**Notif:** organization administrators. **Invalid:** **an entitlement change acting as a permission change**; activating a module whose dependencies are unmet; destroying data on revocation.
+**Cancel:** n/a. **Expiry:** commercial term expiry may trigger `suspended`, never silent deletion.
+**Retry / Idempotency:** granting twice is a no-op.
+**Concurrency:** concurrent grants converge; dependency validation re-runs at commit.
+**Recovery:** reactivation restores surfaces with data intact.
+**Ev:** PUB-062..064; GAP-16, GAP-18; **C-12** · **Conf:** Med (`PUBLIC SOURCE CLAIM` for the edition split; `SCHEDULEPOINT DECISION` for the mechanism)
+**Open:** commercial packaging is PO-DEC-04. **QA:** QA-TEN-005 · **SBX:** SBX-002
+
+### STM-025 · Push registration lifecycle
+**Purpose:** govern a consented push endpoint.
+**Actors:** staff member, system · **Entity:** ENT-047 · **Feature:** FEAT-061
+**States:** `unregistered` · `consent-pending` · `active` · `stale` · `invalid` · `revoked`
+**Initial:** `unregistered` · **Terminal:** `revoked`, `invalid`
+
+| From → To | Actor | Precondition | Server guard |
+|---|---|---|---|
+| `unregistered` → `consent-pending` | user | user initiated | **no registration without an explicit user action** |
+| `consent-pending` → `active` | user | consent granted at the OS/browser level | token hashed on storage |
+| `active` → `stale` | system | no successful delivery within a threshold | |
+| `active`/`stale` → `invalid` | system | provider reports a permanently invalid token | **automatic cleanup — never retried indefinitely** |
+| any → `revoked` | user or administrator | — | immediate |
+
+**Side effects:** the escalation ladder (STM-016) includes or excludes push accordingly, **falling back to other channels** when push is unavailable.
+**Audit:** registration, revocation, invalidation. **Notif:** none (this machine governs a channel).
+**Invalid:** registering without explicit consent; retrying an `invalid` token; treating push as guaranteed delivery.
+**Cancel:** `revoked` at any time by the user. **Expiry:** `stale` after the inactivity threshold.
+**Retry:** bounded; permanent failure moves to `invalid`. **Recovery:** the user re-registers.
+**Concurrency:** multiple devices per membership are supported; each is independent.
+**Idempotency:** re-registering the same endpoint updates rather than duplicates.
+**Ev:** **C-10** — publicly claimed, absent from the application · **Conf:** `SCHEDULEPOINT DECISION`
+**Open:** none blocking. **QA:** QA-NOT-005, QA-NOT-011 · **SBX:** SBX-030b
+
+---
+
+## Group 9 — Amendments to existing machines (2026-07-30)
+
+**No machine was renumbered.** The following amendments apply; each machine's original text is retained as historical evidence.
+
+| Machine | Amendment | Driver |
+|---|---|---|
+| **STM-001** Schedule build | **Expanded lifecycle is specified in [21-automated-scheduling-production-requirements.md](21-automated-scheduling-production-requirements.md) §4 and governs**, adding `validating`, `readiness-check`, `queued`, `completed-with-unmet-preferences`, `infeasible`, `reviewed`, `progressively-extended`, `approved`, and `applied-to-draft`. Assignment templates (ENT-048) join the rule inputs | AMD-09, AMD-10 |
+| **STM-002** Schedule review | Adds a **`circulated-for-review`** stage — a partial schedule may be circulated for hand assignment **without** publication — and makes conflict findings (FEAT-059) the sign-off gate | AMD-10; TERM-088, GAP-04 |
+| **STM-005** ON/OFF request | `type` extended with **`no-call`** and **`shift-preference`**; the ON (availability) type is reclassified from speculative to `PUBLIC SOURCE CLAIM` | AMD-04; PUB-021 |
+| **STM-008** Opportunity | Adds **email fan-out to group members on posting**, explicit recipient rules, opt-out handling, and a **staff-over-locum claim preference** window before locums may claim | AMD-12; PUB-024, PUB-025 |
+| **STM-009 / STM-010** Offer / swap | Scheduler review is **configurable per group**, not mandatory — counterpart acceptance always required | AMD-05; PUB-026 |
+| **STM-013 / STM-014** Picklist execution | Adds list-start email, remaining-choice review, per-selection confirmation email, automatic advancement, and **administrator in-flight intervention** (reorder live, pick on behalf, always attributed to the administrator) | AMD-14; PUB-039, 042, 043, 044 |
+| **STM-016** Escalation | `push` added to the channel set; ladder falls back when push is unavailable | AMD-13; C-10 |
+| **STM-019** Proxy | **`act-on-behalf` is the primary scope** (public evidence indicates the proxy picks); `notifications-only` retained as a narrower variant | AMD-06; PUB-041 |
+| **STM-012** Picklist preparation | Adds a `mode` selection (paper \| manual-entry \| integrated) as a precondition of `ready` | AMD-11; GAP-11 |
+
+**Amended state-machine count: 25** (21 original + 4 added). No existing machine was renumbered or removed.

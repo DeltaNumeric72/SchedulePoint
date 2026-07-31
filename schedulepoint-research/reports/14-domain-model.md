@@ -2,6 +2,16 @@
 
 **Phase:** 13 — research consolidation. **Source:** reports 01–11 plus the final coverage audit. **No source-site navigation was performed in this phase.**
 
+
+> ## ⚠ AMENDED AFTER PUBLIC-SOURCE RECONCILIATION — this version is authoritative
+>
+> **Amended 2026-07-30.** Updated after [17-public-source-gap-addendum.md](17-public-source-gap-addendum.md); now part of the production-capability baseline ([19-schedulepoint-production-capability-baseline.md](19-schedulepoint-production-capability-baseline.md)).
+>
+> **Applied here:** AMD-03, 06, 07, 08, 13, 15 — eight new entities **ENT-041..ENT-048** in §2.7, and field additions to ENT-002, ENT-006, ENT-010, ENT-018, ENT-034/035b recorded in §2.8.
+> **No existing entity ID was renumbered or removed.** This remains a **conceptual product model**, not a database schema.
+>
+> **Product name:** `SchedulePoint` — **PO-DEC-00 APPROVED**.
+
 **Scope boundary:** this is a **conceptual product model**, not a database schema and not the final technical architecture. Field types are indicative only, included where they clarify meaning. No table design, index strategy, storage engine, or API contract is proposed here — those belong to the architecture phase, which has not begun.
 
 ---
@@ -745,3 +755,117 @@ The six SchedulePoint hard requirements are carried across all Phase 13 outputs,
 - QA cases, contradictions `C-01`..`C-07`, hard requirements `SP-HR-1`..`SP-HR-6` — [11-edge-cases-and-qa.md](11-edge-cases-and-qa.md)
 
 **Entity count: 44.** Every entity carries at least one source-report reference or an explicit SP-REQ/SP-REC classification. **No patient-level entity exists in this model.**
+
+---
+
+## 2.7 Entities added by the public-source reconciliation (2026-07-30)
+
+Nine entities added by AMD-03, AMD-08, and the completeness list. Same field set as §2.1–§2.6.
+
+#### ENT-041 · Entitlement
+**Purpose:** an organization- or group-scoped activation of a product module. **Not a permission.**
+**Fields:** `id`, `scopeType` (organization|group), `scopeId`, `moduleKey`, `state` (active|suspended|revoked), `dependsOn` (moduleKey[]), `activatedAt`, `activatedBy`, `revokedAt?`
+**Required:** scopeType, scopeId, moduleKey, state
+**Relationships:** belongs to ENT-001 or ENT-002; consulted by every gated feature surface
+**Own:** Organization · **Life:** STM-024 · **Audit:** every grant, suspension, revocation, dependency override · **Retain:** indefinite
+**Sens:** `INTERNAL` · **Class:** PUBLIC SOURCE CLAIM · **Conf:** Med
+**Ev:** PUB-062..064; GAP-16, GAP-18 (`Payment Due Date`); **C-12** · **Feat:** FEAT-057 · **QA:** QA-TEN-005, QA-AUTH-007
+**Open:** commercial packaging is a product-owner decision (PO-DEC-04). **Disabling a module must never destroy data** — it hides surfaces only.
+
+#### ENT-042 · Qualification
+**Purpose:** a named competency, certification, licence, or privilege required for eligibility.
+**Fields:** `id`, `groupId`, `key`, `name`, `description?`, `requiresExpiry` (bool), `issuingBody?`, `status`
+**Relationships:** belongs to ENT-002; many-to-many with ENT-011 ShiftType (required-for) and ENT-003 Site; held via ENT-043
+**Own:** Group · **Life:** active → retired (never hard-deleted while holdings reference it) · **Audit:** definition changes · **Sens:** `INTERNAL`
+**Class:** PUBLIC SOURCE CLAIM · **Conf:** Low
+**Ev:** PUB-018; **GAP-06** — no credential vocabulary exists anywhere in the application · **Feat:** FEAT-058 · **QA:** QA-SCH-006 · **SBX:** SBX-019
+**Open:** the source's "skill sets" claim has no visible representation; this entity is a SchedulePoint introduction.
+
+#### ENT-043 · QualificationHolding
+**Purpose:** one membership's hold on one qualification, with validity dates.
+**Fields:** `id`, `membershipId`, `qualificationId`, `grantedAt`, `validFrom`, `validUntil?`, `evidenceRef?`, `status` (valid|expiring|expired|revoked), `revokedBy?`
+**Required:** membershipId, qualificationId, validFrom, status
+**Relationships:** belongs to ENT-006 and ENT-042
+**Own:** Group · **Life:** STM-022 · **Audit:** grant, renewal, expiry, revocation, and **any override that assigns despite an invalid holding** · **Retain:** retained after expiry for audit
+**Sens:** `SENSITIVE-PII` — credentials are personal data · **Class:** SCHEDULEPOINT DECISION · **Conf:** n/a
+**Ev:** derived from ENT-042 · **Feat:** FEAT-058 · **QA:** QA-SCH-006 · **SBX:** SBX-019
+**Open:** **eligibility is evaluated against the assignment date, never "today"** — a shift six months out must be checked against the credential's validity on that date.
+
+#### ENT-044 · IntegrationConnector
+**Purpose:** a named, certifiable adapter between one external system and the canonical import schema.
+**Fields:** `id`, `organizationId`, `kind` (named external system), `version`, `direction` (pull|push), `schedule?`, `authRef` (**reference only — never a secret**), `state` (draft|certified|active|suspended|retired), `certifiedAt?`, `lastRunAt?`
+**Relationships:** belongs to ENT-001; produces ENT-045
+**Own:** Organization · **Life:** draft → certified → active → suspended → retired · **Audit:** certification, activation, every configuration change · **Retain:** indefinite
+**Sens:** `INTERNAL` (`authRef` points to a secret store; **no credential is stored on this entity**) · **Class:** PUBLIC SOURCE CLAIM · **Conf:** Low
+**Ev:** PUB-032..034; **GAP-12** · **Feat:** FEAT-055 · **SBX:** SBX-028
+**Open:** direction, scheduling, authentication, and payload contract are all `EXTERNAL SPECIFICATION REQUIRED` per named system.
+
+#### ENT-045 · ImportBatch
+**Purpose:** one ingestion attempt, its outcome, and its reconciliation result.
+**Fields:** `id`, `connectorId`, `groupId`, `receivedAt`, `sourceRef`, `idempotencyKey`, `state`, `recordsAccepted`, `recordsRejected`, `recordsQuarantined`, `reconciliation` (created/updated/unchanged/conflicted counts), `failureReason?`
+**Relationships:** belongs to ENT-044 and ENT-002; produces/updates ENT-031 WorkItem
+**Own:** Group · **Life:** STM-023 · **Audit:** mandatory — every batch and every rejection reason · **Retain:** policy-driven; rejected payload content is **not** retained
+**Sens:** `INTERNAL` — **must never contain patient-level content** (enforced by FEAT-062) · **Class:** SCHEDULEPOINT DECISION · **Conf:** n/a
+**Ev:** PUB-034, PUB-036; GAP-12, GAP-19 · **Feat:** FEAT-055, FEAT-062 · **QA:** QA-CON-003, QA-CON-009 · **SBX:** SBX-028, SBX-029
+**Open:** **`idempotencyKey` is mandatory** — re-importing an identical payload must create nothing new.
+
+#### ENT-046 · GroupCommunicationIdentity
+**Purpose:** a group-scoped sending/receiving identity for broadcasts.
+**Fields:** `id`, `groupId`, `displayName`, `addressLocalPart`, `permittedSenderPolicy`, `recipientPolicy`, `archiveRetentionDays`, `state`
+**Relationships:** belongs to ENT-002; used by ENT-034 Notification
+**Own:** Group · **Life:** active → suspended → retired · **Audit:** configuration changes and **every broadcast sent through it** · **Retain:** archive per policy
+**Sens:** `PII` — recipient lists · **Class:** PUBLIC SOURCE CLAIM · **Conf:** Low
+**Ev:** PUB-053; GAP-15, **C-11** · **Feat:** FEAT-056 · **QA:** QA-SEC-013
+**Open:** whether the source provisions this in-product or out of band is unresolved. Recipients must resolve **only** from the group roster — never free-text.
+
+#### ENT-047 · PushRegistration
+**Purpose:** one consented device or browser endpoint for push delivery.
+**Fields:** `id`, `membershipId`, `platform`, `tokenHash` (**never plaintext**), `consentGrantedAt`, `lastSeenAt`, `state` (active|stale|revoked|invalid), `revokedAt?`
+**Relationships:** belongs to ENT-006; used by ENT-035b NotificationAttempt
+**Own:** User · **Life:** STM-025 · **Audit:** registration, revocation, invalidation · **Retain:** purge on account archive
+**Sens:** `PII` / `SECRET` (token) · **Class:** SCHEDULEPOINT DECISION · **Conf:** n/a
+**Ev:** **C-10** — push is publicly claimed but absent from the application · **Feat:** FEAT-061 · **QA:** QA-NOT-005 · **SBX:** SBX-030b
+**Open:** **explicit consent is required before registration**; invalid tokens are cleaned up automatically rather than retried indefinitely.
+
+#### ENT-048 · AssignmentTemplate
+**Purpose:** a repeating multi-week rotation pattern.
+**Fields:** `id`, `groupId`, `name`, `cycleLengthWeeks`, `entries` (weekIndex, dayOfWeek, shiftTypeId, targetMembershipId? or staffGroupId?), `dateScope`, `status`
+**Relationships:** belongs to ENT-002; references ENT-011, ENT-006/ENT-012; consumed by ENT-023b RuleSet
+**Own:** Group · **Life:** active → disabled → archived · **Audit:** definition changes · **Sens:** `NONE`
+**Class:** PUBLIC SOURCE CLAIM · **Conf:** Med
+**Ev:** PUB-007; **GAP-02** — no template authoring surface was ever located · **Feat:** FEAT-017 · **STM:** STM-001
+**Open:** a distinct rule family from Pattern Rules (spacing) and Staff Rules (named-individual conditions).
+
+
+#### ENT-049 · ScheduleConflict
+**Purpose:** a detected, severity-classified problem in a candidate or published schedule, carrying an explanation and — where possible — a remediation suggestion.
+**Fields:** `id`, `scheduleVersionId?`, `buildResultId?`, `severity` (hard-breach | unmet-demand | eligibility-failure | fairness-outlier), `ruleType?`, `ruleId?`, `affectedMembershipId?`, `affectedDate?`, `affectedShiftTypeId?`, `explanation`, `remediationSuggestion?`, `state` (open | accepted | resolved), `resolvedBy?`, `resolvedAt?`
+**Required:** severity, explanation, state
+**Relationships:** belongs to ENT-016 ScheduleVersion or ENT-025b BuildResult; references ENT-006, ENT-011, and the rule entities ENT-021/ENT-022/ENT-023
+**Own:** Group · **Life:** open → accepted (deliberately tolerated, with a recorded reason) → resolved · **Audit:** every acceptance and resolution, with actor and reason · **Retain:** retained with the version it describes
+**Sens:** `INTERNAL` · **Class:** PUBLIC SOURCE CLAIM · **Conf:** Low
+**Ev:** PUB-016, PUB-057; **GAP-05** — the Planner screen never rendered and Fix Picks was never opened, so the product's headline verification capability is entirely unobserved · **Feat:** FEAT-059 · **QA:** QA-SCH-002, QA-SCH-005
+**Open:** the severity taxonomy is a SchedulePoint decision (PO-DEC-13) — the source exposes none. **Sign-off is blocked while any `hard-breach` conflict remains `open`** (STM-002).
+
+---
+
+## 2.8 Field additions to existing entities (2026-07-30)
+
+Recorded as amendments; **no entity was renumbered**.
+
+| Entity | Added fields | Driver |
+|---|---|---|
+| **ENT-002 Group** | `pickListAccessEnabled` (bool — the newly-observed group-level checkbox), `paymentDueDate` (**administrative/subscription metadata — explicitly *not* a clinical scheduling input**), `importNormalisation` (`stripCharacters`, `convertToLowercase`) | AMD-15; GAP-17, GAP-18, GAP-19 |
+| **ENT-006 Membership** | `workPercentage` (contracted workload fraction — TERM-087), `preferences` (attribute bag readable by staff rules, e.g. a shift-length preference), `qualificationHoldings` (→ ENT-043) | AMD-07, AMD-08; GAP-01, GAP-03 |
+| **ENT-010 ProxyAuthorization** | `scope` default changed to **`act-on-behalf`** as the primary scope, with `notifications-only` retained as a narrower variant | AMD-06; PUB-041 |
+| **ENT-011 ShiftType** | `requiredQualificationIds` (→ ENT-042) | AMD-08 |
+| **ENT-018 Request** | `type` enumeration extended with **`no-call`** and **`shift-preference`**; `availability` (ON request) reclassified from speculative to `PUBLIC SOURCE CLAIM` | AMD-04; PUB-021, GAP-07 |
+| **ENT-029 Picklist** | `mode` (paper \| manual-entry \| integrated) | AMD-11; GAP-11 |
+| **ENT-031 WorkItem** | `origin` (imported \| manual), `importBatchId?` | AMD-01; PUB-036 |
+| **ENT-034 Notification / ENT-035b NotificationAttempt** | `channel` enumeration extended with **`push`** | AMD-13; C-10 |
+| **ENT-016 ScheduleVersion** | `circulationState` (none \| circulated-for-review) — supports partial-schedule circulation without publication | AMD-10; TERM-088, GAP-04 |
+| **ENT-024 ScheduleBuild** | `protectedAssignmentIds` (locked manual/prior-solver assignments preserved across progressive stages) | AMD-10; PUB-013 |
+
+**On `paymentDueDate`:** recorded as **administrative/subscription metadata on the Group**, and explicitly **not** a clinical scheduling input. It informs the entitlement model (ENT-041) and nothing in the scheduling engine reads it.
+
+**Amended entity count: 53** (44 original + 9 added). No existing entity ID was renumbered or removed. **No patient-level entity exists in this model** — that exclusion is unchanged and is now positively enforced by FEAT-062.

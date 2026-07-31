@@ -2,6 +2,16 @@
 
 **Phase:** 13 — research consolidation. **Source:** reports 01–11 plus the final coverage audit. **No source-site navigation was performed in this phase.**
 
+
+> ## ⚠ AMENDED AFTER PUBLIC-SOURCE RECONCILIATION — this version is authoritative
+>
+> **Amended 2026-07-30.** This report was updated after the targeted public-source reconciliation ([17-public-source-gap-addendum.md](17-public-source-gap-addendum.md)) and now forms part of the production-capability baseline ([19-schedulepoint-production-capability-baseline.md](19-schedulepoint-production-capability-baseline.md)).
+>
+> **Applied here:** AMD-04 (TERM-048 reclassified), AMD-06 (TERM-019 proxy scope), plus 13 new terms **TERM-076..TERM-088** in §K.
+> **No existing term ID was renumbered or removed.** Superseded statements are marked in place and point to their replacement.
+>
+> **Product name:** `SchedulePoint` — **PO-DEC-00 APPROVED**. No alternative product name is used anywhere in this corpus.
+
 **Purpose:** a single normalized vocabulary for SchedulePoint, reconciling every term encountered across twelve research phases. Where the source product used one word for two concepts, this glossary **splits** them. Where it used two words for one concept, this glossary **merges** them. Where a term is actively misleading, this glossary marks it **AVOID**.
 
 ---
@@ -179,8 +189,8 @@
 **Def:** A delegation letting one user act for, or receive notifications on behalf of, another during picklist execution.
 **Actors:** staff member, delegate · **Feat:** FEAT-034 · **Ent:** ENT-010
 **Ev:** 01-app PL-02; 03-user WF-22; 07-picklist §2
-**Amb:** **UNRESOLVED whether a proxy actually *picks* on behalf of the absent staff member, or merely *receives their notifications*.** The screen is titled "Pick List Notification Settings," which suggests notifications only — but the feature is named "Pick Proxy," which suggests picking. These have very different authorization consequences. Eligible-proxy scope is also unresolved (#27).
-**Disp:** **SPLIT** into two explicitly-named capabilities (notification delegation vs. acting authority). SchedulePoint must not ship an ambiguous "proxy" that silently confers more power than the user expected.
+**Amb:** ~~UNRESOLVED whether a proxy actually picks or merely receives notifications.~~ **AMENDED by AMD-06.** The public source states a user may "have another staff member **choose your list**" (PUB-041) — indicating the proxy **acts**, not merely receives. This is a `PUBLIC SOURCE CLAIM`; the source's runtime enforcement was never observed. Eligible-proxy scope remains unresolved (#27).
+**Disp:** **SPLIT** into two explicitly-named scopes. **SchedulePoint decision:** `act-on-behalf` is the **primary** scope; `notifications-only` is a narrower variant. Every proxy action records both the acting party and the grantor. Validate via SBX-026. See CAP-034.
 
 #### TERM-020 · Functional account
 **SP:** Functional Account · **Src:** *(none — inferred from roster rows)* · **Class:** INF · **Conf:** High
@@ -423,12 +433,12 @@
 **Disp:** **RETAIN** as a request type. Design the creation surface from scratch.
 
 #### TERM-048 · ON request
-**SP:** Availability Request · **Src:** *(none directly observed)* · **Class:** UNR · **Conf:** Low
+**SP:** Availability Request · **Src:** "request to be assigned certain shifts" (public) · **Class:** PUBLIC SOURCE CLAIM *(amended — was UNR)* · **Conf:** Med
 **Def:** *Presumed:* a request **to be** assigned particular work — the positive counterpart of an OFF request.
 **Actors:** staff member · **Feat:** FEAT-020 · **Ent:** ENT-018
 **Ev:** 06-requests §"Master checklist" — listed as a topic, marked UNRESOLVED; no ON-shaped request was ever observed in any history
-**Amb:** **No direct evidence this exists in the source at all.** It is included here because the research brief named it and because the Opportunity Board (TERM-051) partially serves the same need.
-**Disp:** **Defer.** Do not assume the source supports this. If SchedulePoint wants positive availability requests, design them deliberately — do not present them as an observed source capability.
+**Amb:** ~~No direct evidence this exists in the source at all.~~ **SUPERSEDED by AMD-04.** The public source explicitly lists "request to be assigned certain shifts" alongside No Call and days-off requests (PUB-021). This is a `PUBLIC SOURCE CLAIM`, **not** an authenticated observation — the creation surface has still never been seen. See TERM-086 for the separately-named "No Call" type.
+**Disp:** **RETAIN as a request type.** `REQUIRED FOR PRODUCTION` (CAP-021). Design the creation surface from scratch; validate via SBX-010.
 
 #### TERM-049 · Vacation
 **SP:** Vacation · **Src:** "Vacation", "OFF" (the rendered shift code) · **Class:** OBS · **Conf:** High
@@ -664,6 +674,117 @@
 
 ---
 
+---
+
+## K. Terms added by the public-source reconciliation (2026-07-30)
+
+All thirteen terms below were introduced by AMD-01..AMD-15. Each carries the same 10 required fields as §A–§J.
+
+#### TERM-076 · Qualification
+**SP:** Qualification · **Src:** "skill sets" (public, PUB-018) · **Class:** PUBLIC SOURCE CLAIM · **Conf:** Low
+**Def:** A named competency, certification, licence, or privilege a staff member must hold to be eligible for a given shift type or site.
+**Actors:** administrator, scheduler · **Feat:** FEAT-058 · **Ent:** ENT-042, ENT-043
+**Ev:** PUB-018; GAP-06 — a direct term search across the authenticated application found **no** credential, certification, licence, competency, or expiry vocabulary anywhere
+**Amb:** The public source claims the product handles "skill sets", but no dedicated representation exists. Staff Groups (TERM-024) is the closest mechanism and is a named subset, not a qualification.
+**Disp:** **INTRODUCE.** `REQUIRED FOR PRODUCTION` (CAP-058) — assigning unqualified staff is a patient-safety-adjacent failure.
+
+#### TERM-077 · Credential expiry
+**SP:** Credential Expiry · **Src:** *(none)* · **Class:** SCHEDULEPOINT DECISION · **Conf:** n/a
+**Def:** The date after which a held qualification no longer confers eligibility. Eligibility is evaluated **against the assignment date**, not the current date.
+**Actors:** administrator, scheduler · **Feat:** FEAT-058 · **Ent:** ENT-043 · **STM:** STM-022
+**Ev:** No source equivalent; derived from TERM-076 · **Amb:** none
+**Disp:** **INTRODUCE.** A qualification without expiry silently decays into a false assurance.
+
+#### TERM-078 · Entitlement
+**SP:** Entitlement · **Src:** two commercial editions + IT add-on (PUB-062..064) · **Class:** PUBLIC SOURCE CLAIM · **Conf:** Med
+**Def:** An organization- or group-scoped activation of a product module. **Strictly separate from a permission**: an entitlement says *the organization has this module*; a permission says *this person may use it*.
+**Actors:** platform operator, org administrator · **Feat:** FEAT-057 · **Ent:** ENT-041 · **STM:** STM-024
+**Ev:** PUB-062, PUB-063, PUB-064; GAP-16, GAP-18 (`Payment Due Date`)
+**Amb:** The application exposes no entitlement surface; the edition split is visible only commercially.
+**Disp:** **INTRODUCE.** Conflating entitlement with permission is precisely the confusion that makes C-02 hard to reason about — keeping them separate protects that resolution.
+
+#### TERM-079 · Picklist operating mode
+**SP:** Picklist Mode · **Src:** "paper version", "manually enter their room data", integrated (PUB-030..032) · **Class:** PUBLIC SOURCE CLAIM · **Conf:** Med
+**Def:** One of three ways a picklist is run: **paper** (offline list, results recorded afterwards), **manual-entry** (mobile picking, work items typed in), **integrated** (mobile picking, work items imported from a hospital system).
+**Actors:** scheduler · **Feat:** FEAT-060 · **Ent:** ENT-029
+**Ev:** PUB-030, PUB-031, PUB-032; GAP-11 · **Amb:** no mode switch was ever observed in the application.
+**Disp:** **INTRODUCE** as an explicit mode attribute. Paper mode is an `ADMINISTRATIVE FALLBACK OR OVERRIDE`; the other two are `REQUIRED FOR PRODUCTION`.
+
+#### TERM-080 · Connector
+**SP:** Connector · **Src:** ORSOS, Cerner/Surginet, Meditech (PUB-033) · **Class:** PUBLIC SOURCE CLAIM · **Conf:** Med
+**Def:** A named, certifiable adapter translating one external system's surgical-booking data into SchedulePoint's canonical import schema.
+**Actors:** platform, hospital IT · **Feat:** FEAT-055 · **Ent:** ENT-044, ENT-045 · **STM:** STM-023
+**Ev:** PUB-032, PUB-033, PUB-034; GAP-12
+**Amb:** No import surface was ever located in the application; the Picklist Manager's "Import" controls are erase-and-resync confirmations, not file uploads.
+**Disp:** **INTRODUCE.** Platform capability is `REQUIRED FOR PRODUCTION`; each named connector is `EXTERNAL SPECIFICATION REQUIRED BEFORE CONNECTOR CERTIFICATION`.
+
+#### TERM-081 · De-identification boundary
+**SP:** De-identification Boundary · **Src:** "All patient identifying data is removed prior to upload" (PUB-035) · **Class:** SOURCE CONTRADICTION · **Conf:** Med
+**Def:** The enforced ingestion point at which any patient-identifying field is rejected or stripped **before** data is persisted, logged, or audited. Enforced by the platform, never delegated to a connector's promise.
+**Actors:** platform · **Feat:** FEAT-062 · **Ent:** ENT-045 · **STM:** STM-023
+**Ev:** PUB-035 vs. 07-picklist §6 (clinical detail observed in-product) — see **C-09**
+**Amb:** **Do not treat observed clinical detail as proof of patient identification.** The evidence distinguishes patient-identifying information, non-identifying operational case metadata, scheduling data, and free text that *could* accidentally carry identifiers. Which category the observed content fell into was never established.
+**Disp:** **INTRODUCE.** Allow-list based, positively enforced, validated against sanitized fixtures. **Connector-certification gate.**
+
+#### TERM-082 · Group communication identity
+**SP:** Group Communication Identity · **Src:** "group email address" (PUB-053) · **Class:** PUBLIC SOURCE CLAIM · **Conf:** Low
+**Def:** A group-scoped sending/receiving identity used for broadcasts and replies, with defined membership, permitted senders, recipient filtering, and archiving.
+**Actors:** scheduler, administrator · **Feat:** FEAT-056 · **Ent:** ENT-046
+**Ev:** PUB-053; GAP-15, **C-11** — no such field exists in Group Settings; the nearest artefact is `Final Picklist Emails`, a single-event distribution list
+**Amb:** Most plausibly provisioned out of band by the vendor. Unproven.
+**Disp:** **INTRODUCE** and model explicitly rather than inherit an out-of-band arrangement.
+
+#### TERM-083 · Push notification
+**SP:** Push Notification · **Src:** "email, SMS, push notification and automated phone calls" (public) · **Class:** SOURCE CONTRADICTION · **Conf:** High
+**Def:** A consent-based message delivered to a registered device or browser without the recipient polling.
+**Actors:** all · **Feat:** FEAT-061 · **Ent:** ENT-047 · **STM:** STM-025
+**Ev:** homepage "Notifications" pillar vs. the authenticated Notification Settings screen, which exposes exactly four channels (Email, SMS, Dial Mobile, Dial Home) and **zero occurrences of "push"** — see **C-10**
+**Amb:** Publicly claimed, absent from the application. `POSSIBLY LEGACY` is **not** asserted — there is no evidence of removal; it may equally be marketing overreach or a roadmap item.
+**Disp:** **INTRODUCE** as a first-class channel. `REQUIRED FOR PRODUCTION` — the product's value proposition depends on timely mobile contact.
+
+#### TERM-084 · Assignment template
+**SP:** Assignment Template · **Src:** "Assigned by Template … week one … week two …" (PUB-007) · **Class:** PUBLIC SOURCE CLAIM · **Conf:** Med
+**Def:** A repeating multi-week rotation pattern that assigns a shift type on specified weekdays, varying by week index within the cycle.
+**Actors:** administrator · **Feat:** FEAT-017 · **Ent:** ENT-048 · **STM:** STM-001
+**Ev:** PUB-007; GAP-02 — Pattern Rules express spacing and offsets, **not** repeating multi-week templates; no authoring surface was located
+**Amb:** none beyond the missing surface.
+**Disp:** **INTRODUCE** as a distinct rule family alongside Pattern Rules (TERM-035) and Staff Rules (TERM-036).
+
+#### TERM-085 · Conflict finding
+**SP:** Conflict Finding · **Src:** "The scheduling workbench identifies conflicts quickly" (PUB-016) · **Class:** PUBLIC SOURCE CLAIM · **Conf:** Low
+**Def:** A detected, severity-classified problem in a candidate or published schedule — a hard-constraint breach, an unmet demand, an eligibility failure, or a fairness outlier — carrying an explanation and, where possible, a remediation suggestion.
+**Actors:** scheduler · **Feat:** FEAT-059 · **Ent:** ENT-026b, ENT-049 · **STM:** STM-002
+**Ev:** PUB-016, PUB-057; **GAP-05** — the Planner screen never rendered and Fix Picks was never opened, so the product's headline verification capability is entirely unobserved
+**Amb:** Severity taxonomy is a SchedulePoint decision; the source exposes none.
+**Disp:** **INTRODUCE.** `REQUIRED FOR PRODUCTION` — an engine whose output cannot be reviewed cannot be trusted.
+
+#### TERM-086 · No Call request
+**SP:** No Call Request · **Src:** "shift requests … like No Call, days off" (PUB-021) · **Class:** PUBLIC SOURCE CLAIM · **Conf:** Med
+**Def:** A request not to be assigned **any** on-call shift for a stated date or range — broader than an OFF request against one shift or shift group.
+**Actors:** staff member · **Feat:** FEAT-020 · **Ent:** ENT-018 · **STM:** STM-005
+**Ev:** PUB-021; GAP-07 · **Amb:** never observed as a distinct type in the application's request history.
+**Disp:** **INTRODUCE** as an explicit request type in ENT-018's discriminator.
+
+#### TERM-087 · Work percentage
+**SP:** Work Percentage · **Src:** "staff that work 60%, 80% or 100%"; "balance the picklist by work percentage" (PUB-003, PUB-012) · **Class:** PUBLIC SOURCE CLAIM · **Conf:** Med
+**Def:** A membership-level contracted workload fraction, used both as a fairness denominator and as a picklist-balancing input.
+**Actors:** administrator · **Feat:** FEAT-013 · **Ent:** ENT-006
+**Ev:** PUB-003, PUB-012; **GAP-01** — no explicit work-percentage field was found on the roster; it may be derivable from Staff Shift FTE quotas
+**Amb:** Whether the source stores it or derives it is unresolved.
+**Disp:** **INTRODUCE** as an explicit stored field (AMD-07). Deriving a fairness denominator implicitly is a correctness hazard.
+
+#### TERM-088 · Partial schedule circulation
+**SP:** Partial Schedule Circulation · **Src:** "circulate this partial schedule to hand assign some shifts" (PUB-013) · **Class:** PUBLIC SOURCE CLAIM · **Conf:** Med
+**Def:** Sharing an incomplete, generated-but-unpublished schedule for human review and hand assignment, then resuming generation around the resulting fixed assignments.
+**Actors:** scheduler, staff · **Feat:** FEAT-016 · **Ent:** ENT-016, ENT-024 · **STM:** STM-002
+**Ev:** PUB-013; **GAP-04** — no circulate/review workflow or partial-publication concept was ever observed
+**Amb:** Whether the source circulates in-product or out of band (e.g. by exported document) is unresolved.
+**Disp:** **INTRODUCE** as an explicit review stage that is **distinct from publication** — circulating must never make a schedule authoritative.
+
+---
+
+**Amended term count: 88** (TERM-001..088). No existing term was renumbered or removed.
+
 ## Summary: terms requiring deliberate decisions
 
 | Term | Issue | Decision needed from |
@@ -688,4 +809,4 @@
 - QA case IDs (`QA-*`) and contradictions (`C-01`..`C-07`) are defined in [11-edge-cases-and-qa.md](11-edge-cases-and-qa.md).
 - Hard requirements `SP-HR-1`..`SP-HR-6` are defined in [11-edge-cases-and-qa.md](11-edge-cases-and-qa.md) §11–§13 and carried into [16-research-completion.md](16-research-completion.md) §12.
 
-**Term count: 75.** No term was created without at least one source-report reference or an explicit SP-REQ/SP-REC classification.
+**Term count: 88** (75 original + 13 added by the public-source reconciliation). No term was created without at least one source-report reference, a public-claim reference, or an explicit SchedulePoint-decision classification.

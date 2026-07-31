@@ -2,6 +2,19 @@
 
 **Phase:** 13 — research consolidation. **Source:** reports 01–11 plus the final coverage audit. **No source-site navigation was performed in this phase.**
 
+
+> ## ⚠ AMENDED AFTER PUBLIC-SOURCE RECONCILIATION — this version is authoritative
+>
+> **Amended 2026-07-30.** Updated after [17-public-source-gap-addendum.md](17-public-source-gap-addendum.md); now part of the production-capability baseline ([19-schedulepoint-production-capability-baseline.md](19-schedulepoint-production-capability-baseline.md)).
+>
+> **Applied here:** AMD-01, 02, 03, 09, 10, 11, 12, 13, 14, 17 — eight new features **FEAT-055..FEAT-062** in §6a, extensions recorded against existing features, and the **disposition corrections in §8a**.
+>
+> **⚠ Disposition vocabulary superseded.** The original `MVP` / `POST-MVP` / `EXCLUDED` / `DEFERRED` vocabulary in §"Classification and disposition keys" described **development sequencing**, and was read as though it described production scope. It does not. Production dispositions are now defined in §8a and in [19-schedulepoint-production-capability-baseline.md](19-schedulepoint-production-capability-baseline.md). **The original per-feature `Disp:` lines are retained as historical sequencing evidence and are superseded for scope purposes by §8a.**
+>
+> **No existing feature ID was renumbered or removed.**
+>
+> **Product name:** `SchedulePoint` — **PO-DEC-00 APPROVED**.
+
 **Purpose:** the definitive, deduplicated inventory of what the researched product does, and what SchedulePoint should do about each capability. Features are merged by stable ID — a capability appearing in five source reports gets **one** entry here, not five.
 
 ---
@@ -461,13 +474,13 @@
 **Disp rationale:** `MVP`. **One of the best ideas in the source product.** SchedulePoint must extend it to every entity and make it queryable — a carried architectural requirement.
 
 #### FEAT-051 · Clinical case detail on personal views
-**Mod:** My Schedule "Today's Shifts", Daily Assignments · **Class:** OBS · **Conf:** High · **Disp:** `EXCLUDED`
+**Mod:** My Schedule "Today's Shifts", Daily Assignments · **Class:** OBS · **Conf:** High · **Disp:** `SUPERSEDED BY SAFER SCHEDULEPOINT BEHAVIOUR` *(corrected — was `EXCLUDED`, which is not a valid production disposition)*
 **Purpose:** *(source)* show a clinician what cases they have today.
 **Actors:** staff member · **Dep:** FEAT-033 · **Perm:** self
 **Sens:** **patient-identifiable content — age indicators and procedure descriptions — confirmed present.** Never transcribed in any research artifact.
 **Ev:** 07-picklist §6 · **QA:** QA-SEC-006, QA-PICK-017
 **Gaps:** the ingestion path for this data was never located (#52).
-**Disp rationale:** **`EXCLUDED` from the MVP.** A scheduling product carrying clinical data inherits clinical-system obligations without clinical-system controls. Carried architectural requirement: no patient-level information unless explicitly approved.
+**Disp rationale (corrected).** The **user outcome is preserved**: a clinician still sees what work they have and where, via FEAT-033 Daily Assignments. What does not enter the product is **patient-level content**, which is positively barred at the ingestion boundary by FEAT-062. A scheduling product carrying clinical data inherits clinical-system obligations without clinical-system controls, so the *mechanism* is superseded — the capability is not discarded. See CAP-062 and contradiction C-09, which preserves the distinction between patient-identifying information and non-identifying operational case metadata.
 
 ---
 
@@ -572,7 +585,7 @@ graph TD
 | `MVP` | 25 | FEAT-001, FEAT-002, FEAT-003, FEAT-005, FEAT-007, FEAT-008, FEAT-010, FEAT-011, FEAT-012, FEAT-013, FEAT-014, FEAT-015, FEAT-016, FEAT-017, FEAT-018, FEAT-019, FEAT-020, FEAT-021, FEAT-022, FEAT-023, FEAT-027, FEAT-033, FEAT-040, FEAT-041, FEAT-045 |
 | `POST-MVP` | 10 | FEAT-024, FEAT-025, FEAT-030, FEAT-031, FEAT-032, FEAT-035, FEAT-041, FEAT-042, FEAT-046, FEAT-050 |
 | `DEFERRED` | 0 | *(none)* |
-| `EXCLUDED` | 1 | FEAT-051 |
+| `EXCLUDED` *(invalid — corrected)* | 0 | *(none; FEAT-051 reclassified to `SUPERSEDED BY SAFER SCHEDULEPOINT BEHAVIOUR`)* |
 | `REQUIRES DECISION` | 6 | FEAT-004, FEAT-009, FEAT-020, FEAT-026, FEAT-032, FEAT-034 |
 | `SOURCE DEFECT — DO NOT REPLICATE` | 6 | FEAT-047, FEAT-048, FEAT-049, FEAT-052, FEAT-053, FEAT-054 |
 | `REPLACE WITH ORIGINAL SCHEDULEPOINT DESIGN` | 4 | FEAT-006, FEAT-018, FEAT-022, FEAT-042 |
@@ -611,3 +624,127 @@ No feature carries the `DEFERRED` disposition: every capability found was either
 - Screen/workflow IDs (`SCH-`, `ADM-`, `WF-`, `LC-`, `RA-`, `API-`, `T-`, `SM-`) — reports 01–10 and the final coverage audit
 
 **Feature count: 46.** Every feature carries at least one source-report reference or an explicit SP-REQ classification.
+
+---
+
+## 6a. Features added by the public-source reconciliation (2026-07-30)
+
+Eight features added by AMD-01, AMD-02, AMD-03, and the "at minimum" completeness list. Each uses the same field set as §1–§6. **Production disposition is stated directly; the legacy MVP/post-MVP vocabulary is not used here.**
+
+#### FEAT-055 · Hospital surgical-booking integration and import pipeline
+**Mod:** *(none in the observed application)* · **Class:** PUBLIC SOURCE CLAIM · **Conf:** Low · **Disp:** `REQUIRED PLATFORM CAPABILITY AND NAMED CONNECTOR`
+**Purpose:** Ingest operating-room/work-item data from a hospital's surgical booking system so picklist work items need not be entered by hand.
+**Actors:** platform service, hospital IT, scheduler · **Dep:** FEAT-060, FEAT-062 · **Perm:** platform service account; no end-user path
+**Flow:** connector fetches or receives a payload → canonical schema validation → **de-identification boundary (FEAT-062)** → reconciliation against existing work items → import batch committed or quarantined → audit.
+**States:** see STM-023 (import batch lifecycle).
+**Rules:** imports are **idempotent** (re-importing an identical payload creates nothing new); atomic (no partial batch persists); reconciled against manually-created items, which are never silently destroyed; normalisation controls apply (`ImportStrip`, lowercase conversion — GAP-19).
+**Notif:** import failures alert the group's administrators; silent failure is prohibited. **Audit:** every batch, outcome, and quarantine decision.
+**Sens:** **the single highest-risk data path in the product** — see FEAT-062.
+**Ev:** PUB-032, PUB-033, PUB-034, PUB-036; GAP-12, GAP-19 · **QA:** QA-CON-003, QA-CON-009, QA-CON-010 · **SBX:** SBX-028
+**Gaps:** no import surface was ever located; direction (pull vs. push), scheduling, authentication, and reconciliation semantics are all `EXTERNAL SPECIFICATION REQUIRED`.
+**Disp rationale:** the **platform** capability is required for production; each **named connector** (ORSOS, Cerner/Surginet, Meditech) requires an external specification and certification before release.
+
+#### FEAT-056 · Group communication identity
+**Mod:** *(none in the observed application)* · **Class:** PUBLIC SOURCE CLAIM · **Conf:** Low · **Disp:** `REQUIRED FOR PRODUCTION`
+**Purpose:** Give each group a managed sending/receiving identity for broadcasts, so group communication is not tied to an individual's mailbox.
+**Actors:** scheduler, administrator, all staff (recipients) · **Dep:** FEAT-041, FEAT-040 · **Perm:** permitted-sender list, explicitly configured
+**Flow:** authorised sender composes → recipient filter applied → delivery via FEAT-040 → archived with audit metadata.
+**Rules:** recipients resolve **only** from the group roster; opt-outs honoured where operationally and legally permitted; rate-limited; sender identity unambiguous in the message.
+**Notif:** is a notification surface. **Audit:** every broadcast with sender, recipient count, and filter applied. **Sens:** `PII` — recipient lists.
+**Ev:** PUB-053, PUB-063; GAP-15, **C-11** · **QA:** QA-SEC-013 · **SBX:** SBX-030a
+**Gaps:** no such field exists in Group Settings; most plausibly provisioned out of band by the vendor. Unproven.
+**Disp rationale:** a standard-edition inclusion in the source's own commercial definition — it cannot be absent from a complete product.
+
+#### FEAT-057 · Entitlement and feature gating
+**Mod:** *(none in the observed application)* · **Class:** PUBLIC SOURCE CLAIM · **Conf:** Med · **Disp:** `REQUIRED FOR PRODUCTION`
+**Purpose:** Activate product modules per organization or group, independently of user permissions.
+**Actors:** platform operator, org administrator · **Dep:** FEAT-002 · **Perm:** platform/org administration only
+**Flow:** entitlement granted → dependent modules validated → feature surfaces activate → deactivation hides surfaces **without destroying data**.
+**States:** see STM-024.
+**Rules:** **an entitlement is not a permission.** Entitlement answers "does this organization have the module"; permission answers "may this person use it". Dependencies validated (e.g. integrated picklist mode requires the integration entitlement). Disabling never deletes data.
+**Audit:** every grant, revocation, and dependency override. **Sens:** `INTERNAL`.
+**Ev:** PUB-062, PUB-063, PUB-064; GAP-16, GAP-18, **C-12** · **QA:** QA-TEN-005, QA-AUTH-007 · **SBX:** SBX-002
+**Gaps:** the application exposes no entitlement surface; commercial packaging remains a product-owner decision (PO-DEC-04).
+**Disp rationale:** cross-cutting and expensive to retrofit; keeping it separate from permissions also protects the C-02 resolution.
+
+#### FEAT-058 · Qualifications, credentials, and eligibility
+**Mod:** *(none in the observed application)* · **Class:** PUBLIC SOURCE CLAIM · **Conf:** Low · **Disp:** `REQUIRED FOR PRODUCTION`
+**Purpose:** Ensure only appropriately qualified staff are scheduled to shift types or sites that require a competency.
+**Actors:** administrator, scheduler, engine · **Dep:** FEAT-005, FEAT-010 · **Perm:** administrator to define and grant
+**Flow:** define qualification → grant to a membership with optional expiry → engine, manual edit, opportunity claim, swap, and picklist pick all consult eligibility.
+**States:** see STM-022 (credential validity).
+**Rules:** **eligibility is evaluated against the assignment date, not today.** An expired credential does not confer eligibility. **Every** assignment path enforces it — engine, manual, marketplace, and picklist.
+**Notif:** upcoming-expiry warnings to the holder and the scheduler. **Audit:** grants, revocations, expiries, and any override. **Sens:** `SENSITIVE-PII` — credentials are personal data.
+**Ev:** PUB-018; **GAP-06** — a direct term search found **no** credential, certification, licence, competency, or expiry vocabulary anywhere in the application · **QA:** QA-SCH-006 · **SBX:** SBX-019
+**Gaps:** the source's "skill sets" claim has no visible representation; Staff Groups is the closest mechanism and is not a qualification.
+**Disp rationale:** **production-blocking.** Scheduling an unqualified clinician is a patient-safety-adjacent failure, not a feature gap.
+
+#### FEAT-059 · Conflict detection and build-quality verification
+**Mod:** Planner / workbench *(never rendered)* · **Class:** PUBLIC SOURCE CLAIM · **Conf:** Low · **Disp:** `REQUIRED FOR PRODUCTION`
+**Purpose:** Let a scheduler see **why** a generated schedule looks as it does, what is wrong with it, and how severe each problem is — before publishing.
+**Actors:** scheduler · **Dep:** FEAT-016, FEAT-017, FEAT-058 · **Perm:** Scheduler+
+**Flow:** generation completes → findings produced with severity, explanation, and remediation → scheduler reviews, corrects, and re-verifies → sign-off blocked while unresolved hard violations remain.
+**States:** feeds STM-002 (schedule review).
+**Rules:** every hard-constraint breach, unmet demand, eligibility failure, and fairness outlier is surfaced and attributed. **Sign-off is blocked while any unresolved hard violation exists.**
+**Audit:** findings and their resolution. **Sens:** `INTERNAL`.
+**Ev:** PUB-016, PUB-057; **GAP-05** — the Planner screen never rendered; Fix Picks was never opened · **QA:** QA-SCH-002, QA-SCH-005 · **SBX:** SBX-016
+**Gaps:** the product's headline "verify quality / identify conflicts" capability is entirely unobserved.
+**Disp rationale:** **production-blocking.** An automated engine whose output cannot be reviewed cannot be trusted with a real department's schedule.
+
+#### FEAT-060 · Picklist operating modes
+**Mod:** Picklist Manager · **Class:** PUBLIC SOURCE CLAIM · **Conf:** Med · **Disp:** `REQUIRED FOR PRODUCTION` *(paper mode: `ADMINISTRATIVE FALLBACK OR OVERRIDE`)*
+**Purpose:** Support the three ways groups actually run a picklist, matching the source's own commercial structure.
+**Actors:** scheduler, staff · **Dep:** FEAT-030, FEAT-055 · **Perm:** Scheduler+ to select a mode
+**Flow:** group selects mode → **paper**: list produced offline, results recorded afterwards; **manual-entry**: mobile picking with hand-entered work items; **integrated**: mobile picking with imported work items (requires FEAT-055 and the integration entitlement).
+**Rules:** mode is a group-level configuration; imported and manually-created work items coexist in one pool (PUB-036); switching mode must not destroy an in-flight list.
+**Audit:** mode changes. **Sens:** `INTERNAL`.
+**Ev:** PUB-030, PUB-031, PUB-032; **GAP-11** · **QA:** QA-PICK-001..003 · **SBX:** SBX-020
+**Gaps:** no mode switch was ever observed in the application.
+**Disp rationale:** paper mode is a genuine fallback for groups without mobile adoption and an offline recovery path; the other two are core product.
+
+#### FEAT-061 · Push notification channel
+**Mod:** Notification Settings · **Class:** SOURCE CONTRADICTION · **Conf:** High · **Disp:** `REQUIRED FOR PRODUCTION`
+**Purpose:** Deliver time-critical picklist and schedule notifications to a registered device or browser without polling.
+**Actors:** all · **Dep:** FEAT-040 · **Perm:** self-managed registration and consent
+**Flow:** user grants consent → device/browser registers → notification dispatched via push → falls back to other ladder channels on failure or absence.
+**States:** see STM-025 (push registration lifecycle).
+**Rules:** **explicit consent required**; invalid tokens cleaned up; deduplicated; retried with expiry; participates in the escalation ladder like any other channel.
+**Audit:** registration, revocation, delivery outcome. **Sens:** `PII` — device tokens.
+**Ev:** homepage "Notifications" pillar vs. the authenticated screen's four channels and **zero occurrences of "push"** — **C-10** · **QA:** QA-NOT-001..012 · **SBX:** SBX-030b
+**Gaps:** publicly claimed, absent from the application. `POSSIBLY LEGACY` is **not** asserted — no evidence of removal exists.
+**Disp rationale:** the product's value proposition depends on timely mobile contact; push is the cheapest and most reliable such channel.
+
+#### FEAT-062 · De-identification and ingestion privacy boundary
+**Mod:** *(none in the observed application)* · **Class:** SOURCE CONTRADICTION · **Conf:** Med · **Disp:** `EXTERNAL SPECIFICATION REQUIRED BEFORE CONNECTOR CERTIFICATION`
+**Purpose:** Guarantee that no patient-identifying information enters SchedulePoint, regardless of what any connector sends.
+**Actors:** platform · **Dep:** FEAT-055 · **Perm:** platform only
+**Flow:** payload arrives → validated against a **positive allow-list** schema → unexpected or identifying fields rejected or quarantined → only minimum-necessary operational data persists.
+**Rules:** **no patient names, no medical-record numbers, no dates of birth, no health-card or insurance identifiers, no unrestricted clinical free text.** Allow-list, never deny-list. Rejected content never reaches storage, logs, or audit payloads. Encrypted in transit and at rest; retention-controlled; access-controlled; fully audited.
+**Audit:** every rejection and quarantine. **Sens:** `EXCLUDED` — this feature exists to keep a category of data out.
+**Ev:** PUB-035 vs. 07-picklist §6 — **C-09** · **QA:** QA-SEC-006, QA-PICK-017 · **SBX:** SBX-029
+**Gaps:** the source publicly claims de-identification while clinical detail was observed in-product; **which category that content fell into was never established** and must not be assumed.
+**Disp rationale:** **no hospital connector may enter production until this boundary is demonstrated with test evidence.**
+
+---
+
+## 8a. Production dispositions — authoritative (supersedes §8)
+
+§8's `MVP` / `POST-MVP` / `DEFERRED` / `EXCLUDED` vocabulary described **development sequencing**. This section states **production scope**. Where the two conflict, this section governs. Full per-capability detail: [19-schedulepoint-production-capability-baseline.md](19-schedulepoint-production-capability-baseline.md).
+
+| Production disposition | Features |
+|---|---|
+| `REQUIRED FOR PRODUCTION` | FEAT-001, 002, 003, 005, 006, 007, 008, 010, 011, 012, 013, 014, 015, 016, 017, 018, 019, 020, 021, 022, 023, 024, 025, 026, 027, 030, 031, 032, 033, 035, 040, 041, 042, 045, 046, 050, 056, 057, 058, 059, 060, 061 |
+| `REQUIRED PLATFORM CAPABILITY AND NAMED CONNECTOR` | FEAT-055 |
+| `ADMINISTRATIVE FALLBACK OR OVERRIDE` | FEAT-012ᵃ, FEAT-027ᵃ, FEAT-060 (paper mode only) |
+| `SUPERSEDED BY SAFER SCHEDULEPOINT BEHAVIOUR` | FEAT-047, FEAT-048, FEAT-049, FEAT-051ᶜ, FEAT-052, FEAT-053, FEAT-054, FEAT-009ᵇ |
+| `EXTERNAL SPECIFICATION REQUIRED BEFORE CONNECTOR CERTIFICATION` | FEAT-062 |
+
+ᵃ FEAT-012 (direct cell editing) and FEAT-027 (administrative reassignment) are **also** `REQUIRED FOR PRODUCTION` as capabilities — they are required to *exist*, and are dispositioned as fallback/override to record that **they are not a substitute for the production scheduling engine**. They additionally serve as the mechanism for fixed manual assignments feeding progressive builds (FEAT-016).
+ᵇ FEAT-009 (impersonation) is superseded by a safer design: audited, banner-visible, time-limited, and barred from credential-changing screens.
+ᶜ FEAT-051 (clinical case detail) — the *user outcome* ("what am I doing today") is preserved via FEAT-033 Daily Assignments; the **patient-level content is superseded by the de-identification boundary (FEAT-062)** and does not enter the product.
+
+**Corrections applied (AMD-17).** The following were previously `POST-MVP` or `REQUIRES DECISION` and are now **`REQUIRED FOR PRODUCTION`**, because each is a standard-edition inclusion in the source's own commercial definition or is its paid differentiator: **FEAT-024** (reports/statistics), **FEAT-025** (opportunity board), **FEAT-026** (shift swaps), **FEAT-042** (calendar feed), **FEAT-050** (documents), **FEAT-030/031/032/035** (picklist family), **FEAT-046** (calendar events), and **FEAT-040** voice/SMS channels. **No capability was removed.** Sequencing may still place any of these after an internal milestone.
+
+**The terms `EXCLUDED`, `abandoned`, `optional because difficult`, `indefinitely deferred`, and `post-MVP with no production gate` are not used in this section and are not valid production dispositions in this corpus.**
+
+**Amended feature count: 54** (FEAT-001..062 with gaps, 46 original + 8 added). No existing feature ID was renumbered or removed.

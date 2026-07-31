@@ -155,6 +155,48 @@
       "title": "Targeted sandbox test plan: 39 authorized tests (SBX-001..035 incl. variants) covering every behaviour that cannot be safely verified in production",
       "status": "complete",
       "mergePolicy": "Companion to report 17. Introduces the SBX-### namespace. Defines seven environments (MULTI, CONC, LIVE-SIM, PERF, A11Y, DR, and a new INTEG integration sandbox), ten synthetic test accounts spanning all six roles plus a cross-tenant account and a per-membership role-divergence account, and four controlled notification endpoints. Each test specifies objective, roles, environment, synthetic data, setup, exact safe sequence, expected evidence, notification destination, success criteria, cleanup, related feature/QA IDs, and whether it gates architecture, beta, or production. Absolute constraint: NO test may run against the live production organization, and the active production picklist must never be opened. Includes a Mermaid execution-dependency graph, risk controls, cleanup and evidence-capture requirements, four gates (architecture, beta, production, connector-release), and a coverage table proving every unobservable lifecycle has a test or a documented justification."
+    },
+    {
+      "file": "reports/19-schedulepoint-production-capability-baseline.md",
+      "phase": "production-capability-baseline",
+      "title": "SchedulePoint production capability baseline: 58 capabilities (CAP-001..CAP-068, sparse) with full field sets and production dispositions \u2014 AUTHORITATIVE for scope",
+      "status": "complete",
+      "mergePolicy": "Authoritative definition of SchedulePoint's complete production functionality; governs where any earlier report conflicts on scope. Introduces the CAP-### namespace. Corrects the MVP/POST-MVP/EXCLUDED vocabulary, which described development sequencing and was being read as production scope. Six production dispositions; the terms excluded/abandoned/optional-because-difficult/indefinitely-deferred/post-MVP-with-no-production-gate are explicitly invalid. Every capability carries preserved source user outcome, evidence, classification, PUB/FEAT/ENT/STM/QA/SBX references, permissions, notifications, integrations, audit, privacy, security, accessibility, concurrency, milestone, disposition, blockers, and remaining approval. Automated scheduling REQUIRED FOR PRODUCTION; manual scheduling ADMINISTRATIVE FALLBACK OR OVERRIDE and additionally required to exist. Every SUPERSEDED capability states the preserved user outcome. Two public claims (PUB-049 marketing metric, PUB-066 provenance) carry explicit NOT APPLICABLE reasons; all other 68 map to capabilities."
+    },
+    {
+      "file": "reports/20-contradiction-resolution-register.md",
+      "phase": "contradiction-resolution",
+      "title": "Contradiction resolution register: C-01..C-12, each with a concrete recommended SchedulePoint resolution",
+      "status": "complete",
+      "mergePolicy": "Every contradiction receives conflicting evidence, strongest evidence, source-vs-SchedulePoint behaviour separation, concrete resolution, preserved user outcome, affected features/entities/state-machines/permissions/notifications/integrations, QA and sandbox mapping, architectural consequences, privacy/safety consequences, recommended default, consequence if rejected, approval requirement, and blocking scope. NO contradiction is left as 'more research needed'. C-02 and C-04 are RESOLVED AS SCHEDULEPOINT DESIGNS while their SOURCE facts remain explicitly unasserted. C-09 preserves the distinction between patient-identifying information, non-identifying operational case metadata, scheduling data, and free text that could accidentally carry identifiers \u2014 the source contradiction remains unproven in both directions while SchedulePoint privacy behaviour is fully resolved."
+    },
+    {
+      "file": "reports/21-automated-scheduling-production-requirements.md",
+      "phase": "scheduling-engine-requirements",
+      "title": "Automated scheduling production requirements: clean-room engine specification with inputs, constraints, 16-state build lifecycle, progressive builds, explainability, quality criteria, and performance targets",
+      "status": "complete",
+      "mergePolicy": "Clean-room specification. Does not reproduce or approximate the source algorithm \u2014 no build was ever run in thirteen phases. Derived from observable configuration surfaces, public capability claims, and independent engineering judgement, with each element labelled by evidence status. Specifies inputs (scope, people, capacity, demand, historical, rules), a two-class constraint model, a 16-state build lifecycle distinguishing infeasible from failed, progressive builds around protected assignments, mandatory explainability (never a bare success/failure flag), twelve quality/fairness acceptance criteria with configurable thresholds, six benchmark datasets, and deliberately conservative initial performance targets. States explicitly that the public ~2,700-cells-in-seconds claim is public evidence about a different implementation, not a SchedulePoint guarantee, and that speed without a paired quality measure must never be reported."
+    },
+    {
+      "file": "reports/22-functional-traceability-matrix.md",
+      "phase": "traceability",
+      "title": "Functional traceability matrix: 58 capability rows generated programmatically from the reports, with coverage analysis and validation assertions",
+      "status": "complete",
+      "mergePolicy": "Machine-checkable and re-derivable \u2014 extracted programmatically from report 19's capability blocks and cross-checked against reports 11, 13, 14, 15, 17, 18. Maps source evidence to public claim to capability to glossary to feature to entity to state machine to QA case to sandbox test to milestone to production gate. No row uses an unexplained blank; every non-applicable relationship carries a stated reason. Confirms all 70 PUB IDs map to a capability or an explicit NOT APPLICABLE, all 54 FEAT IDs map to at least one capability, all 39 SBX tests are referenced, all 12 contradictions map to a resolution, and every external integration maps to a specification or certification requirement."
+    },
+    {
+      "file": "reports/23-pre-architecture-evidence-plan.md",
+      "phase": "evidence-plan",
+      "title": "Pre-architecture evidence plan: eight environments, external specifications, and a ten-item assumptions register",
+      "status": "complete",
+      "mergePolicy": "For every missing environment or external specification, states what it proves, what cannot be proven without it, who normally provides it, whether architecture/implementation/production may proceed, acceptable temporary assumptions, and required later validation. Records that the absence of every external connector specification blocks CONNECTOR RELEASE ONLY \u2014 not architecture, implementation, or production of the core product \u2014 because the integration framework is built against a canonical internal schema. Includes an explicit assumptions register naming every assumption permitting work to proceed, its risk, its validation test, and what it blocks if unvalidated. No untested assumption is described as confirmed functionality."
+    },
+    {
+      "file": "reports/24-production-completeness-gates.md",
+      "phase": "production-gates",
+      "title": "Production completeness gates: 30 gate definitions, a 14-item minimum readiness bar, and the full product-owner decision package",
+      "status": "complete",
+      "mergePolicy": "Defines evidence requirements, not statuses \u2014 NO gate is marked passed by this document. Four gate classes (G-ARCH 5, G-BETA 15, G-PROD 34, G-CONN 4). Fourteen-item minimum production-readiness bar, none waivable by asserting a capability is post-MVP. Thirty gate definitions each stating its evidence requirement and owning capabilities. Beta gate distinguishes never-waivable properties (isolation, authorization, audit, privacy, design-system safety) from those waivable with explicit disclosure. Product-owner decision package: PO-DEC-00 (product name = SchedulePoint) APPROVED; 22 others pending, each with a recommended default that may serve as the working assumption, and only three (PO-DEC-02, PO-DEC-18, PO-DEC-04) requiring approval before architecture."
     }
   ],
   "validation": {

@@ -112,7 +112,19 @@ A targeted public-source functionality-gap reconciliation ([17-public-source-gap
 | 90 | What are the surgical-booking integration contracts, direction, scheduling, and reconciliation semantics? | integrations | 2026-07-30 | open | GAP-12; EXTERNAL SPECIFICATION REQUIRED. Tests: SBX-028, SBX-029 |
 | 91 | Is push notification a real channel, a roadmap item, or marketing overreach? | notifications | 2026-07-30 | open | **C-10**; publicly claimed, absent from the notification settings screen |
 | 92 | Does de-identification occur at the ingestion boundary, given clinical detail was observed in-product? | privacy / integrations | 2026-07-30 | open | **C-09**; must never be tested against production data. Test: SBX-029 |
-| 93 | Is the product named SchedulePoint or SchedulePilot? | product | 2026-07-30 | open | PO-DEC-00; this task's brief used SchedulePilot, the repository and reports 12-16 use SchedulePoint |
+| 93 | What is the authoritative product name? | product | 2026-07-30 | answered | **PO-DEC-00 APPROVED: `SchedulePoint`.** The alternative name is not used anywhere in the corpus |
+
+## Functionality-completeness gate disposition (2026-07-31)
+
+The functionality-completeness and contradiction-resolution gate ([19](19-schedulepoint-production-capability-baseline.md)–[24](24-production-completeness-gates.md)) converted the remaining open questions into one of three dispositions:
+
+- **Resolved as a SchedulePoint design decision** — the source fact may stay unknown, but SchedulePoint's behaviour is now fully specified. Covers C-02, C-03, C-04, C-06, C-09 (privacy behaviour), C-10, C-11, C-12, and questions #81..#93 raised by the public-source reconciliation.
+- **Retained as a sandbox test** — 39 tests in [18](18-targeted-sandbox-test-plan.md), each mapped to a capability and a gate in [22](22-functional-traceability-matrix.md). These validate the SchedulePoint design; four of them (SBX-002, 003, 022/023, 029) would additionally illuminate the source behaviour.
+- **Recorded as an explicit assumption** — ten assumptions in [23](23-pre-architecture-evidence-plan.md) §7, each naming its risk, its validating test, and what it blocks if unvalidated.
+
+**No open question now blocks progress without a named owner and a named test.** The source facts behind C-02, C-04, C-06 and C-09 remain **explicitly unasserted** — a SchedulePoint decision does not convert an unresolved source fact into an observed one.
+
+**Product name:** PO-DEC-00 resolved — `SchedulePoint`, **APPROVED**. Question #93 is answered.
 
 ## Coverage audit disposition (2026-07-30)
 

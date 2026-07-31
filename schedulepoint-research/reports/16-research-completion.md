@@ -2,6 +2,18 @@
 
 **Phase:** 13 — final consolidation. **Audience:** product definition and architecture stages.
 
+
+> ## ⚠ AMENDED AFTER PUBLIC-SOURCE RECONCILIATION — read alongside the production baseline
+>
+> **Amended 2026-07-30.** This handoff was written at the end of Phase 13, **before** the public-source reconciliation. It remains accurate as a record of the authenticated research, but its **scope recommendations (§13–§15) are superseded** by:
+> - [17-public-source-gap-addendum.md](17-public-source-gap-addendum.md) — 70 public claims, 19 gaps, contradictions C-08..C-12
+> - [19-schedulepoint-production-capability-baseline.md](19-schedulepoint-production-capability-baseline.md) — **the authoritative production-capability definition**
+> - [20-contradiction-resolution-register.md](20-contradiction-resolution-register.md), [21-automated-scheduling-production-requirements.md](21-automated-scheduling-production-requirements.md), [22-functional-traceability-matrix.md](22-functional-traceability-matrix.md), [23-pre-architecture-evidence-plan.md](23-pre-architecture-evidence-plan.md), [24-production-completeness-gates.md](24-production-completeness-gates.md)
+>
+> **Applied here:** AMD-16 — unresolved questions **#14, #29 and #76 are now answered** (see §18 note). §13's "Recommended MVP scope" and §14–§15 described **development sequencing** and must not be read as production scope.
+>
+> **Product name:** `SchedulePoint` — **PO-DEC-00 APPROVED**.
+
 This is a **handoff summary, not a digest** — it does not reproduce the other reports. Where detail matters, it points to where that detail lives. Read this first, then follow the cross-references.
 
 ---
@@ -168,6 +180,9 @@ Non-negotiable, carried into every downstream document:
 
 ## 13. Recommended MVP scope
 
+> **⚠ SUPERSEDED for scope purposes (AMD-17).** This section describes **development sequencing**, not production scope. Several capabilities listed here as post-MVP are **`REQUIRED FOR PRODUCTION`** — see [19-schedulepoint-production-capability-baseline.md](19-schedulepoint-production-capability-baseline.md) and [13-feature-inventory.md](13-feature-inventory.md) §8a. Retained as historical sequencing evidence.
+
+
 25 features. Critical path: **tenancy → authentication → users/roles → shift catalogue → eligibility & rules → build → schedule grid → publication → versioning.**
 
 Tenancy and identity (FEAT-001, 002, 003, 005, 007, 008) · shift and schedule structure (FEAT-010, 011, 012, 013, 014, 015) · generation and publication (FEAT-016, 017, 018, **019**) · time off (FEAT-020, 021, 022) · fairness (FEAT-023) · correction and audit (FEAT-027, **045**) · operations (FEAT-033, 040, 041-directory).
@@ -185,6 +200,9 @@ Ten features: picklist preparation, staff-facing participation, execution, and m
 ---
 
 ## 15. Excluded or deferred features
+
+> **⚠ SUPERSEDED (AMD-17).** The term `EXCLUDED` is no longer a valid production disposition in this corpus. The only capability genuinely kept out of the product is **patient-level clinical content**, and even there the *user outcome* is preserved via FEAT-033 while the content is barred by the de-identification boundary (FEAT-062). Everything else listed here is sequenced, not excluded.
+
 
 **Excluded:** clinical case detail (FEAT-051) — a scheduling product carrying patient data inherits clinical-system obligations without clinical-system controls. Also excluded: the product tour (loaded on every page across twelve phases, **never once fired**).
 
@@ -230,11 +248,11 @@ Fourteen carried forward. In priority order:
 1. **Live picklist execution** — current picker, timers, room-selection UI, confirmation, failure/retry, skip, pause/resume. **The largest gap in the entire effort.** No draft was ever open across twelve phases; when one finally *was* open during the coverage audit, it was **deliberately not investigated** per that phase's explicit brief. Only the aggregate "pick N of M" progress state is confirmed.
 2. **Real-time concurrency** — connection loss, multi-tab, concurrent selection, stale state. Requires a live draft plus a second session.
 3. **Lower-privileged role views** — no session other than Scheduler was ever available.
-4. **Form validation and error presentation** — no form was ever submitted, so no error state exists anywhere in the evidence base.
+4. **Form validation and error presentation** — no form was ever submitted, so no error state exists anywhere in the evidence base. *(Login and password-reset **form structure** is now known via PUB-067/069 — AMD-16 — but no submission was ever made.)*
 5. **Report dialog internals** — 4 of 6 types never opened.
 6. **Build execution and failure states** — no build was ever run.
 7. **Notification delivery behaviour** — no log exists in the product to observe.
-8. **Session/idle timeout** (#75) and **anti-forgery mechanics** (#76) — never observable without a POST.
+8. **Session/idle timeout** (#75) — never observable without waiting out a session. ~~**anti-forgery mechanics** (#76)~~ — **RESOLVED (AMD-16):** a `__RequestVerificationToken` field is present on the public forms (PUB-068, field name only).
 9. **SignalR message payloads** (#72) — hub confirmed; messages never observed.
 10. **Duplicate-request root cause** (#74) — effect measured; cause needs source access.
 11. **Request creation surface for "OFF {X}"** (#16/#30/#47) — never located after four phases.
