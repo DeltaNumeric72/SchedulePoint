@@ -4,6 +4,17 @@
 
 **Product name:** `SchedulePoint` — **PO-DEC-00 APPROVED**.
 
+
+> ## ✅ PRODUCT-OWNER APPROVAL RECORDED — 2026-07-31
+>
+> Four decisions arising from this register are now **explicitly approved by the product owner**: **`PO-DEC-02`** (C-02 authorization model), **`PO-DEC-18`** (C-04 real-time transport), **`PO-DEC-04`** (C-12 entitlement architecture, technical only), and **`PO-DEC-08`** (C-09 de-identification ownership).
+>
+> **What approval changes:** the *SchedulePoint design* for each is settled, and the architecture-definition phase is unblocked.
+>
+> **What approval does not change:** every statement below about **iSchedule.MD's own behaviour** stands exactly as written. Approving a SchedulePoint design does **not** establish what the source does. C-02's and C-04's source facts remain `UNRESOLVED`; C-09's source contradiction remains **unproven in both directions**. Approval is also **not** implementation or verification — no sandbox test has been run and no gate has passed.
+>
+> Full decision package: [24-production-completeness-gates.md](24-production-completeness-gates.md) §5–§6.
+
 **Purpose:** give every contradiction C-01..C-12 a concrete, actionable resolution. **No contradiction is left with only "more research needed."** Where production evidence cannot safely settle a question, this register defines the recommended SchedulePoint behaviour *and separately* retains the sandbox test needed to validate the assumption.
 
 **Standing distinction applied throughout:** *what the source does* (uncertain, sometimes unknowable without prohibited actions) is kept strictly separate from *what SchedulePoint will do* (a decision we can make now). A resolved SchedulePoint behaviour does not imply a resolved source fact.
@@ -76,12 +87,16 @@ Plus two invariants: **server authorization enforces every action** (UI visibili
 
 **Privacy / safety.** A permission model whose flags do not gate what they name is a latent authorization defect. Shipping one would be worse than shipping none.
 
-**Recommended default.** The four-layer model above. **Status: RESOLVED as a SchedulePoint design; the source fact remains UNRESOLVED and is not asserted.**
+**Recommended default.** The four-layer model above. **Status: RESOLVED as a SchedulePoint design — `PO-DEC-02` APPROVED 2026-07-31.**
+
+**The approved model is:** `organization entitlement → group/module availability → membership role → explicit action capability`, with permissions scoped to organization and group where applicable, every action authorized on the server, database policies providing additional tenant isolation where practical, interface visibility reflecting but never replacing server authorization, no permission flag without a documented and tested capability difference, and **denial as the default when a policy is absent or ambiguous**.
+
+**The source fact remains `UNRESOLVED` and is not asserted.** This approval does **not** establish what iSchedule.MD's `Picklist Admin` flag or its group-level `Pick List Access` setting actually mean — that question stays open and is not answered by choosing SchedulePoint's own model. SBX-002 is retained.
 
 **If rejected.** Any simpler model either loses granularity (a group cannot enable the module without granting every member administrative rights) or reproduces the untested-flag problem.
 
-**Approval still required:** **YES — PO-DEC-02.**
-**Blocks:** **architecture.**
+**Approval still required:** **no — `PO-DEC-02` APPROVED 2026-07-31.**
+**Blocks:** architecture is **unblocked**. The architectural work of designing these layers is still to be done, and implementation and verification remain future work.
 
 ---
 
@@ -149,12 +164,16 @@ Plus two invariants: **server authorization enforces every action** (UI visibili
 
 **Privacy / safety.** A missed turn caused by stale state is an operational failure with real consequences for shift coverage. Correctness here matters more than elegance.
 
-**Recommended default.** The hybrid above. **Status: RESOLVED as a SchedulePoint architecture requirement, pending sandbox verification.**
+**Recommended default.** The hybrid above. **Status: RESOLVED as a SchedulePoint architecture requirement — `PO-DEC-18` APPROVED 2026-07-31 — pending sandbox verification.**
+
+**The approved design is:** server-authoritative real-time push for turn-critical picklist state · atomic state transitions with version or concurrency tokens · reconnection with automatic resynchronization · visible connection and staleness state · explicit refresh as a fallback · real-time connections scoped to the pages that require them · ordinary request/refresh for administrative lists where immediacy is unnecessary. **Polling alone must not be relied on for room selection or turn advancement, and real-time connections must not be opened globally on every page.**
+
+**This does not establish how iSchedule.MD uses its own real-time channel.** The source's transport question remains `UNRESOLVED`. SBX-021, SBX-022 and SBX-023 are **retained** to verify concurrency, reconnection, and stale-state recovery in SchedulePoint.
 
 **If rejected.** Full polling makes turn-critical state stale by design; full push over-engineers administrative screens and multiplies idle connections.
 
-**Approval still required:** **YES — PO-DEC-18.**
-**Blocks:** **architecture** (picklist), **production**.
+**Approval still required:** **no — `PO-DEC-18` APPROVED 2026-07-31.**
+**Blocks:** architecture is **unblocked**. **Production remains blocked** until the retained sandbox tests pass — approval is not verification.
 
 ---
 
@@ -330,12 +349,16 @@ Directory inclusion is an **explicit policy** over these, not an emergent side e
 
 **Privacy / safety.** **The highest-consequence item in this register.** A scheduling product holding patient data inherits clinical-system regulatory obligations without clinical-system controls.
 
-**Recommended default.** Platform-enforced boundary as specified. **Status: source contradiction remains UNPROVEN; SchedulePoint privacy behaviour is RESOLVED.**
+**Recommended default.** Platform-enforced boundary as specified. **Status: SchedulePoint privacy behaviour RESOLVED — `PO-DEC-08` APPROVED 2026-07-31. The source contradiction remains UNPROVEN in both directions.**
+
+**The approved design is:** SchedulePoint **owns and enforces** the ingestion privacy boundary; connector behaviour alone is never trusted to remove identifying information; every connector passes through a **platform-controlled positive allowlist**; unexpected fields are rejected or quarantined; patient names, medical-record numbers, dates of birth, health-card or insurance identifiers, and unrestricted clinical free text **must not persist**; **logs, error payloads, queues, audit events, backups, and observability tooling follow the same restriction**; only minimum-necessary, non-identifying operational scheduling information may pass; every connector requires representative sanitized fixtures and privacy validation before certification; customer-specific privacy-office approval remains required where applicable; and **no hospital connector may ship until the de-identification gate passes**.
+
+**The saved evidence does not prove whether iSchedule.MD did or did not contain patient-identifying information**, and this approval does not assert either. The four-way distinction above is preserved precisely so that the question stays open rather than being resolved by assumption.
 
 **If rejected.** Delegating de-identification to connectors means the platform's privacy posture is only as good as its least careful integration partner.
 
-**Approval still required:** **YES — PO-DEC-08** (definition of identifying fields, and privacy-office sign-off per customer).
-**Blocks:** **connector release** (not MVP architecture).
+**Approval still required:** **no for the ownership model — `PO-DEC-08` APPROVED 2026-07-31.** Per-customer definition of identifying fields and privacy-office sign-off remain required at connector certification.
+**Blocks:** **connector release** (not architecture). The `G-CONN` gate has **not** passed.
 
 ---
 
@@ -437,12 +460,16 @@ Directory inclusion is an **explicit policy** over these, not an emergent side e
 
 **Privacy / safety.** Disabling a module must never delete data — a customer downgrading must not lose their schedule history.
 
-**Recommended default.** The structure above, as a **technical** grouping. **Status: architecture requirement RESOLVED; commercial packaging PENDING.**
+**Recommended default.** The structure above, as a **technical** grouping. **Status: technical entitlement architecture RESOLVED — `PO-DEC-04` APPROVED 2026-07-31. Commercial packaging remains PENDING.**
+
+**The approved design is:** entitlements are **first-class organization-level records**, separate from user permissions · modules declare dependencies · dependency validation prevents invalid feature combinations · entitlement changes are audited · **disabling a module must not delete or corrupt its data**, and existing data remains available per retention and administrative policy · product capability must not be scattered across ad hoc interface conditionals · **the completed product must contain all required capabilities even when a customer has not licensed or enabled every module**.
+
+**Pricing and commercial packaging remain a separate, pending product-owner decision.**
 
 **If rejected.** Feature gating ends up scattered through conditionals, and the entitlement/permission confusion at the heart of C-02 is reproduced.
 
-**Approval still required:** **YES — PO-DEC-04** (commercial packaging only; the architecture requirement stands regardless).
-**Blocks:** **architecture.**
+**Approval still required:** **no for the technical architecture — `PO-DEC-04` APPROVED 2026-07-31.** Commercial packaging remains pending and does not block technical work.
+**Blocks:** architecture is **unblocked**.
 
 ---
 
@@ -451,18 +478,22 @@ Directory inclusion is an **explicit policy** over these, not an emergent side e
 | ID | Status | Approval required | Blocks |
 |---|---|---|---|
 | C-01 | **RESOLVED** | no | — |
-| **C-02** | **RESOLVED as SchedulePoint design**; source fact unresolved | **YES — PO-DEC-02** | **Architecture** |
+| **C-02** | **RESOLVED as SchedulePoint design**; **source fact remains UNRESOLVED** | **`PO-DEC-02` APPROVED** | Architecture **unblocked**; design work outstanding |
 | C-03 | **RESOLVED as SchedulePoint design** | YES — PO-DEC-03 | Request domain |
-| **C-04** | **RESOLVED as architecture requirement**, pending sandbox verification | **YES — PO-DEC-18** | **Architecture, Production** |
+| **C-04** | **RESOLVED as architecture requirement**; **source transport remains UNRESOLVED** | **`PO-DEC-18` APPROVED** | Architecture **unblocked**; **Production still blocked** pending SBX-021/022/023 |
 | C-05 | **RESOLVED** | no | Design system, Beta |
 | C-06 | **RESOLVED as SchedulePoint design** | YES — PO-DEC-20 | — |
 | C-07 | **RESOLVED** | no | — |
 | C-08 | **RESOLVED** | no | **Production** |
-| **C-09** | Source unproven; **SchedulePoint privacy behaviour RESOLVED** | **YES — PO-DEC-08** | **Connector release** |
+| **C-09** | **Source contradiction remains UNPROVEN in both directions**; SchedulePoint privacy behaviour **RESOLVED** | **`PO-DEC-08` APPROVED** | **Connector release still blocked** — `G-CONN` not passed |
 | C-10 | **RESOLVED for production scope** | YES — PO-DEC-07 | — |
 | C-11 | **RESOLVED for production scope** | YES — PO-DEC-21 | — |
-| **C-12** | **Architecture RESOLVED**; packaging pending | **YES — PO-DEC-04** | **Architecture** |
+| **C-12** | **Technical architecture RESOLVED**; commercial packaging **pending** | **`PO-DEC-04` APPROVED** *(technical only)* | Architecture **unblocked** |
 
 **All twelve contradictions have a concrete recommended resolution.** None is left as "more research needed." Nine retain a sandbox test to validate assumptions — those tests verify the **SchedulePoint design**, and in four cases (C-02, C-04, C-06, C-09) they would additionally illuminate the source behaviour, which remains explicitly unasserted.
+
+**Four decisions approved 2026-07-31:** `PO-DEC-02`, `PO-DEC-18`, `PO-DEC-04` (technical), `PO-DEC-08`. The remaining eight decisions arising from this register (`PO-DEC-03`, `07`, `19`, `20`, `21`, plus the commercial half of `PO-DEC-04`) **remain pending** with their documented recommended working defaults. **No decision has been silently marked approved.**
+
+**Approval settles design, not evidence.** No sandbox test has been executed, no production gate has passed, and no connector gate has passed.
 
 **No new contradictions were created by this register.**

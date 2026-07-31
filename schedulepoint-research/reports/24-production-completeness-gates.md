@@ -182,28 +182,59 @@ A controlled beta may run with a restricted feature set **only if** the missing 
 
 ---
 
-## 5. Architecture gate
+## 5. Architecture gate — **UNBLOCKED 2026-07-31**
 
-Architecture may be finalised once these **decisions** are approved — testing follows:
+### 5.1 Status
 
-`PO-DEC-02` (C-02 authorization layering) · `PO-DEC-18` (C-04 real-time transport) · `PO-DEC-04` (C-12 entitlement architecture) · the C-09 ingestion-boundary design · concurrency strategy · audit model · tenancy model.
+The decisions that blocked architecture are **approved**:
 
-**Architecture is blocked on approval, not on sandbox results.** See [23](23-pre-architecture-evidence-plan.md) §6.
+| Decision | Subject | Status |
+|---|---|---|
+| `PO-DEC-02` | Authorization model — entitlement → group/module availability → membership role → explicit action capability | **APPROVED** |
+| `PO-DEC-18` | Real-time transport — server-authoritative push for turn-critical picklist state | **APPROVED** |
+| `PO-DEC-04` | Entitlement architecture — first-class org-level records, separate from permissions | **APPROVED** *(technical only)* |
+| `PO-DEC-08` | De-identification ownership — SchedulePoint owns and enforces the ingestion boundary | **APPROVED** |
+
+**The SchedulePoint architecture-definition phase is now unblocked and ready to begin.**
+
+### 5.2 What approval does and does not mean
+
+Three distinct things must not be conflated. For every capability previously described as an *architecture blocker*:
+
+| Stage | Status |
+|---|---|
+| **The design decision** | **Approved** — the question of *what to build* is settled |
+| **The architectural work** | **Not started** — designing the authorization layers, the real-time topology, the entitlement model, and the ingestion boundary is still to be done |
+| **Implementation and verification** | **Future work** — nothing has been built, and no behaviour has been verified |
+
+Specifically, as of this record:
+
+- **Sandbox tests have not been executed.** All 39 remain defined and unrun ([18](18-targeted-sandbox-test-plan.md), [23](23-pre-architecture-evidence-plan.md)).
+- **No production-completeness gate has passed.** Every `G-PROD` gate in §3 remains outstanding.
+- **No connector-certification gate has passed.** `G-CONN`, including the de-identification gate, remains outstanding.
+- **Approving these designs does not count as implementation or verification.** An approved design is an input to architecture, not evidence about a running system.
+
+### 5.3 Remaining architecture inputs
+
+Still to be decided or designed as part of architecture itself — these are **design work**, not blocking approvals: concurrency strategy · audit model · tenancy implementation · storage and retention design · observability design.
+
+See [23](23-pre-architecture-evidence-plan.md) §6 for what may proceed on which evidence.
 
 ---
 
 ## 6. Product-owner decision package
 
-**Approved:** `PO-DEC-00` Product name = **SchedulePoint**.
-**All others are pending** — the saved evidence contains no explicit user approval for them. Each carries a recommended default that may be treated as the **working assumption** for planning, except where marked *approval required before architecture*.
+**Approved (2026-07-31):** `PO-DEC-00` product name = **SchedulePoint** · `PO-DEC-02` authorization model · `PO-DEC-18` real-time transport · `PO-DEC-04` entitlement architecture · `PO-DEC-08` de-identification ownership.
+
+**All others remain pending** — the saved evidence contains no explicit user approval for them. Each carries a recommended default that may be treated as the **working assumption** for planning, except where marked *approval required before architecture*.
 
 | ID | Question | Recommended | Reason | Alternatives | Consequences if rejected | Capabilities | Arch effect | Prod effect | Approve before arch? | Working default? | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | **PO-DEC-00** | Product name | **SchedulePoint** | Repository and all 24 reports use it | alternative name | corpus-wide rename | all | naming only | none | — | — | **APPROVED** |
-| **PO-DEC-02** | C-02 authorization model | Four-layer: entitlement → group availability → role → capability | No flag without a tested capability difference | flat roles; copy source | authorization defects; C-02 reproduced | CAP-006, 030, 032, 057 | **high** | high | **YES** | yes | pending |
-| **PO-DEC-18** | C-04 real-time transport | Hybrid: push for turn-critical, refresh for admin lists | Staleness has real consequences only in a live turn | full push; full poll | stale turns or over-engineering | CAP-031, 032, 033 | **high** | high | **YES** | yes | pending |
-| **PO-DEC-04** | C-12 entitlement architecture | Modules with dependency validation, separate from permissions | Cross-cutting; expensive to retrofit | ad-hoc conditionals | scattered gating; C-02 confusion | CAP-057 + all gated | **high** | medium | **YES** | yes | pending |
-| **PO-DEC-08** | C-09 de-identification ownership | Platform-enforced allow-list at ingestion | Privacy posture must not depend on the least careful partner | connector-enforced | patient data may enter | CAP-062, 055 | medium | **connector release** | no | yes | pending |
+| **PO-DEC-02** | C-02 authorization model | Four-layer: entitlement → group availability → role → capability | No flag without a tested capability difference | flat roles; copy source | authorization defects; C-02 reproduced | CAP-006, 030, 032, 057 | **high** | high | **YES** | n/a — approved | **APPROVED 2026-07-31** |
+| **PO-DEC-18** | C-04 real-time transport | Hybrid: server-authoritative push for turn-critical state, refresh for admin lists | Staleness has real consequences only in a live turn | full push; full poll | stale turns or over-engineering | CAP-031, 032, 033 | **high** | high | **YES** | n/a — approved | **APPROVED 2026-07-31** |
+| **PO-DEC-04** | C-12 entitlement architecture | First-class org-level entitlements with dependency validation, separate from permissions | Cross-cutting; expensive to retrofit | ad-hoc conditionals | scattered gating; C-02 confusion | CAP-057 + all gated | **high** | medium | **YES** | n/a — approved | **APPROVED 2026-07-31** *(technical architecture only; commercial packaging remains pending)* |
+| **PO-DEC-08** | C-09 de-identification ownership | **SchedulePoint owns and enforces** the ingestion privacy boundary; platform-controlled positive allowlist | Privacy posture must not depend on the least careful partner | connector-enforced | patient data may enter | CAP-062, 055 | medium | **connector release** | no | n/a — approved | **APPROVED 2026-07-31** |
 | **PO-DEC-03** | C-03 request model | One typed Request domain + linked vacation | Matches the vendor's own conceptual split | two entities | duplicated withdrawal logic | CAP-021, 022 | medium | low | no | yes | pending |
 | **PO-DEC-01** | Site as first-class entity | Defer; model as an attribute initially | No evidence customers need it yet | first-class now | migration if wrong | CAP-004 | low | low | no | yes | pending |
 | **PO-DEC-05** | Rule authoring: self-service vs. vendor | Self-service + vendor-assist onboarding | Source implies vendor-configured; self-service scales | vendor-only | services dependency | CAP-016 | low | medium | no | yes | pending |
@@ -223,7 +254,9 @@ Architecture may be finalised once these **decisions** are approved — testing 
 | **PO-DEC-22** | Document retention | Policy-driven per organization, default indefinite | Source has none | fixed period | compliance mismatch | CAP-048 | low | low | no | yes | pending |
 | **PO-DEC-23** | Solver performance targets | The conservative targets in [21](21-automated-scheduling-production-requirements.md) §8.3 | Quality before speed | match the public claim | unmet expectations | CAP-015 | medium | **high** | no | yes | pending |
 
-**Three decisions require approval before architecture: PO-DEC-02, PO-DEC-18, PO-DEC-04.** Every other recommendation may be treated as the working default so technical planning is not blocked by a pending commercial choice.
+**The three architecture-blocking decisions — PO-DEC-02, PO-DEC-18, PO-DEC-04 — are now APPROVED**, together with PO-DEC-08 (de-identification ownership). **No decision has been silently marked approved:** every other row above remains `pending` and retains its documented recommended working default, which may be used for technical planning but has not been ratified.
+
+**Approval is not implementation.** These four approvals settle *what will be built*. They do not constitute architectural work, implementation, or verification — see §5.1.
 
 ---
 

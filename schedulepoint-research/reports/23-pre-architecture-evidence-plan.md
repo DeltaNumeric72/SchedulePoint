@@ -4,6 +4,8 @@
 
 **Product name:** `SchedulePoint` — **PO-DEC-00 APPROVED**.
 
+> **Status 2026-07-31.** The four architecture-gating decisions (`PO-DEC-02`, `PO-DEC-18`, `PO-DEC-04`, `PO-DEC-08`) are **APPROVED** and the architecture-definition phase is **unblocked**. **No sandbox test in this plan has been executed**, no production-completeness gate has passed, and no connector-certification gate has passed.
+
 ---
 
 ## 1. What this plan is for
@@ -134,10 +136,23 @@ This plan states, for every missing environment or external specification: **wha
 
 ## 6. What can and cannot proceed
 
-### Architecture may proceed once these are decided — not tested
-`PO-DEC-02` (C-02 authorization layering) · `PO-DEC-18` (C-04 transport) · `PO-DEC-04` (C-12 entitlement architecture) · the ingestion-boundary design (C-09) · concurrency strategy · audit model.
+### Architecture — **UNBLOCKED 2026-07-31**
 
-**These are decisions, not evidence.** Reports 19–21 recommend a default for each. Architecture is blocked on *approval*, not on sandbox results.
+The decisions that gated architecture are **approved**: `PO-DEC-02` (authorization model) · `PO-DEC-18` (real-time transport) · `PO-DEC-04` (entitlement architecture, technical) · `PO-DEC-08` (de-identification ownership). See [24](24-production-completeness-gates.md) §5.
+
+**The SchedulePoint architecture-definition phase is ready to begin.**
+
+Three things remain distinct and must not be conflated:
+
+| Stage | Status |
+|---|---|
+| The design decisions | **Approved** |
+| The architectural work | **Not started** — layering, real-time topology, entitlement model, and ingestion boundary all still to be designed |
+| Implementation and verification | **Future work** — nothing built, nothing verified |
+
+Still to be decided **as part of architecture itself** (design work, not blocking approvals): concurrency strategy · audit model · tenancy implementation · storage and retention design · observability design.
+
+**These were decisions, not evidence — and approving them is not evidence either.** No sandbox test in this plan has been executed.
 
 ### Implementation may proceed with
 The full capability baseline, domain model, and state machines — **provided** every assumption carrying Low confidence is implemented behind a test that will later confirm or refute it, and is not described as confirmed in the meantime.
@@ -168,6 +183,8 @@ Every assumption permitting work to proceed, with its risk and validation.
 | A-10 | Group broadcast identity is outbound-first | Rework if inbound replies are needed | customer feedback | — |
 
 **None of these is described as confirmed functionality anywhere in this corpus.**
+
+**Approval status note (2026-07-31).** A-02, A-04 and A-06 relate to designs that are now **approved** (`PO-DEC-18`, `PO-DEC-08`, `PO-DEC-02` respectively). **Approval does not discharge the assumption** — each remains unvalidated until its named test passes, and each still blocks what the table says it blocks. An approved design that has not been tested is still an assumption.
 
 ---
 

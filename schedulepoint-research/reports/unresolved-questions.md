@@ -114,6 +114,21 @@ A targeted public-source functionality-gap reconciliation ([17-public-source-gap
 | 92 | Does de-identification occur at the ingestion boundary, given clinical detail was observed in-product? | privacy / integrations | 2026-07-30 | open | **C-09**; must never be tested against production data. Test: SBX-029 |
 | 93 | What is the authoritative product name? | product | 2026-07-30 | answered | **PO-DEC-00 APPROVED: `SchedulePoint`.** The alternative name is not used anywhere in the corpus |
 
+## Architecture decision record (2026-07-31)
+
+Four SchedulePoint decisions are now **explicitly approved by the product owner**: **`PO-DEC-02`** (authorization model), **`PO-DEC-18`** (real-time transport), **`PO-DEC-04`** (entitlement architecture — technical only), and **`PO-DEC-08`** (de-identification ownership). Detail: [24-production-completeness-gates.md](24-production-completeness-gates.md) §5–§6.
+
+**These approvals settle SchedulePoint design. They do not resolve a single source question.** The open questions below concerning iSchedule.MD's own behaviour are **unchanged**:
+
+- **#20 / C-02** — what `Picklist Admin` grants, and what the group-level `Pick List Access` setting gates, remain **UNRESOLVED**. Choosing SchedulePoint's four-layer model does not reveal the source's model. **SBX-002 retained.**
+- **#72 / #73 / C-04** — how the source's real-time channel is actually used remains **UNRESOLVED**. **SBX-021, SBX-022, SBX-023 retained.**
+- **#92 / C-09** — whether iSchedule.MD did or did not hold patient-identifying information remains **UNPROVEN in both directions**. The saved evidence does not establish either, and the approved SchedulePoint privacy design does not assert it. **SBX-029 retained.**
+- **#82 / C-12** — the source's own entitlement enforcement remains **UNRESOLVED**.
+
+**Architecture status.** The architecture-definition phase is **unblocked** and ready to begin. The architectural work itself has **not started**; implementation and verification remain **future work**. **No sandbox test has been executed, no production-completeness gate has passed, and no connector-certification gate has passed.**
+
+**All other product-owner decisions remain pending** with their documented recommended working defaults — including the **commercial packaging** half of `PO-DEC-04`. No decision has been silently marked approved.
+
 ## Functionality-completeness gate disposition (2026-07-31)
 
 The functionality-completeness and contradiction-resolution gate ([19](19-schedulepoint-production-capability-baseline.md)–[24](24-production-completeness-gates.md)) converted the remaining open questions into one of three dispositions:

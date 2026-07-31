@@ -103,6 +103,7 @@ Do not include names, phone numbers, patient details, or other sensitive data â€
 | 95 | all | Functional traceability matrix (generated) | n/a | reports/ | n/a | documented | Machine-checkable. See [22-functional-traceability-matrix.md](22-functional-traceability-matrix.md) |
 | 96 | all | Pre-architecture evidence plan (derived) | n/a | reports/ | n/a | documented | See [23-pre-architecture-evidence-plan.md](23-pre-architecture-evidence-plan.md) |
 | 97 | all | Production completeness gates (derived) | n/a | reports/ | n/a | documented | See [24-production-completeness-gates.md](24-production-completeness-gates.md) |
+| 98 | all | Architecture decision record (derived) | n/a -- product-owner approval of PO-DEC-02/18/04/08 | reports/ | n/a | documented | 2026-07-31; architecture unblocked, no gate passed. See [20](20-contradiction-resolution-register.md), [23](23-pre-architecture-evidence-plan.md), [24](24-production-completeness-gates.md) |
 
 ## Phase 12 note (2026-07-30)
 
