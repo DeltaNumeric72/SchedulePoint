@@ -106,6 +106,13 @@
       "title": "Final coverage audit: navigation-to-report reconciliation across both group memberships, 7 newly discovered passively-observed surfaces, cross-group corroboration of one open contradiction, and one live-picklist state noted but deliberately not pursued",
       "status": "complete; PASSED WITH NON-BLOCKING GAPS",
       "mergePolicy": "Reconciles the full navigation surface (both groups, all 34 previously-documented screens) against reports 01-12 via passive href/hidden-DOM inspection only (no clicks on any Add/New/Create/Send/Save/Publish-type control). Adds 7 new stable IDs (CAL-01, SM-10..SM-14, NAV-03) for surfaces found via the same zero-click hidden-dialog-inspection technique Phase 10 used for the Print-menu discovery. Resolves or partially resolves unresolved-questions.md #39, #58, #60, #61, #62. Confirms full 22-route sidebar/admin parity across both groups (reconfirms GRP-01). Discovers incidentally that a live picklist is active in the account's other group membership; per this audit's explicit brief, deliberately does not pursue Dashboard/Picklist Manager/room-selection investigation of it \u2014 records only that the aggregate progress-bar state exists. No mutation, no safety incident. Does not begin Phase 13."
+    },
+    {
+      "file": "reports/12-product-glossary.md",
+      "phase": 13,
+      "title": "Product glossary: 75 normalized terms (TERM-001..075) reconciling iSchedule.MD vocabulary into a single SchedulePoint terminology, with split/merge/rename/avoid dispositions",
+      "status": "complete",
+      "mergePolicy": "Derived entirely from reports 01-11 plus the final coverage audit; no source-site navigation. Introduces the TERM-### namespace (no collision with existing F-##, SM-##, RA-##, WF-##, LC-##, ADM-##, QA-* namespaces). Every term carries 10 required fields including preferred SchedulePoint term, source term(s), classification (OBS/INF/UNR/SP-REQ/SP-REC), confidence, ambiguities, and a retain/rename/split/merge/introduce/avoid disposition. Preserves rather than resolves contradictions C-01, C-02, C-03, C-05, C-06. Flags the three-way '...Group' naming collision (Staff Group / Shift Group / Valid Group), the four-way overload of 'Pick', the three-way overload of 'Shift', and the two unrelated uses of 'Publish' and 'Transfer'. Marks TERM-062 (instant-commit Add) and TERM-070 (clinical case detail) as explicit do-not-replicate/exclude items."
     }
   ],
   "validation": {
