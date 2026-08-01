@@ -1,0 +1,2625 @@
+{
+  "demand": [
+    {
+      "day_index": 0,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 0,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 0,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 0,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 0,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 1,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 1,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 1,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 1,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 1,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 2,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 2,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 2,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 2,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 2,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 3,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 3,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 3,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 3,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 3,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 4,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 4,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 4,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 4,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 4,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 5,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 5,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 5,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 5,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 5,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 6,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 6,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 6,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 6,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 6,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 7,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 7,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 7,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 7,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 7,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 8,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 8,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 8,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 8,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 8,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 9,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 9,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 9,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 9,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 9,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 10,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 10,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 10,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 10,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 10,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 11,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 11,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 11,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 11,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 11,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 12,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 12,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 12,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 12,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 12,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 13,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 13,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 13,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 13,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 13,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 14,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 14,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 14,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 14,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 14,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 15,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 15,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 15,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 15,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 15,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 16,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 16,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 16,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 16,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 16,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 17,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 17,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 17,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 17,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 17,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 18,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 18,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 18,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 18,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 18,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 19,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 19,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 19,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 19,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 19,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 20,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 20,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 20,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 20,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 20,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 21,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 21,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 21,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 21,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 21,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 22,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 22,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 22,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 22,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 22,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 23,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 23,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 23,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 23,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 23,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 24,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 24,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 24,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 24,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 24,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 25,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 25,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 25,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 25,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 25,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 26,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 26,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 26,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 26,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 26,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 27,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 27,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 27,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 27,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 27,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 28,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 28,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 28,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 28,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 28,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 29,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 29,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 29,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 29,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 29,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 30,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 30,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 30,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 30,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 30,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 31,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 31,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 31,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 31,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 31,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 32,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 32,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 32,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 32,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 32,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 33,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 33,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 33,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 33,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 33,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 34,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 34,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 34,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 34,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 34,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 35,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 35,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 35,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 35,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 35,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 36,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 36,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 36,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 36,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 36,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 37,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 37,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 37,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 37,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 37,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 38,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 38,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 38,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 38,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 38,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 39,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 39,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 39,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 39,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 39,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 40,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 40,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 40,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 40,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 40,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 41,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 41,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 41,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 41,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 41,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 42,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 42,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 42,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 42,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 42,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 43,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 43,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 43,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 43,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 43,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 44,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 44,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 44,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 44,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 44,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 45,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 45,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 45,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 45,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 45,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 46,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 46,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 46,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 46,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 46,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 47,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 47,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 47,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 47,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 47,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 48,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 48,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 48,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 48,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 48,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 49,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 49,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 49,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 49,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 49,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 50,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 50,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 50,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 50,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 50,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 51,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 51,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 51,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 51,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 51,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 52,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 52,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 52,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 52,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 52,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 53,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 53,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 53,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 53,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 53,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 54,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 54,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 54,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 54,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 54,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 55,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 55,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 55,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 55,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 55,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 56,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 56,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 56,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 56,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 56,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 57,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 57,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 57,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 57,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 57,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 58,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 58,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 58,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 58,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 58,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 59,
+      "mode": "exact",
+      "required": 10,
+      "shift_type_id": "early"
+    },
+    {
+      "day_index": 59,
+      "mode": "exact",
+      "required": 8,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 59,
+      "mode": "exact",
+      "required": 6,
+      "shift_type_id": "late"
+    },
+    {
+      "day_index": 59,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 59,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "night"
+    }
+  ],
+  "description": "60 staff x 60 days x 5 shift types (18,000 booleans); feasible, but optimality of the FTE objective is not quick to prove",
+  "hard_rules": [
+    {
+      "classification": "HARD",
+      "kind": "ELIGIBILITY",
+      "name": "Staff may only work shift types they are eligible for",
+      "params": {},
+      "rule_id": "HR-ELIG",
+      "rule_key": "shift_type_eligibility",
+      "rule_schema_version": "1.0.0"
+    },
+    {
+      "classification": "HARD",
+      "kind": "AT_MOST_ONE_ASSIGNMENT_PER_STAFF_PER_DAY",
+      "name": "At most one shift per staff member per day",
+      "params": {},
+      "rule_id": "HR-ONEDAY",
+      "rule_key": "at_most_one_shift_per_day",
+      "rule_schema_version": "1.0.0"
+    },
+    {
+      "classification": "HARD",
+      "kind": "DEMAND_FULFILMENT",
+      "name": "Every demand cell must be filled as specified",
+      "params": {},
+      "rule_id": "HR-DEMAND",
+      "rule_key": "staffing_demand_fulfilment",
+      "rule_schema_version": "1.0.0"
+    },
+    {
+      "classification": "HARD",
+      "kind": "FORBIDDEN_SHIFT_SEQUENCE",
+      "name": "No night shift immediately followed by early/day",
+      "params": {
+        "gap_days": 1,
+        "transitions": [
+          {
+            "from_shift_type_id": "night",
+            "to_shift_type_ids": [
+              "early",
+              "day"
+            ]
+          }
+        ]
+      },
+      "rule_id": "HR-SPACING",
+      "rule_key": "no_night_then_day",
+      "rule_schema_version": "1.0.0"
+    },
+    {
+      "classification": "HARD",
+      "kind": "MAX_ASSIGNMENTS_PER_STAFF",
+      "name": "Maximum assignments per staff member across the horizon",
+      "params": {
+        "default_max": 45
+      },
+      "rule_id": "HR-MAXASSIGN",
+      "rule_key": "max_assignments_in_horizon",
+      "rule_schema_version": "1.0.0"
+    }
+  ],
+  "horizon": {
+    "days": 60,
+    "start_date": "2026-09-01",
+    "timezone": "UTC"
+  },
+  "problem_id": "hard-large",
+  "problem_schema_version": "1.0.0",
+  "shift_types": [
+    {
+      "high_burden": false,
+      "id": "early",
+      "label": "Early",
+      "ordinal": 0
+    },
+    {
+      "high_burden": false,
+      "id": "day",
+      "label": "Day",
+      "ordinal": 1
+    },
+    {
+      "high_burden": false,
+      "id": "late",
+      "label": "Late",
+      "ordinal": 2
+    },
+    {
+      "high_burden": false,
+      "id": "evening",
+      "label": "Evening",
+      "ordinal": 3
+    },
+    {
+      "high_burden": true,
+      "id": "night",
+      "label": "Night",
+      "ordinal": 4
+    }
+  ],
+  "soft_objectives": [
+    {
+      "classification": "SOFT",
+      "kind": "FTE_TARGET_DEVIATION",
+      "name": "Distribute assignments in proportion to contracted FTE",
+      "objective_id": "SO-FTE",
+      "objective_key": "fte_target_deviation",
+      "params": {
+        "note": "target_scaled[s] = round(total_required * fte_bp[s] * scale / sum(fte_bp))",
+        "scale": 1000
+      },
+      "weight": 1
+    }
+  ],
+  "staff": [
+    {
+      "display_name": "Staff 01",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S01"
+    },
+    {
+      "display_name": "Staff 02",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S02"
+    },
+    {
+      "display_name": "Staff 03",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 8000,
+      "id": "S03"
+    },
+    {
+      "display_name": "Staff 04",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S04"
+    },
+    {
+      "display_name": "Staff 05",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 6000,
+      "id": "S05"
+    },
+    {
+      "display_name": "Staff 06",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S06"
+    },
+    {
+      "display_name": "Staff 07",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 8000,
+      "id": "S07"
+    },
+    {
+      "display_name": "Staff 08",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening"
+      ],
+      "fte_basis_points": 4000,
+      "id": "S08"
+    },
+    {
+      "display_name": "Staff 09",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S09"
+    },
+    {
+      "display_name": "Staff 10",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 6000,
+      "id": "S10"
+    },
+    {
+      "display_name": "Staff 11",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S11"
+    },
+    {
+      "display_name": "Staff 12",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S12"
+    },
+    {
+      "display_name": "Staff 13",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 8000,
+      "id": "S13"
+    },
+    {
+      "display_name": "Staff 14",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S14"
+    },
+    {
+      "display_name": "Staff 15",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 6000,
+      "id": "S15"
+    },
+    {
+      "display_name": "Staff 16",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S16"
+    },
+    {
+      "display_name": "Staff 17",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 8000,
+      "id": "S17"
+    },
+    {
+      "display_name": "Staff 18",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 4000,
+      "id": "S18"
+    },
+    {
+      "display_name": "Staff 19",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S19"
+    },
+    {
+      "display_name": "Staff 20",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening"
+      ],
+      "fte_basis_points": 6000,
+      "id": "S20"
+    },
+    {
+      "display_name": "Staff 21",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S21"
+    },
+    {
+      "display_name": "Staff 22",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S22"
+    },
+    {
+      "display_name": "Staff 23",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 8000,
+      "id": "S23"
+    },
+    {
+      "display_name": "Staff 24",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S24"
+    },
+    {
+      "display_name": "Staff 25",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 6000,
+      "id": "S25"
+    },
+    {
+      "display_name": "Staff 26",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S26"
+    },
+    {
+      "display_name": "Staff 27",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 8000,
+      "id": "S27"
+    },
+    {
+      "display_name": "Staff 28",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening"
+      ],
+      "fte_basis_points": 4000,
+      "id": "S28"
+    },
+    {
+      "display_name": "Staff 29",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S29"
+    },
+    {
+      "display_name": "Staff 30",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 6000,
+      "id": "S30"
+    },
+    {
+      "display_name": "Staff 31",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S31"
+    },
+    {
+      "display_name": "Staff 32",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S32"
+    },
+    {
+      "display_name": "Staff 33",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 8000,
+      "id": "S33"
+    },
+    {
+      "display_name": "Staff 34",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S34"
+    },
+    {
+      "display_name": "Staff 35",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 6000,
+      "id": "S35"
+    },
+    {
+      "display_name": "Staff 36",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S36"
+    },
+    {
+      "display_name": "Staff 37",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 8000,
+      "id": "S37"
+    },
+    {
+      "display_name": "Staff 38",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 4000,
+      "id": "S38"
+    },
+    {
+      "display_name": "Staff 39",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S39"
+    },
+    {
+      "display_name": "Staff 40",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening"
+      ],
+      "fte_basis_points": 6000,
+      "id": "S40"
+    },
+    {
+      "display_name": "Staff 41",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S41"
+    },
+    {
+      "display_name": "Staff 42",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S42"
+    },
+    {
+      "display_name": "Staff 43",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 8000,
+      "id": "S43"
+    },
+    {
+      "display_name": "Staff 44",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S44"
+    },
+    {
+      "display_name": "Staff 45",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 6000,
+      "id": "S45"
+    },
+    {
+      "display_name": "Staff 46",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S46"
+    },
+    {
+      "display_name": "Staff 47",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 8000,
+      "id": "S47"
+    },
+    {
+      "display_name": "Staff 48",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening"
+      ],
+      "fte_basis_points": 4000,
+      "id": "S48"
+    },
+    {
+      "display_name": "Staff 49",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S49"
+    },
+    {
+      "display_name": "Staff 50",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 6000,
+      "id": "S50"
+    },
+    {
+      "display_name": "Staff 51",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S51"
+    },
+    {
+      "display_name": "Staff 52",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S52"
+    },
+    {
+      "display_name": "Staff 53",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 8000,
+      "id": "S53"
+    },
+    {
+      "display_name": "Staff 54",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S54"
+    },
+    {
+      "display_name": "Staff 55",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 6000,
+      "id": "S55"
+    },
+    {
+      "display_name": "Staff 56",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S56"
+    },
+    {
+      "display_name": "Staff 57",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 8000,
+      "id": "S57"
+    },
+    {
+      "display_name": "Staff 58",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 4000,
+      "id": "S58"
+    },
+    {
+      "display_name": "Staff 59",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S59"
+    },
+    {
+      "display_name": "Staff 60",
+      "eligible_shift_type_ids": [
+        "early",
+        "day",
+        "late",
+        "evening"
+      ],
+      "fte_basis_points": 6000,
+      "id": "S60"
+    }
+  ]
+}

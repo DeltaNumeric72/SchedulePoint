@@ -1,0 +1,555 @@
+{
+  "demand": [
+    {
+      "day_index": 0,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 0,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 0,
+      "mode": "exact",
+      "required": 3,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 1,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 1,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 1,
+      "mode": "exact",
+      "required": 3,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 2,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 2,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 2,
+      "mode": "exact",
+      "required": 3,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 3,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 3,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 3,
+      "mode": "exact",
+      "required": 3,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 4,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 4,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 4,
+      "mode": "exact",
+      "required": 3,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 5,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 5,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 5,
+      "mode": "exact",
+      "required": 3,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 6,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 6,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 6,
+      "mode": "exact",
+      "required": 3,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 7,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 7,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 7,
+      "mode": "exact",
+      "required": 3,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 8,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 8,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 8,
+      "mode": "exact",
+      "required": 3,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 9,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 9,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 9,
+      "mode": "exact",
+      "required": 3,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 10,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 10,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 10,
+      "mode": "exact",
+      "required": 3,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 11,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 11,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 11,
+      "mode": "exact",
+      "required": 3,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 12,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 12,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 12,
+      "mode": "exact",
+      "required": 3,
+      "shift_type_id": "night"
+    },
+    {
+      "day_index": 13,
+      "mode": "exact",
+      "required": 5,
+      "shift_type_id": "day"
+    },
+    {
+      "day_index": 13,
+      "mode": "exact",
+      "required": 4,
+      "shift_type_id": "evening"
+    },
+    {
+      "day_index": 13,
+      "mode": "exact",
+      "required": 3,
+      "shift_type_id": "night"
+    }
+  ],
+  "description": "toy-feasible with a per-staff cap of 8: capacity 20x8=160 < 168 required. Pigeonhole infeasibility.",
+  "hard_rules": [
+    {
+      "classification": "HARD",
+      "kind": "ELIGIBILITY",
+      "name": "Staff may only work shift types they are eligible for",
+      "params": {},
+      "rule_id": "HR-ELIG",
+      "rule_key": "shift_type_eligibility",
+      "rule_schema_version": "1.0.0"
+    },
+    {
+      "classification": "HARD",
+      "kind": "AT_MOST_ONE_ASSIGNMENT_PER_STAFF_PER_DAY",
+      "name": "At most one shift per staff member per day",
+      "params": {},
+      "rule_id": "HR-ONEDAY",
+      "rule_key": "at_most_one_shift_per_day",
+      "rule_schema_version": "1.0.0"
+    },
+    {
+      "classification": "HARD",
+      "kind": "DEMAND_FULFILMENT",
+      "name": "Every demand cell must be filled as specified",
+      "params": {},
+      "rule_id": "HR-DEMAND",
+      "rule_key": "staffing_demand_fulfilment",
+      "rule_schema_version": "1.0.0"
+    },
+    {
+      "classification": "HARD",
+      "kind": "FORBIDDEN_SHIFT_SEQUENCE",
+      "name": "No night shift immediately followed by day",
+      "params": {
+        "gap_days": 1,
+        "transitions": [
+          {
+            "from_shift_type_id": "night",
+            "to_shift_type_ids": [
+              "day"
+            ]
+          }
+        ]
+      },
+      "rule_id": "HR-SPACING",
+      "rule_key": "no_night_then_day",
+      "rule_schema_version": "1.0.0"
+    },
+    {
+      "classification": "HARD",
+      "kind": "MAX_ASSIGNMENTS_PER_STAFF",
+      "name": "Maximum assignments per staff member across the horizon",
+      "params": {
+        "default_max": 8
+      },
+      "rule_id": "HR-MAXASSIGN",
+      "rule_key": "max_assignments_in_horizon",
+      "rule_schema_version": "1.0.0"
+    }
+  ],
+  "horizon": {
+    "days": 14,
+    "start_date": "2026-09-01",
+    "timezone": "UTC"
+  },
+  "problem_id": "toy-infeasible-capacity",
+  "problem_schema_version": "1.0.0",
+  "shift_types": [
+    {
+      "high_burden": false,
+      "id": "day",
+      "label": "Day",
+      "ordinal": 0
+    },
+    {
+      "high_burden": false,
+      "id": "evening",
+      "label": "Evening",
+      "ordinal": 1
+    },
+    {
+      "high_burden": true,
+      "id": "night",
+      "label": "Night",
+      "ordinal": 2
+    }
+  ],
+  "soft_objectives": [
+    {
+      "classification": "SOFT",
+      "kind": "FTE_TARGET_DEVIATION",
+      "name": "Distribute assignments in proportion to contracted FTE",
+      "objective_id": "SO-FTE",
+      "objective_key": "fte_target_deviation",
+      "params": {
+        "note": "target_scaled[s] = round(total_required * fte_bp[s] * scale / sum(fte_bp))",
+        "scale": 1000
+      },
+      "weight": 1
+    }
+  ],
+  "staff": [
+    {
+      "display_name": "Staff 01",
+      "eligible_shift_type_ids": [
+        "day",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S01"
+    },
+    {
+      "display_name": "Staff 02",
+      "eligible_shift_type_ids": [
+        "day",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S02"
+    },
+    {
+      "display_name": "Staff 03",
+      "eligible_shift_type_ids": [
+        "day",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 8000,
+      "id": "S03"
+    },
+    {
+      "display_name": "Staff 04",
+      "eligible_shift_type_ids": [
+        "day",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S04"
+    },
+    {
+      "display_name": "Staff 05",
+      "eligible_shift_type_ids": [
+        "day",
+        "evening"
+      ],
+      "fte_basis_points": 6000,
+      "id": "S05"
+    },
+    {
+      "display_name": "Staff 06",
+      "eligible_shift_type_ids": [
+        "day",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S06"
+    },
+    {
+      "display_name": "Staff 07",
+      "eligible_shift_type_ids": [
+        "day",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 8000,
+      "id": "S07"
+    },
+    {
+      "display_name": "Staff 08",
+      "eligible_shift_type_ids": [
+        "day",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 4000,
+      "id": "S08"
+    },
+    {
+      "display_name": "Staff 09",
+      "eligible_shift_type_ids": [
+        "day",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S09"
+    },
+    {
+      "display_name": "Staff 10",
+      "eligible_shift_type_ids": [
+        "day",
+        "evening"
+      ],
+      "fte_basis_points": 6000,
+      "id": "S10"
+    },
+    {
+      "display_name": "Staff 11",
+      "eligible_shift_type_ids": [
+        "day",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S11"
+    },
+    {
+      "display_name": "Staff 12",
+      "eligible_shift_type_ids": [
+        "day",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S12"
+    },
+    {
+      "display_name": "Staff 13",
+      "eligible_shift_type_ids": [
+        "day",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 8000,
+      "id": "S13"
+    },
+    {
+      "display_name": "Staff 14",
+      "eligible_shift_type_ids": [
+        "day",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S14"
+    },
+    {
+      "display_name": "Staff 15",
+      "eligible_shift_type_ids": [
+        "day",
+        "evening"
+      ],
+      "fte_basis_points": 6000,
+      "id": "S15"
+    },
+    {
+      "display_name": "Staff 16",
+      "eligible_shift_type_ids": [
+        "day",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S16"
+    },
+    {
+      "display_name": "Staff 17",
+      "eligible_shift_type_ids": [
+        "day",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 8000,
+      "id": "S17"
+    },
+    {
+      "display_name": "Staff 18",
+      "eligible_shift_type_ids": [
+        "day",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 4000,
+      "id": "S18"
+    },
+    {
+      "display_name": "Staff 19",
+      "eligible_shift_type_ids": [
+        "day",
+        "evening",
+        "night"
+      ],
+      "fte_basis_points": 10000,
+      "id": "S19"
+    },
+    {
+      "display_name": "Staff 20",
+      "eligible_shift_type_ids": [
+        "day",
+        "evening"
+      ],
+      "fte_basis_points": 6000,
+      "id": "S20"
+    }
+  ]
+}

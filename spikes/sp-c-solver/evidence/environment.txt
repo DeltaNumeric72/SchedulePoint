@@ -1,0 +1,35 @@
+SP-C spike environment — captured 2026-08-01T17:14:13Z
+
+$ sw_vers
+ProductName:		macOS
+ProductVersion:		26.5.2
+BuildVersion:		25F84
+
+$ uname -m
+arm64
+
+$ sysctl -n hw.ncpu
+12
+
+$ python3 --version  (system python — FAD-7: no Homebrew, no pyenv)
+Python 3.9.6
+
+$ .venv/bin/python --version
+Python 3.9.6
+
+$ .venv/bin/pip freeze
+absl-py==2.3.1
+immutabledict==4.3.1
+numpy==2.0.2
+ortools==9.15.6755
+pandas==2.3.3
+protobuf==6.33.6
+python-dateutil==2.9.0.post0
+pytz==2026.3.post1
+six==1.17.0
+typing_extensions==4.16.0
+tzdata==2026.3
+
+$ docker --version
+(eval):10: command not found: docker
+docker: not available (FAD-7). Dockerfile authored, not built.

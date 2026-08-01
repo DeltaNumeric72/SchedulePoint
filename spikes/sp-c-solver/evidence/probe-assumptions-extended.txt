@@ -1,0 +1,6 @@
+H-8 extended probe: does the capacity infeasibility ever come back with assumptions on?
+Command:
+  .venv/bin/python harness/probe_assumption_budget.py
+
+granularity=rule      budget=90s -> status=UNKNOWN    wall=90.005s assumptions=5 core=0
+granularity=instance  budget=90s -> status=UNKNOWN    wall=89.958s assumptions=606 core=0

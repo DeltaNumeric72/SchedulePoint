@@ -1,0 +1,3 @@
+# SP-C solver boundary spike — pinned so the harness is reproducible.
+# Resolved and verified on CPython 3.9.6 (macOS arm64), 2026-08-01.
+ortools==9.15.6755
