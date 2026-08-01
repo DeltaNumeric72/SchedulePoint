@@ -2,6 +2,8 @@
 
 **Status:** `PROPOSED` — 2026-07-31. Not accepted.
 
+> **REVISED 2026-08-01 (CAR-010, CAR-017).** The outbox guarantees remain correct, but **the boundary of what they guarantee is now stated exactly**: domain state is exactly-once; **external delivery is at-least-once with a recorded ambiguity state** ([SPEC-07](../specs/SPEC-07-notification-delivery-contracts.md) §4). Cross-module transaction ownership is specified in [ADR-0017](ADR-0017-cross-module-unit-of-work.md).
+
 ## Context
 
 Several operations must produce side effects that outlive the request: publishing a schedule notifies affected staff; posting an opportunity fans out; a picklist turn triggers an escalation ladder. Two failure modes are unacceptable:

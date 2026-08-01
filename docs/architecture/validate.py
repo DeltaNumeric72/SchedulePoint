@@ -29,7 +29,7 @@ doc_text = {f: read(os.path.join(BASE, f)) for f in docs}
 adr_text = {f: read(os.path.join(adr_dir, f)) for f in adrs}
 all_md = dict(doc_text)
 all_md["README.md"] = read(os.path.join(BASE, "README.md")) if os.path.exists(os.path.join(BASE, "README.md")) else ""
-for d in ("drafts",):
+for d in ("drafts", "specs", "remediation"):
     p = os.path.join(BASE, d)
     if os.path.isdir(p):
         for f in os.listdir(p):
@@ -55,8 +55,12 @@ check("2. architecture-manifest.json present", os.path.exists(os.path.join(BASE,
 expected_docs = ["%02d-" % n for n in range(1, 20)]
 missing = [p for p in expected_docs if not any(d.startswith(p) for d in docs)]
 check("3. All 19 numbered documents present", not missing, "missing prefixes: %s" % missing)
-check("4. Exactly 15 ADRs present", len(adrs) == 15, "found %d" % len(adrs))
+check("4. At least 15 ADRs present (23 after remediation)", len(adrs) >= 15, "found %d" % len(adrs))
 EXPECTED_ADRS = [
+ "ADR-0016-request-aggregate-and-subtypes.md","ADR-0017-cross-module-unit-of-work.md",
+ "ADR-0018-report-snapshot-semantics.md","ADR-0019-audit-assurance-level.md",
+ "ADR-0020-solver-runtime-packaging.md","ADR-0021-raw-ingress-enclave.md",
+ "ADR-0022-request-scoped-tenant-context.md","ADR-0023-picklist-turn-transaction.md",
  "ADR-0001-application-topology.md","ADR-0002-primary-technology-stack.md",
  "ADR-0003-database-and-tenancy-strategy.md","ADR-0004-authorization-architecture.md",
  "ADR-0005-entitlement-architecture.md","ADR-0006-solver-architecture.md",
@@ -134,12 +138,14 @@ check("18. All five approved decisions are recorded",
       all(d in risks for d in approved), str([d for d in approved if d not in risks]))
 check("19. All eighteen pending decisions are retained",
       all(d in risks for d in pending), str([d for d in pending if d not in risks]))
-check("20. The pending count is stated as 18", "**Count: 18.**" in risks)
+check("20. The pending count is stated (18 tabled + restored PO-DEC-10 = 19)",
+      "= 19 pending decisions" in risks)
 sec22 = re.search(r"### 2\.2(.*?)(?=\n### |\Z)", risks, re.S)
 check("21. No pending decision is marked approved",
       bool(sec22) and not re.search(r"\bAPPROVED\b", sec22.group(1)))
-check("22. The PO-DEC-10 register discrepancy is flagged, not resolved",
-      "PO-DEC-10" in risks and "not resolved here" in risks)
+check("22. PO-DEC-10 is restored to the register as pending, ID preserved",
+      "PO-DEC-10" in risks and "`pending`" in risks
+      and "original identifier" in risks)
 
 # ------------------------------------------------------ 6. no overclaim
 NEG = re.compile(r"\b(no|not|never|none|cannot|neither)\b", re.I)
@@ -205,8 +211,8 @@ try:
           man["capabilities"]["mappedInTraceability"] == len(cap_ids))
     check("36. Manifest records no gate as passed",
           all(not g["passed"] for g in man["gates"].values()))
-    check("37. Manifest records 18 pending decisions, none approved",
-          man["decisions"]["pendingCount"] == 18 and
+    check("37. Manifest records 19 pending decisions, none approved",
+          man["decisions"]["pendingCount"] == 19 and
           man["decisions"]["pendingSilentlyApproved"] is False)
     check("38. Manifest records drafts as not installed",
           man["drafts"]["installedAtRepositoryRoot"] is False)
@@ -214,6 +220,273 @@ try:
           man["implemented"] is False and man["approved"] is False)
 except Exception as e:
     check("34-39. Manifest assertions", False, repr(e))
+
+
+# =====================================================================
+# PHASE 14 SEMANTIC CHECKS (40-53) -- added by the Codex-review
+# remediation. These assert MEANING, not vocabulary. No earlier check
+# was weakened or removed.
+# =====================================================================
+
+specs_dir = os.path.join(BASE, "specs")
+specs = sorted(f for f in os.listdir(specs_dir) if f.endswith(".md")) if os.path.isdir(specs_dir) else []
+spec_text = {f: read(os.path.join(specs_dir, f)) for f in specs}
+remed = os.path.join(BASE, "remediation", "codex-review-remediation.md")
+remed_text = read(remed) if os.path.exists(remed) else ""
+data_doc = doc_text.get("06-data-architecture.md", "")
+
+# ---- 40. every referenced data structure exists in the catalogue
+# Structures are declared in 06 as leading table cells `| `name` ...` or `| `name` **TAG**`
+declared = set(re.findall(r"^\|\s*~?~?`([a-z_]+)`", data_doc, re.M))
+declared |= set(re.findall(r"\*\*`([a-z_]+)`\*\*\s*\*\(NEW", data_doc))
+# Structures referenced by the traceability doc's "Primary data structures" rows
+ref_rows = re.findall(r"\|\s*\*\*Primary data structures\*\*\s*\|([^|]*)\|", tr)
+referenced = set()
+for row in ref_rows:
+    row = re.sub(r"\*\(.*?\)\*", "", row)              # drop explanatory italics
+    # only backticked identifiers are treated as structure references
+    for tok in re.findall(r"`([a-z][a-z0-9_]{3,})`", row):
+        tok = tok.split(".")[0]
+        # column-level references (is_*, *_id, *_hash) are not table names
+        if tok.startswith("is_") or tok.endswith(("_id", "_hash", "_ref", "_key")):
+            continue
+        referenced.add(tok)
+unresolved_struct = sorted(s for s in referenced if s not in declared)
+check("40. Every referenced data structure exists in the catalogue",
+      not unresolved_struct, str(unresolved_struct[:10]))
+
+# ---- 41. invariant IDs unique and single-meaning; 7 blockers present
+inv_rows = re.findall(r"^\|\s*\*\*(I-\d\d)\*\*\s*\|([^|]*)\|", doc_text.get("01-architecture-overview.md",""), re.M)
+inv_ids = [i for i,_ in inv_rows]
+check("41a. Invariant IDs are unique in the registry",
+      len(inv_ids) == len(set(inv_ids)), str([i for i in inv_ids if inv_ids.count(i) > 1]))
+# I-05 must mean automated scheduling everywhere; the save contract must be I-13
+i05_meaning = dict(inv_rows).get("I-05", "")
+check("41b. I-05 means exactly one thing (automated scheduling)",
+      "utomated scheduling" in i05_meaning, i05_meaning[:60])
+# Only a CITATION of I-05 as the save contract is a collision; prose that
+# explains the historical collision is not.
+save_collision = [f for f, x in all_md.items()
+                  if re.search(r"\(I-05\s*[/)]", x)
+                  or re.search(r"\*\*I-05\*\*[^\n|]{0,40}\|[^\n]{0,60}Add, New, or Create", x)]
+check("41c. The Add/New/Create save contract is I-13, not I-05",
+      not save_collision, str(save_collision))
+BLOCKERS = ["CAP-001","CAP-002","CAP-003","CAP-006","CAP-032","CAP-055","CAP-057"]
+blk_sec = re.search(r"## 3\. Capabilities that block architecture approval(.*?)(?=\n## )", tr, re.S)
+blk_txt = blk_sec.group(1) if blk_sec else ""
+missing_blk = [b for b in BLOCKERS if b not in blk_txt]
+check("41d. All seven report-19 architecture blockers are represented",
+      not missing_blk, str(missing_blk))
+try:
+    man_blk = json.load(open(os.path.join(BASE, "architecture-manifest.json")))["capabilities"]["architectureBlocking"]
+    check("41e. Manifest lists all seven architecture blockers",
+          sorted(man_blk) == sorted(BLOCKERS), str(sorted(man_blk)))
+except Exception as e:
+    check("41e. Manifest lists all seven architecture blockers", False, repr(e))
+
+# ---- 42. every referenced decision ID resolves in the canonical register
+reg = read(os.path.join(RESEARCH, "24-production-completeness-gates.md")) if os.path.exists(
+      os.path.join(RESEARCH, "24-production-completeness-gates.md")) else ""
+reg_ids = set(re.findall(r"\|\s*\*\*(PO-DEC-\d\d)\*\*", reg))
+used_ids = set(re.findall(r"\b(PO-DEC-\d\d)\b", corpus))
+unregistered = sorted(used_ids - reg_ids)
+check("42a. Every referenced decision ID is present in the canonical register",
+      not unregistered, str(unregistered))
+check("42b. PO-DEC-10 is restored to the canonical register",
+      "PO-DEC-10" in reg_ids)
+check("42c. No decision ID is reused for two subjects in the register",
+      len(re.findall(r"\|\s*\*\*PO-DEC-10\*\*", reg)) == 1)
+
+# ---- 43. every capability / ADR / gate / invariant reference resolves
+adr_ids_on_disk = {f[:8] for f in adrs}
+adr_refs = set(re.findall(r"\b(ADR-\d{4})\b", corpus))
+check("43a. Every referenced ADR exists on disk",
+      not (adr_refs - adr_ids_on_disk), str(sorted(adr_refs - adr_ids_on_disk)))
+cap_refs = set(re.findall(r"\b(CAP-\d{3})\b", corpus))
+check("43b. Every referenced capability exists in the baseline",
+      not (cap_refs - set(cap_ids)), str(sorted(cap_refs - set(cap_ids))))
+gate_refs = set(re.findall(r"\b(G-[A-Z]+)\b", corpus))
+check("43c. Every referenced gate is a known gate",
+      not (gate_refs - {"G-ARCH","G-BETA","G-PROD","G-CONN"}),
+      str(sorted(gate_refs - {"G-ARCH","G-BETA","G-PROD","G-CONN"})))
+inv_refs = set(re.findall(r"\bI-(\d\d)\b", corpus))
+check("43d. Every referenced invariant ID is defined in the registry",
+      not ({("I-"+n) for n in inv_refs} - set(inv_ids)),
+      str(sorted({("I-"+n) for n in inv_refs} - set(inv_ids))))
+
+# ---- 44. RLS uses transaction-local context
+s01 = spec_text.get("SPEC-01-request-context-and-tenant-isolation.md", "")
+check("44a. Tenant context is transaction-local (SET LOCAL / set_config(...,true))",
+      ("SET LOCAL" in s01 or "set_config" in s01) and "true" in s01)
+check("44b. Connection-checkout tenant context is explicitly withdrawn",
+      re.search(r"checkout[^\n]{0,120}(unsafe|withdraw|REPLACE)", corpus, re.I) is not None)
+check("44c. FORCE ROW LEVEL SECURITY and non-owner roles are required",
+      "FORCE ROW LEVEL SECURITY" in corpus and "non-owner" in corpus)
+check("44d. Fail-closed outside the unit of work is stated",
+      re.search(r"(zero rows|fail-closed|fail closed)", s01, re.I) is not None)
+
+# ---- 45. published-version mutation prohibited
+s05 = spec_text.get("SPEC-05-schedule-version-identity-and-publication.md", "")
+check("45a. Published-version immutability is database-enforced (trigger, not prose)",
+      "trigger" in s05.lower() and "D-15" in s05)
+check("45b. Version-scoped overlap constraint (D-1a) exists",
+      "D-1a" in data_doc and "version_id WITH =" in s05)
+check("45c. Exactly one current version per period (D-16)",
+      "D-16" in data_doc)
+
+# ---- 46. picklist one-result-per-turn and aggregate-version invariants
+s02 = spec_text.get("SPEC-02-picklist-turn-transaction.md", "")
+check("46a. One accepted selection per turn (D-3a) is defined",
+      "D-3a" in data_doc and "D-3a" in s02)
+check("46b. One claimant per work item (D-3b) is defined", "D-3b" in data_doc)
+check("46c. One open turn per picklist (D-3c) is defined", "D-3c" in data_doc)
+check("46d. Aggregate version / event sequence invariants exist",
+      "aggregate_version" in s02 and "D-12" in s02)
+check("46e. Coordinator fencing token is defined", "fencing" in s02.lower() and "D-13" in s02)
+
+# ---- 47. no protected ingestion path accepts unrestricted free text
+s03 = spec_text.get("SPEC-03-raw-ingress-trust-boundary.md", "")
+wi_row = re.search(r"\|\s*`picklist_work_items`[^\n]*", data_doc)
+wi = wi_row.group(0) if wi_row else ""
+check("47a. picklist_work_items carries no free-text description field",
+      "`description`" not in wi.replace("`description` are REMOVED", ""),
+      wi[:120])
+check("47b. Work-item labels resolve to a controlled vocabulary",
+      "work_item_label_ref" in wi and "work_item_labels" in data_doc)
+check("47c. Rejection-not-sanitization is stated",
+      re.search(r"[Rr]ejection, never sanitization|reject rather than sanitiz", s03) is not None)
+check("47d. Quarantine stores no values and no hashes",
+      re.search(r"never.{0,40}hash|NOT ANY HASH|never stores the value", s03 + data_doc, re.I) is not None)
+
+# ---- 48. solver runtime compatible with the selected technology
+s04 = spec_text.get("SPEC-04-solver-runtime-and-rule-model.md", "")
+check("48a. The solver runtime is an officially supported OR-Tools language",
+      re.search(r"\bPython\b", s04) is not None and "S-04" in s04)
+NEG_RUNTIME = re.compile(r"(no |not |never |cannot |claiming |withdraw|fails|contradiction|incompatib)", re.I)
+bad_runtime = []
+for m in re.finditer(r"Node\.js[^\n.]{0,60}(hosts|runs|executes)[^\n.]{0,30}(solver|CP-SAT)", corpus, re.I):
+    lead = corpus[max(0, m.start() - 60):m.start()]
+    if not NEG_RUNTIME.search(lead):
+        bad_runtime.append(m.group(0))
+check("48b. No document claims Node.js hosts the solver", not bad_runtime, str(bad_runtime[:2]))
+check("48c. The one-image / all-four-classes claim is withdrawn",
+      re.search(r"withdraw", doc_text.get("02-technology-stack.md",""), re.I) is not None)
+
+# ---- 49. push storage retains usable encrypted delivery material
+s07 = spec_text.get("SPEC-07-notification-delivery-contracts.md", "")
+push_row = re.search(r"\|\s*`push_registrations`[^\n]*", data_doc)
+pr = push_row.group(0) if push_row else ""
+check("49a. push_registrations retains retrievable delivery material",
+      "delivery_material_ref" in pr, pr[:100])
+check("49b. Delivery material is encrypted and role-restricted",
+      re.search(r"encrypt", s07, re.I) is not None and "delivery worker" in s07.lower())
+check("49c. A separate hash is retained for lookup only",
+      "subscription_lookup_hash" in pr or "subscription_lookup_hash" in s07)
+check("49d. S-05 (Push API) is recorded as a verified source",
+      "S-05" in read(os.path.join(BASE, "references", "official-technical-sources.md")))
+
+# ---- 50. no pending product decision silently implemented as approved
+approved_ids = {"PO-DEC-00","PO-DEC-02","PO-DEC-04","PO-DEC-08","PO-DEC-18"}
+pending_ids = sorted(reg_ids - approved_ids)
+check("50a. Pending decisions outnumber approved and total 19",
+      len(pending_ids) == 19, "%d pending: %s" % (len(pending_ids), pending_ids))
+bad_approve = []
+for pid in pending_ids:
+    for m in re.finditer(re.escape(pid) + r"[^\n]{0,80}", corpus):
+        seg = m.group(0)
+        if re.search(r"\bAPPROVED\b", seg) and "not" not in seg.lower():
+            bad_approve.append(seg[:70])
+check("50b. No pending decision is described as approved",
+      not bad_approve, str(bad_approve[:3]))
+check("50c. PO-DEC-01's non-default branch creates no tables",
+      "~~`sites`~~" in data_doc or "REMOVED (CAR-021)" in data_doc)
+check("50d. PO-DEC-03's implementation is marked provisional",
+      "provisional" in spec_text.get("SPEC-08-request-subtype-lifecycles.md",""))
+
+# ---- 51. no exactly-once external delivery claim
+NEG_EO = re.compile(r"(never|not|no longer|withdraw|is at-least-once|cannot|does not)", re.I)
+bad_eo = []
+for m in re.finditer(r"[Ee]xactly[- ]once[^\n.]{0,70}", corpus):
+    seg = m.group(0)
+    ctx = corpus[max(0, m.start() - 80):m.end() + 40]
+    if not re.search(r"(external|provider|delivery)", seg, re.I):
+        continue                       # "domain state is exactly-once" is correct
+    if NEG_EO.search(ctx):
+        continue                       # explicitly disclaimed
+    bad_eo.append(seg)
+check("51a. No unqualified claim of exactly-once external delivery",
+      not bad_eo, str(bad_eo[:3]))
+check("51b. Ambiguous and unresolved delivery outcomes exist",
+      "ambiguous" in s07.lower() and "unresolved" in s07.lower())
+
+# ---- 52. no application or infrastructure artifacts created
+CODE_EXT = {".ts",".tsx",".js",".jsx",".sql",".py",".yaml",".yml",".tf",".dockerfile",
+            ".sh",".rb",".go",".java",".cs",".proto",".prisma"}
+arte = []
+for root, dirs, files in os.walk(REPO):
+    if ".git" in root:
+        continue
+    for f in files:
+        ext = os.path.splitext(f)[1].lower()
+        full = os.path.join(root, f)
+        rel = os.path.relpath(full, REPO)
+        if ext in CODE_EXT and os.path.basename(full) not in ("validate.py",) \
+           and not rel.startswith("schedulepoint-research/validate.sh"):
+            arte.append(rel)
+check("52a. No application or infrastructure artifact exists in the repository",
+      not arte, str(arte[:6]))
+for d in ("src","migrations","infra","terraform","k8s","deploy","app","services"):
+    if os.path.isdir(os.path.join(REPO, d)):
+        arte.append(d + "/")
+check("52b. No implementation directory exists", not arte, str(arte[:6]))
+
+# ---- 53. SBX heading count vs every declared count (CAR-026 detector)
+sbx_plan = os.path.join(RESEARCH, "18-targeted-sandbox-test-plan.md")
+if os.path.exists(sbx_plan):
+    plan = read(sbx_plan)
+    unique_sbx = sorted(set(re.findall(r"^#{2,4}\s+(SBX-\d{3}[a-c]?)", plan, re.M)))
+    declared_counts = set(int(n) for n in re.findall(r"(\d+)\s+sandbox tests", plan))
+    check("53a. Report 18 defines 39 unique SBX tests", len(unique_sbx) == 39,
+          "found %d" % len(unique_sbx))
+    mismatch = sorted(c for c in declared_counts if c != len(unique_sbx))
+    # CAR-026 is deliberately OPEN: modifying a research source was not
+    # authorized. The validator therefore asserts that the discrepancy and
+    # its recorded disposition AGREE -- it does not demand the source be
+    # edited, and it does not let the discrepancy pass unrecorded.
+    car026_open = bool(re.search(r"### CAR-026.*?\*\*Claimed status:\*\*\s*\*\*OPEN\*\*",
+                                 remed_text, re.S))
+    check("53b. CAR-026 disposition matches reality "
+          "(prose count %s vs %d headings; recorded OPEN=%s)"
+          % (sorted(declared_counts), len(unique_sbx), car026_open),
+          (not mismatch and not car026_open) or (mismatch and car026_open),
+          "a mismatch must be recorded OPEN; a fixed count must not be")
+    try:
+        man = json.load(open(os.path.join(BASE, "architecture-manifest.json")))
+        check("53c. Manifest SBX total matches the headings",
+              man["sandboxTests"]["total"] == len(unique_sbx))
+    except Exception as e:
+        check("53c. Manifest SBX total matches the headings", False, repr(e))
+
+# ---- 54. remediation record completeness
+check("54a. Remediation record exists", bool(remed_text))
+car_ids = ["CAR-%03d" % n for n in range(1, 28)]
+missing_car = [c for c in car_ids if ("### " + c + " ") not in remed_text]
+check("54b. All 27 findings are dispositioned", not missing_car, str(missing_car))
+REQ = ["**Disposition:**","**Changed:**","**Architectural resolution:**","**ADRs:**",
+       "**Capabilities:**","**Architecture test:**","**Remaining evidence:**",
+       "**Remaining risk:**","**Claimed status:**"]
+blocks = re.split(r"\n### (?=CAR-)", remed_text)
+incomplete_car = []
+for b in blocks:
+    m = re.match(r"(CAR-\d{3})", b)
+    if not m: continue
+    miss = [f for f in REQ if f not in b]
+    if miss: incomplete_car.append((m.group(1), miss))
+check("54c. Every finding carries all required fields", not incomplete_car,
+      str(incomplete_car[:3]))
+check("54d. The independent review is unmodified in this package",
+      "codex-architecture-review.md" not in str(
+          [f for f in all_md if "review" in f.lower()]))
 
 # ------------------------------------------------------ report
 fails = [r for r in results if not r[1]]

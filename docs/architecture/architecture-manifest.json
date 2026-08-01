@@ -1,7 +1,7 @@
 {
   "name": "SchedulePoint Architecture Proposal",
-  "version": "0.1.0-proposed",
-  "generated": "2026-07-31",
+  "version": "0.2.0-proposed-remediated",
+  "generated": "2026-08-01",
   "status": "PROPOSED",
   "approved": false,
   "implemented": false,
@@ -11,7 +11,8 @@
     "No production gate is passed.",
     "No ADR is accepted.",
     "No compliance certification or readiness is claimed.",
-    "No independent architecture review has occurred."
+    "The independent Codex review returned REDESIGN REQUIRED; findings are remediated in design and AWAIT INDEPENDENT VERIFICATION.",
+    "This remediation is not self-approved."
   ],
   "cleanRoom": {
     "sourceCodeReproduced": false,
@@ -158,6 +159,38 @@
     {
       "file": "decisions/ADR-0015-deployment-topology.md",
       "status": "PROPOSED"
+    },
+    {
+      "file": "decisions/ADR-0016-request-aggregate-and-subtypes.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "decisions/ADR-0017-cross-module-unit-of-work.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "decisions/ADR-0018-report-snapshot-semantics.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "decisions/ADR-0019-audit-assurance-level.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "decisions/ADR-0020-solver-runtime-packaging.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "decisions/ADR-0021-raw-ingress-enclave.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "decisions/ADR-0022-request-scoped-tenant-context.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "decisions/ADR-0023-picklist-turn-transaction.md",
+      "status": "PROPOSED"
     }
   ],
   "diagrams": [
@@ -209,10 +242,14 @@
     "architectureBlocking": [
       "CAP-001",
       "CAP-002",
+      "CAP-003",
       "CAP-006",
-      "CAP-057",
-      "CAP-055"
-    ]
+      "CAP-032",
+      "CAP-055",
+      "CAP-057"
+    ],
+    "architectureBlockingSource": "schedulepoint-research/reports/19-schedulepoint-production-capability-baseline.md \u00a75",
+    "architectureBlockingNote": "CORRECTED (CAR-020): previously listed five; report 19 lists seven. CAP-003 and CAP-032 were omitted."
   },
   "decisions": {
     "approved": [
@@ -230,6 +267,7 @@
       "PO-DEC-06",
       "PO-DEC-07",
       "PO-DEC-09",
+      "PO-DEC-10",
       "PO-DEC-11",
       "PO-DEC-12",
       "PO-DEC-13",
@@ -243,12 +281,24 @@
       "PO-DEC-22",
       "PO-DEC-23"
     ],
-    "pendingCount": 18,
+    "pendingCount": 19,
     "pendingSilentlyApproved": false,
-    "registerDiscrepancy": {
-      "id": "PO-DEC-10",
-      "description": "Locum billing rule; defined in report 17 but absent from report 24's decision register.",
-      "status": "flagged, not resolved"
+    "poDec10": {
+      "status": "pending",
+      "restored": "2026-08-01",
+      "workingDefault": "external commercial policy consuming a versioned read-only membership/FTE projection",
+      "billingCapabilityInScope": false,
+      "note": "Restored to the canonical register with its original identifier by explicit product-owner decision (CAR-016). The decision itself remains unratified."
+    },
+    "poDec01": {
+      "status": "pending",
+      "branchImplemented": "working default (location as attribute)",
+      "note": "sites table and locations.site_id withdrawn (CAR-021); migration boundary defined in 06 \u00a73.2a."
+    },
+    "poDec03": {
+      "status": "pending",
+      "branchImplemented": "working default (one aggregate + constrained subtypes)",
+      "note": "Design explicitly provisional (CAR-011); SPEC-08 \u00a78 states what changes if decided otherwise."
     }
   },
   "gates": {
@@ -266,34 +316,149 @@
     }
   },
   "knownGaps": [
-    "Incident-response plan not written",
-    "RPO and RTO targets not set",
-    "Cloud provider, region, and data residency undecided",
-    "Ten operational runbooks named but unwritten",
-    "No vendor payload specification for any named connector",
-    "No solver benchmark executed",
-    "Independent Codex architecture review pending"
+    "Incident-response playbooks not written; breach-notification legal determination not made",
+    "RPO and RTO targets not set (OI-1, OI-2)",
+    "Cloud provider, region, and data residency undecided (OI-3..OI-5)",
+    "Fourteen operational runbooks named but unwritten",
+    "No vendor payload specification for any named connector (EV-1)",
+    "No solver benchmark executed; acceptance bands undefined (EV-7)",
+    "No technology decision gate (TDG-01..TDG-15) is closed and no spike is run",
+    "Processor register not created; no data-processing agreement executed",
+    "No accessibility manual evidence collected (EV-8)",
+    "CAR-026 open: research-source modification not authorized",
+    "Independent Codex re-review pending"
   ],
   "risks": {
     "registerFile": "19-risks-and-decisions.md",
-    "total": 26
+    "total": 31,
+    "note": "RISK-27..RISK-31 added for risks the remediation itself introduces."
   },
   "threatModel": {
     "file": "14-security-and-privacy.md",
-    "total": 23
+    "total": 38,
+    "note": "T-24..T-38 added by SPEC-11 (CAR-015)."
   },
   "invariants": {
     "file": "01-architecture-overview.md",
-    "total": 12
+    "total": 22,
+    "note": "I-13 added by renumbering the colliding second use of I-05 (CAR-023). I-14..I-22 added by the remediation."
   },
   "modules": {
     "file": "04-domain-boundaries.md",
-    "total": 25,
-    "layers": 6
+    "total": 19,
+    "layers": 6,
+    "note": "Rationalised from 25 to 19 (CAR-017). M-08 Ingestion Privacy and M-24 Audit are never merged."
   },
   "sandboxTests": {
     "file": "16-testing-and-environments.md",
     "total": 39,
     "executed": 0
+  },
+  "remediation": {
+    "review": "docs/reviews/architecture/codex-architecture-review.md",
+    "reviewVerdict": "REDESIGN REQUIRED",
+    "reviewCheckpoint": "06df9a8c7e62bb22b49a77c5379c0d0b72d4015e",
+    "architectureReviewed": "55bb7d81a170541f4dd62249b668df4ac9a5d6e2",
+    "record": "remediation/codex-review-remediation.md",
+    "findingsTotal": 27,
+    "remediatedAwaitingVerification": 25,
+    "open": [
+      "CAR-026",
+      "CAR-025 (evidence dependencies only)"
+    ],
+    "bySeverity": {
+      "critical": {
+        "total": 4,
+        "remediated": 4
+      },
+      "high": {
+        "total": 11,
+        "remediated": 11
+      },
+      "medium": {
+        "total": 10,
+        "remediated": 9,
+        "open": 1
+      },
+      "low": {
+        "total": 2,
+        "remediated": 1,
+        "open": 1
+      }
+    },
+    "selfApproved": false,
+    "independentReReviewPending": true,
+    "reviewFileModified": false
+  },
+  "specifications": [
+    {
+      "file": "specs/SPEC-01-request-context-and-tenant-isolation.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "specs/SPEC-02-picklist-turn-transaction.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "specs/SPEC-03-raw-ingress-trust-boundary.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "specs/SPEC-04-solver-runtime-and-rule-model.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "specs/SPEC-05-schedule-version-identity-and-publication.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "specs/SPEC-06-authorization-truth-table.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "specs/SPEC-07-notification-delivery-contracts.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "specs/SPEC-08-request-subtype-lifecycles.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "specs/SPEC-09-report-snapshot-and-artifact-authorization.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "specs/SPEC-10-deployment-topology.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "specs/SPEC-11-audit-assurance-and-security-boundaries.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "specs/SPEC-12-cross-module-unit-of-work.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "specs/SPEC-13-marketplace-version-binding.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "specs/SPEC-14-accessibility-acceptance-matrix.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "specs/SPEC-15-technology-decision-gates.md",
+      "status": "PROPOSED"
+    },
+    {
+      "file": "specs/SPEC-16-sbx-evidence-contracts.md",
+      "status": "PROPOSED"
+    }
+  ],
+  "processClasses": {
+    "total": 6,
+    "images": 3,
+    "note": "CAR-005/CAR-004: solver worker is Python in its own image (S-04); raw-ingress enclave is a third image."
   }
 }

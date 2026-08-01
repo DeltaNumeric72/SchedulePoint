@@ -2,6 +2,8 @@
 
 **Status: `PROPOSED`.**
 
+> **REVISED 2026-08-01 (CAR-001, CAR-002, CAR-014, CAR-015, CAR-019).** The threat model is extended by **T-24..T-38** — WebSocket origin hijacking, callback forgery and replay, OIDC issuer mix-up and account linking, MFA reset abuse, SSRF, upload bombs, solver and report resource abuse, **privileged database and platform insiders**, support-tool exfiltration, supply-chain provenance, backup-key compromise, secret sprawl, and enclave compromise — in [SPEC-11](specs/SPEC-11-audit-assurance-and-security-boundaries.md) §5. **Incident response is now specified in structure**, with the legal determinations named as still missing. **§11's compliance position is unchanged: nothing is claimed.**
+
 > **No compliance claim is made.** This document does **not** assert HIPAA, PHIPA, SOC 2, ISO 27001, or any other certification or readiness. §11 identifies the legal and operational work such a claim would require — work that has not been done.
 
 ---
@@ -12,7 +14,7 @@
 
 | ID | Threat | Attacker achieves | Primary control | Defence in depth | Verified by |
 |---|---|---|---|---|---|
-| **T-01** | **Tenant isolation failure** | Reads another organization's schedule, roster, or documents | Server-resolved tenant context; capability policy on every route | **PostgreSQL RLS** with `FORCE`; composite FK consistency | SBX-004 |
+| **T-01** | **Tenant isolation failure** | Reads another organization's schedule, roster, or documents | **Client-declared, server-verified request-scoped context with target-aggregate binding (CHANGED — CAR-001)**; capability policy on every route | **PostgreSQL RLS** with `FORCE`, fed by **transaction-local** settings (CHANGED — CAR-002); composite FK consistency | SBX-004 + [SPEC-01](specs/SPEC-01-request-context-and-tenant-isolation.md) §7 |
 | **T-02** | **Authorization bypass** | Performs an action they lack capability for | Deny-by-default; route-level policy declaration; **build fails on an undeclared route** | RLS; object-level checks | SBX-001, SBX-002 |
 | **T-03** | **Direct-object access (IDOR)** | Reads/mutates a record by guessing an identifier | Opaque UUID keys; **every fetch tenant-scoped** | RLS | SBX-004 |
 | **T-04** | **Cross-tenant cache leakage** | Sees cached data from another tenant | **Mandatory key prefixing via a builder; no raw cache-key API exposed** | Defer distributed caching until measured need | Integration test |
@@ -25,16 +27,18 @@
 | **T-11** | **Document leakage** | Retrieves a file via a stale or guessed URL | Signed short-lived URLs; **no public objects**; purge invalidates | Per-tenant prefixes; scan before availability | SBX-031b |
 | **T-12** | **Notification abuse / phishing** | Sends messages from a trusted domain | **Recipients resolve only from the roster — never free text**; rate-limited | Sender identity unambiguous; every broadcast audited | SBX-030a |
 | **T-13** | **Stored content injection (XSS)** | Executes script in another user's session | **Server-side sanitisation with an allowlist**; output encoding at every render site including exports and emails | Strict CSP blocking inline execution | Security test |
-| **T-14** | **Malicious import** | Injects content or identifiers via a connector | **Positive-allowlist ingestion boundary** ([12](12-integrations-and-ingestion-privacy.md)) | Quarantine; sanitised logs; no payload in queues | SBX-029 |
+| **T-14** | **Malicious import** | Injects content or identifiers via a connector, **including by relabeling an identifier into an allowed field** | **Raw-ingress enclave + constrained value schema with controlled vocabulary (CHANGED — CAR-004; a key allowlist alone does not validate content)** | Quarantine metadata only; no payload in logs, queues, dumps, or DLQ | SBX-029 (redefined — 16-surface canary sweep) |
 | **T-15** | **Queue poisoning** | Causes a worker to execute attacker-controlled data | Jobs carry **references, not payloads**; payloads validated before enqueue | Worker refuses a job with no tenant context | Integration test |
 | **T-16** | **Connector compromise** | Uses a compromised connector to exfiltrate or inject | Connector **cannot bypass** the boundary; routing from the connection record, **never payload content** | Credentials in a secret store via `auth_ref`; certification | SBX-028, SBX-029 |
 | **T-17** | **Concurrent claim exploitation** | Double-books an opportunity or work item | **Atomic conditional claim; database uniqueness constraint decides** | Re-validation at claim time | SBX-014b, SBX-022 |
-| **T-18** | **Picklist race** | Two people receive the same room | **Partial unique index on `selections`** | Server-authoritative turn state | SBX-022 (≥50 trials) |
-| **T-19** | **Audit tampering** | Alters or deletes history to hide an action | **Append-only; no update/delete operation exists; grants withhold them** | Correlation ids; restore rehearsal verifies integrity | SBX-035 |
+| **T-18** | **Picklist race** | Two people receive the same room, **or one turn consumes two rooms** | **Three partial unique indexes: D-3a (one result per turn — WAS MISSING), D-3b (one claimant per item), D-3c (one open turn)** | One authoritative transaction; server-authoritative turn state; coordinator fencing | SBX-022 (≥50 trials) + [SPEC-02](specs/SPEC-02-picklist-turn-transaction.md) P-01..P-15 |
+| **T-19** | **Audit tampering** | Alters or deletes history to hide an action | **Append-only; no update/delete operation exists; grants withhold them.** *Necessary, not sufficient — CAR-014* | **Hash chain + signed checkpoints (A1) and external write-once replication (A2)**; correlation ids; chain verification after every restore and migration | SBX-035 + [SPEC-11](specs/SPEC-11-audit-assurance-and-security-boundaries.md) X-01..X-04 |
 | **T-20** | **Sensitive logging** | Reads PII or clinical content from logs | **Ingestion payloads never logged**; error scrubbing on by default | Structured logging with an allowlist of fields | Log-review test |
 | **T-21** | **Backup exposure** | Reads a backup containing sensitive data | Encrypted at rest; access-controlled; **restricted restore path** | **The ingestion boundary means patient data was never there to back up** | SBX-035 |
 | **T-22** | **Account takeover** | Gains control of an account | Strong hashing; MFA; lockout and rate limiting; **single-use expiring invitation tokens** | Notification to the owner on credential change | SBX-005 |
 | **T-23** | **Third-party identifier leakage** | Correlates a user to the product via an external service | **SP-HR-1: no email, email-derived hash, or equivalent identifier reaches any third party.** Local initials or org-managed avatars | **CI guard failing the build on any new third-party host** | QA-SEC-001..003 |
+
+**T-24 through T-38 extend this table** in [SPEC-11](specs/SPEC-11-audit-assurance-and-security-boundaries.md) §5, covering protocol, identity, supply-chain, privileged-actor, and abuse boundaries the original model omitted (CAR-015).
 
 **T-23 is deliberately included as a first-class threat.** It is the one privacy failure the research *observed directly* — a hashed email sent to a third-party avatar service on every page load, for every user, with no consent. SchedulePoint's control is a build-breaking CI guard rather than a code-review convention.
 
@@ -132,9 +136,11 @@ Rate limits on messaging, report generation, imports, and authentication. Volume
 
 ## 10. Incident response considerations
 
-Identified, **not yet designed**: severity classification · on-call rotation · **breach-notification obligations, which are jurisdiction-specific and require legal input** · forensic preservation (audit immutability supports this) · customer communication · post-incident review.
+**REVISED (CAR-015).** The *structure* is now specified in [SPEC-11](specs/SPEC-11-audit-assurance-and-security-boundaries.md) §8: severity classification, **evidence preservation** (snapshot the audit chain and checkpoints, extend log retention, apply legal hold, capture image digests), containment playbook set, and post-incident review. **The chained audit trail is what makes forensic reconstruction possible at all.**
 
-**This is a gap, and naming it as one is the honest position.** A production release requires an incident-response plan; producing one requires legal and operational input this architecture task did not have.
+**What remains genuinely missing, and is not designed around:** the written playbooks · the credential and key rotation procedures · **the breach-notification determination, which is jurisdiction-specific and requires legal input we do not have** · the on-call rotation and customer-communication model (owner input) · **a tabletop exercise, required before `G-PROD` and not run.**
+
+**This is still a gap. Specifying its shape is not the same as having one.**
 
 ---
 

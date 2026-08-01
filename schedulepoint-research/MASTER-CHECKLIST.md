@@ -85,6 +85,14 @@ High-level tracker for the overall research effort. Check items off as they're c
 - [x] **Independent Codex architecture review completed** — verdict: **`REDESIGN REQUIRED`**; report: [docs/reviews/architecture/codex-architecture-review.md](../docs/reviews/architecture/codex-architecture-review.md). **No production-completeness gate, connector-certification gate, or architecture gate was marked passed; no sandbox test was executed; no benchmark was run; and the architecture is not approved.**
 - [ ] **Architecture remediation pending** — resolve the review findings and obtain a new independent verdict before architecture approval.
 
+## Phase 14 — architecture remediation (2026-08-01)
+
+- [x] **Phase 14 architecture remediation completed** — the independent Codex architecture review of checkpoint `55bb7d8` returned **`REDESIGN REQUIRED`** with 27 findings (4 Critical, 11 High, 10 Medium, 2 Low). All 27 are dispositioned: **25 remediated — awaiting independent verification**, **2 open with named blocking conditions, owners, and latest acceptable resolution points**. The redesign adds 16 normative specifications under `docs/architecture/specs/`, 8 new ADRs (23 total), and revisions to all 19 numbered architecture documents. Product-owner decisions were recorded for `PO-DEC-10`, `PO-DEC-01`, and `PO-DEC-03` — **all three remain `pending`**, and `PO-DEC-10` was restored to the canonical register with its original identifier. Pending product decisions: 18 → 19.
+- [x] **Remediation report path** — [docs/architecture/remediation/codex-review-remediation.md](../docs/architecture/remediation/codex-review-remediation.md).
+- [ ] **Independent re-review pending** — the remediation is **not self-approved**. A separate independent reviewer must decide whether `REDESIGN REQUIRED` can be upgraded. The authoritative review at [docs/reviews/architecture/codex-architecture-review.md](../docs/reviews/architecture/codex-architecture-review.md) was **not modified**.
+- [ ] **Architecture still not approved** — all 23 ADRs remain `PROPOSED`; **no `G-ARCH`, `G-BETA`, `G-PROD`, or `G-CONN` gate is passed**; no sandbox test has been executed; no solver benchmark has been run; no technology decision gate is closed; no compliance claim is made.
+- [ ] **Implementation still not begun** — no application code, database migration, executable service, UI component, deployment resource, or infrastructure exists, and the draft `CLAUDE.md`/`AGENTS.md` remain under `docs/architecture/drafts/` rather than installed at the repository root.
+
 ## Wrap-up
 
 - [x] All entries in [unresolved-questions.md](reports/unresolved-questions.md) resolved or explicitly deferred — Phase 12 dispositioned every remaining open question, mapping 19 of them to named SchedulePoint tests and explicitly declining to carry 2 forward. Remaining questions are permanently open against ischedule.md; broad source-site research is closed.

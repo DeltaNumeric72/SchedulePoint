@@ -2,6 +2,8 @@
 
 **Status:** `PROPOSED` — 2026-07-31. Not accepted.
 
+> **REVISED 2026-08-01 (CAR-009, CAR-010, CAR-019).** Three corrections. **(1) Hash-only push storage is withdrawn** — Web Push requires the endpoint, `p256dh`, and `auth` to be retained to address and encrypt (**verified fact S-05**), so delivery material is **encrypted and retrievable by the delivery worker**, with a separate hash for lookup. **(2) "Exactly-once apparent" delivery is withdrawn**; `ambiguous` and `unresolved` are first-class outcomes, and retry after an ambiguous result requires declared provider idempotency. **(3) The blanket "PII is never sent to third parties" rule is replaced** by an approved-processor boundary, with CAP-068 preserved as a strict *client-side* host prohibition. See [SPEC-07](../specs/SPEC-07-notification-delivery-contracts.md).
+
 ## Context
 
 Notification is load-bearing for this product: a picklist turn depends on reaching someone who may not be at a screen, and a schedule change must reach the people it affects. The research also observed accounts with **no phone number** — a voice channel with nothing to dial, and no signal that anything was wrong.

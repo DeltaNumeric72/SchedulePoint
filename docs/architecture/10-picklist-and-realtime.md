@@ -2,6 +2,8 @@
 
 **Status: `PROPOSED`.** Implements **PO-DEC-18 (APPROVED)** and CAP-030..CAP-034, CAP-060.
 
+> **REVISED 2026-08-01 (CAR-003, CAR-004).** **The decisive invariant was wrong.** The partial unique index on `(picklist_id, work_item_id)` prevents two claimants per item but **not one turn accepting two items** — the physician-and-proxy failure. §§4–8 are superseded by [SPEC-02](specs/SPEC-02-picklist-turn-transaction.md), which defines one authoritative transaction, three separate uniqueness invariants, command idempotency, monotonic event sequencing, coordinator leases with fencing, and correction/reopening. Work-item free text is removed by [SPEC-03](specs/SPEC-03-raw-ingress-trust-boundary.md) §5.
+
 > **This is the highest-concurrency, least-evidenced area of the product.** The picklist is the source product's signature feature, and its execution was **never observed** across thirteen research phases. Every lifecycle here is a SchedulePoint design; none is an observation. The sandbox tests in §11 are not optional polish — they are how this design becomes trustworthy.
 
 **No patient-identifying information appears anywhere in this domain.** Work items carry titles, counts, and sanitised descriptions only.
@@ -40,7 +42,7 @@ stateDiagram-v2
 
 **Participants are derived from the published schedule**, not authored here — pick order comes from the schedule's pick positions.
 
-**The design-system safety contract applies absolutely (I-05 / CAP-050):** **no control labelled Add, New, or Create may persist anything before a completed form, validation, and an explicit Save.** This is enforced at the component level, not by convention, and is tested for every such control.
+**The design-system safety contract applies absolutely (I-13 / CAP-050 — renumbered from the colliding `I-05`, CAR-023):** **no control labelled Add, New, or Create may persist anything before a completed form, validation, and an explicit Save.** This is enforced at the component level, not by convention, and is tested for every such control.
 
 ---
 
@@ -127,11 +129,15 @@ Every command carries an **idempotency key** and the client's known `version`. E
 
 **The requirement:** two participants (or a participant and their proxy) selecting the same work item at the same instant must resolve to **exactly one accepted outcome**.
 
-**The mechanism is a database uniqueness constraint, not application logic:**
+**The mechanism is three database uniqueness constraints, not one, and not application logic:**
 
 ```
-Partial unique index on selections (picklist_id, work_item_id) WHERE accepted
+UNIQUE (turn_id)                     WHERE accepted   -- D-3a: one result per TURN   [WAS MISSING]
+UNIQUE (picklist_id, work_item_id)   WHERE accepted   -- D-3b: one claimant per ITEM
+UNIQUE (picklist_id)                 WHERE state='open' -- D-3c: one open turn
 ```
+
+> **CAR-003.** Only the middle constraint existed, and it was described as "at most one work item claimed per picklist," which it never enforced. **D-3a is what stops a physician and their proxy accepting two different rooms in the same turn.**
 
 The selection path, in one transaction:
 

@@ -2,6 +2,8 @@
 
 **Status: `PROPOSED`.** Nothing here is installed, configured, or committed to. Every row is a recommendation with a stated confidence and a replacement boundary.
 
+> **REVISED 2026-08-01 (CAR-005, CAR-024).** **The "one runtime across all four process classes" claim is withdrawn** — OR-Tools has no official Node.js binding (**verified fact S-04**), so the solver worker is Python in its own image, and the raw-ingress enclave is a third image. **Every `VERIFY` row is now a numbered gate** in [SPEC-15](specs/SPEC-15-technology-decision-gates.md) with a required spike; **no gated row may be described as decided.**
+
 **Evidence discipline.** Only four claims in this document are **documented facts** verified against official primary sources ([references](references/official-technical-sources.md)): CP-SAT's solver class and status values, CP-SAT's optimization support, OR-Tools' Apache-2.0 licence, and PostgreSQL's row-level-security semantics. **Everything else is an architectural recommendation** whose maturity and licensing claims require verification before adoption. Rows requiring verification are marked **`VERIFY`**.
 
 ---
@@ -10,18 +12,20 @@
 
 | Area | Recommendation | Confidence |
 |---|---|---|
-| Runtime | Node.js (LTS) + TypeScript | High |
-| Web framework | A mature TypeScript server framework with first-class middleware and streaming | Med `VERIFY` |
+| Runtime (web, workers, coordinator, migrations) | Node.js (LTS) + TypeScript | High |
+| **Runtime (solver worker)** | **Python — OR-Tools has no official Node.js binding (S-04)** | **High (fact-driven)** |
+| **Runtime (raw-ingress enclave)** | **Minimal Node.js, separate image, reduced dependency set** | High |
+| Web framework | A mature TypeScript server framework with first-class middleware and streaming | **`GATED (TDG-01)`** |
 | UI | Server-rendered pages + progressive enhancement; a component-based client framework for interactive surfaces | Med |
 | API style | HTTP/JSON, resource-oriented, versioned; typed contracts shared with the client | High |
 | Database | **PostgreSQL** | **High** |
-| Data access | A typed query builder or ORM with explicit SQL escape hatch | Med `VERIFY` |
+| Data access | A typed query builder or ORM with explicit SQL escape hatch | **`GATED (TDG-02)` — must reliably issue `SET LOCAL` inside a caller-controlled transaction (S-03b)** |
 | Migrations | Versioned, forward-only, reviewed SQL | High |
 | AuthN | First-party email + password with MFA; OIDC-based SSO | High |
 | AuthZ | Capability-based policy layer + PostgreSQL RLS | **High** |
-| Jobs | Durable queue backed by PostgreSQL initially; broker when volume justifies | Med |
+| Jobs | Durable queue backed by PostgreSQL initially; broker when volume justifies | **`GATED (TDG-04)` — durable leases required** |
 | Real-time | WebSocket with server-authoritative state | **High** |
-| **Solver** | **OR-Tools CP-SAT**, behind a solver-neutral port | **High** |
+| **Solver** | **OR-Tools CP-SAT** in a **Python** worker, behind a solver-neutral port | **High** |
 | Object storage | S3-compatible | High |
 | Observability | OpenTelemetry-based traces/metrics/logs | High |
 | Testing | Unit + domain + Playwright + axe-core | High |
@@ -34,11 +38,11 @@ Full per-choice detail follows. Every entry carries: responsibility · alternati
 ## 2. Platform and application
 
 ### 2.1 Application runtime — Node.js LTS + TypeScript
-**Responsibility:** all four process classes.
+**Responsibility:** the web/API, background-worker, real-time-coordinator, and migration process classes. **Not the solver worker (Python, S-04) and not the ingress enclave (separate minimal image).**
 **Alternatives:** .NET, Go, Python, JVM.
 **Reason:** one language across server, workers, and browser reduces context-switching for a small team, and a strong structural type system directly supports the domain invariants this product depends on. Python would ease solver integration but is weaker for the real-time and web tiers; Go is excellent for workers but adds a second language.
 **Maturity/licensing:** `VERIFY` — confirm the LTS support window before committing.
-**Operational complexity:** low. **Security:** dependency surface is the main risk — see [14](14-security-and-privacy.md) §9. **Scaling:** horizontal; CPU-bound solver work is deliberately *not* run here (§4.1).
+**Operational complexity:** low. **Security:** dependency surface is the main risk — see [14](14-security-and-privacy.md) §9. **Scaling:** horizontal; CPU-bound solver work is deliberately *not* run here (§4.1) — **and, since S-04, cannot be**.
 **Replacement boundary:** the domain layer must contain no framework or runtime imports, so domain logic is portable.
 **Confidence:** High. **ADR:** [ADR-0002](decisions/ADR-0002-primary-technology-stack.md).
 

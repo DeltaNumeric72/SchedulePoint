@@ -2,6 +2,8 @@
 
 **Status:** `PROPOSED` — 2026-07-31. Not accepted. **Implements the product-owner-approved decision PO-DEC-18.**
 
+> **REVISED 2026-08-01 (CAR-003).** **The winner constraint was insufficient.** The partial unique index on `(picklist_id, work_item_id)` prevents two claimants per item but **not one turn accepting two items**. The authoritative selection transaction, the three separate uniqueness invariants (**D-3a/D-3b/D-3c**), command idempotency, monotonic event sequencing, coordinator leases with fencing tokens, and correction/reopening are specified in [ADR-0023](ADR-0023-picklist-turn-transaction.md) and [SPEC-02](../specs/SPEC-02-picklist-turn-transaction.md).
+
 ## Context
 
 Contradiction **C-04** recorded that the source product loads a real-time library, but **its actual use was never observed** — picklist execution was not witnessed in thirteen research phases. Separately, the source opened a connection on **every page load**, including pages with no live feature.
@@ -23,7 +25,7 @@ The picklist is the product's highest-concurrency surface. Two participants may 
 | **Administrative lists** | Ordinary request/refresh. Not everything needs to be live |
 | **Tenant context** | Resolved at connect from the session, **never from a subscribe message** |
 
-**The concurrency winner is decided by a database uniqueness constraint** — a partial unique index on `selections (picklist_id, work_item_id) WHERE accepted` — not by application logic. **Persist, then broadcast**, always in that order.
+**The concurrency winner is decided by database uniqueness constraints — three of them, not one:** `UNIQUE (turn_id) WHERE accepted` (one result per turn), `UNIQUE (picklist_id, work_item_id) WHERE accepted` (one claimant per item), and `UNIQUE (picklist_id) WHERE state='open'` (one open turn). See [ADR-0023](ADR-0023-picklist-turn-transaction.md). **Persist, then broadcast**, always in that order.
 
 ## Alternatives considered
 

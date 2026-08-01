@@ -2,6 +2,8 @@
 
 **Status: `PROPOSED`.**
 
+> **REVISED 2026-08-01 (CAR-017).** **Strict "a module never touches another module's tables" is replaced by three write classes** — own-aggregate writes, **in-transaction domain ports**, and post-commit outbox reactions — with one named owner per workflow. **The module count is rationalised from 25 to 19** where two modules shared every invariant and every transaction. See [SPEC-12](specs/SPEC-12-cross-module-unit-of-work.md) and [ADR-0017](decisions/ADR-0017-cross-module-unit-of-work.md). **M-08 Ingestion Privacy and M-24 Audit remain separate and are never merged.**
+
 25 modules. Each owns its entities, publishes explicit operations, emits and consumes events, and declares what it may **never** depend on.
 
 ---

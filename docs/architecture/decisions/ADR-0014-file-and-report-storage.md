@@ -2,6 +2,8 @@
 
 **Status:** `PROPOSED` — 2026-07-31. Not accepted.
 
+> **REVISED 2026-08-01 (CAR-012, CAR-019).** Reports now bind an **immutable input snapshot** declared per report class, are **re-authorized at execution and at every download**, and support membership-scoped shares with immediate revocation ([ADR-0018](ADR-0018-report-snapshot-semantics.md), [SPEC-09](../specs/SPEC-09-report-snapshot-and-artifact-authorization.md)). Object-store product selection is gated (TDG-09), and **object-lock support is now a hard requirement** because [SPEC-11](../specs/SPEC-11-audit-assurance-and-security-boundaries.md) §3.1 depends on it.
+
 ## Context
 
 Three surfaces put schedule data outside the authenticated application: generated reports, uploaded documents, and calendar feed subscriptions. Each is a way for data to leave, and each needs its own answer to "who can get this, and for how long?"

@@ -2,6 +2,8 @@
 
 **Status: `PROPOSED`.** Translates the 39 sandbox tests and seven environments from [18](../../schedulepoint-research/reports/18-targeted-sandbox-test-plan.md) and [23](../../schedulepoint-research/reports/23-pre-architecture-evidence-plan.md) into the architecture.
 
+> **REVISED 2026-08-01 (CAR-022, CAR-025).** Every SBX test now carries a **nine-field evidence contract** — owner, fixture provenance, deterministic setup, external dependency, fault controls, **objective oracle**, retained artifact, environment, and **earliest execution point** ([SPEC-16](specs/SPEC-16-sbx-evidence-contracts.md)). Subjective criteria are replaced by oracles; **tenant-isolation, publication, and picklist harnesses move to the schema/prototype stage**; and eight blocking evidence dependencies are named rather than mocked. Accessibility gains a component acceptance matrix ([SPEC-14](specs/SPEC-14-accessibility-acceptance-matrix.md)).
+
 > **No test in this document has been executed.** Defining a test is not evidence.
 
 ---

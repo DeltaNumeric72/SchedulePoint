@@ -2,6 +2,8 @@
 
 **Status:** `PROPOSED` — 2026-07-31. Not accepted. **Implements the product-owner-approved decision PO-DEC-04 (technical architecture only; commercial packaging remains pending).**
 
+> **REVISED 2026-08-01 (CAR-008, CAR-016).** Entitlement evaluation is now normative — ordering, dependency failure, effective windows, and **disabled-module data behaviour** are specified in [SPEC-06](../specs/SPEC-06-authorization-truth-table.md) §§2 and 2.2 rather than left to interpretation. **PO-DEC-10 (locum billing) is restored to the canonical register as `pending`;** this ADR no longer assumes its recommendation, and no billing capability exists in scope.
+
 ## Context
 
 Contradiction **C-12** recorded that the source's commercial material describes editions and included features, while its application shows no corresponding structure — module availability appears to be arranged out of band. SchedulePoint sells modules; something must decide whether an organization has one.

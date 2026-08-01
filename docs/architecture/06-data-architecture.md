@@ -2,6 +2,10 @@
 
 **Status: `PROPOSED`.** Logical schema only. **No migration was created and none should be inferred from this document.**
 
+> **REVISED 2026-08-01 — Codex review remediation.** This document was the single most-cited artifact in the independent review. Six findings changed its content materially:
+> **CAR-003** (§3.5, D-3) · **CAR-004** (§3.5 work items, §3.7 quarantine) · **CAR-006** (§3.1–3.3, D-4) · **CAR-007** (§3.3, D-1) · **CAR-009** (§3.1 push) · **CAR-011** (§3.4 requests) · **CAR-020** (missing structures) · **CAR-021** (site model) · **CAR-027** (account email).
+> Where a table or invariant changed, the change is marked **CHANGED**, **NEW**, or **REMOVED**, and the governing specification is named. **Nothing was renamed to make a mismatch disappear.**
+
 ---
 
 ## 1. Conventions
@@ -26,7 +30,7 @@ Applied to every table unless explicitly noted.
 |---|---|
 | `NONE` | Configuration; no restriction beyond tenancy |
 | `INTERNAL` | Tenant-isolated business data |
-| `PII` | Field-level minimisation by role; never sent to third parties |
+| `PII` | Field-level minimisation by role. **May be processed only by an approved subprocessor under a declared payload schema** ([SPEC-07](specs/SPEC-07-notification-delivery-contracts.md) §7). **CHANGED (CAR-019)** — the previous blanket "never sent to third parties" was unimplementable and made an approved processor indistinguishable from exfiltration |
 | `SENSITIVE-PII` | Absence and credential data; narrower access; retention-controlled |
 | `SECRET` | Hash-stored only; never returned by an API; never logged |
 | **`EXCLUDED`** | **Patient-level content. No table in this schema carries it** |
@@ -204,8 +208,8 @@ erDiagram
 |---|---|---|---|---|:--:|---|---|---|---|
 | `organizations` | self | `name`, `status`, `data_region?` | `slug` | active/suspended/closed | ✓ | `INTERNAL` | Indefinite; closure archives | `slug` | — |
 | `groups` | org | `organization_id`, `name`, `timezone`, settings | `(organization_id, slug)` | active/archived | ✓ | `INTERNAL` | Indefinite | `(organization_id)` | **`timezone` NOT NULL** |
-| `sites` | org | `organization_id`, `name`, `address?`, `timezone?` | `(organization_id, slug)` | active/archived | ✓ | `INTERNAL` | Indefinite | `(organization_id)` | — |
-| `users` | org | `email`, `account_type`, `status`, `password_hash` | **`(organization_id, lower(email))`** | invited→active→suspended→deactivated→archived | ✓ | `PII`/`SECRET` | **Never hard-deleted where history exists** | `(organization_id, lower(email))` | `account_type ∈ {person,functional,placeholder}` |
+| ~~`sites`~~ **REMOVED (CAR-021)** | — | — | — | — | — | — | — | — | **PO-DEC-01 is `pending` with a working default of "defer a first-class Site; model location as an attribute." A first-class table with foreign keys is not neutral toward that decision. The table and `locations.site_id` are withdrawn until the product owner decides.** Migration boundary: [SPEC-05a](#3-2a-site-migration-boundary-po-dec-01) |
+| `users` **CHANGED** | org | `login_email`, `account_type`, `status`, `password_hash` | **`(organization_id, lower(login_email))`** | invited→active→suspended→deactivated→archived | ✓ | `PII`/`SECRET` | **Never hard-deleted where history exists** | `(organization_id, lower(login_email))` | `account_type ∈ {person,functional,placeholder}`. **`login_email` is NOT self-editable, but IS changeable by an administrator with `identity.change_login_email` or by a linked identity provider — audited, with all sessions invalidated and pending invitations reconciled. CHANGED (CAR-027): absolute immutability blocked hospital domain changes, mistyped-invitation correction, and SSO linking, forcing a second account and losing membership and audit continuity** |
 | `user_profiles` | org | names, locale, preferences | `user_id` | — | ✓ | `PII` | Purge on archive | `user_id` | — |
 | `contact_details` | org | `kind`, `value`, `verified`, `visibility` | `(user_id, kind, value)` | active/superseded | ✓ | `SENSITIVE-PII` | Purge on archive | `user_id` | `kind ∈ {email,mobile,home,pager}` |
 | `sessions` | org | `user_id`, `expires_at`, `absolute_expires_at` | token hash | active/revoked | — | `SECRET` | Purge on expiry | `user_id`, `expires_at` | **Token stored hashed only** |
@@ -219,13 +223,18 @@ erDiagram
 | `module_definitions` | system | `key`, `name` | `key` | — | — | `NONE` | — | — | — |
 | `module_dependencies` | system | `module_key`, `depends_on` | `(module_key, depends_on)` | — | — | `NONE` | — | — | **No self-dependency** |
 | `group_module_availability` | org+group | `group_id`, `module_key`, `available` | `(group_id, module_key)` | — | ✓ | `INTERNAL` | Retained | `group_id` | — |
-| `push_registrations` | org | `membership_id`, `platform`, `token_hash`, `consent_granted_at` | `token_hash` | consent-pending/active/stale/invalid/revoked | ✓ | `PII`/`SECRET` | Purge on archive | `membership_id` | **Token hashed; consent required** |
+| `organization_settings` **NEW (CAR-020)** | org | `organization_id`, setting key/value pairs, `data_region?` | `(organization_id, key)` | — | ✓ | `INTERNAL` | Indefinite | `organization_id` | Referenced by CAP-001 in the traceability document; **previously referenced but never defined** |
+| `user_identities` **NEW (CAR-020)** | org | `user_id`, `provider`, `issuer`, `subject`, `linked_at`, `link_method` | **`(provider, issuer, subject)`** | active/unlinked | ✓ | `PII` | Retained | `user_id` | **Linking requires proof of control of the existing account; an unverified IdP email never auto-links (T-27)** |
+| `membership_work_profiles` **NEW (CAR-006, CAR-020)** | org+group | `membership_id`, `effective_from`, `effective_to?`, `work_percentage`, `max_assignments_per_week?`, `max_assignments_per_period?`, `max_consecutive_days?` | `(membership_id, effective_from)` | — | ✓ | `INTERNAL` | Retained | `membership_id` | **Non-overlapping validity via exclusion constraint; `0 < work_percentage <= 100`. Effective-dated so a historical build reproduces against the profile then in force** |
+| `membership_weekday_fte` **NEW (CAR-006, CAR-020)** | org+group | `work_profile_id`, `weekday (0–6)`, `fte_fraction`, `max_assignments?` | `(work_profile_id, weekday)` | — | ✓ | `INTERNAL` | Retained | `work_profile_id` | `0 <= fte_fraction <= 1`. **The canonical home weekday FTE previously lacked** |
+| `proxy_grants` **RENAMED (CAR-020)** | org+group | *(was `proxies` in §3.5)* | — | — | — | — | — | — | **The traceability document referenced `proxy_grants`; the schema said `proxies`. `proxy_grants` is now the single name** |
+| `push_registrations` **CHANGED** | org | `membership_id`, `platform`, **`subscription_lookup_hash`**, **`delivery_material_ref`**, **`key_version`**, `endpoint_origin`, `consent_granted_at`, `consent_source`, `state`, `last_success_at`, `consecutive_failures` | `subscription_lookup_hash` | consent-pending/active/stale/invalid/revoked | ✓ | `PII`/`SECRET` | Purge on archive, revocation, or provider 404/410 | `membership_id` | **CHANGED (CAR-009). Hash-only storage could never deliver: Web Push requires the endpoint, `p256dh`, and `auth` to be retained (verified fact S-05). `delivery_material_ref` holds them envelope-encrypted and is readable ONLY by the delivery-worker role; the hash remains for lookup and deduplication only.** See [SPEC-07](specs/SPEC-07-notification-delivery-contracts.md) §3 |
 
 ### 3.2 Configuration and qualifications
 
 | Table | Tenant | Key fields | Uniqueness | State | Ver | Sensitivity | Notes |
 |---|---|---|---|---|:--:|---|---|
-| `locations` | group | `name`, `site_id?` | `(group_id, name)` | active/archived | ✓ | `NONE` | — |
+| `locations` **CHANGED (CAR-021)** | group | `name`, **`site_label?`** *(free-form attribute, not a foreign key)*, `address?`, `timezone?` | `(group_id, name)` | active/archived | ✓ | `NONE` | **`site_label` is a denormalised attribute implementing the PO-DEC-01 pending default.** See §3.2a |
 | `shift_types` | group | `code`, `name`, `start_time`, `end_time`, `crosses_midnight`, `is_on_call`, `is_manual_only`, `is_daily_pick`, `attracts_stipend`, `credit_weight` | `(group_id, code)` | active/retired | ✓ | `NONE` | **Never hard-deleted while assignments reference it** |
 | `shift_groups` | group | `name`, `scoring_mode`, `weight`, `allow_request`, `request_off_label` | `(group_id, name)` | active/archived | ✓ | `NONE` | `scoring_mode ∈ {hard,weighted}` |
 | `staff_groups` | group | `name` | `(group_id, name)` | active/archived | ✓ | `INTERNAL` | — |
@@ -237,6 +246,22 @@ erDiagram
 | `staff_rules` | group | `name`, `conditions`, `action`, `action_params`, `days_of_week` | `(group_id, name)` | active/disabled/archived | ✓ | **`INTERNAL`** | **Names individuals — narrower access** |
 | `assignment_templates` | group | `name`, `cycle_length_weeks`, `entries` | `(group_id, name)` | active/disabled/archived | ✓ | `NONE` | — |
 | `rule_sets` | group | `name`, rule id arrays | `(group_id, name)` | active/archived | ✓ | `NONE` | Referenced by builds |
+| `rules` **NEW (CAR-006)** | group | `rule_key`, `name`, **`rule_schema_version`**, **`classification ∈ {HARD, SOFT}`**, `weight?`, `scope`, **`predicate` (typed AST)** | `(group_id, rule_key)` | active/disabled/archived | ✓ | `INTERNAL` | **`CHECK ((classification='HARD' AND weight IS NULL) OR (classification='SOFT' AND weight IS NOT NULL))` — the database half of the hard/soft invariant. The AST node set is closed; a rule the AST cannot express is a schema change with a migration, never an escape hatch** |
+| `work_item_labels` **NEW (CAR-004)** | group | `key`, `display_text`, `state`, `approved_by`, `approved_at` | `(group_id, key)` | draft/active/retired | ✓ | `INTERNAL` | **The controlled vocabulary that replaces free text on protected work-item paths. Human-approved before activation; connectors reference but cannot mint** |
+| `group_holidays` **NEW (CAR-011)** | group | `date`, `name`, `observed` | `(group_id, date)` | — | ✓ | `NONE` | **Deadline rolling needs an explicit calendar: "the deadline is Friday" is ambiguous when Friday is a holiday** |
+
+#### 3.2a Site migration boundary (PO-DEC-01)
+
+**PO-DEC-01 remains `pending`. The schema implements its working default and defines — but does not build — the path to the alternative.**
+
+| Direction | Migration |
+|---|---|
+| **Attribute → first-class Site** *(if the owner approves the entity)* | Create `sites (organization_id, name, address, timezone)`; populate by distinct `locations.site_label` per organization; add `locations.site_id` FK; backfill; **retain `site_label` for one release** as the rollback path; then drop it |
+| **First-class Site → attribute** *(rollback)* | Denormalise `sites.name` into `locations.site_label`; drop the FK; drop `sites` |
+
+**Both directions are modelled with fixtures before either is built.** Until PO-DEC-01 is decided, **no site administration surface, no site-scoped API, and no site-specific workflow is designed** — building one would select the branch by stealth.
+
+**The traceability document previously cited `group_sites` and `shift_type_sites`, which never existed in any version of this schema.** Those references are removed rather than materialised (CAR-020).
 
 ### 3.3 Schedule lifecycle
 
@@ -245,17 +270,19 @@ erDiagram
 | `schedule_periods` | group | `name`, `start_date`, `end_date`, `status` | `(group_id, name)` | planning/published/closed | ✓ | `NONE` | **Exclusion constraint: no overlapping periods per group** |
 | `schedule_requirements` | group | `period_id`, `date`, `shift_type_id`, `required_count` | `(period_id, date, shift_type_id)` | — | ✓ | `NONE` | `required_count >= 0` |
 | `build_configurations` | group | `period_id`, `rule_set_id`, scope arrays, solver options | `(period_id, name)` | — | ✓ | `INTERNAL` | — |
-| `build_runs` | group | `configuration_id`, `state`, `parent_build_ids`, `protected_assignment_ids`, `solver_version`, `random_seed`, timestamps | — | draft→validating→readiness→queued→running→completed/…/archived | ✓ | `INTERNAL` | **Partial unique index: at most one non-terminal run per period** |
+| `build_runs` **CHANGED (CAR-006)** | group | `configuration_id`, `state`, `candidate_label`, `parent_build_ids`, **`protected_assignment_identities`**, `retry_of_build_run_id?`, `applied_to_version_id?`, `solver_version`, **`solver_image_digest`**, **`solver_parameters`**, **`deterministic_worker_count`**, **`compiler_version`**, **`platform_arch`**, `random_seed`, `termination_reason?`, timestamps | **`(period_id, configuration_id) WHERE state non-terminal` (D-4a)**; **`(applied_to_version_id) WHERE NOT NULL` (D-4d)** | draft→validating→readiness→queued→running→completed/…/archived | ✓ | `INTERNAL` | **CHANGED: the old D-4 allowed only one non-terminal build per *period*, which made the candidate comparison CAP-017 and CAP-059 require impossible. Now scoped per configuration.** The added provenance columns are what reproducibility actually requires ([SPEC-04](specs/SPEC-04-solver-runtime-and-rule-model.md) §4) |
 | `solver_inputs` | group | `build_run_id`, canonical problem snapshot, `input_hash` | `build_run_id` | — | — | `INTERNAL` | **`input_hash` enables reproducibility checks** |
 | `solver_results` | group | `build_run_id`, `outcome`, counts, objective scores, `solver_log_ref?` | `build_run_id` | — | — | `INTERNAL` | `outcome ∈ {optimal,feasible,infeasible,failed}` |
 | `rule_violations` | group | `solver_result_id`, `severity`, rule ref, affected refs, `explanation`, `remediation?` | — | — | — | `INTERNAL` | Severity taxonomy per PO-DEC-13 (pending) |
 | `quality_metrics` | group | `solver_result_id`, `metric_key`, `value`, `threshold`, `within_band` | `(solver_result_id, metric_key)` | — | — | `INTERNAL` | — |
-| `schedule_versions` | group | `period_id`, `version_number`, `source_build_id?`, `published_at`, `published_by`, `superseded_at?`, `is_locked`, `circulation_state`, `change_summary` | `(period_id, version_number)` | draft/circulated/published/superseded/locked | ✓ | `INTERNAL` | **Never hard-deleted** |
+| `schedule_versions` **CHANGED (CAR-007)** | group | `period_id`, `version_number`, `source_build_id?`, `cloned_from_version_id?`, `state`, **`lock_state`**, **`is_current`**, `published_at?`, `published_by?`, `superseded_at?`, `superseded_by_version_id?`, `circulation_state`, `change_summary` | `(period_id, version_number)`; **`(period_id) WHERE is_current` (D-16)** | **draft/in_review/approved/publishing/published/superseded/cancelled** | ✓ | `INTERNAL` | **Never hard-deleted (D-15c). CHANGED: the state list previously omitted the approval and publishing states the state diagram showed, and `locked` appeared both as a status and as `is_locked`. `lock_state` is now the single editability concept and is rejected by CHECK on a published version, which is immutable regardless** |
 | `publication_records` | group | `version_id`, `actor`, `prerequisites_snapshot`, `at` | `version_id` | — | — | `INTERNAL` | Append-only |
 | `version_supersessions` | group | `superseded_version_id`, `superseding_version_id`, `at` | pair | — | — | `INTERNAL` | Append-only |
 | `shifts` | group | `version_id`, `date`, `shift_type_id`, `location_id?`, `required_count` | `(version_id, date, shift_type_id, location_id)` | — | ✓ | `INTERNAL` | — |
-| `assignments` | group | `version_id`, `membership_id`, `shift_id`, `date`, `starts_at`, `ends_at`, `origin`, `pick_position?`, `is_locked`, `status` | — | active/superseded/cancelled | ✓ | `INTERNAL` | **Exclusion constraint prevents overlapping active assignments per membership** |
-| `assignment_versions` | group | `assignment_id`, `sequence`, before/after, `changed_by`, `mechanism`, `at` | `(assignment_id, sequence)` | — | — | `INTERNAL` | **Append-only history** |
+| `assignment_identities` **NEW (CAR-007)** | group | `id`, `period_id`, `origin`, `created_at` | — | — | — | `INTERNAL` | **The stable thing a human means by "that assignment." Spans versions. Carries no schedule values. Never deleted** |
+| `assignment_snapshots` **REPLACES `assignments` (CAR-007)** | group | `assignment_identity_id`, **`version_id`**, `membership_id`, `shift_id`, `date`, `starts_at`, `ends_at`, `origin`, `pick_position?`, **`is_pinned`**, `status`, `supersedes_snapshot_id?` | **`(version_id, assignment_identity_id)` (D-14)** | active/cancelled | ✓ | `INTERNAL` | **Belongs to exactly one version; immutable once that version is published (D-15a). Overlap exclusion is scoped by `version_id` (D-1a), which is what makes cloning possible.** `is_pinned` renamed from `is_locked` — it is a solver input, not an editing control |
+| ~~`assignment_versions`~~ **REMOVED (CAR-007)** | — | — | — | — | — | — | **A per-assignment mutation log inside an immutable version was a contradiction. "History of an assignment" is now a query over snapshots sharing an `assignment_identity_id` — both more honest and cheaper** |
+| `assignment_audit` **NOTE (CAR-020)** | — | — | — | — | — | — | **Referenced by the traceability document; it never existed and is not created. Assignment change history is `assignment_snapshots` joined by identity, plus `audit_events`. The trace is corrected rather than the table invented** |
 | `credits` | group | `assignment_id`, `credited_membership_id`, `weight`, `reason?`, `moved_by?` | `assignment_id` | active/reassigned/voided | ✓ | `INTERNAL` | **Credited membership may differ from assignee — by design** |
 | `schedule_conflicts` | group | `version_id?`/`build_result_id?`, `severity`, refs, `explanation`, `remediation?`, `state` | — | open/accepted/resolved | ✓ | `INTERNAL` | **Sign-off blocked while any `hard-breach` is `open`** |
 
@@ -263,13 +290,19 @@ erDiagram
 
 | Table | Tenant | Key fields | Uniqueness | State | Ver | Sensitivity | Notes |
 |---|---|---|---|---|:--:|---|---|
-| `requests` | group | `membership_id`, `type`, `target_date`/`range`, `shift_type_id?`, `shift_group_id?`, `status`, `idempotency_key` | `(membership_id, idempotency_key)` | draft→submitted→under-review→approved/denied/withdrawn/expired→applied | ✓ | **`SENSITIVE-PII`** | `type ∈ {availability, time-off, no-call, shift-preference, shift-group-off}` |
+| `requests` **CHANGED (CAR-011)** | group | `membership_id`, **`subtype`**, `status`, `submitted_at?`, `decided_at?`, `decided_by?`, `withdrawn_at?`, `expires_at`, `is_late`, `idempotency_key` | `(membership_id, idempotency_key)` (D-7) | per-subtype — **there is no universal status machine** | ✓ | **`SENSITIVE-PII`** | **CHANGED: aggregate root carrying only universally-common fields. All subtype columns move to the five tables below. The universal `applied` status is REMOVED and split into `consumed_by_build`, `reflected_in_version`, and `unsatisfied`, which are three different facts** |
+| `request_availability` **NEW** | group | `request_id`, `target_date` | `(request_id)` | — | — | `SENSITIVE-PII` | **D-19 `CHECK`: required fields non-null, prohibited fields null** |
+| `request_time_off` **NEW** | group | `request_id`, `target_date?`, `range_start?`, `range_end?` | `(request_id)` | — | — | `SENSITIVE-PII` | `CHECK` exactly one of date or range |
+| `request_no_call` **NEW** | group | `request_id`, `target_date` | `(request_id)` | — | — | `SENSITIVE-PII` | Excludes **all** on-call shift types for the date |
+| `request_shift_preference` **NEW** | group | `request_id`, `target_date`, **`shift_type_id` NOT NULL**, **`preference_strength` NOT NULL** | `(request_id)` | — | — | `SENSITIVE-PII` | **This `NOT NULL` is the fix for the review's named failure: a shift preference could previously reach a terminal state with no shift type** |
+| `request_shift_group_off` **NEW** | group | `request_id`, `target_date`, **`shift_group_id` NOT NULL** | `(request_id)` | — | — | `SENSITIVE-PII` | Target group's `allow_request` must be true |
+| `request_decisions` **NOTE (CAR-020)** | — | — | — | — | — | — | **Referenced by the traceability document; the real table is `approvals` (polymorphic). The trace is corrected; no duplicate table is created** |
 | `request_comments` | group | `request_id`, `author`, `body`, `at` | — | — | — | `SENSITIVE-PII` | Append-only |
 | `approvals` | group | `subject_type`, `subject_id`, `decision`, `decided_by`, `at`, `reason?`, `batch_id?` | — | terminal | — | `INTERNAL` | **Polymorphic; a reversal is a new record** |
 | `vacation_periods` | group | `start_date` (Mon), `end_date` (Fri), mode flags | `(group_id, start_date)` | draft/open/closed/archived | ✓ | `NONE` | — |
-| `vacation_quotas` | group | `period_id`, `kind`, `membership_id?`, `week_start?`, `value` | — | — | ✓ | `INTERNAL` | `kind ∈ {personal-entitlement, weekly-capacity}` |
-| `vacation_selections` | group | `membership_id`, `period_id`, `week_start`, `status`, `committed_to_version_id?`, `commit_idempotency_key` | `(membership_id, period_id, week_start)` | available→pending→approved/denied/withdrawn→committed | ✓ | **`SENSITIVE-PII`** | **Commit idempotent by (selection, version)** |
-| `opportunities` | group | `assignment_id`, `posted_by`, `status`, `claimed_by?`, `claimed_at?`, `eligibility_rule?`, `locum_priority_until?` | — | posted/claimed/withdrawn/expired | ✓ | `INTERNAL` | **Atomic conditional claim** |
+| `vacation_grants` **RENAMED + CHANGED (CAR-011, CAR-020)** | group | `period_id`, `kind`, `membership_id?`, `week_start?`, **`units_total`**, **`units_consumed`**, `version` | — | — | ✓ | `INTERNAL` | **`CHECK (0 <= units_consumed <= units_total)` (D-21).** Allocation is a conditional `UPDATE … WHERE units_consumed < units_total AND version = :expected`, so **two approvals racing the last unit resolve to exactly one winner.** Renamed from `vacation_quotas`; the traceability document's `vacation_entitlements`/`vacation_capacity` are the two `kind` values, not separate tables |
+| `vacation_selections` **CHANGED (CAR-011)** | group | **`request_id`** (→ `requests`, subtype `vacation-selection`), `membership_id`, `period_id`, `week_start`, `status`, `grant_id?`, `is_override`, `override_reason?`, `committed_to_version_id?`, `commit_idempotency_key` | `(membership_id, period_id, week_start)` (D-22); **`(selection_id, committed_to_version_id)` (D-23)** | available→pending→approved/denied/withdrawn→committed→**reversed** | ✓ | **`SENSITIVE-PII`** | **`request_id` is the canonical link the previous design promised and did not have. `reversed` is new — the observed product's one-way commit had no undo, and neither did the previous design** |
+| `opportunities` **CHANGED (CAR-018)** | group | **`assignment_identity_id`**, **`source_version_id`**, **`source_snapshot_id`**, `posted_by`, `status`, `claimed_by?`, `claimed_at?`, `resulting_version_id?`, `eligibility_rule?`, `locum_priority_until?` | — | posted/claimed/withdrawn/expired/**invalidated** | ✓ | `INTERNAL` | **CHANGED: the claim compare-and-set now binds the source version and snapshot, so a claim racing a republication fails `STALE_ASSIGNMENT` instead of transferring a snapshot that no longer exists. `invalidated` is driven by the version binding rather than a heuristic (D-24)** |
 | `opportunity_claims` | group | `opportunity_id`, `membership_id`, `at`, `outcome` | `(opportunity_id, membership_id)` | — | — | `INTERNAL` | Losing claims recorded for audit |
 | `shift_offers` | group | `assignment_id`, `from`, `to`, `status`, `expires_at?` | — | proposed/accepted/declined/withdrawn/expired | ✓ | `INTERNAL` | — |
 | `shift_swaps` | group | two assignment ids, two membership ids, `status`, `requires_approval`, `approval_id?` | — | proposed→counterpart-accepted→awaiting-approval→approved→executed/failed | ✓ | `INTERNAL` | **Both legs or neither** |
@@ -279,20 +312,26 @@ erDiagram
 
 | Table | Tenant | Key fields | Uniqueness | State | Ver | Sensitivity | Notes |
 |---|---|---|---|---|:--:|---|---|
-| `picklists` | group | `date`, `mode`, `status`, `is_locked`, `turn_time_limit_seconds?`, `current_position?` | `(group_id, date)` | draft/ready/active/paused/completed/cancelled | ✓ | `INTERNAL` | `mode ∈ {paper, manual-entry, integrated}` |
+| `picklists` **CHANGED (CAR-003)** | group | `date`, `mode`, `state`, `lock_state`, `turn_time_limit_seconds?`, **`aggregate_version`**, **`event_sequence`** | `(group_id, date)` | draft/ready/active/paused/completed/cancelled/**reopened** | ✓ | `INTERNAL` | **`FOR UPDATE` on this row is the single-writer serialisation point for every picklist command** ([SPEC-02](specs/SPEC-02-picklist-turn-transaction.md) §3) |
 | `picklist_participants` | group | `picklist_id`, `membership_id`, `position`, `status`, `acting_proxy_id?` | `(picklist_id, position)`, `(picklist_id, membership_id)` | waiting/active/picked/skipped/excluded/proxied | ✓ | `INTERNAL` | Order derived from the published schedule |
-| `picklist_work_items` | group | `picklist_id`, `title`, `description?`, `procedure_count?`, `site_id?`, `display_order`, `status`, `origin`, `import_batch_id?` | `(picklist_id, display_order)` | available/taken/withdrawn | ✓ | `INTERNAL` | **Never patient-level content**; free text sanitised |
-| `picklist_turns` | group | `picklist_id`, `participant_id`, `started_at`, `ends_at`, `outcome` | `(picklist_id, participant_id, started_at)` | active/resolved/expired/skipped | ✓ | `INTERNAL` | **Server owns `ends_at`** |
-| `selections` | group | `turn_id`, `work_item_id`, `picked_by`, `picked_at`, `resulting_assignment_id?`, `idempotency_key` | **`(picklist_id, work_item_id)` unique where accepted** | terminal | — | `INTERNAL` | **The uniqueness constraint is what makes double-claim impossible** |
-| `proxies` | group | `grantor_membership_id`, `grantee_membership_id`, `scope`, `status`, `valid_from`, `valid_until?`, `locked_by_admin` | — | active/suspended/revoked/expired | ✓ | `INTERNAL` | `scope ∈ {notifications-only, act-on-behalf}` |
+| `picklist_work_items` **CHANGED (CAR-004)** | group | `picklist_id`, **`work_item_label_ref`** (→ `work_item_labels`), **`location_ref?`**, **`service_category?`**, `procedure_count?`, `service_date`, `starts_at?`, `ends_at?`, `expected_duration_minutes?`, `display_order`, `state`, `origin`, `import_batch_id?` | `(picklist_id, display_order)` | available/taken/withdrawn | ✓ | `INTERNAL` | **CHANGED: `title` and `description` are REMOVED. "Free text sanitised" asserted a property no general sanitizer can prove. Every field is now typed, shape-constrained, or vocabulary-resolved — there is no box in which a patient name can be typed** ([SPEC-03](specs/SPEC-03-raw-ingress-trust-boundary.md) §5) |
+| `picklist_turns` **CHANGED (CAR-003)** | group | `picklist_id`, `participant_id`, **`turn_ordinal`**, `opened_at`, `expires_at`, `state`, `resolution`, `resolved_at?`, **`opened_by_fencing_token`** | **`(picklist_id) WHERE state='open'` (D-3c)**; `(picklist_id, turn_ordinal)` | open/resolved/expired/skipped | ✓ | `INTERNAL` | **Server owns `expires_at` and evaluates it server-side** |
+| `selections` **CHANGED (CAR-003)** | group | **`turn_id`**, `work_item_id`, **`picked_by_membership_id`**, **`acted_by_membership_id`**, **`actor_role ∈ {participant, proxy, administrator}`**, `picked_at`, **`status ∈ {accepted, rejected}`**, `resulting_assignment_identity_id?`, `supersedes_selection_id?`, `command_id` | **`(turn_id) WHERE accepted` (D-3a)** and **`(picklist_id, work_item_id) WHERE accepted` (D-3b)** | terminal | — | `INTERNAL` | **CHANGED: D-3a did not exist. The old single index prevented two claimants per item but NOT one turn accepting two items — the exact physician/proxy failure. `picked_by` and `acted_by` are always both recorded** |
+| `picklist_commands` **NEW (CAR-003)** | group | `picklist_id`, `command_id`, `command_type`, `received_at`, `outcome`, `result_ref?` | **`(picklist_id, command_id)` (D-11)** | — | — | `INTERNAL` | Idempotency: a replayed command returns the recorded outcome and emits nothing |
+| `picklist_events` **NEW (CAR-003)** | group | `picklist_id`, **`sequence`**, `event_type`, `payload`, `occurred_at`, `caused_by_command_id?` | **`(picklist_id, sequence)` (D-12)** | append-only | — | `INTERNAL` | **Gapless total order per picklist, allocated inside the transaction. Coordinators relay this log; they never generate events, so two coordinators cannot disagree** |
+| `picklist_leases` **NEW (CAR-003)** | group | `picklist_id` (PK), `coordinator_id`, **`fencing_token`**, `acquired_at`, `expires_at` | `picklist_id` | — | — | `INTERNAL` | **Strictly increasing token (D-13). A partitioned coordinator's writes are rejected rather than merely discouraged** |
+| `proxy_grants` **RENAMED (CAR-020)** | group | `grantor_membership_id`, `grantee_membership_id`, `scope`, `status`, `valid_from`, `valid_until?`, `locked_by_admin` | — | active/suspended/revoked/expired | ✓ | `INTERNAL` | `scope ∈ {notifications-only, act-on-behalf}`. **Renamed from `proxies` to match the name the traceability document already used** |
 
 ### 3.6 Notifications and communications
 
 | Table | Tenant | Key fields | Uniqueness | State | Sensitivity | Notes |
 |---|---|---|---|---|---|---|
 | `outbox_events` | org+group | `event_type`, `payload`, `occurred_at`, `processed_at?`, `attempts` | — | pending/processing/processed/dead | `INTERNAL` | **Written in the domain transaction** |
-| `notification_messages` | group | `recipient_membership_id`, `event_type`, subject refs, `status`, `escalation_policy_id?`, `idempotency_key` | `idempotency_key` | pending/sending/delivered/failed/no-destination/cancelled | `PII` | **Bodies never carry clinical content** |
-| `delivery_attempts` | group | `message_id`, `channel`, `contact_detail_id?`, `attempt_number`, `sent_at`, `outcome`, `provider_ref?`, `error_code?` | `(message_id, channel, attempt_number)` | terminal | `PII` | **`no-destination` is explicit, never a silent skip** |
+| `notification_intents` **NEW (CAR-010, CAR-020)** | group | `outbox_event_id`, `recipient_membership_id`, **`notification_class`**, `created_at`, `acknowledged_at?` | **`(outbox_event_id, recipient_membership_id, notification_class)`** | — | `PII` | **The decision that someone should be told — exactly once per event per recipient per class.** Referenced by the traceability document; previously undefined |
+| `logical_deliveries` **NEW (CAR-010)** | group | `intent_id`, **`logical_delivery_id`**, `channel`, `escalation_step?`, `state`, `acknowledged_at?`, `terminal_outcome?` | `(intent_id, channel, escalation_step)` | pending/sending/accepted/**ambiguous**/delivered/bounced/rejected/**unresolved**/no-destination/suppressed/cancelled | `PII` | **`logical_delivery_id` is the provider idempotency key and is STABLE ACROSS RETRIES.** The old key included `attempt`, so every retry was deliberately a different key — which is why an accepted-but-response-lost outcome duplicated the external message |
+| `notification_messages` **CHANGED** | group | `logical_delivery_id`, `rendered_body_ref`, `template_version`, `status` | — | — | `PII` | **Bodies never carry clinical content**; retained on a shorter window than outcomes |
+| `delivery_attempts` **CHANGED (CAR-010)** | group | **`logical_delivery_id`**, `attempt_number`, `provider`, `provider_message_ref?`, `request_sent_at`, `response_received_at?`, **`outcome ∈ {accepted, rejected, ambiguous, transport_failed}`**, `error_code?` | `(logical_delivery_id, attempt_number)` | terminal | `PII` | **`ambiguous` is the honest state the previous design lacked: the request was sent and no response arrived, so we do not know whether it was delivered** |
+| `provider_callbacks` **NEW (CAR-010)** | group | `provider`, **`provider_event_id`**, `provider_message_ref`, `status`, `signature_verified`, `received_at`, `nonce`, `provider_timestamp` | **`(provider, provider_event_id)`** | — | `PII` | **Replay-safe by construction. An unverified callback is discarded and raises a security event — an unauthenticated callback is not evidence** |
 | `escalation_policies` | group/user | `scope_type`, `scope_id`, `window`, `locked_by_admin` | `(scope_type, scope_id, window)` | active/superseded | `INTERNAL` | `window ∈ {business-hours, personal-hours}` |
 | `escalation_steps` | group | `policy_id`, `offset_minutes`, `channels` | `(policy_id, offset_minutes)` | — | `INTERNAL` | Ordered |
 | `notification_preferences` | user | `membership_id`, per-channel prefs, quiet hours | `membership_id` | — | `INTERNAL` | User override beats group default |
@@ -300,6 +339,8 @@ erDiagram
 | `contacts` *(view)* | group | Directory projection over memberships + contact details | — | — | `PII` | **Field-level minimisation by role** |
 | `group_communication_identities` | group | `display_name`, `address_local_part`, sender/recipient policy, `archive_retention_days` | `(group_id, address_local_part)` | active/suspended/retired | `PII` | Recipients resolve **only** from the roster |
 | `broadcast_records` | group | `identity_id`, `sender`, `recipient_count`, `filter_applied`, `at` | — | — | `PII` | **Every broadcast audited** |
+| `broadcast_recipients` **NEW (CAR-020)** | group | `broadcast_id`, `recipient_membership_id`, `logical_delivery_id?` | `(broadcast_id, recipient_membership_id)` | — | `PII` | Referenced by the traceability document; previously undefined. **Recipients resolve only from the roster** |
+| `push_tokens` **NOTE (CAR-020)** | — | — | — | — | — | **Referenced by the traceability document; the real table is `push_registrations` (§3.1). The trace is corrected; no duplicate is created** |
 
 ### 3.7 Integrations, artifacts, cross-cutting
 
@@ -309,15 +350,17 @@ erDiagram
 | `connector_versions` | system | `kind`, `version`, `schema_ref`, `certified_at?` | `(kind, version)` | — | `NONE` | — |
 | `import_batches` | group | `connection_id`, `received_at`, `source_ref`, **`idempotency_key`**, `state`, counts, `failure_reason?` | **`(connection_id, idempotency_key)`** | received→validating→de-identifying→reconciling→applied/quarantined/rejected/failed | `INTERNAL` | **Uniqueness makes re-delivery a no-op** |
 | `imported_work_items` | group | `batch_id`, allowlisted fields only | — | — | `INTERNAL` | **Allowlisted fields only — enforced upstream** |
-| `quarantined_records` | group | `batch_id`, `reason`, **field names only** | — | open/reviewed/discarded | `INTERNAL` | **Never stores rejected values** |
+| `quarantined_records` **CHANGED (CAR-004)** | group | `batch_id`, **`field_path`**, **`rejection_code`**, **`occurrence_count`**, **`value_class`** (`string`/`number`/`object`/`array` only) | — | open/reviewed/discarded | `INTERNAL` | **Never stores the value, any substring of it, or ANY HASH of it — a hash of a patient name is still a re-identifiable pseudonym. Value length and character composition are also not stored.** The traceability document's `import_quarantine` is this table; the trace is corrected |
 | `documents` | group | `category_id`, `filename`, `content_type`, `size_bytes`, `storage_key`, `uploaded_by`, `version`, `status`, `scan_status` | `(category_id, filename, version)` | uploading/available/superseded/archived/purged | `INTERNAL` | Purge invalidates URLs |
 | `document_versions` | group | `document_id`, `version`, `storage_key`, `uploaded_by`, `at` | `(document_id, version)` | — | `INTERNAL` | Prior versions retained |
 | `document_categories` | group | `name`, `parent_id?`, `visibility_role_ids?` | `(group_id, name, parent_id)` | active/archived | `INTERNAL` | Role-based visibility |
 | `calendar_feed_tokens` | user | `membership_id`, **`token_hash`**, `created_at`, `last_used_at?`, `revoked_at?`, `rotated_from_id?` | `token_hash` | active/rotated/revoked | **`SECRET`** | **Hash only; plaintext shown once; no PII in URL** |
 | `report_definitions` | group/system | `key`, `name`, `parameters`, `output_formats`, `required_capability` | `(group_id, key)` | active/deprecated | `INTERNAL` | — |
-| `report_runs` | group | `definition_id`, `requested_by`, `parameters`, `state`, `at` | — | queued/running/completed/failed | `INTERNAL` | Async only |
-| `report_artifacts` | group | `run_id`, `storage_key`, `format`, `expires_at` | `run_id` | available/expired/purged | `INTERNAL` | May aggregate `PII`; expiring |
-| `audit_events` | org (group-tagged) | `actor_user_id`, `actor_membership_id?`, **`on_behalf_of_membership_id?`**, `action`, `subject_type`, `subject_id`, `occurred_at`, `mechanism`, `before?`, `after?`, `correlation_id`, `source_channel` | — | **append-only** | `INTERNAL` | **No update/delete operation exists; grants withhold them.** `before`/`after` must not embed PII or clinical content |
+| `report_runs` **CHANGED (CAR-012)** | group | `definition_id`, `requested_by`, `parameters`, **`input_manifest`**, **`input_hash`**, **`policy_version`**, `state`, `at` | — | queued/running/completed/failed/**cancelled_unauthorized**/**cancelled_unentitled** | `INTERNAL` | **The manifest is what makes a report correspond to a defined, reproducible moment — and what makes a lost artifact regenerable.** Authorization is re-evaluated at execution, not inherited from the request |
+| `report_artifacts` **CHANGED (CAR-012)** | group | `run_id`, `storage_key`, `format`, `expires_at`, **`data_changed_since_request`** | `run_id` | available/expired/purged | `INTERNAL` | May aggregate `PII`; expiring. **Authorization re-evaluated at every download** |
+| `report_shares` **NEW (CAR-012)** | group | `artifact_id`, `shared_with_membership_id`, `shared_by`, `granted_at`, `expires_at?`, `revoked_at?` | `(artifact_id, shared_with_membership_id)` | — | `INTERNAL` | **Shares target memberships, never addresses. A share is not a bypass — the recipient must also pass the truth table at download** |
+| `audit_checkpoints` **NEW (CAR-014)** | org | `organization_id`, `sequence`, `entry_hash`, `signed_at`, `key_version` | `(organization_id, sequence)` | append-only | `INTERNAL` | **Signed with a key the application role cannot read.** Makes chain rewriting detectable ([SPEC-11](specs/SPEC-11-audit-assurance-and-security-boundaries.md) §2) |
+| `audit_events` **CHANGED (CAR-014)** | org (group-tagged) | `actor_user_id`, `actor_membership_id?`, **`on_behalf_of_membership_id?`**, `action`, `subject_type`, `subject_id`, `occurred_at`, `mechanism`, `before?`, `after?`, `correlation_id`, `source_channel`, **`sequence`**, **`prev_hash`**, **`entry_hash`** | **`(organization_id, sequence)`** | **append-only** | `INTERNAL` | **No update/delete operation exists; grants withhold them (D-8). CHANGED: that protects against application bugs and ordinary users only. The hash chain plus signed checkpoints make alteration by a privileged actor DETECTABLE — detection, not prevention** ([ADR-0019](decisions/ADR-0019-audit-assurance-level.md)) |
 | `idempotency_records` | org | `key`, `operation`, `request_hash`, `response_ref`, `expires_at` | `(organization_id, key, operation)` | — | `INTERNAL` | Replay returns the recorded result |
 
 ---
@@ -328,16 +371,35 @@ These are enforced **by the database**, not by application convention — the di
 
 | # | Invariant | Mechanism |
 |---|---|---|
-| **D-1** | No overlapping active assignments for one membership, **including across midnight** | Exclusion constraint over `(membership_id, tstzrange(starts_at, ends_at))` where `status = 'active'` |
+| **D-1a** **CHANGED (CAR-007)** | **No overlapping active assignments for one membership *within a single version*, including across midnight** | `EXCLUDE USING gist (version_id WITH =, membership_id WITH =, tstzrange(starts_at, ends_at) WITH &&) WHERE (status='active')` on `assignment_snapshots`. **`version_id` in the equality columns is the entire fix: the old D-1 omitted it, so cloning a published version collided with its own identical rows — forcing either abandoned cloning or mutated history** |
+| **D-1b** **NEW (CAR-007)** | **No overlapping assignments for one membership across the *current published* versions of different periods** | The same exclusion evaluated over a projection restricted to `is_current` versions, refreshed inside the publication transaction. **This is the constraint D-1 was reaching for: reality is the set of currently published versions. Draft and candidate versions are proposals and are deliberately allowed to conflict** |
 | **D-2** | No overlapping schedule periods per group | Exclusion constraint over `(group_id, daterange(start_date, end_date))` |
-| **D-3** | **At most one work item claimed per picklist** | Partial unique index on `selections (picklist_id, work_item_id)` where accepted — **this is what makes simultaneous selection safe** |
-| **D-4** | At most one non-terminal build per period | Partial unique index on `build_runs (period_id)` where `state` non-terminal |
+| **D-3a** **NEW (CAR-003)** | **At most one accepted selection per turn** | `UNIQUE (turn_id) WHERE status='accepted'` on `selections`. **This constraint did not exist. It is the only thing that stops a physician and their proxy accepting two *different* work items in one turn** |
+| **D-3b** **CHANGED (CAR-003)** | **At most one claimant per work item** | `UNIQUE (picklist_id, work_item_id) WHERE status='accepted'`. **This is what the old D-3 actually enforced — it was described as "at most one work item claimed per picklist," which it never was** |
+| **D-3c** **NEW (CAR-003)** | **At most one open turn per picklist** | `UNIQUE (picklist_id) WHERE state='open'` on `picklist_turns` |
+| **D-4a** **CHANGED (CAR-006)** | At most one non-terminal build **per (period, configuration)** | Partial unique index. **The old D-4 scoped this per *period*, which prevented the concurrent candidate builds CAP-017 and CAP-059 require** |
+| **D-4d** **NEW (CAR-006)** | At most one build result applied to a given schedule version | `UNIQUE (applied_to_version_id) WHERE NOT NULL` |
 | **D-5** | Group belongs to its stated organization | Composite FK `(organization_id, group_id) → groups (organization_id, id)` |
 | **D-6** | Import re-delivery is a no-op | Unique `(connection_id, idempotency_key)` |
 | **D-7** | Request submission is idempotent | Unique `(membership_id, idempotency_key)` |
-| **D-8** | Audit is append-only | No `UPDATE`/`DELETE` grant on `audit_events` for the application role |
+| **D-8** | Audit rows cannot be altered by the application | No `UPDATE`/`DELETE` grant on `audit_events` for runtime roles. **Necessary, and not sufficient — see D-25** |
 | **D-9** | Version numbers are gapless per period | Unique `(period_id, version_number)` + allocation inside the publication transaction |
-| **D-10** | Tenant tables cannot be read without a policy | RLS enabled + `FORCE` + policy created in the same migration (CI-enforced) |
+| **D-10** | Tenant tables cannot be read without a policy | RLS enabled + `FORCE` + policy created in the same migration (CI-enforced). **Combined with transaction-local context (I-15), a statement outside a unit of work reads zero rows and writes nothing** |
+| **D-11** **NEW (CAR-003)** | Picklist commands are idempotent | `UNIQUE (picklist_id, command_id)` |
+| **D-12** **NEW (CAR-003)** | One total event order per picklist | `UNIQUE (picklist_id, sequence)`, allocated under the picklist row lock |
+| **D-13** **NEW (CAR-003)** | Coordinator fencing tokens are strictly increasing per picklist | Enforced on `picklist_leases` update |
+| **D-14** **NEW (CAR-007)** | One snapshot per assignment identity per version | `UNIQUE (version_id, assignment_identity_id)` |
+| **D-15a/b/c/d** **NEW (CAR-007)** | **Published version graph is immutable** | `BEFORE UPDATE OR DELETE` triggers raising on child rows of a `published`/`superseded` version; a version-row trigger permitting only `published → superseded`; a delete trigger that always raises; no `UPDATE`/`DELETE` grant on publication records. **Triggers rather than grants, because the permission depends on the parent row's state — which only a trigger can evaluate** |
+| **D-16** **NEW (CAR-007)** | Exactly one current version per period | `UNIQUE (period_id) WHERE is_current` |
+| **D-17** **NEW (CAR-007)** | Publication is idempotent | `UNIQUE (period_id, publication_idempotency_key)` |
+| **D-18** **NEW (CAR-011)** | Exactly one subtype row per request | `UNIQUE (request_id)` per subtype table + discriminator `CHECK` |
+| **D-19** **NEW (CAR-011)** | Per-subtype required and prohibited fields | `CHECK` per subtype table |
+| **D-20** **NEW (CAR-011)** | Per-subtype legal statuses | Status domain per subtype + transition trigger. **There is no universal status machine** |
+| **D-21** **NEW (CAR-011)** | Vacation allocation never exceeds the grant | `CHECK (0 <= units_consumed <= units_total)` + conditional `UPDATE … WHERE units_consumed < units_total`. **Two approvals racing the last unit resolve to exactly one winner.** The override path is the sole documented relaxation and records `is_override` with a reason |
+| **D-22** **NEW (CAR-011)** | One vacation selection per membership, period, week | `UNIQUE (membership_id, period_id, week_start)` |
+| **D-23** **NEW (CAR-011)** | Vacation commit is idempotent | `UNIQUE (selection_id, committed_to_version_id)` |
+| **D-24** **NEW (CAR-018)** | An accepted offer or swap references an active snapshot in the current published version | Reconciler + version binding; violators move to `invalidated` and alert |
+| **D-25** **NEW (CAR-014)** | **Audit alteration is detectable** | Per-organization hash chain (`sequence`, `prev_hash`, `entry_hash`) with periodically signed checkpoints, plus external write-once replication. **Detection, not prevention** |
 
 ---
 
@@ -345,7 +407,7 @@ These are enforced **by the database**, not by application convention — the di
 
 | Class | Retention |
 |---|---|
-| **Audit events** | **Indefinite.** Never deleted. Partitioned by time when volume justifies |
+| **Audit events** | **CHANGED (CAR-014): 7 years by default, then tenant policy** — not "indefinite." Indefinite is not a lawful universal answer and collided with personal-data requests. **Rows are never deleted; a personal-data request produces anonymisation, retaining the pseudonymous actor so the hash chain stays intact.** Legal hold suspends every retention job. Partitioned by time when volume justifies |
 | Schedule versions and assignments | Indefinite — history is the product |
 | Requests and vacation | Retained; PII minimised on account archive |
 | Notification messages and attempts | Rolling window (policy-driven); outcomes retained longer than bodies |
@@ -363,4 +425,8 @@ These are enforced **by the database**, not by application convention — the di
 
 Every entity in the authoritative domain model ([14-domain-model.md](../../schedulepoint-research/reports/14-domain-model.md), 53 entities) has a table or view here. Capability coverage: [18-capability-traceability.md](18-capability-traceability.md).
 
-**ADR:** [ADR-0003](decisions/ADR-0003-database-and-tenancy-strategy.md). **Gates:** `G-ARCH` (design), `G-PROD` (SBX-004, SBX-018, SBX-035).
+**ADRs:** [ADR-0003](decisions/ADR-0003-database-and-tenancy-strategy.md), [ADR-0007](decisions/ADR-0007-schedule-versioning.md), [ADR-0016](decisions/ADR-0016-request-aggregate-and-subtypes.md), [ADR-0019](decisions/ADR-0019-audit-assurance-level.md), [ADR-0022](decisions/ADR-0022-request-scoped-tenant-context.md), [ADR-0023](decisions/ADR-0023-picklist-turn-transaction.md).
+
+**Governing specifications:** [SPEC-02](specs/SPEC-02-picklist-turn-transaction.md) · [SPEC-03](specs/SPEC-03-raw-ingress-trust-boundary.md) · [SPEC-04](specs/SPEC-04-solver-runtime-and-rule-model.md) · [SPEC-05](specs/SPEC-05-schedule-version-identity-and-publication.md) · [SPEC-07](specs/SPEC-07-notification-delivery-contracts.md) · [SPEC-08](specs/SPEC-08-request-subtype-lifecycles.md) · [SPEC-09](specs/SPEC-09-report-snapshot-and-artifact-authorization.md) · [SPEC-11](specs/SPEC-11-audit-assurance-and-security-boundaries.md).
+
+**Gates:** `G-ARCH` (design), `G-PROD` (SBX-004, SBX-018, SBX-035). **None passed. The D-1a, D-3a, and D-15 constraints are unexecuted design; [SPEC-01](specs/SPEC-01-request-context-and-tenant-isolation.md) §7, [SPEC-02](specs/SPEC-02-picklist-turn-transaction.md) §10, and [SPEC-05](specs/SPEC-05-schedule-version-identity-and-publication.md) §8 run at the schema/prototype stage, before feature work.**

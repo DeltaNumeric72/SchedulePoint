@@ -2,6 +2,8 @@
 
 **Status:** `PROPOSED` — 2026-07-31. Not accepted. **This ADR deliberately leaves its central choice open.**
 
+> **REVISED 2026-08-01 (CAR-013).** **Deferring the platform *architecture* is withdrawn.** Deployment class, six process classes, three images, region topology, database HA with synchronous commit, **application-side fencing that composes with database failover**, queue recovery, coordinator leases, solver isolation, backup/PITR/object-store consistency, migration rollback limits, and a failure-mode matrix are now decided in [SPEC-10](../specs/SPEC-10-deployment-topology.md). **Provider, region, residency, and RPO/RTO remain open — recorded as owner input OI-1..OI-7 rather than invented.**
+
 ## Context
 
 Four process classes (ADR-0001) need somewhere to run, PostgreSQL needs to be hosted, and object storage needs a provider. But the inputs that should drive those choices are commercial and legal, not technical:

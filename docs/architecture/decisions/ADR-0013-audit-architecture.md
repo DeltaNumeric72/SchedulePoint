@@ -2,6 +2,8 @@
 
 **Status:** `PROPOSED` — 2026-07-31. Not accepted.
 
+> **REVISED 2026-08-01 (CAR-014).** **The claim that history "cannot be quietly rewritten" is withdrawn.** Withholding `UPDATE`/`DELETE` from the application role protects against application bugs and ordinary users only; migration owners, database owners, platform administrators, and restore tooling are unaffected. The assurance level is now explicit — **A1 hash chaining with signed checkpoints for `G-BETA`, A2 external write-once replication for `G-PROD`, A3 notarisation deliberately not claimed** — and **"retained indefinitely" is replaced** by an operable retention, legal-hold, and anonymisation policy. See [ADR-0019](ADR-0019-audit-assurance-level.md) and [SPEC-11](../specs/SPEC-11-audit-assurance-and-security-boundaries.md).
+
 ## Context
 
 A workforce-scheduling system makes decisions that affect people's pay, time off, and family arrangements. When a decision is disputed months later, the question is always the same: **who did this, when, why, and what did it change?**
@@ -34,7 +36,7 @@ Every entry records: **actor**, **actor membership**, **`on_behalf_of_membership
 
 ## Consequences
 
-**Positive:** history cannot be quietly rewritten · proxy and impersonated actions name both parties · correlation ids make cause-and-effect traceable across processes · aggregate queries are possible.
+**Positive:** history cannot be rewritten *undetectably* (A1/A2 — detection, not prevention) · proxy and impersonated actions name both parties · correlation ids make cause-and-effect traceable across processes · aggregate queries are possible.
 
 **Negative:** volume grows continuously and requires time partitioning · every mutation path must write an entry, and a missing entry is a silent gap · indefinite retention has a storage cost.
 

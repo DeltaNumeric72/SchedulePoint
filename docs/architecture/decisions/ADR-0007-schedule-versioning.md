@@ -2,6 +2,8 @@
 
 **Status:** `PROPOSED` — 2026-07-31. Not accepted.
 
+> **REVISED 2026-08-01 (CAR-007, CAR-018).** The assignment model is split into **stable identity** and **versioned snapshot**; the overlap exclusion constraint is **scoped by `version_id`**, which is what makes cloning a published version possible without mutating history; published immutability is now **enforced by database triggers rather than by prose**; `locked` is one concept rather than two; and the version state set matches the state machine. Marketplace approval binds the source version ([SPEC-13](../specs/SPEC-13-marketplace-version-binding.md)). See [SPEC-05](../specs/SPEC-05-schedule-version-identity-and-publication.md).
+
 ## Context
 
 A published schedule is an operational commitment: people arrange childcare, travel, and second jobs around it. Once published, "what did the schedule say on the 4th, and who changed it?" must be answerable months later.

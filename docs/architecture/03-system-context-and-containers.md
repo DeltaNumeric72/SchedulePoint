@@ -2,6 +2,8 @@
 
 **Status: `PROPOSED`.**
 
+> **REVISED 2026-08-01 (CAR-005, CAR-013, CAR-017).** **Six process classes and three images**, not four and one ([01](01-architecture-overview.md) §2.2). Availability, failover, fencing, and recovery are specified in [SPEC-10](specs/SPEC-10-deployment-topology.md); cross-module transaction ownership in [SPEC-12](specs/SPEC-12-cross-module-unit-of-work.md).
+
 ---
 
 ## 1. System context

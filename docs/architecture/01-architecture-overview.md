@@ -36,16 +36,20 @@ The forces are genuinely in tension. A small initial team needs low operational 
 
 A modular monolith resolves most of this. **The workloads that genuinely differ get their own processes** — not their own services, databases, or deployment pipelines. That gives us workload isolation without distributed-systems cost.
 
-### 2.2 The four process classes
+### 2.2 The six process classes
 
-| Process class | Why separate | Scaling driver |
-|---|---|---|
-| **Web / API** | Request-latency sensitive | Concurrent users |
-| **Background workers** | Long-running, retryable, must not block requests | Queue depth |
-| **Scheduling workers** | **CPU-bound, minutes-long, memory-hungry.** A solver run must never compete with a request thread | Build submissions × solver time |
-| **Real-time coordinator** | Stateful connections, server-authoritative turn state and clock | Concurrent live picklists |
+> **REVISED (CAR-005, CAR-004).** Previously four classes sharing one image. **Two were missing and the single-image claim was wrong.**
 
-All four share one codebase and one database. They differ in entry point and in what they are allowed to do.
+| # | Process class | Runtime | Image | Why separate | Scaling driver |
+|---|---|---|---|---|---|
+| 1 | **Web / API** | Node.js | `app` | Request-latency sensitive | Concurrent users |
+| 2 | **Background workers** | Node.js | `app` | Long-running, retryable, must not block requests | Queue depth |
+| 3 | **Real-time coordinator** | Node.js | `app` | Stateful connections; server-authoritative turn state and clock | Concurrent live picklists |
+| 4 | **Migration runner** | Node.js | `app` | Runs as a separate database role that owns the schema | One-shot |
+| 5 | **Solver worker** | **Python** | **`solver`** | **CPU-bound, minutes-long. OR-Tools has no official Node.js binding (S-04)**, so this cannot share the application runtime | Build submissions × solver time |
+| 6 | **Raw-ingress enclave** | Minimal Node.js | **`ingress`** | **Must not inherit application logging, tracing, error capture, or crash behaviour** — that is the whole point of the privacy boundary | Connector traffic |
+
+**Three images, not one.** Classes 1–4 share `app`. The solver and the enclave are separately built, scanned, signed, and patched. See [SPEC-10](specs/SPEC-10-deployment-topology.md) §2, [ADR-0020](decisions/ADR-0020-solver-runtime-packaging.md), [ADR-0021](decisions/ADR-0021-raw-ingress-enclave.md).
 
 ### 2.3 Alternatives evaluated
 
@@ -72,7 +76,7 @@ Modules are designed so that high-load or specialised components can be extracte
 | **Hospital connectors** | Behind a connector interface + the ingestion boundary | Per-connector isolation, or customer-specific deployment |
 | **Report generation** | Async jobs producing stored artifacts | Report volume or long-running exports |
 
-**What makes extraction cheap:** modules communicate through explicit published operations and domain events, never through each other's tables. A module that reaches into another module's tables cannot be extracted at any price — so that is prohibited (see [04-domain-boundaries.md](04-domain-boundaries.md) §3).
+**What makes extraction cheap:** modules communicate through explicit published operations, **in-transaction domain ports**, and domain events — **never through each other's tables** ([ADR-0017](decisions/ADR-0017-cross-module-unit-of-work.md)). A module that reaches into another module's tables cannot be extracted at any price — so that is prohibited (see [04-domain-boundaries.md](04-domain-boundaries.md) §3).
 
 **Not everything on that list should start separate.** Notifications, connectors, and reports begin as in-process modules with worker entry points. Starting them as services would buy isolation we do not yet need at a cost we would pay every day.
 
@@ -80,11 +84,13 @@ Modules are designed so that high-load or specialised components can be extracte
 
 ## 4. Architectural invariants
 
-Twelve properties that must hold everywhere. Each traces to an approved decision or a production gate.
+**Twenty-two properties that must hold everywhere.** Each traces to an approved decision or a production gate.
+
+> **Every invariant ID is unique and means exactly one thing.** Previously `I-05` was used for *two* different rules — mandatory automated scheduling here, and the Add/New/Create save contract in document 10, document 18, and the drafts. **That collision is resolved: `I-05` keeps its original meaning and the save contract becomes `I-13`** (CAR-023). A CI check now asserts uniqueness.
 
 | # | Invariant | Source |
 |---|---|---|
-| **I-01** | Tenant context is resolved **server-side from the session**, never from a client-supplied parameter | CAP-003, PO-DEC-02 |
+| **I-01** | **Tenant context is client-declared and server-verified** against membership, a context version, and the target aggregate. A stale or forged declaration is **rejected, never silently substituted** | CAP-003, PO-DEC-02, CAR-001 |
 | **I-02** | Authorization is **deny-by-default**; an operation with no policy fails closed and fails its automated test | PO-DEC-02 |
 | **I-03** | **Entitlement ≠ permission.** Entitlement asks whether the organization has the module; permission asks whether this person may act | PO-DEC-04 |
 | **I-04** | Published schedules are **immutable versions**; supersession never deletes history | CAP-014 |
@@ -96,6 +102,16 @@ Twelve properties that must hold everywhere. Each traces to an approved decision
 | **I-10** | **One user action produces one request** — no amplification | SP-HR-2 |
 | **I-11** | Notifications dispatch **only after the triggering transaction commits** | CAP-040 |
 | **I-12** | Every interactive element meets **SP-HR-3..6** accessibility requirements | CAP-066 |
+| **I-13** | **No control labelled Add, New, or Create persists anything before a completed form, validation, and an explicit Save** *(was the second, colliding use of `I-05`)* | CAP-050, SP-HR safety incident |
+| **I-14** | The client **declares** the tenant it believes it is addressing; the server **verifies** it and rejects a mismatch | CAR-001, [SPEC-01](specs/SPEC-01-request-context-and-tenant-isolation.md) |
+| **I-15** | **No statement touches a tenant table outside a unit of work that has already established transaction-local tenant context.** Outside it, every tenant table returns zero rows and rejects every write | CAR-002, S-03b |
+| **I-16** | A picklist turn resolves through **exactly one authoritative transaction** consuming exactly one open turn and producing **at most one accepted selection** | CAR-003, [SPEC-02](specs/SPEC-02-picklist-turn-transaction.md) |
+| **I-17** | **Raw external payloads exist only inside the ingress enclave**, which cannot log, trace, persist, queue, dump, or export them. Only constrained-schema values leave it | CAR-004, PO-DEC-08 |
+| **I-18** | **Once published, a schedule version and every child row are immutable in the database**, enforced by database rules rather than application discipline | CAR-007, CAP-014 |
+| **I-19** | Every protected operation — HTTP, job, socket frame, report execution, download, export, support action — is decided by **the same pure evaluator against current state** | CAR-008, PO-DEC-02 |
+| **I-20** | **Domain state is exactly-once; external delivery is at-least-once with a recorded ambiguity state.** Exactly-once external delivery is never claimed | CAR-010, CAP-040 |
+| **I-21** | Every report binds an **immutable input snapshot** and is **re-authorized at execution and at every download** | CAR-012, CAP-046 |
+| **I-22** | Every state-changing workflow has **exactly one owning module and exactly one commit point**; effects outside it happen only after commit | CAR-017 |
 
 **These are testable properties, not aspirations.** [16-testing-and-environments.md](16-testing-and-environments.md) maps each to an automated check; an invariant with no failing-test path is not an invariant.
 

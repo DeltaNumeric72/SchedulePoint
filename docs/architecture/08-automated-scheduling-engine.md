@@ -2,6 +2,8 @@
 
 **Status: `PROPOSED`.** Technical architecture for the requirements in [report 21](../../schedulepoint-research/reports/21-automated-scheduling-production-requirements.md).
 
+> **REVISED 2026-08-01 (CAR-005, CAR-006).** **The solver runs in a separately packaged Python worker** — OR-Tools has no official Node.js binding (**verified fact S-04**), so the previous "one runtime" claim was unimplementable. `Constraint[]` is replaced by a **typed, versioned rule AST with a closed node set, a compiler, and migrations**; weekday FTE and maximum-assignment data gain canonical tables; cancellation is enforced by **process termination**, not a polled flag; **the "minimal infeasibility core" and "dominated alternative" promises are withdrawn** in favour of bounded tiers with honest degraded states; and reproducibility states exactly what is *not* promised. Governing spec: [SPEC-04](specs/SPEC-04-solver-runtime-and-rule-model.md), [ADR-0020](decisions/ADR-0020-solver-runtime-packaging.md).
+
 > **Clean-room statement.** This is an **independently designed** architecture for a required capability. It does not reproduce, reverse-engineer, or approximate any proprietary scheduling algorithm. **No source algorithm was ever observed** — no build was run in thirteen research phases. What follows derives from the required *outcomes*, from observable configuration surfaces, and from independent engineering judgement.
 
 **Automated scheduling is `REQUIRED FOR PRODUCTION` (CAP-015, C-08).** Manual scheduling is override and recovery only ([07](07-schedule-and-publication.md) §5).

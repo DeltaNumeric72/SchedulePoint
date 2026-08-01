@@ -2,6 +2,8 @@
 
 **Status: `PROPOSED`.**
 
+> **REVISED 2026-08-01 (CAR-016 and the remediation as a whole).** **PO-DEC-10 is restored to the canonical register as `pending`** by product-owner decision, and this document **no longer assumes its recommendation**. Risks are re-scored where remediation changed them, and **RISK-27..RISK-30 are added** for risks the redesign itself introduces. Remediation status per finding: [remediation/codex-review-remediation.md](remediation/codex-review-remediation.md).
+
 ---
 
 ## 1. Risk register
@@ -16,7 +18,7 @@
 | **RISK-02** | **Infeasibility explanations are unusable in practice.** A scheduler told only "infeasible" cannot act | med | **high** | Constraint-relaxation search producing minimal cores, mapped to named rules ([08](08-automated-scheduling-engine.md) §7) | Scheduler usability review + SBX-031 |
 | **RISK-03** | **RLS cost degrades query performance at scale** | med | med | RLS as *defence in depth*, not the primary control; application-level scoping first; **measure early**; per-tenant indexing | PERF benchmarks (A-6) |
 | **RISK-04** | **Real-time coordinator becomes a scaling or reliability bottleneck** | med | **high** | Durable state in PostgreSQL, not in the process; page-scoped connections; reconnect with backoff and jitter; horizontal instances | SBX-023, SBX-030 |
-| **RISK-05** | **The picklist concurrency design fails under real contention** | low | **high** | Database uniqueness constraint decides races — not application logic; **SBX-022 over ≥50 trials** | SBX-022 |
+| **RISK-05** | **The picklist concurrency design fails under real contention** | low | **high** | **RE-SCOPED (CAR-003).** Three constraints now decide races — D-3a one result per turn, D-3b one claimant per item, D-3c one open turn — plus command idempotency, event sequencing, and coordinator fencing ([SPEC-02](specs/SPEC-02-picklist-turn-transaction.md)) | SBX-022 + P-01..P-15 |
 | **RISK-06** | **Modular monolith boundaries erode into a distributed-monolith-in-one-process** | med | med | Enforced import boundaries in CI; explicit prohibited-dependency table ([04](04-domain-boundaries.md) §5) | CI boundary check |
 | **RISK-07** | **Notification volume or provider limits throttle escalation when it matters most** | med | med | Bounded retry with jitter; dead-lettering; rate-limit awareness; **`no-destination` as an explicit outcome** | SBX-030a |
 | **RISK-08** | **PostgreSQL-backed queue outgrows its design point** | low | med | Deliberate, reversible choice ([02](02-technology-stack.md) §4.2); broker introduced when depth metrics justify it | Queue-depth telemetry |
@@ -26,12 +28,12 @@
 
 | ID | Risk | L | I | Mitigation | Retired by |
 |---|---|---|---|---|---|
-| **RISK-10** | **Patient-identifying data enters the system via a connector** | med | **high** | **Platform-enforced positive allowlist that no connector can bypass** (PO-DEC-08); quarantine holds field names and counts only | **SBX-029** |
-| **RISK-11** | **Cross-tenant data exposure** | low | **high** | Four-layer authorization + RLS with `FORCE`; composite FKs; build fails on an undeclared route | SBX-001, SBX-002, SBX-004 |
+| **RISK-10** | **Patient-identifying data enters the system via a connector, or via manual entry** | med | **high** | **REDESIGNED (CAR-004).** Raw-ingress enclave ahead of all observability and durable infrastructure; **constrained value schema with controlled vocabulary** — a key allowlist alone never validated content; **free text removed from protected work-item paths** ([SPEC-03](specs/SPEC-03-raw-ingress-trust-boundary.md)) | **SBX-029, redefined as a 16-surface canary sweep** |
+| **RISK-11** | **Cross-tenant data exposure** | **med** *(raised — CAR-001/002 found two live paths)* | **high** | **REDESIGNED.** Request-scoped verified context with target-aggregate binding; **transaction-local** RLS with fail-closed behaviour outside the unit of work; normative truth table ([SPEC-01](specs/SPEC-01-request-context-and-tenant-isolation.md), [SPEC-06](specs/SPEC-06-authorization-truth-table.md)) | SBX-004 + T-01..T-15 |
 | **RISK-12** | **A third-party identifier leak is reintroduced** — the failure the research observed directly | med | **high** | **CI guard failing the build on any new outbound host**; strict CSP | QA-SEC-001..003 |
 | **RISK-13** | **Sensitive content reaches logs, errors, or traces** | med | **high** | Allowlist-based structured logging; scrubbing on by default; **payloads and message bodies never logged** | Log-review test |
 | **RISK-14** | **A leaked calendar-feed or report URL exposes a schedule** | med | med | Hash-stored revocable tokens; short-lived signed URLs; **no PII in any URL** | SBX-031a, SBX-031c |
-| **RISK-15** | **No incident-response plan exists** | **high** | **high** | **Named openly as a gap** ([14](14-security-and-privacy.md) §10). Requires legal and operational input not available to this task | A written plan — **not by any test** |
+| **RISK-15** | **No incident-response plan exists** | **high** | **high** | **PARTIALLY ADDRESSED.** Structure, severity model, and **evidence preservation** are now specified ([SPEC-11](specs/SPEC-11-audit-assurance-and-security-boundaries.md) §8). **The playbooks, rotation, and breach-notification determination remain missing** | A written plan and a tabletop — **not by any test** |
 
 ### 1.3 Product and evidence risks
 
@@ -45,7 +47,19 @@
 | **RISK-21** | **Scope creep from 58 capabilities overwhelms delivery** | **high** | med | Milestone sequencing (foundation → alpha → beta → production); **gates, not deletions** — no capability is dropped to relieve pressure | Milestone review |
 | **RISK-22** | **This architecture has had no independent review** | **high** | med | **Named as a gap.** An independent Codex architecture review is pending | That review |
 
-### 1.4 Operational risks
+### 1.4 Risks introduced by the remediation itself
+
+**Stated openly, because a redesign that only lists the risks it removes is not a candid one.**
+
+| ID | Risk | L | I | Mitigation | Retired by |
+|---|---|---|---|---|---|
+| **RISK-27** | **The managed database split-brains**, defeating coordinator fencing | low | **high** | Fencing is delegated to the managed provider's promotion logic; the application arbitrates through a row both coordinators read. **If the database itself forks, the guarantee fails** | Provider SLA review; failover drill |
+| **RISK-28** | **Cloud-provider staff can reach audit storage** | low | **high** | A2 external write-once replication in a separate trust domain raises the bar. **A3 notarisation would be the only complete answer and is deliberately not claimed** | Owner decision on whether A3 is required |
+| **RISK-29** | **A second language (Python) doubles part of the maintenance surface** | **high** | med | Separate image, SBOM, scan, and patch stream; the solver is confined behind a port. **Unavoidable: OR-Tools has no official Node.js binding (S-04)** | Accepted, not retired |
+| **RISK-30** | **Removing free text from work items is operationally rejected by schedulers** | med | med | Controlled vocabulary with a fast administrative add path. **If it proves unworkable, the answer is a better vocabulary workflow — not restoring an unprovable privacy claim** | Customer validation |
+| **RISK-31** | **The audit hash chain becomes a throughput bottleneck** on high-frequency picklist paths | med | med | Per-organization serialisation rather than global; measured before `G-BETA` | Chain-write benchmark |
+
+### 1.5 Operational risks
 
 | ID | Risk | L | I | Mitigation | Retired by |
 |---|---|---|---|---|---|
@@ -95,13 +109,30 @@
 | **PO-DEC-22** | Document retention | Policy-driven per organization, default indefinite | Compliance mismatch — **medium** | CAP-048 |
 | **PO-DEC-23** | Solver performance targets | The conservative targets in [report 21](../../schedulepoint-research/reports/21-automated-scheduling-production-requirements.md) §8.3 | **Unmet customer expectations — high** | CAP-015 |
 
-**Count: 18.** This matches [report 24](../../schedulepoint-research/reports/24-production-completeness-gates.md) §3 exactly.
+**Count: 18 in the table above, plus the restored `PO-DEC-10` in §2.2a = 19 pending decisions.** This matches [report 24](../../schedulepoint-research/reports/24-production-completeness-gates.md) §3 as amended on 2026-08-01. **No decision has been approved by this remediation.**
 
-> **Register discrepancy, flagged not resolved:** **PO-DEC-10** (locum billing rule — "part-time locums free" reaching into the domain model) is defined in [report 17](../../schedulepoint-research/reports/17-public-source-gap-addendum.md) §11 but **does not appear in report 24's decision register**. It is neither approved nor listed among the 18. This architecture keeps billing derived from — never embedded in — scheduling data, which is the recommendation report 17 recorded. **The register gap is a product-owner matter and is not resolved here.**
+### 2.2a PO-DEC-10 — restored to the register as `pending` (CAR-016)
+
+**Product-owner decision, 2026-08-01: restore `PO-DEC-10` to the canonical register with its original identifier and a status of `pending`.** [Report 24](../../schedulepoint-research/reports/24-production-completeness-gates.md) §3 now carries the row; **the historical ID is preserved and no ID has been renumbered or reused.**
+
+| Field | Value |
+|---|---|
+| **ID** | `PO-DEC-10` — original identifier from [report 17](../../schedulepoint-research/reports/17-public-source-gap-addendum.md) §11 |
+| **Subject** | Locum billing rule (public claim PUB-064: part-time locums free, full-time locums at the staff rate) |
+| **Status** | **`pending`** |
+| **Working default** | **Locum billing is *external commercial policy*.** SchedulePoint exposes a **versioned, read-only projection** of membership role and FTE and does nothing else with it |
+| **Explicitly out of scope** | **No billing capability, no invoice calculation, no billing-eligibility gate.** Scheduling, opportunities, stipends, and entitlements **do not become an invoicing system** |
+| **Not billing authority** | CAP-025 staff-over-locum priority is a **scheduling** rule. CAP-011 stipend amounts are **compensation configuration**. **Neither is a billing input, and neither may be treated as one** |
+| **The projection boundary** | Read-only; effective-dated; versioned; consumed outside the product. A change of role or FTE is already audited, so a downstream commercial system can reconcile against a stable record |
+| **If decided otherwise** | Making billing product scope requires a **new capability in [report 19](../../schedulepoint-research/reports/19-schedulepoint-production-capability-baseline.md)** — expanding the 58-capability baseline — with an owner, data model, effective-date rules, entitlement integration, audit, tests, and a production gate. **That is a baseline change, not an architecture change** |
+
+**This document no longer adopts the report-17 recommendation as settled.** The working default is used for planning and is labelled pending, which is the distinction CAR-016 found missing.
+
+**Pending count is now 19** — the 18 above plus the restored `PO-DEC-10`.
 
 ### 2.3 Architecture decisions (ADRs)
 
-**All fifteen are `PROPOSED`. None is accepted.**
+**All twenty-three are `PROPOSED`. None is accepted.** Eight were added by the remediation; fifteen were revised.
 
 | ADR | Subject | Primary capabilities |
 |---|---|---|
@@ -119,7 +150,15 @@
 | [ADR-0012](decisions/ADR-0012-connector-architecture.md) | Canonical schema + adapters | CAP-055, CAP-061, CAP-063..CAP-065 |
 | [ADR-0013](decisions/ADR-0013-audit-architecture.md) | Append-only audit by construction | CAP-027, CAP-051 |
 | [ADR-0014](decisions/ADR-0014-file-and-report-storage.md) | Object storage with signed URLs | CAP-046..CAP-048 |
-| [ADR-0015](decisions/ADR-0015-deployment-topology.md) | Deployment topology — **deliberately open** | CAP-051 |
+| [ADR-0015](decisions/ADR-0015-deployment-topology.md) | Deployment topology — **now decided; provider and residency remain owner input** | CAP-051 |
+| **[ADR-0016](decisions/ADR-0016-request-aggregate-and-subtypes.md)** | Request aggregate and constrained subtypes *(provisional — PO-DEC-03 pending)* | CAP-021..CAP-023 |
+| **[ADR-0017](decisions/ADR-0017-cross-module-unit-of-work.md)** | Cross-module unit of work; 25 → 19 modules | CAP-014, CAP-023, CAP-026, CAP-031, CAP-055 |
+| **[ADR-0018](decisions/ADR-0018-report-snapshot-semantics.md)** | Report snapshot and artifact authorization | CAP-020, CAP-045..CAP-048 |
+| **[ADR-0019](decisions/ADR-0019-audit-assurance-level.md)** | Audit assurance level A1 → A2; A3 not claimed | CAP-027, CAP-051 |
+| **[ADR-0020](decisions/ADR-0020-solver-runtime-packaging.md)** | Python solver worker (S-04) | CAP-015..CAP-017, CAP-059 |
+| **[ADR-0021](decisions/ADR-0021-raw-ingress-enclave.md)** | Raw-ingress enclave | CAP-055, CAP-062, CAP-068 |
+| **[ADR-0022](decisions/ADR-0022-request-scoped-tenant-context.md)** | Request-scoped context; transaction-local RLS | CAP-001..CAP-003, CAP-006 |
+| **[ADR-0023](decisions/ADR-0023-picklist-turn-transaction.md)** | Picklist turn transaction and coordinator fencing | CAP-030..CAP-034, CAP-060 |
 
 ---
 
@@ -127,9 +166,9 @@
 
 | Item | Status |
 |---|---|
-| Independent architecture review (Codex) | **Pending** |
-| The 18 pending product decisions ratified | **Pending** |
-| PO-DEC-10 register discrepancy resolved | **Pending** |
+| Independent architecture review (Codex) | **Completed 2026-07-31 — verdict `REDESIGN REQUIRED`.** Remediated; **a new independent re-review is pending** |
+| The **19** pending product decisions ratified | **Pending** |
+| PO-DEC-10 restored to the register as `pending` | **Done (2026-08-01)** — the *decision itself* remains pending |
 | Solver benchmarked against synthetic datasets | **Not started** |
 | SBX-001, 002, 004, 011, 013, 014b, 022, 023, 028 executed (`G-ARCH`) | **Not started** |
 | RPO / RTO targets set | **Open** |

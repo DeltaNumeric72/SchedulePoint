@@ -29,7 +29,14 @@ docs/architecture/                19 documents, 15 ADRs — all PROPOSED
 | **Use real patient, staff, or customer data anywhere** | Including fixtures, screenshots, and logs |
 | **Send a notification to a real destination** | Controlled endpoints only |
 | **Claim HIPAA, PHIPA, SOC 2, ISO 27001, or GDPR compliance or readiness** | The required legal and operational work is explicitly not done ([14](../14-security-and-privacy.md) §11) |
-| **Introduce an outbound third-party host** | CAP-068 / T-23. A CI guard is designed to fail the build on this |
+| **Introduce an outbound third-party host *from the browser or client telemetry*** | **CAP-068 / T-23. This is the strict, absolute rule.** A CI guard fails the build on a new client host |
+| **Add a server-side subprocessor without registering it** | **CORRECTED (CAR-023).** The previous blanket prohibition on *any* outbound host contradicted the email, SMS, voice, push, storage, identity, and observability providers the product requires. **Server-side processors are permitted when registered in the processor register with a declared payload schema, residency, and retention** ([SPEC-07](../specs/SPEC-07-notification-delivery-contracts.md) §7). **The client-side prohibition is unchanged and unconditional** |
+| **Bypass the unit of work, RLS, an entitlement check, or a capability check** | I-15, I-19. Including "temporarily" |
+| **Mutate a published schedule version or any of its child rows** | I-18 |
+| **Delete an audit row or break the audit hash chain** | ADR-0019 |
+| **Treat manual scheduling as the production mechanism** | I-05 |
+| **Add a free-text field to a protected work-item path** | I-17 |
+| **Weaken, skip, or delete an accessibility or architecture test** | Add tests; never subtract them |
 
 ---
 
@@ -44,7 +51,9 @@ docs/architecture/                19 documents, 15 ADRs — all PROPOSED
 
 - **Match the surrounding document's structure and voice.** These documents are dense, tabular, and direct.
 - **State what is not established** as prominently as what is. Every document ends with its unresolved validation.
-- **Use stable IDs**: `CAP-###`, `FEAT-###`, `ENT-###`, `STM-###`, `SBX-###`, `PO-DEC-##`, `ADR-####`, `RISK-##`, `T-##`, `I-##`, `D-#`, `M-##`. **Never renumber an existing ID.**
+- **Use stable IDs**: `CAP-###`, `FEAT-###`, `ENT-###`, `STM-###`, `SBX-###`, `PO-DEC-##`, `ADR-####`, `CAR-###`, `RISK-##`, `T-##`, `I-##`, `D-#`, `M-##`, `SPEC-##`, `TDG-##`, `OI-#`, `EV-#`. **Never renumber, reuse, or silently retire an existing ID.**
+- **Every invariant ID means exactly one thing.** `I-05` is mandatory automated scheduling; the Add/New/Create save contract is **`I-13`**. The previous collision was finding CAR-023, and the validator now enforces uniqueness.
+- **A decision ID that disappears from a register is a defect, not a decision.** `PO-DEC-10` was omitted from report 24 without a supersession record and has been restored as `pending` (CAR-016). If a decision is retired, record the supersession — **never reuse the number**.
 - **Cross-reference with relative links** so the package stays navigable.
 
 ## When you validate

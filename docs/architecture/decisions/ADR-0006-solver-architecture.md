@@ -2,6 +2,8 @@
 
 **Status:** `PROPOSED` — 2026-07-31. Not accepted.
 
+> **REVISED 2026-08-01 (CAR-005, CAR-006).** The runtime contradiction is resolved by [ADR-0020](ADR-0020-solver-runtime-packaging.md) (**Python solver worker; OR-Tools has no official Node.js binding — S-04**). `ScheduleProblem.constraints: Constraint[]` is replaced by a **typed, versioned rule AST with a closed node set, a compiler, and schema migrations**. **The "minimal infeasibility core" and per-assignment "dominated alternative" promises are withdrawn** and replaced by bounded explanation tiers with honest degraded states. Reproducibility now records image digest, parameters, worker count, compiler version, and architecture — and states exactly what is *not* promised. See [SPEC-04](../specs/SPEC-04-solver-runtime-and-rule-model.md).
+
 ## Context
 
 Automated schedule generation is the product's central promise. **The source product's algorithm is not known**, was never observed in execution, and is explicitly not reproduced — reproducing it would breach the clean-room boundary even if it were known.

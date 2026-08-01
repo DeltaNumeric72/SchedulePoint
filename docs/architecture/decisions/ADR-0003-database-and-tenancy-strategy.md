@@ -2,6 +2,8 @@
 
 **Status:** `PROPOSED` — 2026-07-31. Not accepted.
 
+> **REVISED 2026-08-01 (CAR-002).** **Connection-checkout tenant context is withdrawn as unsafe.** **Verified fact S-03b:** `SET LOCAL` lasts only to the end of the current transaction, while a plain `SET` persists for the session — so checkout-scoped context can survive an exception, a cancellation, or a pool hand-off. Tenant context is now **transaction-local**, established by a mandatory unit-of-work wrapper, with fail-closed behaviour outside it. See [ADR-0022](ADR-0022-request-scoped-tenant-context.md) and [SPEC-01](../specs/SPEC-01-request-context-and-tenant-isolation.md) §4.
+
 ## Context
 
 SchedulePoint is multi-tenant: organizations contain groups, and a single person may hold memberships in several groups with **different roles in each**. A cross-tenant leak in a workforce system exposes staff rosters, contact details, and employment data. The research observed no tenant-isolation failure — but it also could not verify isolation, and absence of observation is not evidence of correctness.

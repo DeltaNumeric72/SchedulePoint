@@ -2,6 +2,8 @@
 
 **Status: `PROPOSED`.** Implements CAP-014, CAP-019, CAP-020, and the publication half of CAP-018.
 
+> **REVISED 2026-08-01 (CAR-007).** **The previous schema could not implement the lifecycle this document describes.** Assignment identity is now separated from versioned snapshots; the overlap constraint is scoped by version, which is what makes cloning a published version possible without mutating history; published immutability is enforced by **database triggers, not prose**; `locked` is one concept; and the version state set matches the state machine. Governing spec: [SPEC-05](specs/SPEC-05-schedule-version-identity-and-publication.md), which includes the required V1→V2→V3 proof.
+
 ---
 
 ## 1. The concepts, kept distinct
@@ -124,7 +126,7 @@ stateDiagram-v2
 
 ## 5. Manual scheduling — scope and limits
 
-**Manual scheduling is `ADMINISTRATIVE FALLBACK OR OVERRIDE` and is additionally required to exist.** It is never the production scheduling mechanism (I-05).
+**Manual scheduling is `ADMINISTRATIVE FALLBACK OR OVERRIDE` and is additionally required to exist.** It is never the production scheduling mechanism (**I-05**, which means *only* this — the Add/New/Create save contract is **I-13**, CAR-023).
 
 | Permitted use | Notes |
 |---|---|

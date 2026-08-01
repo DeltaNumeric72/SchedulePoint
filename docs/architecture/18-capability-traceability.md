@@ -2,6 +2,8 @@
 
 **Status: `PROPOSED`.**
 
+> **REVISED 2026-08-01 (CAR-020, CAR-021, CAR-027).** Fourteen capability rows referenced **structures that did not exist** in the data catalogue, one referenced a column by the wrong name, and the architecture-blocker set listed **five** where [report 19](../../schedulepoint-research/reports/19-schedulepoint-production-capability-baseline.md) lists **seven**. Every mismatch is now resolved **explicitly** — either the structure was created, or the reference was corrected to the real name. **Nothing was renamed to make a mismatch disappear.** A semantic validator (`validate.py` checks 40–52) now fails the build on any unresolvable structure, ADR, capability, decision, invariant, or gate reference.
+
 **Every one of the 58 capabilities in [report 19](../../schedulepoint-research/reports/19-schedulepoint-production-capability-baseline.md) appears below. There are no omissions, no summaries in place of entries, and no capability whose only architectural mapping is future work.**
 
 Each entry records: disposition · milestone · gate · features · entities · state machines · architecture document · modules · primary data structures · interfaces and ports · background work · real-time involvement · authorization requirement · privacy and security consideration · testing strategy · ADRs · open questions and confidence.
@@ -62,7 +64,7 @@ Each entry records: disposition · milestone · gate · features · entities · 
 | **State machines** | — |
 | **Architecture document** | [05](05-tenancy-entitlements-authorization.md) |
 | **Modules** | M-02 |
-| **Primary data structures** | organizations, organization_settings |
+| **Primary data structures** | organizations, organization_settings *(created — CAR-020)* |
 | **Interfaces / ports** | — |
 | **Background / async work** | — |
 | **Real-time involvement** | No |
@@ -128,7 +130,7 @@ Each entry records: disposition · milestone · gate · features · entities · 
 | **State machines** | — |
 | **Architecture document** | [06](06-data-architecture.md) · [07](07-schedule-and-publication.md) |
 | **Modules** | M-02, M-06 |
-| **Primary data structures** | sites, group_sites, shift_type_sites |
+| **Primary data structures** | locations.site_label *(attribute — PO-DEC-01 pending default; `sites`, `group_sites`, and `shift_type_sites` are withdrawn, not materialised — CAR-021)* |
 | **Interfaces / ports** | — |
 | **Background / async work** | — |
 | **Real-time involvement** | No |
@@ -150,7 +152,7 @@ Each entry records: disposition · milestone · gate · features · entities · 
 | **State machines** | STM-017, STM-018 |
 | **Architecture document** | [05](05-tenancy-entitlements-authorization.md) · [14](14-security-and-privacy.md) |
 | **Modules** | M-01 |
-| **Primary data structures** | users, user_identities |
+| **Primary data structures** | users *(`login_email`, administrator/IdP-changeable — CAR-027)*, user_identities *(created — CAR-020)* |
 | **Interfaces / ports** | — |
 | **Background / async work** | — |
 | **Real-time involvement** | No |
@@ -304,7 +306,7 @@ Each entry records: disposition · milestone · gate · features · entities · 
 | **State machines** | — |
 | **Architecture document** | [06](06-data-architecture.md) · [07](07-schedule-and-publication.md) |
 | **Modules** | M-06 |
-| **Primary data structures** | shift_types, shift_type_sites |
+| **Primary data structures** | shift_types, shift_type_qualifications *(`shift_type_sites` never existed and is withdrawn with the Site entity — CAR-020/CAR-021)* |
 | **Interfaces / ports** | — |
 | **Background / async work** | — |
 | **Real-time involvement** | No |
@@ -348,7 +350,7 @@ Each entry records: disposition · milestone · gate · features · entities · 
 | **State machines** | — |
 | **Architecture document** | [06](06-data-architecture.md) · [08](08-automated-scheduling-engine.md) |
 | **Modules** | M-06 |
-| **Primary data structures** | membership_work_profiles (weekday FTE, max assignments, work percentage) |
+| **Primary data structures** | membership_work_profiles + membership_weekday_fte *(both created — CAR-006/CAR-020; previously referenced and undefined)* |
 | **Interfaces / ports** | — |
 | **Background / async work** | — |
 | **Real-time involvement** | No |
@@ -392,7 +394,7 @@ Each entry records: disposition · milestone · gate · features · entities · 
 | **State machines** | STM-003, STM-004 |
 | **Architecture document** | [07](07-schedule-and-publication.md) |
 | **Modules** | M-12, M-09 |
-| **Primary data structures** | schedule_periods, schedule_versions, assignments |
+| **Primary data structures** | schedule_periods, schedule_versions, assignment_identities, assignment_snapshots |
 | **Interfaces / ports** | — |
 | **Background / async work** | Publication notification fan-out via outbox |
 | **Real-time involvement** | Publication events push to viewers |
@@ -436,7 +438,7 @@ Each entry records: disposition · milestone · gate · features · entities · 
 | **State machines** | — |
 | **Architecture document** | [08](08-automated-scheduling-engine.md) |
 | **Modules** | M-06, M-10 |
-| **Primary data structures** | rules, rule_sets, patterns, position_restrictions, templates |
+| **Primary data structures** | rules *(typed versioned AST — created, CAR-006)*, rule_sets, pattern_rules, valid_groups, assignment_templates |
 | **Interfaces / ports** | SolverPort constraint translation |
 | **Background / async work** | — |
 | **Real-time involvement** | No |
@@ -458,7 +460,7 @@ Each entry records: disposition · milestone · gate · features · entities · 
 | **State machines** | STM-001, STM-002 |
 | **Architecture document** | [08](08-automated-scheduling-engine.md) |
 | **Modules** | M-10, M-11 |
-| **Primary data structures** | assignments (is_fixed), build_inputs |
+| **Primary data structures** | assignment_snapshots (**`is_pinned`** — the trace said `is_fixed`, the schema said `is_locked`; both are retired — CAR-020), solver_inputs |
 | **Interfaces / ports** | SolverPort (fixed-assignment constraints) |
 | **Background / async work** | Scheduling worker |
 | **Real-time involvement** | Progress push |
@@ -524,7 +526,7 @@ Each entry records: disposition · milestone · gate · features · entities · 
 | **State machines** | STM-004 |
 | **Architecture document** | [07](07-schedule-and-publication.md) |
 | **Modules** | M-11 |
-| **Primary data structures** | assignments, assignment_audit |
+| **Primary data structures** | assignment_identities + assignment_snapshots *(replaces `assignments`)*; change history is snapshots joined by identity plus audit_events *(`assignment_audit` never existed — CAR-020)* |
 | **Interfaces / ports** | — |
 | **Background / async work** | — |
 | **Real-time involvement** | Grid updates push where a live view is open |
@@ -546,7 +548,7 @@ Each entry records: disposition · milestone · gate · features · entities · 
 | **State machines** | — |
 | **Architecture document** | [07](07-schedule-and-publication.md) · [13](13-reports-calendars-and-documents.md) |
 | **Modules** | M-11, M-12, M-21 |
-| **Primary data structures** | assignments, schedule_versions; read models |
+| **Primary data structures** | assignment_snapshots, schedule_versions; read models |
 | **Interfaces / ports** | — |
 | **Background / async work** | Report/print generation |
 | **Real-time involvement** | Published-version changes push |
@@ -568,7 +570,7 @@ Each entry records: disposition · milestone · gate · features · entities · 
 | **State machines** | STM-005, STM-006 |
 | **Architecture document** | [09](09-requests-vacation-opportunities-transfers.md) |
 | **Modules** | M-13 |
-| **Primary data structures** | requests (typed), request_decisions |
+| **Primary data structures** | requests *(aggregate root)* + five constrained subtype tables; decisions are recorded in `approvals` *(`request_decisions` never existed — CAR-020)* |
 | **Interfaces / ports** | — |
 | **Background / async work** | Decision notifications |
 | **Real-time involvement** | No |
@@ -590,7 +592,7 @@ Each entry records: disposition · milestone · gate · features · entities · 
 | **State machines** | STM-007 |
 | **Architecture document** | [09](09-requests-vacation-opportunities-transfers.md) |
 | **Modules** | M-14 |
-| **Primary data structures** | vacation_selections, vacation_entitlements, vacation_capacity |
+| **Primary data structures** | vacation_selections, vacation_grants *(the two `kind` values are `personal-entitlement` and `weekly-capacity`; `vacation_entitlements`/`vacation_capacity` were never separate tables — CAR-020)* |
 | **Interfaces / ports** | — |
 | **Background / async work** | Quota recalculation |
 | **Real-time involvement** | No |
@@ -612,7 +614,7 @@ Each entry records: disposition · milestone · gate · features · entities · 
 | **State machines** | STM-007 |
 | **Architecture document** | [09](09-requests-vacation-opportunities-transfers.md) |
 | **Modules** | M-14, M-12 |
-| **Primary data structures** | vacation_selections.committed_to_version_id, assignments |
+| **Primary data structures** | vacation_selections.committed_to_version_id, assignment_snapshots |
 | **Interfaces / ports** | — |
 | **Background / async work** | Commit job for large ranges |
 | **Real-time involvement** | Publication push |
@@ -656,7 +658,7 @@ Each entry records: disposition · milestone · gate · features · entities · 
 | **State machines** | STM-008 |
 | **Architecture document** | [09](09-requests-vacation-opportunities-transfers.md) |
 | **Modules** | M-15 |
-| **Primary data structures** | opportunities.priority_window_ends_at, memberships.is_locum |
+| **Primary data structures** | opportunities.locum_priority_until, memberships.is_locum |
 | **Interfaces / ports** | — |
 | **Background / async work** | Window-expiry job |
 | **Real-time involvement** | Board update |
@@ -678,7 +680,7 @@ Each entry records: disposition · milestone · gate · features · entities · 
 | **State machines** | STM-009, STM-010, STM-011 |
 | **Architecture document** | [09](09-requests-vacation-opportunities-transfers.md) |
 | **Modules** | M-16 |
-| **Primary data structures** | shift_offers, shift_swaps, transfers |
+| **Primary data structures** | shift_offers, shift_swaps, transfers *(all binding `assignment_identity_id` + `source_version_id` — CAR-018)* |
 | **Interfaces / ports** | — |
 | **Background / async work** | Notification fan-out |
 | **Real-time involvement** | Optional |
@@ -722,12 +724,12 @@ Each entry records: disposition · milestone · gate · features · entities · 
 | **State machines** | STM-012 |
 | **Architecture document** | [10](10-picklist-and-realtime.md) |
 | **Modules** | M-17 |
-| **Primary data structures** | picklists, picklist_work_items, picklist_participants |
+| **Primary data structures** | picklists, picklist_work_items *(no free text — CAR-004)*, picklist_participants, work_item_labels |
 | **Interfaces / ports** | — |
 | **Background / async work** | Participant sync from published schedule |
 | **Real-time involvement** | Draft state is not live |
 | **Authorization requirement** | Preparation requires a picklist-administration capability |
-| **Privacy / security consideration** | **No Add/New/Create control persists before an explicit Save** (I-05) |
+| **Privacy / security consideration** | **No Add/New/Create control persists before an explicit Save** (I-13 — renumbered from the colliding `I-05`, CAR-023) |
 | **Testing strategy** | QA: QA-PICK-001, QA-PICK-015 · Sandbox: SBX-020 |
 | **ADRs** | [ADR-0008](decisions/ADR-0008-realtime-picklist-transport.md) |
 | **Open questions / confidence** | Source preparation flow was never observed. Confidence: Medium |
@@ -766,7 +768,7 @@ Each entry records: disposition · milestone · gate · features · entities · 
 | **State machines** | STM-013, STM-014 |
 | **Architecture document** | [10](10-picklist-and-realtime.md) |
 | **Modules** | M-17 |
-| **Primary data structures** | picklist_turns, selections |
+| **Primary data structures** | picklist_turns, selections, picklist_commands, picklist_events |
 | **Interfaces / ports** | — |
 | **Background / async work** | Turn-expiry sweeper |
 | **Real-time involvement** | **Yes — the primary real-time surface** |
@@ -788,7 +790,7 @@ Each entry records: disposition · milestone · gate · features · entities · 
 | **State machines** | STM-013, STM-014 |
 | **Architecture document** | [10](10-picklist-and-realtime.md) |
 | **Modules** | M-17 + real-time coordinator |
-| **Primary data structures** | selections (partial unique index), picklists.version |
+| **Primary data structures** | selections *(**three** partial unique indexes: D-3a one result per turn, D-3b one claimant per item, D-3c one open turn — CAR-003)*, picklist_events, picklist_commands, picklist_leases, picklists.aggregate_version |
 | **Interfaces / ports** | Real-time transport port |
 | **Background / async work** | Coordinator process |
 | **Real-time involvement** | **Yes — server-authoritative** |
@@ -832,7 +834,7 @@ Each entry records: disposition · milestone · gate · features · entities · 
 | **State machines** | STM-019 |
 | **Architecture document** | [10](10-picklist-and-realtime.md) |
 | **Modules** | M-03, M-17 |
-| **Primary data structures** | proxy_grants |
+| **Primary data structures** | proxy_grants *(renamed from `proxies` — CAR-020)* |
 | **Interfaces / ports** | — |
 | **Background / async work** | Grant expiry |
 | **Real-time involvement** | Proxy identity shown in live state |
@@ -854,7 +856,7 @@ Each entry records: disposition · milestone · gate · features · entities · 
 | **State machines** | STM-015, STM-016 |
 | **Architecture document** | [11](11-notifications-and-communications.md) |
 | **Modules** | M-19 |
-| **Primary data structures** | notification_intents, messages, delivery_attempts, escalation_policies |
+| **Primary data structures** | notification_intents *(created)*, logical_deliveries *(created)*, notification_messages, delivery_attempts, provider_callbacks *(created)*, escalation_policies |
 | **Interfaces / ports** | Provider ports |
 | **Background / async work** | **Outbox relay + dispatch workers** |
 | **Real-time involvement** | No |
@@ -876,7 +878,7 @@ Each entry records: disposition · milestone · gate · features · entities · 
 | **State machines** | STM-025 |
 | **Architecture document** | [11](11-notifications-and-communications.md) |
 | **Modules** | M-19 |
-| **Primary data structures** | messages.channel, push_tokens |
+| **Primary data structures** | logical_deliveries.channel, push_registrations *(`push_tokens` never existed — CAR-020)* |
 | **Interfaces / ports** | Email/SMS/voice/push ports |
 | **Background / async work** | Dispatch workers |
 | **Real-time involvement** | No |
@@ -920,7 +922,7 @@ Each entry records: disposition · milestone · gate · features · entities · 
 | **State machines** | — |
 | **Architecture document** | [11](11-notifications-and-communications.md) |
 | **Modules** | M-20 |
-| **Primary data structures** | broadcasts, broadcast_recipients |
+| **Primary data structures** | broadcast_records, broadcast_recipients *(created — CAR-020)* |
 | **Interfaces / ports** | Email/SMS ports |
 | **Background / async work** | Fan-out worker |
 | **Real-time involvement** | No |
@@ -1008,7 +1010,7 @@ Each entry records: disposition · milestone · gate · features · entities · 
 | **State machines** | — |
 | **Architecture document** | [13](13-reports-calendars-and-documents.md) |
 | **Modules** | M-21 |
-| **Primary data structures** | report_runs, report_artifacts |
+| **Primary data structures** | report_runs *(+ `input_manifest`, `input_hash`, `policy_version` — CAR-012)*, report_artifacts, report_shares *(created — CAR-012)* |
 | **Interfaces / ports** | Storage port |
 | **Background / async work** | **Async generation worker** |
 | **Real-time involvement** | Completion notification |
@@ -1140,7 +1142,7 @@ Each entry records: disposition · milestone · gate · features · entities · 
 | **State machines** | STM-023 |
 | **Architecture document** | [12](12-integrations-and-ingestion-privacy.md) |
 | **Modules** | **M-08 — dependency-free** |
-| **Primary data structures** | import_quarantine (field names and counts only) |
+| **Primary data structures** | quarantined_records *(field paths, rejection codes, counts, value class — never values and never hashes; `import_quarantine` was the trace's name for this table — CAR-020/CAR-004)* |
 | **Interfaces / ports** | **The boundary itself** |
 | **Background / async work** | Applied inside batch processing |
 | **Real-time involvement** | No |
@@ -1299,7 +1301,7 @@ Each entry records: disposition · milestone · gate · features · entities · 
 | **Background / async work** | — |
 | **Real-time involvement** | — |
 | **Authorization requirement** | — |
-| **Privacy / security consideration** | **No control labelled Add, New, or Create persists anything before a completed form, validation, and an explicit Save** (I-05) |
+| **Privacy / security consideration** | **No control labelled Add, New, or Create persists anything before a completed form, validation, and an explicit Save** (I-13 — renumbered from the colliding `I-05`, CAR-023) |
 | **Testing strategy** | QA: QA-PICK-003, QA-REQ-006 · Sandbox: SBX-020 |
 | **ADRs** | [ADR-0002](decisions/ADR-0002-primary-technology-stack.md) |
 | **Open questions / confidence** | **Directly derived from the Phase 8 safety incident**, in which such a control created a live record on click. Confidence: High |
@@ -1316,7 +1318,7 @@ Each entry records: disposition · milestone · gate · features · entities · 
 | **State machines** | — |
 | **Architecture document** | [15](15-audit-and-observability.md) · [17](17-deployment-and-operations.md) |
 | **Modules** | M-24 + platform |
-| **Primary data structures** | audit_events; backup and telemetry infrastructure |
+| **Primary data structures** | audit_events *(+ hash chain)*, audit_checkpoints *(created — CAR-014)*; backup and telemetry infrastructure |
 | **Interfaces / ports** | Telemetry exporters |
 | **Background / async work** | Backup, restore rehearsal |
 | **Real-time involvement** | Connection metrics |
@@ -1330,17 +1332,21 @@ Each entry records: disposition · milestone · gate · features · entities · 
 
 ## 3. Capabilities that block architecture approval
 
-| Capability | Why it blocks |
-|---|---|
-| **CAP-001** Organization tenancy root | The tenancy root determines every table, every policy, and every query. Changing it later is a rewrite. |
-| **CAP-002** Group scheduling scope and switching | Group scope is the unit of authorization and of nearly every read. It cannot be retrofitted. |
-| **CAP-006** Membership-scoped roles and capabilities | The authorization model is load-bearing for every route and every row. |
-| **CAP-057** Entitlement and feature gating | Entitlements must be separate from permissions from the first table, or the two become entangled permanently. |
-| **CAP-055** Hospital surgical-booking integration framework | The connector framework determines where the ingestion boundary sits. Placing it wrongly is unrecoverable. |
+> **CORRECTED (CAR-020).** The manifest previously listed **five** architecture blockers while the authoritative [report 19](../../schedulepoint-research/reports/19-schedulepoint-production-capability-baseline.md) §5 lists **seven**. **CAP-003 and CAP-032 were omitted even though this document's own prose called them structural** — so governance could have reported the architecture gate complete while tenant isolation and picklist concurrency were unresolved. **All seven are listed below and all seven are addressed by this remediation.** Report 24 assigns CAP-003 and CAP-032 later *evidence* gates; that does not make them less architecturally blocking, and the two are no longer conflated.
 
-**CAP-003** (tenant isolation), **CAP-032** (picklist concurrency and real-time state), and **CAP-062** (ingestion privacy boundary) carry later gates but are architecturally structural: each is designed here in full because retrofitting it is not possible.
+| # | Capability | Why it blocks | Remediated by |
+|---|---|---|---|
+| 1 | **CAP-001** Organization tenancy root | The tenancy root determines every table, policy, and query. Changing it later is a rewrite | [SPEC-01](specs/SPEC-01-request-context-and-tenant-isolation.md), [ADR-0022](decisions/ADR-0022-request-scoped-tenant-context.md) |
+| 2 | **CAP-002** Group scope and switching | Group scope is the unit of authorization and of nearly every read | [SPEC-01](specs/SPEC-01-request-context-and-tenant-isolation.md) §§2–3 |
+| 3 | **CAP-003** **Tenant isolation** *(was omitted from the five)* | **The isolation primitives are load-bearing for every other capability. Two live failure paths were found (CAR-001, CAR-002)** | [SPEC-01](specs/SPEC-01-request-context-and-tenant-isolation.md), [ADR-0022](decisions/ADR-0022-request-scoped-tenant-context.md) |
+| 4 | **CAP-006** Membership roles and capabilities | The authorization model governs every route and every row | [SPEC-06](specs/SPEC-06-authorization-truth-table.md) |
+| 5 | **CAP-032** **Picklist concurrency and real-time state** *(was omitted from the five)* | **The turn transaction and event ordering cannot be retrofitted; the decisive invariant was wrong (CAR-003)** | [SPEC-02](specs/SPEC-02-picklist-turn-transaction.md), [ADR-0023](decisions/ADR-0023-picklist-turn-transaction.md) |
+| 6 | **CAP-055** Integration framework | Determines where the ingestion boundary sits. Placing it wrongly is unrecoverable | [SPEC-03](specs/SPEC-03-raw-ingress-trust-boundary.md), [ADR-0021](decisions/ADR-0021-raw-ingress-enclave.md) |
+| 7 | **CAP-057** Entitlement and feature gating | Entitlements must be separate from permissions from the first table, or the two entangle permanently | [SPEC-06](specs/SPEC-06-authorization-truth-table.md) §2.2 |
 
----
+**CAP-062** (ingestion privacy boundary) carries a later gate but is architecturally structural for the same reason as CAP-055, and is designed here in full.
+
+**None of the seven is *closed*.** Each is remediated in design and **awaits independent verification and the tests named in its specification.**
 
 ## 4. What this matrix does not establish
 

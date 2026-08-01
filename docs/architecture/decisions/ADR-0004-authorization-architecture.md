@@ -2,6 +2,8 @@
 
 **Status:** `PROPOSED` — 2026-07-31. Not accepted. **Implements the product-owner-approved decision PO-DEC-02.**
 
+> **REVISED 2026-08-01 (CAR-001, CAR-008).** The four layers are now backed by a **normative truth table** with explicit-deny precedence, dependency semantics, disabled-module data behaviour, cache versioning, and **re-authorization against current state on every command, job execution, and socket frame** — see [SPEC-06](../specs/SPEC-06-authorization-truth-table.md). Tenant context is request-scoped and verified rather than resolved from a mutable session value — see [ADR-0022](ADR-0022-request-scoped-tenant-context.md).
+
 ## Context
 
 Contradiction **C-02** recorded that the source product's permission surfaces could not be reconciled: settings existed whose behavioural effect could not be established, and two similar-sounding controls could not be distinguished. Copying that model would reproduce the confusion.
@@ -16,7 +18,7 @@ The product's real structure is four-dimensional: an organization buys modules; 
 organization entitlement → group/module availability → membership role → explicit action capability
 ```
 
-**Every route declares its required capability. A route with no declaration fails the build** — not at runtime, at build time. Object-level checks re-verify tenant and scope after loading. RLS (ADR-0003) is the final layer.
+**Tenant context is client-declared and server-verified against membership, a context version, and the target aggregate ([ADR-0022](ADR-0022-request-scoped-tenant-context.md)); a stale declaration is rejected, never silently substituted.** **Every route declares its required capability. A route with no declaration fails the build** — not at runtime, at build time. Object-level checks re-verify tenant and scope after loading. RLS (ADR-0003) is the final layer.
 
 **The rule that prevents C-02 from recurring: no permission flag may exist without a test demonstrating an observable capability difference.** A flag whose presence changes nothing is not a permission; it is a defect.
 

@@ -2,6 +2,8 @@
 
 **Status: `PROPOSED`.** Implements **PO-DEC-02** (authorization model) and **PO-DEC-04** (entitlement architecture), both **APPROVED**.
 
+> **REVISED 2026-08-01 (CAR-001, CAR-002, CAR-008, CAR-021).** Four changes. **§4.1** — tenant context is now **client-declared and server-verified**, not resolved from a mutable session value. **§4.3** — connection-checkout RLS context is withdrawn as unsafe (**S-03b**) in favour of **transaction-local** context. **§§1, 3, 4.2, 4.4–4.6, 7** — the four layers gain a **normative truth table** with explicit-deny precedence and freshness. **§2.1** — Site reverts to the PO-DEC-01 pending default. Governing specs: [SPEC-01](specs/SPEC-01-request-context-and-tenant-isolation.md), [SPEC-06](specs/SPEC-06-authorization-truth-table.md).
+
 ---
 
 ## 1. The approved authorization model
@@ -44,7 +46,7 @@ Four layers, each answering a different question. **They are not interchangeable
 |---|---|---|
 | **Organization** | Root | Billing entity and outermost security boundary |
 | **Group** | Within org | The scheduling and permission scope |
-| **Site** | Within org | Physical location; may be referenced by work items and assignments (PO-DEC-01 pending — modelled as an entity, usable as an attribute) |
+| **Site** | — | **CHANGED (CAR-021). PO-DEC-01 is `pending` with a working default of "defer a first-class Site; model location as an attribute." A table with foreign keys is not neutral toward that decision, so `sites` is withdrawn and location carries a `site_label` attribute. The migration boundary in both directions is defined in [06](06-data-architecture.md) §3.2a. No site administration surface, API, or workflow is designed while the decision is pending** |
 | **Department-equivalent** | — | **Deliberately not modelled.** Staff Group (M-06) already provides subsetting; adding a department entity without evidence of need would be speculative |
 | **User account** | Org | `accountType`: person \| functional \| placeholder |
 | **Organization membership** | Org | The user's relationship to the org |
@@ -119,16 +121,31 @@ Authorization must hold on synchronous **and** asynchronous paths. A model that 
 
 ### 4.1 Tenant context resolution
 
-**Server-side, from the session, always.** Never from a query parameter, header, or request body.
+> **REPLACED (CAR-001).** The previous rule — one mutable `activeGroupId` on the session, with commands ignoring client context — prevented forgery but **caused silent retargeting**: a stale tab's legitimately-authorized command was executed against whatever group the session now pointed to.
+
+**The client declares the tenant it believes it is addressing. The server verifies that declaration. It never substitutes its own current value.**
 
 ```
-Request → session → { userId, organizationId, activeGroupId, membershipId }
-       → set database session variables
-       → policy evaluation
+Request → immutable context tuple {
+             principal_user_id            (from session)
+             expected_organization_id     (CLIENT-DECLARED, SERVER-VERIFIED)
+             expected_group_id            (CLIENT-DECLARED, SERVER-VERIFIED)
+             membership_id                (derived server-side)
+             context_version, session_epoch, authorization_version
+          }
+       → verify membership, freshness, and TARGET AGGREGATE BINDING
+       → open unit of work; set TRANSACTION-LOCAL tenant settings
+       → policy evaluation (SPEC-06 truth table)
        → handler
 ```
 
-The client may *request* a group switch; the server validates the membership and re-resolves. **A client-supplied tenant identifier is never trusted** — this is the single most important rule in the isolation model.
+| Failure | Response |
+|---|---|
+| Forged or non-member tenant | `404` — indistinguishable from not-found |
+| **Stale context version or session epoch** | **`409 CONTEXT_STALE`** — a recoverable interface condition, not an attack |
+| **Target object in another tenant** | **`409 CONTEXT_TARGET_MISMATCH`, before any write** |
+
+**No session-global active group exists, and no command handler reads one.** Full design: [SPEC-01](specs/SPEC-01-request-context-and-tenant-isolation.md) §§2–3.
 
 ### 4.2 Route-level policy declaration
 
@@ -153,7 +170,11 @@ PostgreSQL row-level security is the second layer. **Documented facts (S-03) dri
 | **Superusers and `BYPASSRLS` roles always bypass** | The application runtime role is **neither**. Non-negotiable |
 | `TRUNCATE` and `REFERENCES` are **not** subject to RLS | Destructive operations are controlled by **grants**, not policies |
 
-**Connection discipline.** The tenant context variable that policies read is set on **every connection checkout** and cleared on release. A pooled connection that retains a previous tenant's context is a cross-tenant leak — so this is a checkout-time invariant with an integration test, not a convention.
+**Transaction-local context — REPLACES connection-checkout context (CAR-002).**
+
+**Verified fact S-03b:** `SET LOCAL` "last[s] only till the end of the current transaction, whether committed or not"; a plain `SET` persists for the session; and `SET LOCAL` outside a transaction block warns and has no effect.
+
+**Checkout-scoped context was therefore unsafe by construction** — an exception, a cancellation, a timeout, or a pool error could hand the next borrower a live tenant context. Every tenant statement now runs inside a unit-of-work wrapper that opens a transaction, sets `app.organization_id` and `app.group_id` via `set_config(..., true)`, **reads them back to verify**, and ends the transaction. **Outside that wrapper the settings are `NULL`, every policy predicate is false, and every tenant table returns zero rows and rejects every write — fail-closed, not fail-open.** **Statement-level connection pooling is prohibited** (TDG-03). Full design: [SPEC-01](specs/SPEC-01-request-context-and-tenant-isolation.md) §4.
 
 **RLS is defence in depth.** If application authorization is correct, RLS never denies anything. Its value is that when application authorization is *wrong*, the blast radius is a failed query rather than another tenant's data.
 
@@ -234,6 +255,6 @@ CAP-001, CAP-002, CAP-003, CAP-004, CAP-005, CAP-006, CAP-007, CAP-010, CAP-042,
 ## 9. What remains unproven
 
 - **SBX-002** verifies the SchedulePoint four-layer model. It would additionally illuminate the source's behaviour, but **the source's `Picklist Admin` / `Pick List Access` semantics remain UNRESOLVED and are not asserted anywhere in this design.**
-- **PO-DEC-01** (Site as a first-class entity) remains pending; the model supports either reading.
+- **PO-DEC-01** (Site as a first-class entity) remains pending. **The schema now implements the pending default (attribute) rather than the unapproved alternative (entity)**, with both migration directions modelled in [06](06-data-architecture.md) §3.2a.
 - **PO-DEC-06** (one user, multiple organizations) remains pending; the current model assumes one organization per user for the first release.
 - **PO-DEC-09** (MFA/SSO scope) remains pending; the design assumes MFA is available and SSO is designed-for.

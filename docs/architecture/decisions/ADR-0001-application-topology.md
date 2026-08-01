@@ -2,6 +2,8 @@
 
 **Status:** `PROPOSED` — 2026-07-31. Not accepted. Supersedes nothing.
 
+> **REVISED 2026-08-01 (CAR-005, CAR-017).** Two claims are withdrawn. **(1) "One deployment artifact" is withdrawn** — the platform builds **three images** (`app`, `solver`, `ingress`) across **six process classes**, because the solver has no supported Node.js runtime ([ADR-0020](ADR-0020-solver-runtime-packaging.md)) and the ingress enclave must not inherit application observability ([ADR-0021](ADR-0021-raw-ingress-enclave.md)). **(2) Strict module ownership is replaced** by the three write classes in [ADR-0017](ADR-0017-cross-module-unit-of-work.md), and the module count is rationalised from 25 to 19. See [SPEC-10](../specs/SPEC-10-deployment-topology.md) §2 and [SPEC-12](../specs/SPEC-12-cross-module-unit-of-work.md).
+
 ## Context
 
 SchedulePoint must deliver 58 capabilities spanning four workload profiles that behave nothing alike: ordinary request/response web traffic, durable background jobs, **long-running CPU-bound solver runs**, and **long-lived real-time connections**. The team is small, no capability has been implemented, and no production traffic exists to learn from.
@@ -25,7 +27,7 @@ Module boundaries are enforced in CI ([04](../04-domain-boundaries.md) §5), not
 
 ## Consequences
 
-**Positive:** one deployment artifact and one test suite · transactional consistency where it matters · independent scaling of the four profiles · module boundaries preserve the option to extract later.
+**Positive:** one codebase and one test suite · transactional consistency where it matters · independent scaling of the four profiles · module boundaries preserve the option to extract later.
 
 **Negative:** boundary erosion is a standing risk (RISK-06) and must be enforced mechanically · a shared database is a shared failure domain · one language and runtime for all four profiles constrains solver-integration choices.
 

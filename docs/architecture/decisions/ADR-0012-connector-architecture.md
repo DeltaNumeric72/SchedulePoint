@@ -2,6 +2,8 @@
 
 **Status:** `PROPOSED` — 2026-07-31. Not accepted.
 
+> **REVISED 2026-08-01 (CAR-004, CAR-025).** Certification gains adversarial value-relabeling fixtures, a vocabulary mapping review, failure-surface fixtures, enclave configuration attestation, and egress verification ([SPEC-03](../specs/SPEC-03-raw-ingress-trust-boundary.md) §8). **`G-CONN` is additionally blocked on evidence access that does not yet exist** — restorable backups and error-reporting vendor API — recorded as EV-1..EV-3 in [SPEC-16](../specs/SPEC-16-sbx-evidence-contracts.md).
+
 ## Context
 
 The source product publicly names integrations with ORSOS, Cerner/Surginet, and Meditech. **The research established that these systems are named; it did not establish their payload shapes.** No vendor specification is in hand for any of them.

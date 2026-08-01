@@ -2,6 +2,8 @@
 
 **Status: `PROPOSED`.** Implements CAP-045..CAP-049.
 
+> **REVISED 2026-08-01 (CAR-012).** Reports previously captured tenant context but **no input snapshot**, were never re-authorized at execution, and had no distinction between creation and download authorization, no share ACLs, and no revocation. All four are specified in [SPEC-09](specs/SPEC-09-report-snapshot-and-artifact-authorization.md) and [ADR-0018](decisions/ADR-0018-report-snapshot-semantics.md).
+
 ---
 
 ## 1. Reports and statistics

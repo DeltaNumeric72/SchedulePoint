@@ -2,11 +2,13 @@
 
 **Status: `PROPOSED`.** Implements CAP-021..CAP-026 and the C-03 approved resolution.
 
+> **REVISED 2026-08-01 (CAR-011, CAR-018).** The typed-request narrative is now backed by **constrained subtype tables, per-subtype transition matrices, and database CHECKs** — the previous single nullable table could not enforce them ([SPEC-08](specs/SPEC-08-request-subtype-lifecycles.md)). Marketplace claims and approvals now **bind the source assignment version and snapshot**, with a deterministic lock order and a deadlock policy ([SPEC-13](specs/SPEC-13-marketplace-version-binding.md)). **PO-DEC-03 remains `pending`; the request design is explicitly provisional.**
+
 ---
 
 ## 1. Canonical typed requests
 
-**C-03 resolution:** one canonical Request domain with typed categories and shared audit infrastructure, allowing **specialised subtype data and distinct lifecycle states**.
+**C-03 working default (PO-DEC-03 — `pending`, product-owner direction 2026-08-01):** one Request **aggregate root** with **constrained subtype records** and a **linked but distinct** Vacation lifecycle. **This is not an approved decision, and the design is provisional** ([SPEC-08](specs/SPEC-08-request-subtype-lifecycles.md) §8 states what changes if it is decided otherwise).
 
 > **The explicit warning applies here:** do **not** force genuinely different lifecycles into one indistinguishable status field. Shared infrastructure ≠ shared state machine.
 
@@ -133,7 +135,7 @@ stateDiagram-v2
 
 **The sharpest concurrency case outside the picklist.** Two eligible colleagues claiming simultaneously must resolve to **exactly one winner**.
 
-Design: a **single conditional `UPDATE`** — `SET status='claimed', claimed_by=:m WHERE id=:o AND status='posted'` — inside a transaction that also re-validates eligibility and reassigns the assignment. Zero rows updated means someone else won; the loser receives a clear "already claimed" message, **never a silent failure or a double assignment**.
+Design **CHANGED (CAR-018)**: the conditional claim now binds **`source_version_id` and `source_snapshot_id` as well as status**, because exactly one claimant winning the *status* race does not prove the underlying assignment still exists in the form that was offered. Zero rows updated means someone else won; the loser receives a clear "already claimed" message, **never a silent failure or a double assignment**.
 
 **Re-validation happens at claim time, not post time.** The world changes between posting and claiming: the claimant's qualifications may have expired, they may have acquired a conflicting assignment, or minimum rest may now be violated. Validating only at post time would produce assignments that were legal when offered and illegal when taken.
 

@@ -2,6 +2,8 @@
 
 **Status: `PROPOSED`.** Implements CAP-051 operationally and supports every capability's runtime.
 
+> **REVISED 2026-08-01 (CAR-005, CAR-013, CAR-024).** **Deferring the deployment *architecture* is withdrawn.** Deployment class, **six process classes and three images**, region topology, database HA with synchronous commit, **application-side fencing that composes with database failover**, queue recovery, coordinator leases, solver isolation, backup/PITR/object-store consistency, migration rollback limits, and a failure-mode matrix are decided in [SPEC-10](specs/SPEC-10-deployment-topology.md). **Provider, region, residency, and RPO/RTO remain open and are recorded as owner input OI-1..OI-7 — not invented.**
+
 > **No infrastructure is created by this task.** This document describes a target operating model. Nothing here is provisioned, and no environment exists.
 
 ---

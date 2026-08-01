@@ -2,6 +2,8 @@
 
 **Status: `PROPOSED`.** Implements CAP-040, CAP-041, CAP-042, CAP-043, CAP-056.
 
+> **REVISED 2026-08-01 (CAR-009, CAR-010, CAR-019).** Three corrections. **Hash-only push storage could never deliver** — Web Push requires the endpoint, `p256dh`, and `auth` to be retained (**verified fact S-05**). **"Exactly-once apparent" delivery is withdrawn**: `ambiguous` and `unresolved` are first-class outcomes, retry after ambiguity requires declared provider idempotency, callbacks are authenticated and replay-safe, and escalation is cancelled by a conditional claim. **The blanket "PII never leaves for third parties" rule is replaced** by an approved-processor boundary, with CAP-068 preserved as a strict *client-side* prohibition. Governing spec: [SPEC-07](specs/SPEC-07-notification-delivery-contracts.md).
+
 ---
 
 ## 1. Four separated concepts

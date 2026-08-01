@@ -2,6 +2,8 @@
 
 **Status:** `PROPOSED` — 2026-07-31. Not accepted.
 
+> **REVISED 2026-08-01 (CAR-005, CAR-024).** **The claim "Node.js/TypeScript across all four process classes" is withdrawn.** OR-Tools has no official Node.js binding (**verified fact S-04**), so the solver worker runs **Python** in its own image ([ADR-0020](ADR-0020-solver-runtime-packaging.md)), and the raw-ingress enclave is a third, minimal image ([ADR-0021](ADR-0021-raw-ingress-enclave.md)). **No `VERIFY` row may be described as decided:** each is now a numbered gate in [SPEC-15](../specs/SPEC-15-technology-decision-gates.md) with a required spike. **The stack is partly decided and partly gated, and this ADR no longer claims otherwise.**
+
 ## Context
 
 The stack must serve four process classes, a data-dense accessible UI, a constraint solver, and a real-time surface — with a small team and no existing code. Three product-level constraints narrow the field more than any framework preference:
@@ -12,7 +14,7 @@ The stack must serve four process classes, a data-dense accessible UI, a constra
 
 ## Decision
 
-**Node.js LTS + TypeScript across all four process classes; PostgreSQL as the single database; OR-Tools CP-SAT behind a solver-neutral port; WebSocket for server-authoritative real-time; S3-compatible object storage; OpenTelemetry for observability; Playwright + axe-core in CI.** Full per-choice detail, including alternatives and replacement boundaries, is in [02](../02-technology-stack.md).
+**Node.js LTS + TypeScript for the web/API, background-worker, real-time-coordinator, and migration process classes; Python for the solver worker (S-04); a minimal separate image for the raw-ingress enclave; PostgreSQL as the single database; OR-Tools CP-SAT behind a solver-neutral port; WebSocket for server-authoritative real-time; S3-compatible object storage; OpenTelemetry for observability; Playwright + axe-core in CI.** Full per-choice detail, including alternatives and replacement boundaries, is in [02](../02-technology-stack.md).
 
 **Only four claims in the stack document are verified primary-source facts** ([references](../references/official-technical-sources.md)): CP-SAT's solver class and status values, its optimization support, OR-Tools' Apache-2.0 licence, and PostgreSQL's RLS semantics. **Every other maturity or licensing claim is marked `VERIFY` and must be confirmed before adoption.**
 

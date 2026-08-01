@@ -2,11 +2,13 @@
 
 **Status: `PROPOSED`.** Implements CAP-027 and CAP-051.
 
+> **REVISED 2026-08-01 (CAR-014).** **The claim that history "cannot be quietly rewritten" is withdrawn.** Withholding `UPDATE`/`DELETE` from the application role protects against application bugs and ordinary users only. The assurance level is now explicit — **A1 hash chaining with signed checkpoints, A2 external write-once replication, A3 notarisation deliberately not claimed** — with privileged-access auditing and three-way reconciliation. **"Retention is indefinite" is replaced** by an operable policy with legal hold and anonymisation. Governing spec: [SPEC-11](specs/SPEC-11-audit-assurance-and-security-boundaries.md), [ADR-0019](decisions/ADR-0019-audit-assurance-level.md).
+
 ---
 
 ## 1. Audit history
 
-**Append-only by construction, not by convention.** No update or delete operation exists in the audit module, and the application role holds no such grant (D-8).
+**Append-only by construction, not by convention.** No update or delete operation exists in the audit module, and the application role holds no such grant (D-8). **That is necessary and not sufficient (CAR-014):** migration owners, database owners, platform administrators, and restore tooling are unaffected by a grant. **Tamper *evidence* comes from the per-organization hash chain and signed checkpoints (D-25), and tamper *resistance against the platform itself* comes from external write-once replication.**
 
 ### 1.1 Every entry carries
 
@@ -54,7 +56,7 @@
 
 ### 1.4 Query and retention
 
-Queryable by actor, subject, correlation id, time range, and affected membership — the source's per-cell log could not be queried in aggregate, which made it useful for one cell and useless for an investigation. **Retention is indefinite**; partitioned by time when volume justifies. **Audit history must survive a restore intact** (SBX-035).
+Queryable by actor, subject, correlation id, time range, and affected membership — the source's per-cell log could not be queried in aggregate, which made it useful for one cell and useless for an investigation. **Retention is 7 years by default, then tenant policy, with legal hold and anonymisation-rather-than-deletion (CHANGED, CAR-014 — "indefinite" is not a lawful universal answer)**; partitioned by time when volume justifies. **Audit history must survive a restore intact, and chain verification after restore proves it or records the gap** (SBX-035).
 
 ---
 

@@ -2,6 +2,8 @@
 
 **Status: `PROPOSED`.** Implements **PO-DEC-08 (APPROVED)** and CAP-055, CAP-061..CAP-065, CAP-062.
 
+> **REVISED 2026-08-01 (CAR-004).** **Two holes closed.** **(1)** The boundary sat *downstream* of TLS termination, the parser, the adapter, process memory, tracing, error capture, and retry queues — so the raw payload was already inside the platform before the "boundary" saw it. It now sits inside a **raw-ingress enclave** ([ADR-0021](decisions/ADR-0021-raw-ingress-enclave.md)). **(2)** A positive list of field *names* cannot stop a patient name written into an allowed field, so every accepted field now carries a **type, shape, and controlled-vocabulary constraint**, and **unrestricted free text is removed from protected work-item paths**. Governing spec: [SPEC-03](specs/SPEC-03-raw-ingress-trust-boundary.md).
+
 > **This is the highest-consequence privacy boundary in the product.** A scheduling system that accumulates patient data inherits clinical-system regulatory obligations without clinical-system controls. The boundary below exists to make that impossible by construction rather than by policy.
 
 ---
@@ -106,7 +108,7 @@ graph LR
 | **Observability** | Traces and metrics carry counts and identifiers, never content |
 | **Backups** | Follows from the above — if it never persisted, it is not in a backup |
 
-**Quarantine stores field names and counts, not values.** A quarantined record answers "an unexpected field called X appeared 14 times," which is what an operator needs, without becoming a store of exactly the data the boundary exists to exclude.
+**Quarantine stores field paths, rejection codes, and counts — not values, not substrings, and NOT ANY HASH of a value** (CAR-004: a hash of a patient name is still a re-identifiable pseudonym). A quarantined record answers "field `items[].title` produced `UNKNOWN_VOCABULARY` 14 times," which is what an operator needs to act.
 
 ### 4.3 Batch lifecycle
 

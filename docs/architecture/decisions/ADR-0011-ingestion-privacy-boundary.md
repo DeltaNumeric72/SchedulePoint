@@ -2,6 +2,8 @@
 
 **Status:** `PROPOSED` — 2026-07-31. Not accepted. **Implements the product-owner-approved decision PO-DEC-08.**
 
+> **REVISED 2026-08-01 (CAR-004).** **Two corrections.** **(1) Boundary placement:** the trusted boundary now sits inside a **raw-ingress enclave** that terminates the external connection, ahead of all application observability and durable infrastructure ([ADR-0021](ADR-0021-raw-ingress-enclave.md)). **(2) Key allowlisting is not value validation:** a positive list of field *names* cannot stop a patient name being written into an allowed field, so every accepted field now carries a **type, shape, and controlled-vocabulary constraint**, and **unrestricted free text is removed from protected work-item paths entirely**. See [SPEC-03](../specs/SPEC-03-raw-ingress-trust-boundary.md).
+
 ## Context
 
 Hospital surgical-booking systems hold patient data. A scheduling product that ingests from them can easily accumulate patient-identifying information — and a workforce-scheduling system that holds patient data inherits clinical-system regulatory obligations without clinical-system controls.
