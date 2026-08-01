@@ -1,0 +1,428 @@
+==============================================================================
+SchedulePoint — SP-C / SP-5 solver boundary spike harness
+OPUS-M0-003. Spike code; not production.
+==============================================================================
+    date (UTC):                            2026-08-01T17:22:51Z
+    python:                                3.9.6 (CPython)
+    python executable:                     /Users/prabashan/Claude/SchedulePoint/.worktrees/opus-m0-003/spikes/sp-c-solver/.venv/bin/python
+    ortools:                               9.15.6755
+    platform:                              Darwin 25.5.0 / arm64
+    cpu count:                             12
+    spike dir:                             /Users/prabashan/Claude/SchedulePoint/.worktrees/opus-m0-003/spikes/sp-c-solver
+    container:                             NOT USED — see FAD-7 substitution note in SPIKE-REPORT.md
+
+==============================================================================
+H-0  Static boundary guards (no solver leak, no DB, no egress)
+==============================================================================
+    files importing ortools:               ['worker/cpsat_adapter.py']
+    worker files importing socket:         ['worker/egress_guard.py']
+    worker DB/network client imports:      none
+    re-validator imports the adapter:      False
+    committed problems match generator:    True
+      ok: hard-large.json
+      ok: toy-feasible.json
+      ok: toy-infeasible-capacity.json
+      ok: toy-infeasible-spacing.json
+      ok: toy-infeasible-spacing-control.json
+
+  >> H-0 PASS — solver confined to the adapter; no DB or network client in the worker
+
+==============================================================================
+H-1  Feasible solve, verified by an independent re-validator
+==============================================================================
+    status:                                OPTIMAL
+    termination_reason:                    completed
+    input_hash:                            c8409ae18f17a5ef3fb634f3683ac90b3eceb9d340ca3e88ed8007b2fd094837
+    solution_hash:                         6ae4f01f57091af391e23a51bd48ef0d6f9d63a1a3f45ffd73503b413a19ba87
+    objective (solver):                    6048
+    best bound:                            6048
+    model build seconds:                   0.0039
+    solve wall seconds:                    0.238786
+    parent-observed wall seconds:          0.9841
+    worker cold start to solve_start (s):  0.6947
+    request bytes / response bytes:        8306 / 11865
+    request parse / response encode (s):   4e-05 / 8.7e-05
+    egress guard:                          installed
+    auth echo:                             {'scheme': 'placeholder-internal-mtls', 'verified': False}
+    context echoed:                        {"build_run_id":"run_h1","correlation_id":"h1","group_id":"grp_00000000-0000-4000-8000-000000000002","organization_id":"org_00000000-0000-4000-8000-000000000001"}
+    independent re-validator violations:   0
+    independent objective recomputation:   6048
+    assignments:                           168
+    total demand units:                    168
+    harness-recomputed solution hash matches: True
+
+    Boundary cost decomposition, median of 5 runs (toy-feasible, sanitised HOME):
+      worker_start_to_request_validated        0.0761 s   (min 0.0758 / max 0.0767)
+      ortools_import                           0.6314 s   (min 0.6276 / max 0.6364)
+      model_build                              0.0040 s   (min 0.0040 / max 0.0040)
+      solve                                    0.1848 s   (min 0.1732 / max 0.2157)
+      worker_request_parse                     0.0000 s   (min 0.0000 / max 0.0001)
+      worker_response_encode                   0.0001 s   (min 0.0001 / max 0.0001)
+      parent_request_encode                    0.0001 s   (min 0.0001 / max 0.0001)
+      parent_response_decode                   0.0001 s   (min 0.0001 / max 0.0001)
+      total_parent_wall                        0.9438 s   (min 0.9368 / max 0.9736)
+      --> total JSON serialisation             0.0003 s
+      --> per-solve process overhead           0.7590 s
+
+    Boundary cost decomposition, median of 3 runs (toy-feasible, inherited HOME (comparison only)):
+      worker_start_to_request_validated        0.0179 s   (min 0.0177 / max 0.0186)
+      ortools_import                           0.2011 s   (min 0.2002 / max 0.2034)
+      model_build                              0.0041 s   (min 0.0040 / max 0.0041)
+      solve                                    0.1872 s   (min 0.1742 / max 0.2406)
+      worker_request_parse                     0.0000 s   (min 0.0000 / max 0.0000)
+      worker_response_encode                   0.0001 s   (min 0.0001 / max 0.0001)
+      parent_request_encode                    0.0001 s   (min 0.0001 / max 0.0001)
+      parent_response_decode                   0.0001 s   (min 0.0001 / max 0.0001)
+      total_parent_wall                        0.4410 s   (min 0.4299 / max 0.4991)
+      --> total JSON serialisation             0.0003 s
+      --> per-solve process overhead           0.2538 s
+
+    FINDING — the boundary is cheap; the *process* is not. JSON in and out
+    costs 0.3 ms for this problem. One solve is one process, and the process costs
+    0.71 s before the solver sees the model, almost all of it `import ortools`.
+    Of that, 0.43 s is an artefact of handing the worker a sanitised HOME: with the
+    caller's HOME the same import takes 0.20 s instead of 0.63 s (macOS per-user
+    caches). In a container HOME is inside the image, so CI must re-measure this.
+
+  >> H-1 PASS — OPTIMAL in 0.239s; 0 hard violations; independent objective 6048 == solver objective 6048
+
+==============================================================================
+H-2  Over-constrained variants report INFEASIBLE (and the control proves why)
+==============================================================================
+
+    instance:                              toy-infeasible-spacing
+      expected / got:                      INFEASIBLE / INFEASIBLE
+      raw CP-SAT status:                   INFEASIBLE
+      solve wall seconds:                  0.001184
+      description:                         Alternating saturation: every staff member must work night on day 0 and day on day 1. The night->day rule forbids exactl
+
+    instance:                              toy-infeasible-spacing-control
+      expected / got:                      FEASIBLE_OR_OPTIMAL / OPTIMAL
+      raw CP-SAT status:                   OPTIMAL
+      solve wall seconds:                  0.004085
+      description:                         Identical to toy-infeasible-spacing with the spacing rule removed; must be feasible, proving the spacing rule is the sol
+      re-validator violations:             0
+
+    instance:                              toy-infeasible-capacity
+      expected / got:                      INFEASIBLE / INFEASIBLE
+      raw CP-SAT status:                   INFEASIBLE
+      solve wall seconds:                  0.018605
+      description:                         toy-feasible with a per-staff cap of 8: capacity 20x8=160 < 168 required. Pigeonhole infeasibility.
+
+  The spacing instance and its control differ by exactly one rule (HR-SPACING).
+  Infeasible with it, solvable without it: the infeasibility is a property of the
+  model, not an artefact of the solver giving up.
+
+  >> H-2 PASS — spacing=INFEASIBLE (0.0012s), control=OPTIMAL (0.0041s), capacity=INFEASIBLE (0.0186s)
+
+==============================================================================
+H-3  Cancellation layer 1: solver-native deadline on a hard instance
+==============================================================================
+    requested deadline (s):                5.0
+    status:                                FEASIBLE
+    termination_reason:                    deadline
+    deadline_reached flag:                 True
+    solver-reported wall (s):              5.017036
+    adapter-measured wall (s):             5.017999
+    overshoot beyond deadline (s):         0.018
+    parent-observed process wall (s):      5.8772
+    objective / best bound:                18144 / 12000
+    improving solutions seen:              26
+    booleans in model:                     17160
+    re-validator violations on the partial result: 0
+
+  SPEC-04 §2: FEASIBLE is not 'done'. The response carries termination_reason='deadline'
+  and a best bound strictly below the incumbent, so the caller cannot mistake a
+  timed-out run for a completed one.
+
+  >> H-3 PASS — FEASIBLE at 5.018s against a 5.0s deadline (overshoot 0.018s); bound 12000 < incumbent 18144
+
+==============================================================================
+H-4  Cancellation layer 2: cooperative cancel mid-solve
+==============================================================================
+
+    variant:                               callback-file
+      control channel:                     file
+      stop path:                           solution_callback
+      status:                              FEASIBLE
+      termination_reason:                  user_cancelled
+      cancel requested at (parent offset s): 2.7593
+      worker observed cancel at (solve offset s): 1.949641
+      worker acted on cancel at (solve offset s): 2.045272
+      observed -> Solve() returned (s):    0.112799
+      acted -> Solve() returned (s):       0.017168
+      cancel request -> process exit (s):  0.1749
+      deadline that was NOT waited out (s): 30.0
+      improving solutions before stop:     19
+
+    variant:                               threadstop-file
+      control channel:                     file
+      stop path:                           watcher_thread_stop_search
+      status:                              FEASIBLE
+      termination_reason:                  user_cancelled
+      cancel requested at (parent offset s): 2.7493
+      worker observed cancel at (solve offset s): 1.942411
+      worker acted on cancel at (solve offset s): 1.943121
+      observed -> Solve() returned (s):    0.016551
+      acted -> Solve() returned (s):       0.015841
+      cancel request -> process exit (s):  0.0878
+      deadline that was NOT waited out (s): 30.0
+      improving solutions before stop:     17
+
+    variant:                               callback-sigusr1
+      control channel:                     signal
+      stop path:                           solution_callback
+      status:                              FEASIBLE
+      termination_reason:                  user_cancelled
+      cancel requested at (parent offset s): 2.7457
+      worker observed cancel at (solve offset s): 30.028908
+      worker acted on cancel at (solve offset s): None
+      observed -> Solve() returned (s):    0.000118
+      acted -> Solve() returned (s):       None
+      cancel request -> process exit (s):  28.1619
+      deadline that was NOT waited out (s): 30.0
+      improving solutions before stop:     43
+
+  Required mechanism is 'callback-file': the flag is set on the worker's control
+  channel and the solver's solution callback observes it and calls StopSearch().
+  The other two are measured because the latency difference is the engineering fact.
+
+    callback-file      hard violations in the returned partial schedule: 0
+    threadstop-file    hard violations in the returned partial schedule: 0
+    callback-sigusr1   hard violations in the returned partial schedule: 0
+
+  >> H-4 PASS — callback+file: user_cancelled, Solve() returned 0.113s after the worker observed the request (request->process exit 0.175s) against a 30s deadline that was never reached
+
+==============================================================================
+H-5  Cancellation layer 3: SIGKILL mid-solve, cleanliness, and restart
+==============================================================================
+    worker processes before:               0
+    worker pid:                            10381
+    kill sent at (parent offset s):        2.8205
+    parent-observed process wall (s):      2.8293
+    returncode:                            -9
+    exit signal:                           9
+    SIGKILL is signal:                     9
+    response on stdout:                    none
+    stdout bytes:                          0
+    kill -> parent reaped (s):             0.0088
+    worker processes after:                0
+    orphaned/zombie workers (ppid==1 or Z): none
+    `ps -Ao pid,ppid,stat,command | grep worker.main`: no matches
+    files left in the worker TMPDIR:       none
+
+  Re-running the same problem in a fresh subprocess:
+      rerun status:                        FEASIBLE
+      rerun returncode:                    0
+      rerun re-validator violations:       0
+
+  >> H-5 PASS — worker died on signal 9 with no response, 0 survivors, 0 orphans, 0 temp files; same problem re-solved afterwards (FEASIBLE)
+
+==============================================================================
+H-6  Determinism: same seed, same worker count, 5 consecutive runs
+==============================================================================
+  The packet asks whether a fixed seed and a fixed worker count give byte-identical
+  solutions. Four configurations are run, because the honest answer is 'not by
+  themselves, and here is what does'.
+
+  H-6a  DEFAULT portfolio: 8 workers, wall-clock deadline, interleave_search off
+    instance / parameters:                 toy-feasible / {"max_time_in_seconds":30.0,"num_search_workers":8,"random_seed":20260801}
+    run 1  status=OPTIMAL   obj=6048     wall=  0.187s  solution_sha256=e74cdd96e10d351f3ebd309717e4c058
+    run 2  status=OPTIMAL   obj=6048     wall=  0.176s  solution_sha256=978b4450cfebfabc5966d16f73eef240
+    run 3  status=OPTIMAL   obj=6048     wall=  0.182s  solution_sha256=0dd781f46e589844d4bf4a373eaf22d8
+    run 4  status=OPTIMAL   obj=6048     wall=  0.185s  solution_sha256=62ac606ed05fa2327a8f2a11381e6f0a
+    run 5  status=OPTIMAL   obj=6048     wall=  0.141s  solution_sha256=a87c8023404e80e528f740f10bd844ff
+    distinct solution hashes:              5
+    byte-identical across 5 runs:          False
+    objective identical across 5 runs:     True
+
+  H-6b  8 workers with interleave_search=True (deterministic portfolio batching)
+    parameters:                            {"interleave_search":true,"max_time_in_seconds":60.0,"num_search_workers":8,"random_seed":20260801}
+    run 1  status=OPTIMAL   obj=6048     wall=  2.192s  solution_sha256=137a6be2dee98ef5df6573bd6a14190f
+    run 2  status=OPTIMAL   obj=6048     wall=  2.188s  solution_sha256=137a6be2dee98ef5df6573bd6a14190f
+    run 3  status=OPTIMAL   obj=6048     wall=  2.185s  solution_sha256=137a6be2dee98ef5df6573bd6a14190f
+    run 4  status=OPTIMAL   obj=6048     wall=  2.203s  solution_sha256=137a6be2dee98ef5df6573bd6a14190f
+    run 5  status=OPTIMAL   obj=6048     wall=  2.189s  solution_sha256=137a6be2dee98ef5df6573bd6a14190f
+    distinct solution hashes:              1
+    byte-identical across 5 runs:          True
+
+  H-6c  single worker (num_search_workers = 1)
+    run 1  status=OPTIMAL   obj=6048     wall=  2.496s  solution_sha256=b58475f25ec07b45b5769075a1d02d46
+    run 2  status=OPTIMAL   obj=6048     wall=  2.504s  solution_sha256=b58475f25ec07b45b5769075a1d02d46
+    run 3  status=OPTIMAL   obj=6048     wall=  2.497s  solution_sha256=b58475f25ec07b45b5769075a1d02d46
+    run 4  status=OPTIMAL   obj=6048     wall=  2.498s  solution_sha256=b58475f25ec07b45b5769075a1d02d46
+    run 5  status=OPTIMAL   obj=6048     wall=  2.497s  solution_sha256=b58475f25ec07b45b5769075a1d02d46
+    distinct solution hashes:              1
+    byte-identical across 5 runs:          True
+
+  H-6d  time-BOUNDED and still reproducible: deterministic time limit instead of
+        a wall-clock one, on the hard instance (max_deterministic_time=2.0)
+    parameters:                            {"interleave_search":true,"max_deterministic_time":2.0,"max_time_in_seconds":300.0,"num_search_workers":8,"random_seed":20260801}
+    run 1  status=OPTIMAL   obj=18144    wall=  2.573s  solution_sha256=e7cf70168e890a5ef352c29daaad50ff
+    run 2  status=OPTIMAL   obj=18144    wall=  2.615s  solution_sha256=e7cf70168e890a5ef352c29daaad50ff
+    run 3  status=OPTIMAL   obj=18144    wall=  2.589s  solution_sha256=e7cf70168e890a5ef352c29daaad50ff
+    run 4  status=OPTIMAL   obj=18144    wall=  2.573s  solution_sha256=e7cf70168e890a5ef352c29daaad50ff
+    run 5  status=OPTIMAL   obj=18144    wall=  2.613s  solution_sha256=e7cf70168e890a5ef352c29daaad50ff
+    distinct solution hashes:              1
+    byte-identical across 5 runs:          True
+    wall-clock spread (s):                 2.573 .. 2.615
+
+  H-6e  the counter-example: hard instance stopped by a WALL-CLOCK deadline
+    run 1  status=FEASIBLE  obj=18144    wall=  5.023s  solution_sha256=9084fa86ff6130d6c5fd34aaa07c777d
+    run 2  status=FEASIBLE  obj=19316    wall=  5.022s  solution_sha256=91457b67218d85d70a85b60d1027322d
+    run 3  status=FEASIBLE  obj=18242    wall=  5.021s  solution_sha256=764919aec25f79531d49d8bb7269ee2c
+    run 4  status=FEASIBLE  obj=18536    wall=  5.020s  solution_sha256=29d8441e7e8efdb739fe6618a979712b
+    run 5  status=FEASIBLE  obj=21220    wall=  5.115s  solution_sha256=84e5d167283b9e48a10739c2b8225114
+    distinct solution hashes:              5
+    objectives:                            [18144, 19316, 18242, 18536, 21220]
+
+  FINDING, stated definitively:
+   * A fixed seed and a fixed worker count are NOT sufficient. With the default
+     portfolio at 8 workers the same problem produced 5 distinct schedules in 5 runs
+     — all proving the same optimum, so this is a reproducibility defect, not a
+     quality one. Workers exchange information on wall-clock timing.
+   * Determinism IS achievable, two ways: num_search_workers=1, or any worker count
+     with interleave_search=True. Both gave 1 distinct hash in 5 runs.
+   * A wall-clock deadline destroys determinism regardless (5 distinct in 5). A
+     deterministic time limit preserves it (1 distinct in 5) while still bounding
+     the solve.
+
+  >> H-6 PASS — seed+worker-count alone is NOT deterministic (5 distinct schedules in 5 runs at 8 workers, all objective 6048). Deterministic with interleave_search=True at 8 workers (1 distinct in 5) and at 1 worker (1 distinct in 5). Wall-clock deadline: 5 distinct in 5; deterministic time limit: 1 distinct in 5.
+
+==============================================================================
+H-7  Worker-count variance: num_search_workers = 1 / 4 / 8, same seed
+==============================================================================
+  Block 1 — DEFAULT portfolio (interleave_search off)
+    workers=1  status=OPTIMAL  obj=6048   wall=2.502/2.499  branches=[155133, 155133]  self-consistent=True
+              solution_sha256=b58475f25ec07b45b5769075a1d02d46f4e0fd6c622900ad1413e50a34c9ef94
+    workers=4  status=OPTIMAL  obj=6048   wall=0.269/0.272  branches=[48185, 48185]  self-consistent=True
+              solution_sha256=cb4f6e12302780e9bf5601371029b02ef4b5b34810661a49f4966cea18cd8ddf
+    workers=8  status=OPTIMAL  obj=6048   wall=0.193/0.204  branches=[1568, 1662]  self-consistent=False
+              solution_sha256=62ac606ed05fa2327a8f2a11381e6f0acbfb28f34a0330e16d8511ee30e2c0dc
+
+      distinct solutions across worker counts: 3
+      distinct objective values:           [6048]
+      each worker count reproduced itself (2 runs): False
+
+  Block 2 — interleave_search=True (the configuration H-6 showed is reproducible)
+    workers=1  status=OPTIMAL  obj=6048   wall=0.892/0.893  branches=[20997, 20997]  self-consistent=True
+              solution_sha256=b10ae92fcced88c56a2ed2b3e43c5c890209d530666333ec5652fc10566d846f
+    workers=4  status=OPTIMAL  obj=6048   wall=3.329/3.327  branches=[83246, 83246]  self-consistent=True
+              solution_sha256=710fec1018f6d835cde2bd1259da6f5014df70789c5fd38aab003cd986077293
+    workers=8  status=OPTIMAL  obj=6048   wall=2.208/2.210  branches=[106919, 106919]  self-consistent=True
+              solution_sha256=137a6be2dee98ef5df6573bd6a14190fb3a9927e7cbe1a015905c901988733ff
+
+      distinct solutions across worker counts: 3
+      distinct objective values:           [6048]
+      each worker count reproduced itself (2 runs): True
+
+  FINDING, stated plainly:
+   * With the default portfolio, worker count changes the answer AND a single worker
+     count does not even reproduce itself (self-consistent: False). Worker count is not
+     the only variable in play there.
+   * With interleave_search=True each worker count IS internally reproducible (True),
+     and the three worker counts still produce 3 distinct schedules from the same
+     seed. Objective values: [6048] — quality is identical, the schedule is not.
+   * Consequence for TDG-11: num_search_workers is part of the reproducibility
+     record and must be pinned per build, not inherited from the node's CPU count.
+
+  >> H-7 FINDING — default portfolio: 3 distinct solutions across 1/4/8, self-consistent=False. interleave_search=True: 3 distinct solutions across 1/4/8, self-consistent=True, objectives [6048] (quality identical, schedule not). Worker count must be pinned.
+
+==============================================================================
+H-8  Explanation tier T1 probe: CP-SAT assumptions on infeasible models
+==============================================================================
+  CP-SAT's Python API exposes CpModel.AddAssumption() and
+  CpSolver.SufficientAssumptionsForInfeasibility(). Both are present in this build.
+  The question is whether they are *usable*: does the core come back, is it small,
+  and what does reification cost?
+
+    baseline (no assumptions) toy-infeasible-spacing: INFEASIBLE in 0.0012s
+
+    baseline (no assumptions) toy-infeasible-capacity: INFEASIBLE in 0.0187s
+
+    instance / granularity / reified rules: toy-infeasible-spacing / instance / all
+      status:                              INFEASIBLE
+      solve wall (s):                      0.013344
+      baseline wall without assumptions (s): 0.00122
+      assumption literals in model:        582
+      sufficient-for-infeasibility set size: 3
+      core:                                ['HR-DEMAND:d0:night', 'HR-DEMAND:d1:day', 'HR-SPACING:S01:d0:night>day']
+
+    instance / granularity / reified rules: toy-infeasible-spacing / rule / all
+      status:                              INFEASIBLE
+      solve wall (s):                      0.014317
+      baseline wall without assumptions (s): 0.00122
+      assumption literals in model:        3
+      sufficient-for-infeasibility set size: 2
+      core:                                ['HR-DEMAND', 'HR-SPACING']
+
+    instance / granularity / reified rules: toy-infeasible-spacing / instance / ['HR-SPACING']
+      status:                              INFEASIBLE
+      solve wall (s):                      0.002602
+      baseline wall without assumptions (s): 0.00122
+      assumption literals in model:        260
+      sufficient-for-infeasibility set size: 1
+      core:                                ['HR-SPACING:S01:d0:night>day']
+
+    instance / granularity / reified rules: toy-infeasible-capacity / instance / all
+      status:                              UNKNOWN
+      solve wall (s):                      19.900633
+      baseline wall without assumptions (s): 0.01868
+      assumption literals in model:        606
+      sufficient-for-infeasibility set size: 0
+      core:                                (none returned)
+
+    instance / granularity / reified rules: toy-infeasible-capacity / rule / all
+      status:                              UNKNOWN
+      solve wall (s):                      20.001245
+      baseline wall without assumptions (s): 0.01868
+      assumption literals in model:        5
+      sufficient-for-infeasibility set size: 0
+      core:                                (none returned)
+
+    instance / granularity / reified rules: toy-infeasible-capacity / instance / ['HR-MAXASSIGN']
+      status:                              UNKNOWN
+      solve wall (s):                      20.002088
+      baseline wall without assumptions (s): 0.01868
+      assumption literals in model:        20
+      sufficient-for-infeasibility set size: 0
+      core:                                (none returned)
+
+  T1 verdict material:
+   * the mechanism EXISTS and returns a genuinely minimal core on the spacing
+     instance — 3 constraints out of 582, naming the two demand cells and the one
+     spacing pair that contradict. That is a usable scheduler-facing explanation.
+   * it is NOT free: reifying constraints behind assumption literals disables the
+     presolve reasoning that proves counting infeasibilities. The capacity instance
+     goes from 0.0187s (INFEASIBLE) to a 20s timeout (UNKNOWN) once assumptions are
+     switched on — even with only the capacity rule reified.
+
+  >> H-8 FINDING — AddAssumption + SufficientAssumptionsForInfeasibility exist and work: minimal 3-literal core on the spacing instance (0.0133s). But assumptions cost presolve: the capacity instance goes from 0.0187s INFEASIBLE to UNKNOWN at the 20s limit.
+
+    total harness wall time (s):           238.36
+
+==============================================================================
+SUMMARY
+==============================================================================
+CASE   TITLE                              OUTCOME 
+------------------------------------------------------------------------------
+H-0    static boundary guards             PASS    
+       solver confined to the adapter; no DB or network client in the worker
+H-1    feasible solve                     PASS    
+       OPTIMAL in 0.239s; 0 hard violations; independent objective 6048 == solver objective 6048
+H-2    infeasibility detection            PASS    
+       spacing=INFEASIBLE (0.0012s), control=OPTIMAL (0.0041s), capacity=INFEASIBLE (0.0186s)
+H-3    solver deadline                    PASS    
+       FEASIBLE at 5.018s against a 5.0s deadline (overshoot 0.018s); bound 12000 < incumbent 18144
+H-4    cooperative cancellation           PASS    
+       callback+file: user_cancelled, Solve() returned 0.113s after the worker observed the request (request->process exit 0.175s) against a 30s deadline that was never reached
+H-5    SIGKILL cleanliness                PASS    
+       worker died on signal 9 with no response, 0 survivors, 0 orphans, 0 temp files; same problem re-solved afterwards (FEASIBLE)
+H-6    determinism at fixed worker count  PASS    
+       seed+worker-count alone is NOT deterministic (5 distinct schedules in 5 runs at 8 workers, all objective 6048). Deterministic with interleave_search=True at 8 workers (1 distinct in 5) and at 1 worker (1 distinct in 5). Wall-clock deadline: 5 distinct in 5; deterministic time limit: 1 distinct in 5.
+H-7    worker-count variance              FINDING 
+       default portfolio: 3 distinct solutions across 1/4/8, self-consistent=False. interleave_search=True: 3 distinct solutions across 1/4/8, self-consistent=True, objectives [6048] (quality identical, schedule not). Worker count must be pinned.
+H-8    assumption mechanism / T1          FINDING 
+       AddAssumption + SufficientAssumptionsForInfeasibility exist and work: minimal 3-literal core on the spacing instance (0.0133s). But assumptions cost presolve: the capacity instance goes from 0.0187s INFEASIBLE to UNKNOWN at the 20s limit.
+------------------------------------------------------------------------------
+9 cases, 0 failed

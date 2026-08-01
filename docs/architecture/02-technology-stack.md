@@ -128,7 +128,7 @@ Versioned, forward-only, reviewed as code, run by a role **separate** from the a
 
 **Reason for CP-SAT.** Two production requirements decide this. First, **zero unauthorized hard-constraint violations** is an absolute gate — a heuristic cannot provide that guarantee, only its absence of evidence. Second, **infeasibility must be explained**, and CP-SAT's documented `INFEASIBLE` status gives a principled foundation that a metaheuristic's "did not find one" does not. Fairness and preference satisfaction map naturally onto weighted objective terms.
 
-**Reproducibility** is an absolute criterion in report 21 §7. Achieving it requires pinning the solver version, fixing the random seed, and **fixing worker count where parallelism affects determinism** — the CP-SAT overview did not document parallelism behaviour, so this must be **established by benchmark (SBX-031), not assumed.**
+**Reproducibility** is an absolute criterion in report 21 §7. *(Amended 2026-08-01 — now measured, EV-M0-SPC:)* pinning the solver version, seed, and worker count is **not sufficient**; reproducible builds additionally require the deterministic portfolio (`interleave_search`), deterministic time limits instead of wall clock, and pinning of the full parameter set — see [SPEC-04](specs/SPEC-04-solver-runtime-and-rule-model.md) §reproducibility amendment. Cost is instance-dependent and is measured on the E1 corpus (SBX-031).
 
 **Integer-only modelling is a real design constraint.** Weights, percentages, and fairness metrics must be scaled to integers with an explicitly documented precision. This is a modelling decision to make once, deliberately, not per-rule.
 

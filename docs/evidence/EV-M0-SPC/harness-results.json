@@ -1,0 +1,547 @@
+[
+  {
+    "case": "H-0",
+    "detail": "solver confined to the adapter; no DB or network client in the worker",
+    "metrics": {
+      "failures": [],
+      "ortools_importers": [
+        "worker/cpsat_adapter.py"
+      ]
+    },
+    "outcome": "PASS",
+    "title": "static boundary guards"
+  },
+  {
+    "case": "H-1",
+    "detail": "OPTIMAL in 0.239s; 0 hard violations; independent objective 6048 == solver objective 6048",
+    "metrics": {
+      "boundary_cost_inherited_home_seconds": {
+        "model_build": 0.004057,
+        "ortools_import": 0.201113,
+        "parent_request_encode": 8.7e-05,
+        "parent_response_decode": 7.9e-05,
+        "serialisation_total": 0.000305,
+        "solve": 0.187198,
+        "total_parent_wall": 0.441029,
+        "worker_request_parse": 4.5e-05,
+        "worker_response_encode": 9.4e-05,
+        "worker_start_to_request_validated": 0.017949
+      },
+      "boundary_cost_medians_seconds": {
+        "model_build": 0.003989,
+        "ortools_import": 0.631444,
+        "parent_request_encode": 8.5e-05,
+        "parent_response_decode": 8.1e-05,
+        "serialisation_total": 0.000302,
+        "solve": 0.184815,
+        "total_parent_wall": 0.943805,
+        "worker_request_parse": 4.3e-05,
+        "worker_response_encode": 9.3e-05,
+        "worker_start_to_request_validated": 0.07608
+      },
+      "cold_start_seconds": 0.6947,
+      "hard_violations": 0,
+      "objective": 6048,
+      "request_bytes": 8306,
+      "response_bytes": 11865,
+      "solve_wall_seconds": 0.238786,
+      "status": "OPTIMAL"
+    },
+    "outcome": "PASS",
+    "title": "feasible solve"
+  },
+  {
+    "case": "H-2",
+    "detail": "spacing=INFEASIBLE (0.0012s), control=OPTIMAL (0.0041s), capacity=INFEASIBLE (0.0186s)",
+    "metrics": {
+      "toy-infeasible-capacity": {
+        "expected": "INFEASIBLE",
+        "ok": true,
+        "raw": "INFEASIBLE",
+        "status": "INFEASIBLE",
+        "wall": 0.018605
+      },
+      "toy-infeasible-spacing": {
+        "expected": "INFEASIBLE",
+        "ok": true,
+        "raw": "INFEASIBLE",
+        "status": "INFEASIBLE",
+        "wall": 0.001184
+      },
+      "toy-infeasible-spacing-control": {
+        "expected": "FEASIBLE_OR_OPTIMAL",
+        "hard_violations": 0,
+        "ok": true,
+        "raw": "OPTIMAL",
+        "status": "OPTIMAL",
+        "wall": 0.004085
+      }
+    },
+    "outcome": "PASS",
+    "title": "infeasibility detection"
+  },
+  {
+    "case": "H-3",
+    "detail": "FEASIBLE at 5.018s against a 5.0s deadline (overshoot 0.018s); bound 12000 < incumbent 18144",
+    "metrics": {
+      "hard_violations": 0,
+      "limit": 5.0,
+      "overshoot": 0.018,
+      "status": "FEASIBLE",
+      "wall": 5.017999
+    },
+    "outcome": "PASS",
+    "title": "solver deadline"
+  },
+  {
+    "case": "H-4",
+    "detail": "callback+file: user_cancelled, Solve() returned 0.113s after the worker observed the request (request->process exit 0.175s) against a 30s deadline that was never reached",
+    "metrics": {
+      "callback-file": {
+        "cancel_to_exit_seconds": 0.1749,
+        "channel": "file",
+        "observed_to_return_seconds": 0.112799,
+        "solve_wall_seconds": 2.062441,
+        "status": "FEASIBLE",
+        "stop_path": "solution_callback",
+        "termination_reason": "user_cancelled"
+      },
+      "callback-sigusr1": {
+        "cancel_to_exit_seconds": 28.1619,
+        "channel": "signal",
+        "observed_to_return_seconds": 0.000118,
+        "solve_wall_seconds": 30.029025,
+        "status": "FEASIBLE",
+        "stop_path": "solution_callback",
+        "termination_reason": "user_cancelled"
+      },
+      "threadstop-file": {
+        "cancel_to_exit_seconds": 0.0878,
+        "channel": "file",
+        "observed_to_return_seconds": 0.016551,
+        "solve_wall_seconds": 1.958962,
+        "status": "FEASIBLE",
+        "stop_path": "watcher_thread_stop_search",
+        "termination_reason": "user_cancelled"
+      }
+    },
+    "outcome": "PASS",
+    "title": "cooperative cancellation"
+  },
+  {
+    "case": "H-5",
+    "detail": "worker died on signal 9 with no response, 0 survivors, 0 orphans, 0 temp files; same problem re-solved afterwards (FEASIBLE)",
+    "metrics": {
+      "exit_signal": 9,
+      "kill_to_reap_seconds": 0.0088,
+      "orphans": 0,
+      "rerun_status": "FEASIBLE",
+      "survivors": 0,
+      "tmp_files": []
+    },
+    "outcome": "PASS",
+    "title": "SIGKILL cleanliness"
+  },
+  {
+    "case": "H-6",
+    "detail": "seed+worker-count alone is NOT deterministic (5 distinct schedules in 5 runs at 8 workers, all objective 6048). Deterministic with interleave_search=True at 8 workers (1 distinct in 5) and at 1 worker (1 distinct in 5). Wall-clock deadline: 5 distinct in 5; deterministic time limit: 1 distinct in 5.",
+    "metrics": {
+      "a_default_8_workers": {
+        "distinct_hashes": 5,
+        "first_hash": "e74cdd96e10d351f3ebd309717e4c0589254a362e2056de1b0a627abb9c868df",
+        "identical": false,
+        "objectives": [
+          6048,
+          6048,
+          6048,
+          6048,
+          6048
+        ],
+        "statuses": [
+          "OPTIMAL",
+          "OPTIMAL",
+          "OPTIMAL",
+          "OPTIMAL",
+          "OPTIMAL"
+        ],
+        "walls": [
+          0.187,
+          0.176,
+          0.182,
+          0.185,
+          0.141
+        ]
+      },
+      "b_interleaved_8_workers": {
+        "distinct_hashes": 1,
+        "first_hash": "137a6be2dee98ef5df6573bd6a14190fb3a9927e7cbe1a015905c901988733ff",
+        "identical": true,
+        "objectives": [
+          6048,
+          6048,
+          6048,
+          6048,
+          6048
+        ],
+        "statuses": [
+          "OPTIMAL",
+          "OPTIMAL",
+          "OPTIMAL",
+          "OPTIMAL",
+          "OPTIMAL"
+        ],
+        "walls": [
+          2.192,
+          2.188,
+          2.185,
+          2.203,
+          2.189
+        ]
+      },
+      "c_single_worker": {
+        "distinct_hashes": 1,
+        "first_hash": "b58475f25ec07b45b5769075a1d02d46f4e0fd6c622900ad1413e50a34c9ef94",
+        "identical": true,
+        "objectives": [
+          6048,
+          6048,
+          6048,
+          6048,
+          6048
+        ],
+        "statuses": [
+          "OPTIMAL",
+          "OPTIMAL",
+          "OPTIMAL",
+          "OPTIMAL",
+          "OPTIMAL"
+        ],
+        "walls": [
+          2.496,
+          2.504,
+          2.497,
+          2.498,
+          2.497
+        ]
+      },
+      "d_deterministic_time_limit": {
+        "distinct_hashes": 1,
+        "first_hash": "e7cf70168e890a5ef352c29daaad50fff62d881eabf7d0fa655751c0c1e9d5bf",
+        "identical": true,
+        "objectives": [
+          18144,
+          18144,
+          18144,
+          18144,
+          18144
+        ],
+        "statuses": [
+          "OPTIMAL",
+          "OPTIMAL",
+          "OPTIMAL",
+          "OPTIMAL",
+          "OPTIMAL"
+        ],
+        "walls": [
+          2.573,
+          2.615,
+          2.589,
+          2.573,
+          2.613
+        ]
+      },
+      "e_wallclock_deadline": {
+        "distinct_hashes": 5,
+        "first_hash": "9084fa86ff6130d6c5fd34aaa07c777d84dd3b6faf5ee4c71729b0c64d6faf58",
+        "identical": false,
+        "objectives": [
+          18144,
+          19316,
+          18242,
+          18536,
+          21220
+        ],
+        "statuses": [
+          "FEASIBLE",
+          "FEASIBLE",
+          "FEASIBLE",
+          "FEASIBLE",
+          "FEASIBLE"
+        ],
+        "walls": [
+          5.023,
+          5.022,
+          5.021,
+          5.02,
+          5.115
+        ]
+      }
+    },
+    "outcome": "PASS",
+    "title": "determinism at fixed worker count"
+  },
+  {
+    "case": "H-7",
+    "detail": "default portfolio: 3 distinct solutions across 1/4/8, self-consistent=False. interleave_search=True: 3 distinct solutions across 1/4/8, self-consistent=True, objectives [6048] (quality identical, schedule not). Worker count must be pinned.",
+    "metrics": {
+      "default_portfolio": {
+        "distinct_objectives": [
+          6048
+        ],
+        "distinct_solutions": 3,
+        "rows": [
+          {
+            "branches": [
+              155133,
+              155133
+            ],
+            "effective_workers": 0,
+            "hash": "b58475f25ec07b45b5769075a1d02d46f4e0fd6c622900ad1413e50a34c9ef94",
+            "hashes": [
+              "b58475f25ec07b45b5769075a1d02d46f4e0fd6c622900ad1413e50a34c9ef94",
+              "b58475f25ec07b45b5769075a1d02d46f4e0fd6c622900ad1413e50a34c9ef94"
+            ],
+            "objective": 6048,
+            "objectives": [
+              6048,
+              6048
+            ],
+            "stable_within_worker_count": true,
+            "status": "OPTIMAL",
+            "walls": [
+              2.502,
+              2.499
+            ],
+            "workers": 1
+          },
+          {
+            "branches": [
+              48185,
+              48185
+            ],
+            "effective_workers": 0,
+            "hash": "cb4f6e12302780e9bf5601371029b02ef4b5b34810661a49f4966cea18cd8ddf",
+            "hashes": [
+              "cb4f6e12302780e9bf5601371029b02ef4b5b34810661a49f4966cea18cd8ddf",
+              "cb4f6e12302780e9bf5601371029b02ef4b5b34810661a49f4966cea18cd8ddf"
+            ],
+            "objective": 6048,
+            "objectives": [
+              6048,
+              6048
+            ],
+            "stable_within_worker_count": true,
+            "status": "OPTIMAL",
+            "walls": [
+              0.269,
+              0.272
+            ],
+            "workers": 4
+          },
+          {
+            "branches": [
+              1568,
+              1662
+            ],
+            "effective_workers": 0,
+            "hash": "62ac606ed05fa2327a8f2a11381e6f0acbfb28f34a0330e16d8511ee30e2c0dc",
+            "hashes": [
+              "62ac606ed05fa2327a8f2a11381e6f0acbfb28f34a0330e16d8511ee30e2c0dc",
+              "f74906efaffb10effde936c9e622bd2b6a2ad7ac9483611a5f987dc43542b797"
+            ],
+            "objective": 6048,
+            "objectives": [
+              6048,
+              6048
+            ],
+            "stable_within_worker_count": false,
+            "status": "OPTIMAL",
+            "walls": [
+              0.193,
+              0.204
+            ],
+            "workers": 8
+          }
+        ],
+        "self_consistent": false
+      },
+      "interleaved": {
+        "distinct_objectives": [
+          6048
+        ],
+        "distinct_solutions": 3,
+        "rows": [
+          {
+            "branches": [
+              20997,
+              20997
+            ],
+            "effective_workers": 0,
+            "hash": "b10ae92fcced88c56a2ed2b3e43c5c890209d530666333ec5652fc10566d846f",
+            "hashes": [
+              "b10ae92fcced88c56a2ed2b3e43c5c890209d530666333ec5652fc10566d846f",
+              "b10ae92fcced88c56a2ed2b3e43c5c890209d530666333ec5652fc10566d846f"
+            ],
+            "objective": 6048,
+            "objectives": [
+              6048,
+              6048
+            ],
+            "stable_within_worker_count": true,
+            "status": "OPTIMAL",
+            "walls": [
+              0.892,
+              0.893
+            ],
+            "workers": 1
+          },
+          {
+            "branches": [
+              83246,
+              83246
+            ],
+            "effective_workers": 0,
+            "hash": "710fec1018f6d835cde2bd1259da6f5014df70789c5fd38aab003cd986077293",
+            "hashes": [
+              "710fec1018f6d835cde2bd1259da6f5014df70789c5fd38aab003cd986077293",
+              "710fec1018f6d835cde2bd1259da6f5014df70789c5fd38aab003cd986077293"
+            ],
+            "objective": 6048,
+            "objectives": [
+              6048,
+              6048
+            ],
+            "stable_within_worker_count": true,
+            "status": "OPTIMAL",
+            "walls": [
+              3.329,
+              3.327
+            ],
+            "workers": 4
+          },
+          {
+            "branches": [
+              106919,
+              106919
+            ],
+            "effective_workers": 0,
+            "hash": "137a6be2dee98ef5df6573bd6a14190fb3a9927e7cbe1a015905c901988733ff",
+            "hashes": [
+              "137a6be2dee98ef5df6573bd6a14190fb3a9927e7cbe1a015905c901988733ff",
+              "137a6be2dee98ef5df6573bd6a14190fb3a9927e7cbe1a015905c901988733ff"
+            ],
+            "objective": 6048,
+            "objectives": [
+              6048,
+              6048
+            ],
+            "stable_within_worker_count": true,
+            "status": "OPTIMAL",
+            "walls": [
+              2.208,
+              2.21
+            ],
+            "workers": 8
+          }
+        ],
+        "self_consistent": true
+      }
+    },
+    "outcome": "FINDING",
+    "title": "worker-count variance"
+  },
+  {
+    "case": "H-8",
+    "detail": "AddAssumption + SufficientAssumptionsForInfeasibility exist and work: minimal 3-literal core on the spacing instance (0.0133s). But assumptions cost presolve: the capacity instance goes from 0.0187s INFEASIBLE to UNKNOWN at the 20s limit.",
+    "metrics": {
+      "baseline": {
+        "toy-infeasible-capacity": 0.01868,
+        "toy-infeasible-spacing": 0.00122
+      },
+      "mechanism_present": true,
+      "rows": [
+        {
+          "assumptions": 582,
+          "baseline_wall": 0.00122,
+          "core": [
+            "HR-DEMAND:d0:night",
+            "HR-DEMAND:d1:day",
+            "HR-SPACING:S01:d0:night>day"
+          ],
+          "core_size": 3,
+          "granularity": "instance",
+          "instance": "toy-infeasible-spacing",
+          "reified_rules": "all",
+          "status": "INFEASIBLE",
+          "wall": 0.013344
+        },
+        {
+          "assumptions": 3,
+          "baseline_wall": 0.00122,
+          "core": [
+            "HR-DEMAND",
+            "HR-SPACING"
+          ],
+          "core_size": 2,
+          "granularity": "rule",
+          "instance": "toy-infeasible-spacing",
+          "reified_rules": "all",
+          "status": "INFEASIBLE",
+          "wall": 0.014317
+        },
+        {
+          "assumptions": 260,
+          "baseline_wall": 0.00122,
+          "core": [
+            "HR-SPACING:S01:d0:night>day"
+          ],
+          "core_size": 1,
+          "granularity": "instance",
+          "instance": "toy-infeasible-spacing",
+          "reified_rules": [
+            "HR-SPACING"
+          ],
+          "status": "INFEASIBLE",
+          "wall": 0.002602
+        },
+        {
+          "assumptions": 606,
+          "baseline_wall": 0.01868,
+          "core": [],
+          "core_size": 0,
+          "granularity": "instance",
+          "instance": "toy-infeasible-capacity",
+          "reified_rules": "all",
+          "status": "UNKNOWN",
+          "wall": 19.900633
+        },
+        {
+          "assumptions": 5,
+          "baseline_wall": 0.01868,
+          "core": [],
+          "core_size": 0,
+          "granularity": "rule",
+          "instance": "toy-infeasible-capacity",
+          "reified_rules": "all",
+          "status": "UNKNOWN",
+          "wall": 20.001245
+        },
+        {
+          "assumptions": 20,
+          "baseline_wall": 0.01868,
+          "core": [],
+          "core_size": 0,
+          "granularity": "instance",
+          "instance": "toy-infeasible-capacity",
+          "reified_rules": [
+            "HR-MAXASSIGN"
+          ],
+          "status": "UNKNOWN",
+          "wall": 20.002088
+        }
+      ]
+    },
+    "outcome": "FINDING",
+    "title": "assumption mechanism / T1"
+  }
+]
