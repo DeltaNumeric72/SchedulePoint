@@ -1,0 +1,10 @@
+{
+  "interaction": "health-retry-click",
+  "project": "desktop",
+  "requests": [
+    { "method": "GET", "url": "/api/health", "resourceType": "fetch" },
+    { "method": "GET", "url": "/api/health", "resourceType": "fetch" },
+    { "method": "POST", "url": "/api/telemetry/click", "resourceType": "fetch" }
+  ],
+  "recordedAt": "2026-08-01T00:00:00.000Z"
+}

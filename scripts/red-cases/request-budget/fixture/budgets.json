@@ -1,0 +1,14 @@
+{
+  "$comment": [
+    "RED CASE — requests-per-interaction budget (over budget).",
+    "A copy of the real budget shape with a recording that breaks it: one click,",
+    "three requests. I-10 says one user action produces one request."
+  ],
+  "interactions": [
+    {
+      "id": "health-retry-click",
+      "description": "User clicks 'Check again' in the connection panel.",
+      "maxRequests": 1
+    }
+  ]
+}

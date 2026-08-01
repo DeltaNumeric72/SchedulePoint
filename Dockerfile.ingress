@@ -1,0 +1,32 @@
+# SchedulePoint — ingress image (image 2 of 3).
+#
+# ############################################################################
+# # SKELETON. Structure and syntax only. NOT BUILT in this environment       #
+# # (FAD-7: no Docker daemon). Nothing here has been executed.               #
+# ############################################################################
+#
+# The raw-ingress enclave (ADR-0021 / SPEC-03 / I-17). Raw external payloads
+# exist **only** inside this image: it cannot log them, trace them, persist them,
+# queue them, dump them, or export them. Only constrained-schema values leave.
+#
+# In the scaffold it is a reverse proxy in front of the API and the static web
+# bundle, which is the same network position the enclave occupies. The enclave's
+# actual parsing logic is a later packet and is deliberately absent.
+#
+# Properties this skeleton establishes now, because retrofitting them is how the
+# boundary gets lost:
+#  - the enclave holds no database credential;
+#  - it writes no application log containing a request body;
+#  - it is a separate image so its filesystem, its egress rules and its IAM role
+#    can differ from the application's.
+
+FROM nginx:1.27-alpine AS runtime
+
+# Placeholder configuration. The real configuration lands with SPEC-03 and must
+# set body-size bounds, timeouts, and a log format that carries no request body.
+COPY ingress.nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 8080
+USER nginx
+
+CMD ["nginx", "-g", "daemon off;"]

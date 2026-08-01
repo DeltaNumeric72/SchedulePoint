@@ -1,0 +1,20 @@
+{
+  "name": "@schedulepoint/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/src/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/src/index.js",
+    "print-routes": "tsx src/tooling/print-route-table.ts"
+  },
+  "dependencies": {
+    "@schedulepoint/contracts": "workspace:*",
+    "@schedulepoint/domain": "workspace:*",
+    "fastify": "5.6.1"
+  },
+  "devDependencies": {
+    "tsx": "4.20.6"
+  }
+}

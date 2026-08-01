@@ -1,0 +1,15 @@
+{
+  "$comment": [
+    "RED CASE — requests-per-interaction budget (no recording).",
+    "The recordings directory is empty. A budgeted interaction with no",
+    "measurement must FAIL, not skip: otherwise the cheapest way to satisfy the",
+    "budget would be to break the browser run that produces the measurements."
+  ],
+  "interactions": [
+    {
+      "id": "health-retry-click",
+      "description": "User clicks 'Check again' in the connection panel.",
+      "maxRequests": 1
+    }
+  ]
+}

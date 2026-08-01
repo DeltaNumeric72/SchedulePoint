@@ -1,0 +1,13 @@
+dist
+dist-types
+node_modules
+pnpm-lock.yaml
+playwright-report
+test-results
+schedulepoint-research
+spikes
+docs
+scripts/gates/request-budget/recordings
+scripts/red-cases/*/fixture
+scripts/check-output.txt
+scripts/red-cases/evidence-output.txt

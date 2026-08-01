@@ -1,0 +1,27 @@
+{
+  "$comment": [
+    "Requests-per-interaction budgets — SP-HR-2 / I-10.",
+    "",
+    "'One user action produces one request — no amplification.' A budget is raised",
+    "only with a recorded justification; the reviewer checklist treats a raised",
+    "budget as an architecture change, not a tuning knob.",
+    "",
+    "Recordings are produced by the Playwright run (apps/web/e2e) and compared here.",
+    "A budgeted interaction with no recording FAILS: a broken e2e run must not be",
+    "able to satisfy the budget by producing nothing."
+  ],
+  "interactions": [
+    {
+      "id": "shell-initial-load",
+      "description": "Cold load of the application shell, to first settled connection state.",
+      "maxRequests": 8,
+      "note": "Document, JS bundle, CSS bundle, favicon, and the one /api/health call. Headroom is deliberate: this is a page load, not a user action."
+    },
+    {
+      "id": "health-retry-click",
+      "description": "User clicks 'Check again' in the connection panel.",
+      "maxRequests": 1,
+      "note": "I-10 in its strictest form. One click, one request. Any retry, revalidation, or telemetry beat would break this and is meant to."
+    }
+  ]
+}

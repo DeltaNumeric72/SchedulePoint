@@ -1,0 +1,40 @@
+/**
+ * SchedulePoint design tokens.
+ *
+ * The single source of visual truth. Components read tokens (directly or via
+ * the Tailwind aliases in `tailwind.config.js`); no component hard-codes a
+ * colour or a size.
+ *
+ * Contrast: every foreground/background pair below is chosen to clear WCAG 2.2
+ * AA (4.5:1 for body text, 3:1 for large text and non-text UI). The axe run in
+ * `e2e/shell.spec.ts` checks the pairs that are actually rendered; a pair added
+ * here without a rendered example is unverified and must not be assumed safe.
+ */
+
+:root {
+  /* Neutrals */
+  --sp-color-surface: #ffffff;
+  --sp-color-surface-raised: #f4f5f7;
+  --sp-color-border: #c9ced6;
+
+  /* Text — #1f2430 on #ffffff is 14.6:1; on #f4f5f7 it is 13.4:1 */
+  --sp-color-text: #1f2430;
+  /* #555f70 on #ffffff is 6.6:1 */
+  --sp-color-text-muted: #555f70;
+
+  /* Accent — #1a4fa0 on #ffffff is 8.3:1; white on #1a4fa0 is 8.3:1 */
+  --sp-color-accent: #1a4fa0;
+  --sp-color-accent-contrast: #ffffff;
+
+  /* Danger — #9b1c1c on #ffffff is 8.2:1 */
+  --sp-color-danger: #9b1c1c;
+
+  --sp-radius-control: 0.375rem;
+  --sp-radius-panel: 0.75rem;
+
+  /* SP-HR-4: minimum interactive target size. */
+  --sp-size-target: 2.75rem;
+
+  --sp-font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}

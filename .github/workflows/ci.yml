@@ -1,0 +1,151 @@
+name: CI
+
+# Every gate in `pnpm check` is build-failing (15-testing-strategy §4). There is
+# no "warning" tier and nothing here is `continue-on-error`: a gate that can be
+# ignored is a gate that will be.
+#
+# Two jobs, because they answer different questions:
+#   check      — is this branch clean?
+#   red-cases  — do the gates still catch what they claim to catch?
+#
+# The second one matters more than it looks. A gate with a broken regex, a wrong
+# path, or an empty scan target reports PASS forever, and nobody finds out until
+# the thing it was supposed to prevent ships.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
+
+jobs:
+  check:
+    name: gate battery
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The invariant-ID gate parses docs/architecture; a shallow checkout
+          # is fine, but the full working tree is not optional.
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Resolve the pnpm store path
+        id: pnpm-store
+        run: echo "path=$(corepack pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: corepack pnpm install --frozen-lockfile
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: corepack pnpm run e2e:install
+
+      - name: Install Playwright system dependencies
+        run: corepack pnpm exec playwright install-deps chromium
+        working-directory: apps/web
+
+      - name: pnpm check
+        run: corepack pnpm check
+
+      - name: Upload gate transcript
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: check-output
+          path: scripts/check-output.txt
+          if-no-files-found: warn
+
+  red-cases:
+    name: red-case proofs
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Resolve the pnpm store path
+        id: pnpm-store
+        run: echo "path=$(corepack pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: corepack pnpm install --frozen-lockfile
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: corepack pnpm run e2e:install
+
+      - name: Install Playwright system dependencies
+        run: corepack pnpm exec playwright install-deps chromium
+        working-directory: apps/web
+
+      # The build gate has to run once first: several red cases assert against
+      # the built bundle, and the runner's GREEN check for the bundle scan needs
+      # a clean bundle to exist.
+      - name: Produce a clean bundle
+        run: corepack pnpm run gate:build
+
+      - name: pnpm red-cases
+        run: corepack pnpm red-cases
+
+      - name: Fail if a red case left the tree dirty
+        run: |
+          if [ -n "$(git status --porcelain -- ':!scripts/red-cases/evidence-output.txt' ':!scripts/check-output.txt')" ]; then
+            echo "Red-case runner did not restore the working tree:"
+            git status --porcelain
+            exit 1
+          fi
+
+      - name: Upload red-case transcript
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: red-case-output
+          path: scripts/red-cases/evidence-output.txt
+          if-no-files-found: warn

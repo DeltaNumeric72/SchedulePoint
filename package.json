@@ -1,0 +1,41 @@
+{
+  "name": "schedulepoint",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.18.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "gate:lint": "eslint .",
+    "gate:typecheck": "tsc -b --force",
+    "gate:unit": "vitest run",
+    "gate:import-boundary": "depcruise --config .dependency-cruiser.cjs packages apps",
+    "gate:network-guard": "node scripts/gates/network-assertion-guard.mjs",
+    "gate:route-policy": "node scripts/gates/route-policy-check.mjs",
+    "gate:migration-rls": "node scripts/gates/migration-rls-check.mjs",
+    "gate:invariant-ids": "node scripts/gates/invariant-id-uniqueness.mjs",
+    "gate:secret-scan": "node scripts/gates/secret-scan.mjs",
+    "gate:build": "node scripts/run-in-workspace.mjs apps/web vite build",
+    "gate:axe": "node scripts/run-in-workspace.mjs apps/web playwright test",
+    "gate:request-budget": "node scripts/gates/request-budget.mjs",
+    "check": "node scripts/check.mjs",
+    "red-cases": "node scripts/red-cases/run.mjs",
+    "seed:dev": "node scripts/seed-dev-data.mjs",
+    "e2e:install": "node scripts/run-in-workspace.mjs apps/web playwright install chromium",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.0",
+    "@types/node": "22.18.6",
+    "dependency-cruiser": "17.0.1",
+    "eslint": "9.39.0",
+    "prettier": "3.6.2",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.46.0",
+    "vitest": "3.2.4"
+  }
+}

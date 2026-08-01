@@ -1,3 +1,29 @@
 .DS_Store
 .claude/settings.local.json
 .worktrees/
+
+# Dependencies and build output
+node_modules/
+dist/
+dist-types/
+*.tsbuildinfo
+
+# Test and gate artifacts
+coverage/
+playwright-report/
+test-results/
+scripts/gates/request-budget/recordings/
+
+# Red-case fixtures are copied into the working tree while a red case runs and
+# removed afterwards. If a run is interrupted, these must never be committed.
+**/__red_case__*
+
+# Local environment. Only .env.example is tracked.
+.env
+.env.*
+!.env.example
+
+# Python (solver/)
+__pycache__/
+*.py[cod]
+.venv/

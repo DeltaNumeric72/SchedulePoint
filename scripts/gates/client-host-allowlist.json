@@ -1,0 +1,46 @@
+{
+  "$comment": [
+    "SP-HR-1 / CAP-068 / T-23 — the client-side outbound-host allowlist.",
+    "",
+    "requestHosts is the one that matters: hosts the browser is permitted to talk",
+    "to. It is EMPTY, and adding an entry is an architecture decision recorded in",
+    "control/ARCHITECTURE-DECISIONS.md, not a code change. The prohibition on",
+    "client-side third-party hosts is unconditional (AGENTS.md). Server-side",
+    "subprocessors are a different question and are registered elsewhere.",
+    "",
+    "vendorStringHosts is narrower than it looks. A minified third-party bundle",
+    "contains URLs that are TEXT, not destinations: XML namespace identifiers, a",
+    "documentation link inside an error message, a URL-parsing base. Entries here:",
+    "  - apply ONLY to the built-bundle scan, never to apps/web/src;",
+    "  - are IGNORED when the URL appears in a request-shaped context (fetch,",
+    "    WebSocket, EventSource, sendBeacon, .src, importScripts, xhr.open) —",
+    "    an allowlisted host that is actually being called still fails the build;",
+    "  - are printed on every run, so they cannot accumulate unnoticed.",
+    "",
+    "Each entry states which dependency puts the string there. If a dependency is",
+    "removed, its entry must go with it."
+  ],
+  "requestHosts": [],
+  "vendorStringHosts": [
+    {
+      "host": "www.w3.org",
+      "reason": "XML/SVG/MathML namespace identifiers emitted by react-dom (createElementNS). Namespace URIs are identifiers, never fetched."
+    },
+    {
+      "host": "reactjs.org",
+      "reason": "react-dom production error decoder link, embedded as message text in invariant errors."
+    },
+    {
+      "host": "tanstack.com",
+      "reason": "@tanstack/react-router migration-guidance link, embedded as message text in a development warning."
+    },
+    {
+      "host": "tailwindcss.com",
+      "reason": "Attribution comment in the Tailwind preflight stylesheet. A CSS comment issues no request."
+    },
+    {
+      "host": "localhost",
+      "reason": "@tanstack/react-router uses 'http://localhost' as an inert base when parsing relative paths with the URL constructor."
+    }
+  ]
+}

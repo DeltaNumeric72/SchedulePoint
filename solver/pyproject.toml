@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "schedulepoint-solver"
+version = "0.0.0"
+description = "SchedulePoint scheduling worker (skeleton — no solver logic yet)"
+requires-python = ">=3.12"
+# Deliberately empty. OR-Tools is NOT a dependency yet: OPUS-M0-003 is the spike
+# that proves the CP-SAT boundary, and adding the dependency before the spike
+# reports would prejudge its findings (SPEC-15: a gate closed without its spike
+# is reopened).
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.setuptools]
+packages = ["schedulepoint_solver"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

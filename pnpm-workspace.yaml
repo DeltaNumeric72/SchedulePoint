@@ -1,0 +1,11 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+
+# pnpm 11 requires every dependency lifecycle script to be approved explicitly.
+# Keeping this list short and reviewed is a supply-chain control, not a chore:
+# an install script is arbitrary code execution on every developer's machine.
+allowBuilds:
+  # esbuild ships a platform-specific binary and its install script places it.
+  # Required by vite and tsx.
+  esbuild: true

@@ -1,0 +1,18 @@
+@import './tokens.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-surface font-sans text-text;
+  }
+
+  /* Focus visibility is a token-level guarantee, not a per-component decision
+     (SP-HR-3). Removing this is a weakening of an accessibility control. */
+  :focus-visible {
+    outline: 3px solid var(--sp-color-accent);
+    outline-offset: 2px;
+  }
+}
