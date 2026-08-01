@@ -1,0 +1,45 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# NOT RUNNABLE ON THE MACHINE THIS SPIKE WAS EXECUTED ON.
+#
+# The OPUS-M0-001 packet specifies a docker-composed PostgreSQL. The machine
+# available for execution has no Docker, no Homebrew and no sudo (FAD-7, decided
+# by the orchestrator), so the local path is the `embedded-postgres` npm package,
+# which runs the SAME `postgres` executable (PostgreSQL 17.10, darwin-arm64) in
+# user space. See src/cluster.ts and SPIKE-REPORT.md §2.
+#
+# This file exists so CI, which does have Docker, can run the identical harness
+# against a containerised server. To use it:
+#
+#     docker compose up -d
+#     SPIKE_PG_MODE=external SPIKE_PG_PORT=55432 npm test
+#
+# NOTE: the harness as committed always starts its own embedded cluster. Wiring
+# SPIKE_PG_MODE=external is a small change to src/cluster.ts (skip start/stop,
+# connect to the compose service) and is deliberately NOT done here: an
+# untested code path in the evidence harness would be worse than its absence.
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  postgres:
+    # Pin to the same major.minor the spike actually proved.
+    image: postgres:17.10-bookworm
+    container_name: sp-a-isolation-pg
+    environment:
+      # Local container only, synthetic; mirrors src/config.ts.
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: spike-local-superuser
+      POSTGRES_DB: postgres
+    command:
+      - postgres
+      - -c
+      - max_connections=60
+    ports:
+      - '55432:5432'
+    tmpfs:
+      # No durable volume: the spike is disposable and must start clean.
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 2s
+      timeout: 3s
+      retries: 30

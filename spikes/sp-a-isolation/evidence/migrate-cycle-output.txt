@@ -1,0 +1,53 @@
+================================================================================
+OPUS-M0-001 / SP-A — migration up / down / up evidence (SP-2 reversibility)
+captured: 2026-08-01T15:58:52Z
+commands: npm run typecheck ; npm run migrate:cycle
+================================================================================
+
+--- npm run typecheck (tsc --noEmit) ---
+
+> sp-a-isolation@0.0.0 typecheck
+> tsc --noEmit
+
+tsc exit=0 (no diagnostics)
+
+--- npm run migrate:cycle ---
+
+> sp-a-isolation@0.0.0 migrate:cycle
+> tsx src/cli-migrate.ts cycle
+
+[migrate] starting embedded PostgreSQL (FAD-7 substitution for docker compose)
+[migrate] roles + database bootstrapped as superuser
+[migrate] --- UP ---
+  Can't determine timestamp for 0002
+  Can't determine timestamp for 0001
+  Can't determine timestamp for 0001
+  Can't determine timestamp for 0002
+  > Migrating files:
+  > - 0001_tenant_schema_and_rls
+  > - 0002_constraint_expressiveness
+  ### MIGRATION 0001_tenant_schema_and_rls (UP) ###
+  ### MIGRATION 0002_constraint_expressiveness (UP) ###
+  Can't determine timestamp for 0002
+  Can't determine timestamp for 0001
+  Can't determine timestamp for 0002
+  Can't determine timestamp for 0001
+  > Migrating files:
+  > - 0002_constraint_expressiveness
+  > - 0001_tenant_schema_and_rls
+  ### MIGRATION 0002_constraint_expressiveness (DOWN) ###
+  ### MIGRATION 0001_tenant_schema_and_rls (DOWN) ###
+  Can't determine timestamp for 0002
+  Can't determine timestamp for 0001
+  Can't determine timestamp for 0001
+  Can't determine timestamp for 0002
+  > Migrating files:
+  > - 0001_tenant_schema_and_rls
+  > - 0002_constraint_expressiveness
+  ### MIGRATION 0001_tenant_schema_and_rls (UP) ###
+  ### MIGRATION 0002_constraint_expressiveness (UP) ###
+[migrate] up#1   applied: ["0001_tenant_schema_and_rls","0002_constraint_expressiveness"]
+[migrate] down   reverted: ["0002_constraint_expressiveness","0001_tenant_schema_and_rls"]
+[migrate] up#2   applied: ["0001_tenant_schema_and_rls","0002_constraint_expressiveness"]
+[migrate] OK — 2 migrations are reversible
+[migrate] cluster stopped
