@@ -25,3 +25,8 @@
 - OPUS-M0-001 ACCEPTED: 36/36 isolation harness, TDG-02/03 confirmed (in-process scope), second review blocking findings fixed. Evidence: docs/evidence/EV-M0-SPA.
 - SPEC-01 §4 amended from executed evidence (FAD-9): nullif predicate, all-four read-back, composite tenant FKs, existence-oracle mitigation, startup pooler assertion.
 - OPUS-M0-002 and OPUS-M0-003 issued in parallel worktrees.
+
+## 2026-08-01 (M0 close) — Milestone M0 complete
+- All three tasks ACCEPTED and squash-merged (ea77ac5, 2880bd2, 8dad022) with evidence filed (EV-M0-SPA/SCAFFOLD/SPC); interruption recovery performed and documented; independent second review on the critical task; one plan-contradicting spike finding handled per protocol (FAD-10, SPEC-04 amended).
+- TDG-01/02/03(scoped)/11(scoped)/14 confirmed; TDG-04 carried to OPUS-M1-003; SP-E UX brief carried to M1 entry.
+- Exit report: docs/fable/25-m0-exit-report.md. All validators green (95/95, 29/29, research PASS) + CI 12/12 on main. M1 NOT authorized.

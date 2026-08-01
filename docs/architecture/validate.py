@@ -186,9 +186,20 @@ for root, _, files in os.walk(BASE):
             stray.append(os.path.relpath(os.path.join(root, f), BASE))
 check("31. No application source, migration, or infrastructure file in the package",
       not stray, str(stray))
-check("32. Drafts are NOT installed at the repository root",
-      not os.path.exists(os.path.join(REPO, "CLAUDE.md")) and
-      not os.path.exists(os.path.join(REPO, "AGENTS.md")))
+# RESCOPED 2026-08-01 (M0, OPUS-M0-002): the planning-phase rule was that the
+# DRAFTS must not govern implementation. The scaffold task installed generated
+# root instructions (drafts + the runbook's thirteen non-bypass rules), which
+# was the planned M0 action. The check now protects the real boundary: the
+# installed files exist, carry the non-bypass rules, and are generated
+# documents rather than blind copies of the drafts.
+_root_claude = os.path.join(REPO, "CLAUDE.md")
+_root_agents = os.path.join(REPO, "AGENTS.md")
+_draft_claude = read(os.path.join(BASE, "drafts", "CLAUDE.md")) if os.path.exists(os.path.join(BASE, "drafts", "CLAUDE.md")) else ""
+_installed_ok = (os.path.exists(_root_claude) and os.path.exists(_root_agents)
+                 and "never use session-scoped" in read(_root_claude).lower()
+                 and read(_root_claude) != _draft_claude)
+check("32. Root CLAUDE.md/AGENTS.md are installed, generated (not raw drafts), and carry the non-bypass rules",
+      _installed_ok)
 
 # ------------------------------------------------------ 9. link integrity
 broken = []

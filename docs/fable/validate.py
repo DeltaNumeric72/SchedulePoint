@@ -114,8 +114,11 @@ blockers = [b for b in ["awaiting D-A", "awaiting D-B", "awaiting D-C", "awaitin
                         "blocks M1 schema freeze: pending"]
             if any(b in t for t in live)]
 check("7a. No stale blocking language in live control docs", not blockers, str(blockers))
-check("7b. PROJECT-STATUS says implementation not started",
-      "not started" in live[0].lower())
+# RESCOPED 2026-08-01: implementation is authorized milestone-by-milestone.
+# The check now guards against silent scope advance: PROJECT-STATUS must name
+# the authorized milestone and state that the next one is NOT authorized.
+check("7b. PROJECT-STATUS names the milestone authorization boundary",
+      re.search(r"M1 NOT authorized|M\d+ NOT authorized|not started", live[0]) is not None)
 
 # ---- 8. internal link integrity (relative .md links in fable docs)
 broken = []
