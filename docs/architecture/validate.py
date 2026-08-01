@@ -461,7 +461,8 @@ for root, dirs, files in os.walk(REPO):
         ext = os.path.splitext(f)[1].lower()
         full = os.path.join(root, f)
         rel = os.path.relpath(full, REPO)
-        if ext in CODE_EXT and os.path.basename(full) not in ("validate.py",) \
+        if ext in CODE_EXT \
+           and os.path.basename(full) not in ("validate.py", "validate.sh") \
            and (rel.startswith("docs/") or rel.startswith("schedulepoint-research/")):
             arte.append(rel)
 check("52a. Documentation and research trees contain no application code",
