@@ -61,7 +61,7 @@ High-level tracker for the overall research effort. Check items off as they're c
 
 ## SchedulePoint architecture proposal (2026-07-31)
 
-**Status: `PROPOSED`. Not approved, not implemented, not reviewed.** All paths below are relative to the repository root.
+**Status: `PROPOSED`. Not approved, not implemented. Independent Codex review completed with verdict `REDESIGN REQUIRED`; remediation is pending.** All paths below are relative to the repository root.
 
 - [x] **Architecture proposal package created** — 19 numbered documents under [docs/architecture/](../docs/architecture/), plus [README.md](../docs/architecture/README.md), [architecture-manifest.json](../docs/architecture/architecture-manifest.json), and [validate.py](../docs/architecture/validate.py). **Documentation only — no application source code, database migration, executable service, UI component, deployment resource, or production infrastructure was created.**
 - [x] **Recommended architecture defined** — a modular monolith with four independently scalable process classes (web/API, background workers, scheduling workers, real-time coordinator), 25 modules across 6 layers, and **12 architectural invariants (I-01..I-12)** that every subsequent document obeys.
@@ -82,7 +82,8 @@ High-level tracker for the overall research effort. Check items off as they're c
 - [x] **Clean-room boundary preserved** — no proprietary source code, private API, algorithm, asset, copy, or database structure is reproduced; iSchedule.md was **not visited** during this task and no additional source research was conducted. Source behaviour classified `UNRESOLVED` (C-02, C-04, C-06) stays `UNRESOLVED`, and **C-09 remains unproven in both directions** — nothing asserts whether the source did or did not hold patient-identifying information.
 - [x] **Draft agent-guidance files written but NOT installed** — [drafts/CLAUDE.md](../docs/architecture/drafts/CLAUDE.md) and [drafts/AGENTS.md](../docs/architecture/drafts/AGENTS.md) remain under `docs/architecture/drafts/`. **Installing them at the repository root is a separate, deliberate act that has not been taken.**
 - [x] **Documentation validation passes** — `python3 docs/architecture/validate.py` runs **39 assertions covering file completeness, ADR structure and status, capability coverage and field completeness, prohibited vocabulary, decision handling, overclaim detection, clean-room hygiene, absence of implementation artifacts, link integrity, and manifest consistency. All 39 pass.** It validates documentation, not software.
-- [ ] **Independent Codex architecture review — still pending.** No independent review of this architecture has occurred. **No production-completeness gate, connector-certification gate, or architecture gate is passed; no sandbox test has been executed; no benchmark has been run; and the architecture is not approved.**
+- [x] **Independent Codex architecture review completed** — verdict: **`REDESIGN REQUIRED`**; report: [docs/reviews/architecture/codex-architecture-review.md](../docs/reviews/architecture/codex-architecture-review.md). **No production-completeness gate, connector-certification gate, or architecture gate was marked passed; no sandbox test was executed; no benchmark was run; and the architecture is not approved.**
+- [ ] **Architecture remediation pending** — resolve the review findings and obtain a new independent verdict before architecture approval.
 
 ## Wrap-up
 
