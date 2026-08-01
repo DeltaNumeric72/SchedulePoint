@@ -74,6 +74,25 @@ Proposed packets (full packets to be issued in runbook format on authorization; 
 
 Research: PASS · Architecture: **95/95** · Plan: **29/29** · CI on main: **12/12** (post-merge re-run). Two stale phase-boundary checks were rescoped with dated rationale (arch 32: installed root instructions must be generated-with-rules, not absent; plan 7b: PROJECT-STATUS must name the milestone-authorization boundary).
 
+## 12. Living control documents — final reconciliation (owner-directed sweep)
+
+Each document reviewed against actual repository state (commits, task log, tests, spike outcomes, risks, gates); edited only where a change was warranted.
+
+| Document | Updated? | Why / why not |
+|---|---|---|
+| PROJECT-STATUS.md | **Yes** | Phase line still described the pre-authorization planning state; now states M0 complete, M1 not authorized, and names this checkpoint |
+| EVIDENCE-INDEX.md | **Yes** | Still read "(none yet — implementation not started)"; now lists EV-M0-SPA / EV-M0-SCAFFOLD / EV-M0-SPC with grades (all orchestrator-re-run) |
+| ASSUMPTIONS.md | **Yes** | FA-3 (TDG selections survive spikes) is largely discharged by M0 evidence; residuals (TDG-04, external pooler, image build + Py3.12 re-run) now named on the row |
+| RISK-REGISTER.md | **Yes** | Watch-list phrasing ("begins mattering at M0") reconciled with the M0 outcome: NR-4 has real data (second review caught 3 blocking defects — the gate worked) and stays elevated through M1; NR-1 was exercised by the interruption recovery |
+| CHANGELOG.md | **Yes** | Checkpoint entry for this reconciliation |
+| ARCHITECTURE-DECISIONS.md | **No** | FAD-1..FAD-10 already current, including both M0 evidence-driven decisions (FAD-9 isolation predicates, FAD-10 solver reproducibility) |
+| PRODUCT-DECISIONS.md | **No** | No product decision changed during M0; register already reflects the delegated resolutions and reserved matters |
+| TEST-TRACEABILITY.md | **No** | M0 execution rows already show PASSED with evidence links (updated at each acceptance) |
+| IMPLEMENTATION-ROADMAP.md | **No** | Already shows M0 complete with carried items and M1 not authorized |
+| OPUS-AGENT-RUNBOOK.md (log) · OPEN-QUESTIONS.md · ORCHESTRATION.md · FEATURE-PARITY-MATRIX.md | **No** | Task log updated at each acceptance; open questions (Q-6/7/8) unchanged by M0; orchestration model unchanged; no capability reached implemented/verified in M0 — spikes and scaffold only, so all 58 parity rows correctly remain `not-started` |
+
+**Validators at the final checkpoint:** research PASS · architecture 95/95 · plan 29/29 (re-run after this reconciliation).
+
 ---
 
 **Stopping here per the authorization. M1 begins only on your explicit instruction** — e.g.: *"Begin Milestone M1. Issue OPUS-M1-001/002/003 per the exit report; same rules."*

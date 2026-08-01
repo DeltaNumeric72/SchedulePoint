@@ -30,3 +30,7 @@
 - All three tasks ACCEPTED and squash-merged (ea77ac5, 2880bd2, 8dad022) with evidence filed (EV-M0-SPA/SCAFFOLD/SPC); interruption recovery performed and documented; independent second review on the critical task; one plan-contradicting spike finding handled per protocol (FAD-10, SPEC-04 amended).
 - TDG-01/02/03(scoped)/11(scoped)/14 confirmed; TDG-04 carried to OPUS-M1-003; SP-E UX brief carried to M1 entry.
 - Exit report: docs/fable/25-m0-exit-report.md. All validators green (95/95, 29/29, research PASS) + CI 12/12 on main. M1 NOT authorized.
+
+## 2026-08-01 (M0 final checkpoint) — Control-document reconciliation
+- Owner-directed sweep of all living control documents before closing M0. Updated: PROJECT-STATUS (stale phase line), EVIDENCE-INDEX (three M0 evidence rows replacing 'none yet'), ASSUMPTIONS (FA-3 largely discharged), RISK-REGISTER (NR-4/NR-1 reconciliation), CHANGELOG (this entry). Verified current, no change warranted: ARCHITECTURE-DECISIONS (FAD-1..10 complete), PRODUCT-DECISIONS (no product decision changed in M0), TEST-TRACEABILITY (M0 rows already PASSED+evidence), IMPLEMENTATION-ROADMAP (M0 complete / M1 not authorized), OPUS-AGENT-RUNBOOK log, OPEN-QUESTIONS, ORCHESTRATION, FEATURE-PARITY-MATRIX pointer (no capability reached implemented/verified in M0 — spikes and scaffold only).
+- Exit report §12 added: per-document disposition. All validators green. M1 NOT authorized.
