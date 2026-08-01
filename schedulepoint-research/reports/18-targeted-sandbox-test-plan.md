@@ -477,4 +477,4 @@ Every unobservable lifecycle identified across the research has a sandbox test o
 
 **Documented justifications for behaviours with no test:** the two unopened PDF documents in the source's library (no SchedulePoint requirement derives from their contents) and the source's non-firing product tour (excluded from the MVP; onboarding will be designed fresh).
 
-**36 sandbox tests defined.**
+**39 sandbox tests defined.** *(Corrected 2026-08-01 under explicit CAR-026 authorization: the previous hand-written figure of thirty-six understated the count. This figure is derived from the unique `SBX-` headings in this document, and the architecture validator re-derives and checks it on every run.)*

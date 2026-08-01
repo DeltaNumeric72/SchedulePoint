@@ -86,7 +86,9 @@
 
 ### 2.2 The 18 pending decisions — **retained, not approved**
 
-**Every row below remains `pending`.** The recommended working default may be used for technical planning. **None has been ratified, and this task has not approved any of them.**
+> **AMENDED 2026-08-01 — all rows below are now RESOLVED under delegated authority.** The product owner granted the Fable orchestrator explicit authority to resolve all pending product decisions ("Expanded decision authority" mandate, 2026-08-01). Every decision below (plus PO-DEC-10 in §2.2a) was resolved — in each case to its recommended working default unless [docs/fable/21-decision-resolution.md](../fable/21-decision-resolution.md) states otherwise, which is the authoritative resolution record with per-decision rationale, reversibility, and follow-up verification. The table below is preserved unmodified as the historical register of the defaults and their blast radii.
+
+**Historical text (Phase 14):** every row below remains `pending`. The recommended working default may be used for technical planning. None has been ratified, and the Phase-14 task did not approve any of them.
 
 | ID | Decision | Recommended working default | Blast radius if decided otherwise | Capabilities |
 |---|---|---|---|---|
@@ -166,13 +168,19 @@
 
 | Item | Status |
 |---|---|
-| Independent architecture review (Codex) | **Completed 2026-07-31 — verdict `REDESIGN REQUIRED`.** Remediated; **a new independent re-review is pending** |
-| The **19** pending product decisions ratified | **Pending** |
-| PO-DEC-10 restored to the register as `pending` | **Done (2026-08-01)** — the *decision itself* remains pending |
-| Solver benchmarked against synthetic datasets | **Not started** |
-| SBX-001, 002, 004, 011, 013, 014b, 022, 023, 028 executed (`G-ARCH`) | **Not started** |
-| RPO / RTO targets set | **Open** |
-| Cloud provider, region, and data residency decided | **Open** |
-| Incident-response plan written | **Open** |
+| Independent architecture review (Codex) | **Completed 2026-07-31 — verdict `REDESIGN REQUIRED`.** Remediated at Phase 14. **The verdict has not been upgraded** — its stated upgrade condition is a *new independent review*, which has not occurred *(clarified 2026-08-01, V-04)* |
+| Independent verification of the remediation | **Internal adversarial verification completed 2026-08-01** ([docs/reviews/architecture/internal-verification-2026-08-01.md](../reviews/architecture/internal-verification-2026-08-01.md)), verdict `VERIFIED WITH CORRECTIONS NEEDED`; corrections applied and recorded in [remediation/internal-verification-corrections.md](remediation/internal-verification-corrections.md). **It is cited only for what it is: an internal verification, commissioned by the same orchestration that produced the remediation, which its own header states is not an independent review and not a substitute for one** |
+| **External independent re-review** *(amended 2026-08-01, V-04)* | **REQUIRED and BLOCKING for controlled-beta entry (M10 exit).** The previous description of it as "an advisory gate before beta" is **withdrawn**: the Codex review's upgrade condition — that `REDESIGN REQUIRED` may be upgraded only after a new **independent** review finds no remaining severe isolation, privacy, concurrency, or irreversible-integrity path — is not the orchestrator's to waive, and the delegated decision authority does not extend to it. What the delegation changes is **sequencing only**: implementation may proceed toward beta entry on internal verification plus executable-harness evidence, at the owner's explicit direction. It does not change the gate |
+| The **19** pending product decisions ratified | **Resolved 2026-08-01 under delegated authority** — see §2.2 amendment |
+| PO-DEC-10 restored to the register as `pending` | **Done (2026-08-01)**; subsequently resolved to its working default under delegated authority |
+| Solver benchmarked against synthetic datasets | **Not started** (M0 spike + M2 corpus + M4/M6 runs) |
+| SBX-001, 002, 004, 011, 013, 014b, 022, 023, 028 executed (`G-ARCH`) | **Not started** (scheduled M0–M9) |
+| RPO / RTO targets set | **Provisional defaults set 2026-08-01** (21-decision-resolution §5 OI-1/2) |
+| Cloud provider, region, and data residency decided | **Provisional defaults set 2026-08-01** (21-decision-resolution §5 OI-3/4); binding procurement remains a reserved owner action |
+| Incident-response plan written | **Open** (owned: roadmap M11) |
+
+**No gate is passed. Evidence-based gates (spikes, harnesses, SBX) remain unpassed until their tests run.**
+
+> **AMENDED 2026-08-01 (V-04)** — the closing line below was deleted in an earlier edit and replaced with a narrower statement about evidence-based gates only. It is **restored**, because it is the accurate summary of this section and its removal accompanied the same edit that downgraded the external re-review ([rationale](remediation/internal-verification-corrections.md) §0 V-04).
 
 **No gate is passed. The architecture is proposed, not approved.**

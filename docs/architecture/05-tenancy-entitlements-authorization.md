@@ -151,13 +151,20 @@ Request → immutable context tuple {
 
 Every route declares a required capability. A route without a declaration **fails the build** — not at runtime, at build time, so the failure is impossible to ignore.
 
+> **AMENDED 2026-08-01 (Sweep 12)** — the route example omitted the organization segment and the context header that [SPEC-01](specs/SPEC-01-request-context-and-tenant-isolation.md) §2.2 requires. A path segment alone identifies the tenant but not the **freshness**, and both are required ([rationale](remediation/internal-verification-corrections.md) §2).
+
 ```
-route: POST /groups/:groupId/picklists/:id/start
+route: POST /organizations/{organizationId}/groups/{groupId}/picklists/{id}/start
+  scope: group                          # SPEC-06 §1.1 — declared, or the build fails
+  headers:
+    X-SchedulePoint-Context: context_version, session_epoch    # SPEC-01 §2.2
   requires:
     entitlement: picklist
     groupAvailability: picklist
     capability: picklist.start
 ```
+
+**Both the path segments and the context header are mandatory** *(amended 2026-08-01, Sweep 12)*. An organization-scoped route carries `/organizations/{organizationId}/…` with no group segment and declares `scope: organization` ([SPEC-06](specs/SPEC-06-authorization-truth-table.md) §1.1).
 
 ### 4.3 Database enforcement — and its documented limits
 
@@ -180,11 +187,27 @@ PostgreSQL row-level security is the second layer. **Documented facts (S-03) dri
 
 ### 4.4 Background jobs
 
-Every job payload carries `organizationId`, `groupId`, and the **acting membership** (or an explicit system-actor marker). The worker **establishes the same tenant context** before executing. A job with no tenant context **refuses to run** rather than defaulting to anything.
+> **AMENDED 2026-08-01 (Sweep 13)** — establishing the tenant context is necessary and **not sufficient**: the previous text stated no re-authorization requirement, while [SPEC-06](specs/SPEC-06-authorization-truth-table.md) §5 and [SPEC-01](specs/SPEC-01-request-context-and-tenant-isolation.md) §6 require re-evaluation at execution **and at every checkpoint** ([rationale](remediation/internal-verification-corrections.md) §2).
+
+Every job payload carries `organizationId`, `groupId`, the **acting membership** (or an explicit system-actor marker), and the `authorization_version` observed at enqueue. The worker **establishes the same tenant context** before executing. A job with no tenant context **refuses to run** rather than defaulting to anything.
+
+**Workers re-authorize at execution and at every checkpoint** *(added 2026-08-01, Sweep 13)*. The enqueue-time decision is **evidence of intent, never authority**: the worker re-evaluates the full truth table against **current** state when it starts, and again at each durable checkpoint of a long job. A job that is no longer authorized terminates in the explicit `cancelled_unauthorized` state, is audited with the denial reason, and notifies the requester — it is neither silently dropped nor silently completed. Normative: [SPEC-06](specs/SPEC-06-authorization-truth-table.md) §5, [SPEC-01](specs/SPEC-01-request-context-and-tenant-isolation.md) §6.
 
 ### 4.5 Real-time connections
 
-The WebSocket connection resolves tenant context **at connect time from the session**, not from a subscribe message. Subscriptions are authorized per topic against the resolved context. A subscribe request for a topic outside the connection's tenant is denied and logged as a security event.
+> **AMENDED 2026-08-01 (V-20)** — this section previously stated that the connection resolves tenant context once, from the session, at connection establishment. **That model is withdrawn.** [SPEC-01](specs/SPEC-01-request-context-and-tenant-isolation.md) §5 states the reason plainly: *a connection is not a context* — privileges change during long-lived connections, which is precisely the CAR-008 defect, and binding context once at establishment repeats it. This was one of six documents still describing the withdrawn model, and it is one of the two places an implementer would naturally look ([rationale](remediation/internal-verification-corrections.md) §2).
+
+**Context is declared per command frame, and authorization is evaluated per command frame** *(amended 2026-08-01, V-20)*.
+
+| Stage | What happens |
+|---|---|
+| **Connect** | Establishes `principal_user_id` and `session_epoch` from the session cookie, and verifies Origin. **It establishes no tenant context and authorizes no command** |
+| **Every command frame** | Carries `expected_organization_id`, `expected_group_id`, `context_version`, `session_epoch`, `aggregate_version`, and a `command_id`, and **runs the full [SPEC-01](specs/SPEC-01-request-context-and-tenant-isolation.md) §2.3 validation sequence and the full [SPEC-06](specs/SPEC-06-authorization-truth-table.md) truth table against current state** |
+| **Stale frame** | Rejected with `CONTEXT_STALE`; the client resynchronises. **Never silently retargeted** |
+| **Privilege change mid-connection** | Bumps `context_version`; the next frame fails closed; the server pushes `REAUTHORIZE`, closes affected subscriptions immediately, and may close the socket |
+| **Subscriptions** | Authorized per topic at subscribe **and re-evaluated on every push** for the sensitive classes ([SPEC-06](specs/SPEC-06-authorization-truth-table.md) §6, §6.1). A subscribe request for a topic outside the frame's declared tenant is denied and logged as a security event |
+
+Normative: [SPEC-01](specs/SPEC-01-request-context-and-tenant-isolation.md) §5 and [SPEC-06](specs/SPEC-06-authorization-truth-table.md) §6.
 
 ### 4.6 Caches, storage, exports
 
@@ -209,7 +232,7 @@ The WebSocket connection resolves tenant context **at connect time from the sess
 | **Report leakage** | Generated under requester context; access re-checked at download; artifacts stored per-tenant |
 | **File leakage** | Per-tenant prefixes, signed short-lived URLs, purge invalidates URLs, no public access |
 | **Notification leakage** | Recipients resolve **only** from the roster within the tenant; never free-text addresses |
-| **Real-time subscription leakage** | Context at connect; per-topic authorization; cross-tenant subscribe denied and logged |
+| **Real-time subscription leakage** *(amended 2026-08-01, V-20)* | **Per-frame declared context and per-frame authorization** (§4.5) — never a context bound once at connection establishment; per-topic authorization at subscribe **and re-evaluated on every push** for sensitive classes; cross-tenant subscribe denied and logged. See [SPEC-01](specs/SPEC-01-request-context-and-tenant-isolation.md) §5, [SPEC-06](specs/SPEC-06-authorization-truth-table.md) §6 |
 | **Connector routing errors** | Target group derived from the connection record; payload content **cannot** redirect a batch |
 
 ---

@@ -9,7 +9,7 @@
 | **Authoritative review** | [docs/reviews/architecture/codex-architecture-review.md](../../reviews/architecture/codex-architecture-review.md) — **unmodified** |
 | **Review verdict** | `REDESIGN REQUIRED` — 4 Critical, 11 High, 10 Medium, 2 Low |
 | **Remediation date** | 2026-08-01 |
-| **Claimed status** | **REMEDIATED — AWAITING INDEPENDENT VERIFICATION** for 25 findings; **OPEN** for 2 |
+| **Claimed status** | **REMEDIATED — AWAITING INDEPENDENT VERIFICATION** for 25 findings at Phase 14; **amended 2026-08-01:** CAR-026 remediated under explicit authorization → **27 remediated, 0 open** (CAR-025's evidence dependencies tracked separately) |
 | **Architecture status** | **NOT APPROVED.** All 23 ADRs `PROPOSED`; no gate passed; nothing implemented |
 
 > **This document does not upgrade the review's verdict.** Only a separate independent reviewer can do that. Every "remediated" claim below means *a design change was made that addresses the finding*, **not** that it was verified, tested, or proven.
@@ -18,7 +18,11 @@
 
 ## 1. Product-owner decisions recorded
 
-**Obtained before any architecture edit. All three remain `pending` — none was approved.**
+> **AMENDMENT NOTE — 2026-08-01 (V-03).** **PO-DEC-10, PO-DEC-01 and PO-DEC-03 were subsequently RESOLVED on 2026-08-01 under the product owner's delegated decision authority**, recorded in [docs/fable/21-decision-resolution.md](../../fable/21-decision-resolution.md) and dispositioned in [internal-verification-corrections.md](internal-verification-corrections.md) §0. PO-DEC-03's resolution adopts the design already recorded here, and [SPEC-08](../specs/SPEC-08-request-subtype-lifecycles.md) and [ADR-0016](../decisions/ADR-0016-request-aggregate-and-subtypes.md) are **no longer marked provisional**.
+> **The table below is a historical record of the state at Phase 14 and is deliberately left unchanged.** It said "pending" because they *were* pending when it was written; rewriting it would destroy the sequencing information that V-02 and V-03 are about. Read it as of its own date, and read this note for what changed afterwards.
+> **The authority is the product owner's direct instruction of 2026-08-01, given outside the repository** — it is not established by any document in this package, and no document here should be read as establishing it.
+
+**Obtained before any architecture edit. All three remain `pending` — none was approved.** *(As of Phase 14, the date of this table. See the amendment note above.)*
 
 | Decision | Owner's choice | Effect |
 |---|---|---|
@@ -36,11 +40,11 @@
 |---|---:|---:|---:|
 | **Critical** | 4 | **4** | 0 |
 | **High** | 11 | **11** | 0 |
-| **Medium** | 10 | **9** | **1** (CAR-026) |
-| **Low** | 2 | **1** | **1** (CAR-026 counted above; CAR-027 remediated) |
-| **Total** | **27** | **25** | **2** |
+| **Medium** | 10 | **10** | 0 |
+| **Low** | 2 | **2** | 0 |
+| **Total** | **27** | **27** | **0** |
 
-**Open findings: CAR-026** (research-source count correction — modification not authorized) and the *evidence* half of **CAR-025**, which is remediated in design but carries eight named blocking dependencies. Both are detailed in §4.
+> **Amended 2026-08-01 (delegated-authority mandate).** At Phase 14 this table recorded **25 remediated / 2 open** — CAR-026 (source-count correction, then unauthorized) and the evidence half of CAR-025. **CAR-026 was subsequently remediated under explicit product-owner authorization** (see its block below). The *evidence* half of **CAR-025** remains a set of external dependencies (EV-1..EV-8), now carried with provisional resolutions in [docs/fable/21-decision-resolution.md](../../fable/21-decision-resolution.md) §5 — its design half was already remediated at Phase 14. §4 preserves the original open-findings record for history.
 
 ---
 
@@ -252,6 +256,8 @@
 - **Disposition:** REMEDIATED
 - **Changed:** [03](../03-system-context-and-containers.md) · [04](../04-domain-boundaries.md) §§1–3 · [06](../06-data-architecture.md) · [01](../01-architecture-overview.md) §3 · **new** [SPEC-12](../specs/SPEC-12-cross-module-unit-of-work.md), [ADR-0017](../decisions/ADR-0017-cross-module-unit-of-work.md)
 - **Architectural resolution:** **Three write classes** — W1 own-aggregate, **W2 in-transaction domain port** (the owning module enforces its invariants on the caller's unit of work, preserving ownership without a second transaction), W3 post-commit outbox. **A normative owner table for all thirteen state-changing workflows.** W2 port cycles prohibited and CI-checked; provider calls inside transactions blocked by lint and runtime guard. **Module count rationalised 25 → 19** where two modules shared every invariant and every transaction — **M-08 Ingestion Privacy and M-24 Audit are never merged.** Sequence overlays for the three highest-risk workflows.
+- > **AMENDMENT NOTE — 2026-08-01 (V-05): the module-consolidation claim above is WITHDRAWN.** The internal verification found that **the merge was announced and never performed** — [04](../04-domain-boundaries.md)'s header claimed the rationalisation while the next line of the same file said 25, and the file defines exactly 25 `#### M-nn` sections. **The module count stands at 25.** The claim is withdrawn from [04](../04-domain-boundaries.md)'s header rather than the merge being executed under time pressure: a tidier count is not worth a hurried consolidation of modules that would then have to be un-merged from implementation experience. Consolidation may still happen later, on evidence.
+  > **The rest of CAR-017 is unaffected.** The **W1/W2/W3 write classes, the normative owner table, the port-cycle prohibition, and the transaction-boundary lint are the substance of this remediation**, and none of them depended on the module count. The sentence above is left in place as the historical claim; this note is its correction. [Rationale](internal-verification-corrections.md) §0 V-05.
 - **ADRs:** [ADR-0017](../decisions/ADR-0017-cross-module-unit-of-work.md) **(new)**, ADR-0001, ADR-0009 (revised)
 - **Capabilities:** CAP-014, CAP-019, CAP-023, CAP-026, CAP-027, CAP-031, CAP-040, CAP-046, CAP-055
 - **Invariants:** **I-22 new**
@@ -359,16 +365,16 @@
 
 ### CAR-026 · Low · Report 18 states 36 tests although it defines 39
 
-- **Disposition:** **OPEN — deliberately not fixed**
-- **Changed:** **nothing.** No research source was modified for this finding
-- **Architectural resolution:** none applied. **The review itself directs: "Correct the source count in a separate research-maintenance task… Do not change it as part of this architecture review."** The Phase 14 brief likewise authorizes this correction **only if research-source modification is explicitly authorized**, and it was not. **Correcting a research report to make a count tidy is exactly the kind of quiet source edit the clean-room discipline exists to prevent.**
+- **Disposition:** **REMEDIATED (2026-08-01, under explicit authorization — was OPEN)**
+- **Changed:** [report 18](../../../schedulepoint-research/reports/18-targeted-sandbox-test-plan.md) closing prose — the single hand-written figure, replaced by a heading-derived count of **39** with a dated correction note
+- **Architectural resolution:** **History:** at Phase 14 this was deliberately left OPEN because research-source modification was not authorized, and the review directed the fix be a separate research-maintenance task. **On 2026-08-01 the product owner delegated that authorization explicitly** (expanded decision authority mandate); the correction was then applied exactly as the review prescribed — a derived count replacing the hand-written figure, in a separate maintenance change, with the correction note dated in-place. `validate.py` check 53 continues to re-derive the count on every run, so any future drift is detected.
 - **ADRs:** none
 - **Capabilities:** all, through SBX evidence mappings
 - **Architecture test:** **`validate.py` check 53 parses unique SBX headings and compares them with every declared count**, so the discrepancy is now *detected and reported* even though the source is untouched
-- **Remaining evidence:** independent enumeration confirms **39 unique SBX IDs**, matching the manifest; report 18's closing prose says 36
-- **Why open · Owner · Blocking condition · Affected · Latest resolution point · Evidence required:** **Why:** modifying a research source was not authorized for this task. **Owner:** product owner. **Blocking condition:** explicit authorization to modify `schedulepoint-research/reports/18-targeted-sandbox-test-plan.md`. **Affected:** no capability; gates `G-BETA`, `G-CONN`, `G-PROD` only through reader confusion. **Latest acceptable resolution point:** before the first SBX test is executed, so no test is believed extra or missing. **Evidence required:** a derived count generated from the headings, replacing the hand-written prose figure.
-- **Remaining risk:** low — a later reviewer may believe three tests are ungoverned. **Mitigated by check 53 reporting the mismatch on every validation run**
-- **Claimed status:** **OPEN**
+- **Remaining evidence:** independent enumeration confirms **39 unique SBX IDs**, matching the manifest **and, since 2026-08-01, the corrected closing prose**
+- **Why open · Owner · Blocking condition · Affected · Latest resolution point · Evidence required (historical, as recorded at Phase 14):** **Why:** modifying a research source was not authorized for that task. **Owner:** product owner. **Blocking condition:** explicit authorization to modify `schedulepoint-research/reports/18-targeted-sandbox-test-plan.md` — **granted 2026-08-01** ("Expanded decision authority" mandate). **Affected:** no capability; gates `G-BETA`, `G-CONN`, `G-PROD` only through reader confusion. **Latest acceptable resolution point:** before the first SBX test is executed — **met; no SBX test has run**. **Evidence required:** a derived count generated from the headings, replacing the hand-written prose figure — **delivered**.
+- **Remaining risk:** none — the count is corrected and check 53 re-derives it on every validation run
+- **Claimed status:** **REMEDIATED (2026-08-01, under explicit authorization)**
 
 ### CAR-027 · Low · Account email immutability is stronger than the required non-self-editability outcome
 
@@ -385,6 +391,8 @@
 ---
 
 ## 4. Findings that remain open
+
+> **Historical record (as written at Phase 14).** Both rows below have since been resolved or provisionally carried: CAR-026 was remediated 2026-08-01 under explicit authorization; CAR-025's evidence dependencies carry provisional resolutions in [docs/fable/21-decision-resolution.md](../../fable/21-decision-resolution.md) §5 and remain tracked per-gate. The table is preserved unmodified for history.
 
 | ID | Severity | Why open | Owner | Blocking condition | Affected | Latest resolution point | Evidence required |
 |---|---|---|---|---|---|---|---|

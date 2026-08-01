@@ -1,10 +1,10 @@
 # PROJECT-STATUS
 
-**As of 2026-08-01.**
+**As of 2026-08-01 (expanded-authority mandate).**
 
-- Phase: planning mandate complete; awaiting product-owner ratification (D-A..D-D in [../19-decisions-needed.md](../19-decisions-needed.md)).
+- Phase: planning **complete and internally consistent**; implementation-ready pending the owner's authorization prompt ([../24-execution-standards.md](../24-execution-standards.md) §G).
 - Research: COMPLETE, permanently closed against the source.
-- Architecture: PROPOSED, remediated (25/27 findings), **awaiting independent re-review** (blocks M1 schema freeze).
-- Implementation: **not started.** No application code exists. No gate passed. No SBX test executed.
-- Current milestone: — (M0 ready to issue on approval; first packet OPUS-M0-001 drafted).
-- Open blockers: D-A..D-D; re-review commissioning.
+- Architecture: PROPOSED + remediated (27/27 findings dispositioned); **internal adversarial verification COMPLETE 2026-08-01** — verdict `VERIFIED WITH CORRECTIONS NEEDED`, 29 findings, all dispositioned and corrections applied ([corrections record](../../architecture/remediation/internal-verification-corrections.md), summarized in [../22-readiness-assessment.md](../22-readiness-assessment.md)); external re-review = REQUIRED, blocking beta entry (V-04); architecture remains PROPOSED until it upgrades the verdict.
+- Decisions: **all formerly-blocking decisions resolved** under delegated authority — [../21-decision-resolution.md](../21-decision-resolution.md). Reserved matters (purchases, production accounts, real data/sends, legal) surface when they arise.
+- Implementation: **not started.** No application code. No gate passed. No SBX test executed.
+- Next action: owner sends the §G authorization prompt → issue OPUS-M0-001/002/003 ([../23-opus-task-packets.md](../23-opus-task-packets.md)).

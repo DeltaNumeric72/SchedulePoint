@@ -23,19 +23,26 @@
 
 ### 2.1 Definition
 
+> **AMENDED 2026-08-01 (V-06, V-08)** — two corrections from the internal verification ([rationale](../remediation/internal-verification-corrections.md) §2):
+> 1. **Action scope is declared.** Every route and every command declares its scope as either **`group`** or **`organization`**. `expected_group_id` is **required for group-scoped actions and nullable for organization-scoped actions**. The organization-scoped action set is **enumerated in [SPEC-06](SPEC-06-authorization-truth-table.md)** (§1/§2, per V-24) — it is not open-ended, and an action absent from that enumeration is group-scoped by default.
+> 2. **`context_version` is no longer defined here.** [SPEC-06](SPEC-06-authorization-truth-table.md) §4's counters are the single source of the definition; the divergent list previously given in this table is withdrawn.
+
 **Context is an immutable value constructed once per request, job, or socket command, and never mutated thereafter.**
 
 | Field | Source | Purpose |
 |---|---|---|
 | `principal_user_id` | Session (server-side) | Who is acting |
+| `action_scope` | Declared by the route/command definition: `group` \| `organization` *(added 2026-08-01, V-06)* | Selects which validation branch §2.3 runs |
 | `expected_organization_id` | **Client-declared, server-verified** | What the caller *believed* it was acting on |
-| `expected_group_id` | **Client-declared, server-verified** | Same, at group scope |
-| `membership_id` | Derived server-side from `(principal_user_id, expected_group_id)` | The acting membership |
-| `context_version` | Monotonic counter on the **membership set**, bumped on any role, capability, entitlement, availability, proxy, or membership-status change | Freshness |
+| `expected_group_id?` | **Client-declared, server-verified.** Required when `action_scope = group`; **null when `action_scope = organization`** *(amended 2026-08-01, V-06)* | Same, at group scope |
+| `membership_id` | Derived server-side. `action_scope = group` → from `(principal_user_id, expected_group_id)`. `action_scope = organization` → from `(principal_user_id, expected_organization_id)`, resolving the **organization membership** *(amended 2026-08-01, V-06)* | The acting membership |
+| `context_version` | **Defined by [SPEC-06](SPEC-06-authorization-truth-table.md) §4** — `membership_set_version`, `organization_version`, and `group_version` as that section defines them. This spec states no independent list *(amended 2026-08-01, V-08)* | Freshness |
 | `session_epoch` | Bumped on privilege change, impersonation start/end, and re-authentication | Session freshness |
 | `authorization_version` | Hash of the resolved policy inputs (see [SPEC-06](SPEC-06-authorization-truth-table.md)) | Cache validity |
 | `correlation_id` | Generated at the edge | Traceability |
 | `on_behalf_of_membership_id?` | Impersonation or proxy | Attribution |
+
+**Staff availability is *not* a context-version input** *(amended 2026-08-01, V-08)*. Availability is a routine, high-frequency, self-service edit that changes no privilege; bumping a freshness counter on it would make `409 CONTEXT_STALE` a routine occurrence and train both users and implementers to engineer around it. Only the privilege-bearing changes enumerated in [SPEC-06](SPEC-06-authorization-truth-table.md) §4 bump a counter.
 
 **`expected_*` is declared by the client and *verified*, not *trusted*.** This is the inversion that fixes CAR-001. The old rule — "never accept a client tenant identifier" — prevented forgery but *caused* silent retargeting. The correct rule is:
 
@@ -48,7 +55,7 @@ A forged `expected_group_id` fails membership verification exactly as before. A 
 | Surface | Carrier |
 |---|---|
 | HTML form / page | Hidden field rendered at page load, plus the path segment |
-| JSON API | Path segment `/organizations/{org}/groups/{group}/…` **and** an `X-SchedulePoint-Context` header carrying `context_version` and `session_epoch` |
+| JSON API | Path segment `/organizations/{org}/groups/{group}/…` for group-scoped actions, `/organizations/{org}/…` for organization-scoped ones *(amended 2026-08-01, V-06)*, **and** an `X-SchedulePoint-Context` header carrying `context_version` and `session_epoch` |
 | WebSocket | Bound at connect **and** re-declared on **every command frame** (§5) |
 | Background job | Frozen into the job payload at enqueue (§6) |
 
@@ -56,25 +63,36 @@ A forged `expected_group_id` fails membership verification exactly as before. A 
 
 ### 2.3 Validation sequence
 
+> **AMENDED 2026-08-01 (V-06, V-07)** — steps 2/3 gain an organization-scope branch, and step 6 no longer discloses cross-tenant existence to an unauthorized actor ([rationale](../remediation/internal-verification-corrections.md) §2).
+
 Executed in order; the first failure aborts **before any write and before any event**:
 
 | # | Check | Failure response |
 |---|---|---|
 | 1 | `expected_organization_id` exists and is active | `404` — indistinguishable from not-permitted |
-| 2 | A membership exists for `(principal_user_id, expected_group_id)` and is `active` | `404` |
-| 3 | `expected_group_id` belongs to `expected_organization_id` | `404` |
-| 4 | `context_version` matches the current membership-set version | **`409 CONTEXT_STALE`** with a re-fetch directive |
+| 2 | **`action_scope = group`:** a **group membership** exists for `(principal_user_id, expected_group_id)` and is `active`. **`action_scope = organization`:** an **organization membership** exists for `(principal_user_id, expected_organization_id)`, is `active`, and carries an **organization role** *(amended 2026-08-01, V-06)* | `404` |
+| 3 | **`action_scope = group`:** `expected_group_id` is non-null and belongs to `expected_organization_id`. **`action_scope = organization`:** `expected_group_id` is null *(amended 2026-08-01, V-06)* | `404` |
+| 4 | `context_version` matches the counters defined in [SPEC-06](SPEC-06-authorization-truth-table.md) §4 *(amended 2026-08-01, V-08)* | **`409 CONTEXT_STALE`** with a re-fetch directive |
 | 5 | `session_epoch` matches | **`409 SESSION_STALE`** — forces re-authentication of context |
-| 6 | **Target aggregate binding** (§3) | **`409 CONTEXT_TARGET_MISMATCH`** |
+| 6 | **Target aggregate binding** (§3) | **`409 CONTEXT_TARGET_MISMATCH` only when the actor is authorized for this action in their declared tenant; otherwise `404`** *(amended 2026-08-01, V-07)* |
 | 7 | Authorization ([SPEC-06](SPEC-06-authorization-truth-table.md)) | `403` or `404` per policy |
 
 **Steps 4–6 are the CAR-001 remediation.** Steps 1–3 existed before and were never the problem.
+
+**Step 6, stated precisely** *(added 2026-08-01, V-07)*. When the named target resolves to a tenant other than the declared one, the response depends on whether the actor could legitimately have performed this action at all in the tenant they declared:
+
+| Actor is authorized for this action in the **declared** tenant | Response |
+|---|---|
+| Yes | **`409 CONTEXT_TARGET_MISMATCH`** — a genuine stale-tab condition, and the client can recover from it |
+| No | **`404`** — identical to "does not exist". No cross-tenant existence is disclosed |
+
+The authorization test for this branch is the ordinary [SPEC-06](SPEC-06-authorization-truth-table.md) capability evaluation for the declared tenant, evaluated **without** the object-policy layer (which is exactly SPEC-06's L5.1 and cannot run against an object in another tenant). This is why SPEC-06 places tenant binding at **L5.1, after L4** and not before it.
 
 ### 2.4 Distinguishing stale from forbidden
 
 A stale context is a **recoverable user-interface condition**, not an attack. It returns a distinct status so the client can say "this tab is showing Group A but you have switched to Group B — reload or switch back," rather than failing mysteriously or, worse, succeeding against the wrong group.
 
-**Forgery and cross-tenant probing still return `404`** with no distinction between "does not exist" and "not permitted."
+**Forgery and cross-tenant probing still return `404`** with no distinction between "does not exist" and "not permitted." *(amended 2026-08-01, V-07)* This is consistent with step 6 above rather than in tension with it: `409 CONTEXT_TARGET_MISMATCH` is reachable **only** by an actor who holds the capability for the action in the tenant they declared. An actor probing with a UUID from a tenant they hold no capability in — a departed member, a leaked report, a shared URL — receives `404` and learns nothing.
 
 ---
 
@@ -85,8 +103,11 @@ A stale context is a **recoverable user-interface condition**, not an attack. It
 ```
 resolve(target_id) → { organization_id, group_id, aggregate_type, aggregate_version }
 assert target.organization_id == ctx.expected_organization_id
-assert target.group_id        == ctx.expected_group_id
+if ctx.action_scope == 'group':                                    -- amended 2026-08-01, V-06
+    assert target.group_id    == ctx.expected_group_id
 assert target.aggregate_type  == the type this route operates on
+-- on any assertion failure, respond per §2.3 step 6:
+--   409 CONTEXT_TARGET_MISMATCH if authorized in the declared tenant, else 404  (V-07)
 ```
 
 | Property | Rule |
@@ -132,6 +153,11 @@ withUnitOfWork(ctx, fn):
     SELECT set_config('app.membership_id',   ctx.membership_id,            true)   -- LOCAL
     SELECT set_config('app.correlation_id',  ctx.correlation_id,           true)   -- LOCAL
     verify: SELECT current_setting('app.organization_id', true) == expected   -- read-back
+    on read-back mismatch:                       -- amended 2026-08-01, V-10
+        ROLLBACK
+        mark the connection POISONED and discard it from the pool (never return it)
+        raise CONTEXT_READBACK_MISMATCH to the caller
+        emit an operational alert at page severity (TDG-02 / TDG-03 failure mode)
     result := fn(tx)
     COMMIT   -- settings expire with the transaction, by definition
   on any error:
@@ -143,18 +169,21 @@ withUnitOfWork(ctx, fn):
 | Property | Why it closes CAR-002 |
 |---|---|
 | **Settings are transaction-local** | An exception, a cancellation, a statement timeout, or a lost connection **cannot** leave them set. There is no cleanup step to forget |
-| **Read-back verification** | Catches a misconfigured pooler that silently discards `SET LOCAL` |
+| **Read-back verification** | Catches a misconfigured pooler that silently discards `SET LOCAL`. **A mismatch is not advisory** *(amended 2026-08-01, V-10)*: the transaction **aborts**, the connection is **discarded from the pool** rather than returned to it, and an **operational alert** is raised. All three are asserted by T-14. Logging and continuing is explicitly prohibited — this read-back is the single detector for the TDG-02/TDG-03 failure mode the whole design rests on |
 | **No nested transaction may change tenant** | A nested `withUnitOfWork` with a *different* tenant is a programming error and **throws**. Savepoints are permitted; re-tenanting is not |
 | **`SET` (session form) is prohibited** | A lint rule and a CI grep forbid non-`LOCAL` tenant settings anywhere in the codebase |
 | **Pool mode constraint** | The connection pooler **must** operate in session or transaction mode with transaction affinity. **Statement-level pooling is incompatible with this design and is prohibited** ([SPEC-15](SPEC-15-technology-decision-gates.md) TDG-03) |
 
 ### 4.3 Denying access outside the wrapper
 
+> **AMENDED 2026-08-01 (V-09)** — organization-only predicates gave the database no defence in depth at *group* scope, which is precisely the scope CAR-001 is about. Group-scoped tables now carry a **group predicate in addition to** the organization predicate ([rationale](../remediation/internal-verification-corrections.md) §2).
+
 Belt and braces, because a wrapper you can forget is a wrapper that will be forgotten:
 
 | Mechanism | Effect |
 |---|---|
 | **RLS policies read `current_setting('app.organization_id', true)`** | Outside a unit of work the setting is `NULL`, the predicate is false, and **every tenant table returns zero rows and rejects every write** |
+| **Group-scoped tables additionally read `current_setting('app.group_id', true)`** *(added 2026-08-01, V-09)* | A table carrying `group_id` has the conjunctive predicate `organization_id = current_setting('app.organization_id', true)::uuid AND group_id = current_setting('app.group_id', true)::uuid`. An application bug that resolves the **wrong group within the right organization** — the CAR-001 defect class — is then caught below the application layer, not only above it. `app.group_id` is `NULL` under an organization-scoped unit of work, so group-scoped tables are fail-closed there too |
 | **`FORCE ROW LEVEL SECURITY`** on every tenant table | The owner bypass does not apply to the application role even if ownership is misconfigured |
 | **Non-owner application role** | `app_runtime` owns nothing, is not superuser, and does not hold `BYPASSRLS` |
 | **Non-owner worker role** | `app_worker` — same constraints, separate credentials, separate grants |
@@ -162,6 +191,17 @@ Belt and braces, because a wrapper you can forget is a wrapper that will be forg
 | **Repository lint** | Raw client access outside the repository layer fails the build |
 
 **Fail-closed is the important half.** Forgetting the wrapper does not produce a leak; it produces zero rows — a loud, immediate, obviously-broken failure in development.
+
+**Declared cross-group policy exceptions** *(added 2026-08-01, V-09)*. A conjunctive group predicate would otherwise break legitimate organization-wide reads. Those reads go through **named, enumerated policy exceptions** — never through relaxing the default predicate — and each exception is a policy on a specific table, permitting `SELECT` only, when `app.group_id` is `NULL` **and** the acting membership holds the corresponding cross-group capability from [SPEC-06](SPEC-06-authorization-truth-table.md) §3:
+
+| Exception | Tables | Grants | Gated on |
+|---|---|---|---|
+| `EX-1 org-wide dashboard` | Read-model/reporting tables carrying `group_id` | `SELECT` | Organization-scoped context (`app.group_id IS NULL`) + a cross-group read capability |
+| `EX-2 organization administration` | `groups`, `memberships`, `role_capabilities` | `SELECT` | Organization membership with an organization role (§2.3 step 2, org branch) |
+| `EX-3 entitlement administration` | Entitlement and module-availability tables | `SELECT`, and `INSERT`/`UPDATE` on entitlement rows only | Organization-scoped context + entitlement-administration capability |
+| `EX-4 cross-group transfers and marketplace` | `transfers`, `shift_offers`, `shift_swaps` | `SELECT` on the counterparty group's row | Both groups in the same organization + the transfer/marketplace capability in each |
+
+**The list is closed.** A cross-group read that is not one of these is a defect, not a configuration change; adding an exception is a change to this section and to SPEC-06 §3, reviewed as such.
 
 ### 4.4 Role matrix
 
@@ -223,8 +263,12 @@ Belt and braces, because a wrapper you can forget is a wrapper that will be forg
 | T-02 | Same, but A's membership was revoked meanwhile | `409 CONTEXT_STALE`; **no write, no event, no audit mutation** |
 | T-03 | Same for **publication**, **report request**, **document upload**, **job enqueue**, and **WebSocket command** | Identical behaviour on every surface |
 | T-04 | Forged `expected_group_id` naming a group the user does not belong to | `404`; logged as a security event |
-| T-05 | Valid context, target object from another group | `409 CONTEXT_TARGET_MISMATCH` **before any write** |
+| T-05 | Valid context, target object from another group, actor **is** authorized for the action in the declared group | `409 CONTEXT_TARGET_MISMATCH` **before any write** *(amended 2026-08-01, V-07)* |
+| T-05b | Same, but the actor holds **no** capability for the action in the declared group *(added 2026-08-01, V-07)* | **`404`** — byte-identical to the response for a non-existent id. No timing or body difference |
 | T-06 | Long-lived form submitted after an entitlement is revoked | Fails at the entitlement layer with no partial effect |
+| T-06b | Organization-scoped action with `expected_group_id = null`, actor holds an active organization membership and organization role *(added 2026-08-01, V-06)* | Accepted; `membership_id` resolves to the organization membership |
+| T-06c | Organization-scoped action, actor holds only a **group** membership in that organization *(added 2026-08-01, V-06)* | `404` — a group membership never satisfies an organization-scoped action ([SPEC-06](SPEC-06-authorization-truth-table.md) §1, disjoint composition) |
+| T-06d | Group-scoped action with `expected_group_id = null` *(added 2026-08-01, V-06)* | `404` — the branch is selected by the route's declared scope, never by the presence or absence of the field |
 
 ### 7.2 Pooled-connection and failure-path isolation (CAR-002)
 
@@ -239,7 +283,8 @@ Belt and braces, because a wrapper you can forget is a wrapper that will be forg
 | T-11 | Nested unit of work, same tenant | Permitted (savepoint) |
 | T-12 | Nested unit of work, **different** tenant | **Throws.** Never permitted |
 | T-13 | Query issued **outside** any unit of work | **Zero rows / write rejected** — fail-closed, not fail-open |
-| T-14 | Pooler in statement-pooling mode | **Harness fails loudly** — the configuration is prohibited, and the test proves the prohibition is detectable |
+| T-13b | Unit of work for Group A in Org 1; query a group-scoped table for Group B in the **same** organization *(added 2026-08-01, V-09)* | **Zero rows / write rejected** by the group predicate, without relying on the application layer |
+| T-14 | Pooler in statement-pooling mode | **Harness fails loudly** — the configuration is prohibited, and the test proves the prohibition is detectable. *(amended 2026-08-01, V-10)* The test asserts **all three** consequences of the read-back mismatch: (a) the transaction is **aborted** with `CONTEXT_READBACK_MISMATCH` and no row is written; (b) the connection is **discarded** from the pool and is never handed to another borrower; (c) an **operational alert** is emitted |
 | T-15 | 10 000 interleaved operations across two orgs, randomised faults | **Zero rows from the wrong tenant. Any single occurrence is a hard failure** |
 
 **Earliest execution point: the schema/prototype stage, before feature work** — per CAR-025, this harness is not a late gate.

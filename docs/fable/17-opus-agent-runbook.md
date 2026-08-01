@@ -64,6 +64,6 @@ The packet's requirements conflict with a SPEC/invariant · a needed schema chan
 
 REVISE at most twice with the same agent; then either re-plan the packet (my fault) or reassign fresh (context contamination). Debugging tasks get their own packets with reproduction steps as acceptance criteria. Never fabricate a pending result; never accept "it should work now" without re-run evidence.
 
-## 9. The first packet
+## 9. The first packets
 
-**OPUS-M0-001 — Tenant-isolation unit-of-work spike** — issued as [20-recommendation.md](20-recommendation.md) §4 verbatim, on your approval.
+**The first three packets (OPUS-M0-001/002/003) are finalized in [23-opus-task-packets.md](23-opus-task-packets.md)** and approved for issuance ([21-decision-resolution.md](21-decision-resolution.md) FD-4); issuance awaits the owner's implementation-authorization prompt ([24-execution-standards.md](24-execution-standards.md) §G). Branch/worktree, merge, and per-task quality-gate specifics: [24-execution-standards.md](24-execution-standards.md) §§E–F, which are binding alongside this runbook.

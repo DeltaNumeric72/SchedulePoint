@@ -369,8 +369,19 @@ for m in re.finditer(r"Node\.js[^\n.]{0,60}(hosts|runs|executes)[^\n.]{0,30}(sol
     if not NEG_RUNTIME.search(lead):
         bad_runtime.append(m.group(0))
 check("48b. No document claims Node.js hosts the solver", not bad_runtime, str(bad_runtime[:2]))
-check("48c. The one-image / all-four-classes claim is withdrawn",
-      re.search(r"withdraw", doc_text.get("02-technology-stack.md",""), re.I) is not None)
+# 48c strengthened 2026-08-01 (internal verification, sweep note): a presence-
+# assertion ("a withdrawal statement exists") passed while two documents still
+# stated the withdrawn claim. It is now a negative assertion: NO live document
+# may state the one-image claim except in a marked-historical line.
+HIST = re.compile(r"withdraw|AMENDED|amended|previously|historical|Supersedes|"
+                  r"was wrong|contradic|deleted", re.I)
+bad_one_image = []
+for fname, text in list(doc_text.items()) + list(spec_text.items()):
+    for line in text.splitlines():
+        if re.search(r"\bone image\b", line, re.I) and not HIST.search(line):
+            bad_one_image.append("%s: %s" % (fname, line.strip()[:70]))
+check("48c. No live document states the one-image claim (negative assertion)",
+      not bad_one_image, str(bad_one_image[:3]))
 
 # ---- 49. push storage retains usable encrypted delivery material
 s07 = spec_text.get("SPEC-07-notification-delivery-contracts.md", "")
@@ -400,8 +411,19 @@ check("50b. No pending decision is described as approved",
       not bad_approve, str(bad_approve[:3]))
 check("50c. PO-DEC-01's non-default branch creates no tables",
       "~~`sites`~~" in data_doc or "REMOVED (CAR-021)" in data_doc)
-check("50d. PO-DEC-03's implementation is marked provisional",
-      "provisional" in spec_text.get("SPEC-08-request-subtype-lifecycles.md",""))
+# 50d updated 2026-08-01: PO-DEC-03 was resolved under delegated authority.
+# The check now asserts the RESOLUTION is recorded (with the resolution record
+# referenced) and that SPEC-08 no longer claims the decision remains pending
+# outside marked-historical text.
+s08 = spec_text.get("SPEC-08-request-subtype-lifecycles.md", "")
+res_recorded = ("PO-DEC-03 is RESOLVED" in s08 or
+                re.search(r"PO-DEC-03 was resolved", s08, re.I)) and \
+               "21-decision-resolution.md" in s08
+stale_pending = [l.strip()[:70] for l in s08.splitlines()
+                 if re.search(r"PO-DEC-03[^\n]{0,60}remains\s+`?pending", l)
+                 and not HIST.search(l)]
+check("50d. PO-DEC-03 resolution is recorded in SPEC-08 (no live pending claim)",
+      bool(res_recorded) and not stale_pending, str(stale_pending[:2]))
 
 # ---- 51. no exactly-once external delivery claim
 NEG_EO = re.compile(r"(never|not|no longer|withdraw|is at-least-once|cannot|does not)", re.I)
@@ -487,6 +509,68 @@ check("54c. Every finding carries all required fields", not incomplete_car,
 check("54d. The independent review is unmodified in this package",
       "codex-architecture-review.md" not in str(
           [f for f in all_md if "review" in f.lower()]))
+
+# =====================================================================
+# INTERNAL-VERIFICATION CHECKS (55) -- added 2026-08-01 after the
+# internal adversarial verification review, which found that three
+# checks asserted the PRESENCE of a withdrawal instead of the ABSENCE
+# of the withdrawn claim. These are absence assertions.
+# =====================================================================
+
+# ---- 55a. no live document states connect-time-only context resolution
+bad_connect = []
+adr_dir = os.path.join(BASE, "decisions")
+adr_text = {f: read(os.path.join(adr_dir, f)) for f in os.listdir(adr_dir)
+            if f.endswith(".md")}
+for fname, text in (list(doc_text.items()) + list(spec_text.items())
+                    + list(adr_text.items())):
+    for line in text.splitlines():
+        if re.search(r"at connect time|resolved at connect(?!ion)", line, re.I) \
+           and not HIST.search(line):
+            bad_connect.append("%s: %s" % (fname, line.strip()[:70]))
+check("55a. No live document states connect-time-only context/capability resolution",
+      not bad_connect, str(bad_connect[:3]))
+
+# ---- 55b. deleted structures are not referenced as live
+bad_deleted = []
+for fname, text in list(doc_text.items()) + list(spec_text.items()):
+    for line in text.splitlines():
+        if "assignment_versions" in line and "~~" not in line \
+           and not re.search(r"REMOVED|REPLACES|withdraw|AMENDED|amended|deleted|historical|Supersedes|was wrong", line, re.I):
+            bad_deleted.append("%s: %s" % (fname, line.strip()[:70]))
+check("55b. Deleted table `assignment_versions` is never referenced as live",
+      not bad_deleted, str(bad_deleted[:3]))
+
+# ---- 55c. a decision described as resolved requires the resolution record
+res_path = os.path.join(REPO, "docs", "fable", "21-decision-resolution.md")
+res_text = read(res_path) if os.path.exists(res_path) else ""
+bad_resolved = []
+for m in re.finditer(r"(PO-DEC-\d{2})[^\n]{0,100}", corpus):
+    seg = m.group(0)
+    if re.search(r"\bRESOLVED\b|\bratified\b|\bsettled\b", seg) \
+       and "not resolved" not in seg.lower():
+        if m.group(1) not in res_text:
+            bad_resolved.append(seg[:70])
+check("55c. Every decision described as resolved appears in the resolution record",
+      os.path.exists(res_path) and not bad_resolved, str(bad_resolved[:3]))
+
+# ---- 55d. module-count self-consistency in document 04
+d04 = doc_text.get("04-domain-boundaries.md", "")
+m_sections = len(re.findall(r"^#### M-\d{2}", d04, re.M))
+stated = re.search(r"\*\*(\d+) modules?\*\*", d04)
+bad_1919 = [l.strip()[:70] for l in d04.splitlines()
+            if re.search(r"25 to 19|rationalised.{0,20}19", l) and not HIST.search(l)]
+check("55d. Document 04 module count is self-consistent (stated == defined; no live 25-to-19 claim)",
+      bool(stated) and int(stated.group(1)) == m_sections and not bad_1919,
+      "stated=%s defined=%d %s" % (stated.group(1) if stated else "?", m_sections, bad_1919[:1]))
+
+# ---- 55e. corrections record dispositions every internal-verification finding
+ivc = read(os.path.join(BASE, "remediation", "internal-verification-corrections.md")) \
+      if os.path.exists(os.path.join(BASE, "remediation", "internal-verification-corrections.md")) else ""
+v_ids = ["V-%02d" % n for n in range(1, 32) if n not in (19, 25)]  # V-19 withdrawn, V-25 counted at V-07
+missing_v = [v for v in v_ids if v not in ivc]
+check("55e. Every internal-verification finding is dispositioned in the corrections record",
+      bool(ivc) and not missing_v, str(missing_v[:5]))
 
 # ------------------------------------------------------ report
 fails = [r for r in results if not r[1]]

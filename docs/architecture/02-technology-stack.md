@@ -4,7 +4,7 @@
 
 > **REVISED 2026-08-01 (CAR-005, CAR-024).** **The "one runtime across all four process classes" claim is withdrawn** — OR-Tools has no official Node.js binding (**verified fact S-04**), so the solver worker is Python in its own image, and the raw-ingress enclave is a third image. **Every `VERIFY` row is now a numbered gate** in [SPEC-15](specs/SPEC-15-technology-decision-gates.md) with a required spike; **no gated row may be described as decided.**
 
-**Evidence discipline.** Only four claims in this document are **documented facts** verified against official primary sources ([references](references/official-technical-sources.md)): CP-SAT's solver class and status values, CP-SAT's optimization support, OR-Tools' Apache-2.0 licence, and PostgreSQL's row-level-security semantics. **Everything else is an architectural recommendation** whose maturity and licensing claims require verification before adoption. Rows requiring verification are marked **`VERIFY`**.
+**Evidence discipline.** Only four claims in this document are **documented facts** verified against official primary sources ([references](references/official-technical-sources.md)): CP-SAT's solver class and status values, CP-SAT's optimization support, OR-Tools' Apache-2.0 licence, and PostgreSQL's row-level-security semantics. **Everything else is an architectural recommendation** whose maturity and licensing claims require verification before adoption. Rows requiring verification are marked **`GATED (TDG-nn)`** *(amended 2026-08-01, Sweep 14 — the bare `VERIFY` marker is withdrawn; every such row is a numbered gate in [SPEC-15](specs/SPEC-15-technology-decision-gates.md), and [rationale](remediation/internal-verification-corrections.md) §2)*.
 
 ---
 
@@ -41,12 +41,12 @@ Full per-choice detail follows. Every entry carries: responsibility · alternati
 **Responsibility:** the web/API, background-worker, real-time-coordinator, and migration process classes. **Not the solver worker (Python, S-04) and not the ingress enclave (separate minimal image).**
 **Alternatives:** .NET, Go, Python, JVM.
 **Reason:** one language across server, workers, and browser reduces context-switching for a small team, and a strong structural type system directly supports the domain invariants this product depends on. Python would ease solver integration but is weaker for the real-time and web tiers; Go is excellent for workers but adds a second language.
-**Maturity/licensing:** `VERIFY` — confirm the LTS support window before committing.
+**Maturity/licensing:** **`GATED (TDG-01)`** *(amended 2026-08-01, Sweep 14)* — confirm the LTS support window before committing. **This gate blocks the dependent work named in [SPEC-15](specs/SPEC-15-technology-decision-gates.md); it is not a note to self.**
 **Operational complexity:** low. **Security:** dependency surface is the main risk — see [14](14-security-and-privacy.md) §9. **Scaling:** horizontal; CPU-bound solver work is deliberately *not* run here (§4.1) — **and, since S-04, cannot be**.
 **Replacement boundary:** the domain layer must contain no framework or runtime imports, so domain logic is portable.
 **Confidence:** High. **ADR:** [ADR-0002](decisions/ADR-0002-primary-technology-stack.md).
 
-### 2.2 Web framework — mature TypeScript server framework `VERIFY`
+### 2.2 Web framework — mature TypeScript server framework **`GATED (TDG-01)`** *(amended 2026-08-01, Sweep 14)*
 **Responsibility:** HTTP handling, routing, middleware, streaming.
 **Reason:** the architecture needs middleware composition (tenant context, authorization, correlation id) and streaming (report downloads, calendar feeds). It does **not** need an opinionated full-stack framework — most of this product is domain logic, not page plumbing.
 **Replacement boundary:** HTTP handlers are thin adapters; no domain rule lives in a route handler. Swapping frameworks should touch the adapter layer only.
@@ -91,10 +91,10 @@ Full per-choice detail follows. Every entry carries: responsibility · alternati
 **Replacement boundary:** none — PostgreSQL is a deliberate, deep commitment. Replacing it would be a re-architecture, and this is stated plainly rather than pretending otherwise.
 **Confidence:** **High.** **ADR:** [ADR-0003](decisions/ADR-0003-database-and-tenancy-strategy.md).
 
-### 3.2 Data access `VERIFY`
+### 3.2 Data access **`GATED (TDG-02, TDG-03)`** *(amended 2026-08-01, Sweep 14)*
 **Responsibility:** typed queries, transaction management, connection pooling.
 **Reason:** the workload mixes simple CRUD with genuinely complex analytical queries (fairness statistics, schedule grids). An ORM that makes the hard queries unreadable is a poor fit; **a typed query builder with an explicit SQL escape hatch is preferred over a heavyweight ORM.**
-**Security:** the tenant-context session variable that RLS policies read must be set on **every** connection checkout — this is the single most important integration point between the pool and the isolation model (see [05](05-tenancy-entitlements-authorization.md) §4.3).
+**Security:** *(corrected 2026-08-01 — the previous sentence here described connection-checkout context, the exact mechanism CAR-002 withdrew)* the tenant context that RLS policies read is **transaction-local**: it is established via `set_config(..., true)` inside the mandatory unit-of-work and ends with the transaction. It is **never** set at connection checkout — session-scoped context survives pool reuse and is unsafe by construction. The data layer must therefore reliably issue `SET LOCAL`-equivalent calls inside a caller-controlled transaction; this is the single most important integration point between the pool and the isolation model (see [SPEC-01](specs/SPEC-01-request-context-and-tenant-isolation.md) §4, which is normative, and [05](05-tenancy-entitlements-authorization.md) §4.3).
 **Replacement boundary:** repository interfaces defined in the domain layer; query implementation is swappable.
 **Confidence:** Med. **ADR:** ADR-0003.
 
@@ -158,10 +158,10 @@ Versioned, forward-only, reviewed as code, run by a role **separate** from the a
 
 | Area | Recommendation | Notes | Confidence |
 |---|---|---|---|
-| **Email** | Transactional provider behind an `EmailPort` | Deliverability and bounce handling matter more than API elegance | Med `VERIFY` |
-| **SMS** | Programmable messaging provider behind an `SmsPort` | Jurisdictional rules vary — a compliance question, not just technical | Med `VERIFY` |
-| **Voice** | Programmable voice behind a `VoicePort` | Load-bearing for picking; treat as first-class, not an afterthought | Med `VERIFY` |
-| **Push** | Web Push + platform push behind a `PushPort` | Requires explicit consent and invalid-token cleanup (CAP-041) | Med `VERIFY` |
+| **Email** | Transactional provider behind an `EmailPort` | Deliverability and bounce handling matter more than API elegance | Med · **`GATED (TDG-06)`** *(amended 2026-08-01, Sweep 14)* |
+| **SMS** | Programmable messaging provider behind an `SmsPort` | Jurisdictional rules vary — a compliance question, not just technical | Med · **`GATED (TDG-06)`** |
+| **Voice** | Programmable voice behind a `VoicePort` | Load-bearing for picking; treat as first-class, not an afterthought | Med · **`GATED (TDG-06)`** |
+| **Push** | Web Push + platform push behind a `PushPort` | Requires explicit consent and invalid-token cleanup (CAP-041) | Med · **`GATED (TDG-06)`** |
 | **File storage** | S3-compatible object storage | Per-tenant key prefixes; short-lived signed URLs; **no public buckets** | High |
 | **Report generation** | Async worker producing stored artifacts | Never generated inline in a request | High |
 | **Calendar feeds** | Server-rendered iCalendar; hash-stored revocable tokens | **No PII in the URL** (CAP-047) | High |
@@ -182,7 +182,7 @@ Versioned, forward-only, reviewed as code, run by a role **separate** from the a
 | **Testing** | Unit, domain, property-based, integration, contract, Playwright | See [16](16-testing-and-environments.md) | High |
 | **Accessibility testing** | axe-core in CI + manual screen-reader passes | Automation catches perhaps half; manual passes are required | High |
 | **Local dev** | Containerised Postgres + object storage; seeded synthetic data | **Synthetic only, always** | High |
-| **Containerisation** | OCI images, one image, multiple entry points | Same artifact for web/worker/solver/realtime | High |
+| **Containerisation** *(amended 2026-08-01, Sweep 2)* | OCI images: **six process classes, three images** — `app`, `solver`, `ingress` | `app` carries web, workers, real-time coordinator and the migration runner; **the solver is a separate Python image (S-04) and the ingress enclave is a third, separately built and separately patched**. Normative: [SPEC-10](specs/SPEC-10-deployment-topology.md) §2.1 | High |
 | **CI** | Lint, typecheck, unit, domain, **policy tests**, migration+RLS pairing check, a11y, request-budget | Gates that can fail the build | High |
 | **Deployment** | Rolling deploys; migrations gated and reversible | See [17](17-deployment-and-operations.md) | Med |
 | **Secrets** | Managed secret store; **never** in env files in the repo | Connector credentials referenced, never stored on the connector record | High |
@@ -207,11 +207,21 @@ Versioned, forward-only, reviewed as code, run by a role **separate** from the a
 
 ## 8. What requires verification before adoption
 
-Everything marked `VERIFY` above, plus:
+> **AMENDED 2026-08-01 (Sweep 14)** — this section's closing line, *"None of these blocks architecture,"* was **wrong as written and is withdrawn**. It conflated two different things, and [SPEC-15](specs/SPEC-15-technology-decision-gates.md)'s standing rule is that a gate blocks its dependents ([rationale](remediation/internal-verification-corrections.md) §2).
+
+Everything marked **`GATED (TDG-nn)`** above, plus:
 
 1. **CP-SAT parallelism and determinism** — the official overview did not document it; **reproducibility is an absolute requirement**, so this must be benchmarked (SBX-031) before the solver design is finalised.
 2. **Notification provider terms** — deliverability, retention, jurisdictional restrictions for SMS and voice.
 3. **LTS support windows** for the runtime and framework.
 4. **Licence review** of every dependency before first release.
 
-**None of these blocks architecture.** Each blocks a specific later decision, and each is recorded in the risk register with an owner.
+**Restated 2026-08-01 (Sweep 14).** **These gates do not block architecture *documentation* — they do block their dependent implementation work.** The distinction matters and the previous wording lost it:
+
+| | Statement |
+|---|---|
+| **What is not blocked** | Writing, reviewing, and revising the architecture package. Nothing above prevents the design being specified — which is what "does not block architecture" was reaching for |
+| **What *is* blocked** | **Each gate blocks the implementation work [SPEC-15](specs/SPEC-15-technology-decision-gates.md) names as dependent on it**, and no gated row may be described as decided. TDG-02 and TDG-03 block **any schema work**; TDG-01 blocks **any route work**; TDG-06 blocks **delivery work**; TDG-11 blocks **provisioning**. That is a real, enforced constraint on sequencing, not a note in a register |
+| **Where each is tracked** | [SPEC-15](specs/SPEC-15-technology-decision-gates.md), with its blocking scope and required spike; and in the risk register ([19](19-risks-and-decisions.md)) with an owner |
+
+**On the technology selections above** *(added 2026-08-01, Sweep 14)*: they are **decided-pending-spike** per [21 §3](../fable/21-decision-resolution.md) — the selection is made, and the gate's spike confirms the selected product satisfies the stated requirement before dependent work begins. A spike that fails reopens the selection; it does not silently proceed.

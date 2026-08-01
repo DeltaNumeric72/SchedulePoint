@@ -111,7 +111,7 @@ Each entry records: disposition · milestone · gate · features · entities · 
 | **Primary data structures** | All tenant tables; RLS policies |
 | **Interfaces / ports** | Tenant context resolver |
 | **Background / async work** | — |
-| **Real-time involvement** | Connection tenant context resolved at connect |
+| **Real-time involvement** | **Tenant context declared and verified on every command frame** *(amended 2026-08-01, V-20 — the previous "resolved once at connection establishment" model is withdrawn; [SPEC-01](specs/SPEC-01-request-context-and-tenant-isolation.md) §5, [rationale](remediation/internal-verification-corrections.md) §2)* |
 | **Authorization requirement** | **Deny-by-default at route, object, and row level** |
 | **Privacy / security consideration** | T-01, T-03: RLS with FORCE as defence in depth; composite FKs prevent cross-tenant references |
 | **Testing strategy** | QA: QA-SEC-008, QA-TEN-005 · Sandbox: SBX-004 |
@@ -177,7 +177,7 @@ Each entry records: disposition · milestone · gate · features · entities · 
 | **Primary data structures** | memberships, membership_roles, role_capabilities, capability_grants |
 | **Interfaces / ports** | Capability resolver |
 | **Background / async work** | — |
-| **Real-time involvement** | Capability set resolved at connect |
+| **Real-time involvement** | **Capability set re-evaluated on every command frame, and on every push for sensitive topics** *(amended 2026-08-01, V-20 — a capability set fixed at connection establishment leaves a revoked capability effective for the life of the socket, the CAR-008 defect; [SPEC-06](specs/SPEC-06-authorization-truth-table.md) §6 and §6.1)* |
 | **Authorization requirement** | **The model itself.** organization entitlement → module availability → membership role → explicit capability |
 | **Privacy / security consideration** | A capability change is audited in both directions |
 | **Testing strategy** | QA: QA-AUTH-006, QA-TEN-003 · Sandbox: SBX-001, SBX-002 |
@@ -287,7 +287,7 @@ Each entry records: disposition · milestone · gate · features · entities · 
 | **Primary data structures** | entitlements, entitlement_modules, module_dependencies |
 | **Interfaces / ports** | — |
 | **Background / async work** | — |
-| **Real-time involvement** | Entitlement checked at connect for live features |
+| **Real-time involvement** | **Entitlement re-checked on every command frame for live features**, and affected subscriptions closed immediately on entitlement loss *(amended 2026-08-01, V-20 — [SPEC-06](specs/SPEC-06-authorization-truth-table.md) §2 L1 and §6)* |
 | **Authorization requirement** | **Entitlement is checked before permission — an entitled-off module is unavailable regardless of role** |
 | **Privacy / security consideration** | Disabling never deletes data (PO-DEC-04) |
 | **Testing strategy** | QA: QA-AUTH-007, QA-TEN-005 · Sandbox: SBX-002 |
@@ -794,8 +794,8 @@ Each entry records: disposition · milestone · gate · features · entities · 
 | **Interfaces / ports** | Real-time transport port |
 | **Background / async work** | Coordinator process |
 | **Real-time involvement** | **Yes — server-authoritative** |
-| **Authorization requirement** | Subscription authorized per topic; tenant resolved at connect |
-| **Privacy / security consideration** | T-08: a subscribe outside the connection's tenant is denied and logged |
+| **Authorization requirement** | Subscription authorized per topic **and re-evaluated on every push** ([SPEC-06](specs/SPEC-06-authorization-truth-table.md) §6.1, batched one evaluation per recipient per event, fail-closed per recipient); **tenant declared and verified per command frame** *(amended 2026-08-01, V-20)* |
+| **Privacy / security consideration** | T-08: a subscribe outside the **frame's declared** tenant is denied and logged *(amended 2026-08-01, V-20)* |
 | **Testing strategy** | QA: QA-CON-004, QA-PICK-005 · Sandbox: SBX-022, SBX-023 |
 | **ADRs** | [ADR-0008](decisions/ADR-0008-realtime-picklist-transport.md) |
 | **Open questions / confidence** | PO-DEC-18 APPROVED. **SBX-022 (≥50 trials) is the evidence that matters.** Confidence: Medium-High |

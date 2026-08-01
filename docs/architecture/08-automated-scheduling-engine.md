@@ -188,7 +188,7 @@ stateDiagram-v2
 
 | Requirement | Design |
 |---|---|
-| **Locked manual assignments** | `protected_assignment_ids` on the build run; fixed in the model |
+| **Locked manual assignments** *(amended 2026-08-01, V-23)* | **`protected_assignment_identities`** on the build run; fixed in the model. **Renamed from `protected_assignment_ids`**, which pointed at the deleted `assignments` table; [06](06-data-architecture.md) §3.3 already defines the column as `protected_assignment_identities`, and protection is correctly expressed against the **stable identity** rather than a per-version row — a protected assignment must survive a clone into the next candidate version, which an id-per-snapshot reference cannot express ([rationale](remediation/internal-verification-corrections.md) §2) |
 | **Locked prior solver assignments** | A stage's output can be protected before the next stage |
 | **Staged generation** | Each stage is a distinct build with `parent_build_ids` |
 | **Partial-schedule circulation** | Stage output → draft version in `circulated` state — **never published** |

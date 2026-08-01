@@ -2,9 +2,11 @@
 
 **Status: `PROPOSED`.**
 
-> **REVISED 2026-08-01 (CAR-017).** **Strict "a module never touches another module's tables" is replaced by three write classes** — own-aggregate writes, **in-transaction domain ports**, and post-commit outbox reactions — with one named owner per workflow. **The module count is rationalised from 25 to 19** where two modules shared every invariant and every transaction. See [SPEC-12](specs/SPEC-12-cross-module-unit-of-work.md) and [ADR-0017](decisions/ADR-0017-cross-module-unit-of-work.md). **M-08 Ingestion Privacy and M-24 Audit remain separate and are never merged.**
+> **REVISED 2026-08-01 (CAR-017).** **Strict "a module never touches another module's tables" is replaced by three write classes** — own-aggregate writes, **in-transaction domain ports**, and post-commit outbox reactions — with one named owner per workflow. See [SPEC-12](specs/SPEC-12-cross-module-unit-of-work.md) and [ADR-0017](decisions/ADR-0017-cross-module-unit-of-work.md). **M-08 Ingestion Privacy and M-24 Audit remain separate and are never merged.**
+>
+> **AMENDED 2026-08-01 (V-05) — the module-consolidation claim is WITHDRAWN.** This header previously stated that the count was "rationalised from 25 to 19." **That merge was announced and never performed**: the next line of this file said 25, and the file defines exactly 25 `#### M-nn` sections. **The module count is 25.** The claim is withdrawn rather than the merge hurriedly executed — a count is not worth a rushed consolidation, and CAR-017's substance (the W1/W2/W3 write classes) never depended on it and is unaffected. Consolidation may still happen later, from implementation experience rather than from a tidy number. [Rationale](remediation/internal-verification-corrections.md) §0 V-05.
 
-25 modules. Each owns its entities, publishes explicit operations, emits and consumes events, and declares what it may **never** depend on.
+**25 modules** *(the count is 25, and this file defines 25 `#### M-nn` sections; amended 2026-08-01, V-05)*. Each owns its entities, publishes explicit operations, emits and consumes events, and declares what it may **never** depend on.
 
 ---
 
@@ -202,22 +204,22 @@ graph TD
 #### M-10 · Schedule Generation
 **Purpose:** run the engine; produce candidate schedules with explanations.
 **Owns:** `build_configurations`, `build_runs`, `solver_inputs`, `solver_results`, `rule_violations`, `quality_metrics`
-**Invariants:** **one running build per period**; protected assignments preserved exactly; **`infeasible` ≠ `failed`**; every result carries the full explainability set; reproducible given identical inputs and seed.
+**Invariants:** **one running build per _configuration_** *(amended 2026-08-01, Sweep 10 — previously "per period"; rescoped by D-4a, the CAR-006 fix that makes candidate comparison under CAP-017/CAP-059 possible at all. Two configurations for the same period may build concurrently; two runs of the **same** configuration may not. See [06](06-data-architecture.md) §3.3 D-4a)*; protected assignments preserved exactly; **`infeasible` ≠ `failed`**; every result carries the full explainability set; reproducible given identical inputs and seed.
 **Operations:** `configureBuild`, `validateBuild`, `submitBuild`, `cancelBuild`, `getResult`, `compareBuilds`
 **Emits:** `BuildQueued`, `BuildCompleted`, `BuildInfeasible`, `BuildFailed` · **Consumes:** `RuleSetComposed`
 **Depends on:** M-05, M-06, M-09, M-11 (reads assignments for protection/history) · **Never depends on:** M-12 Publication
-**Transaction:** result persistence atomic. **Concurrency:** **period-scoped serialisation.**
+**Transaction:** result persistence atomic. **Concurrency:** **configuration-scoped serialisation** *(amended 2026-08-01, Sweep 10 — matches D-4a)*; publication remains period-scoped ([SPEC-05](specs/SPEC-05-schedule-version-identity-and-publication.md) §6 step 02).
 **Audit:** every stage transition. **Tenant:** Group. **Sensitivity:** `INTERNAL`.
 **Capabilities:** CAP-015, CAP-017, CAP-018, CAP-059
 
 #### M-11 · Assignments
 **Purpose:** who is working what, when — plus fairness credit, **which is a separate concept**.
-**Owns:** `shifts`, `assignments`, `assignment_versions`, `credits`
-**Invariants:** **no overlapping assignments for one person, including across midnight**; minimum rest respected; qualification enforced at the assignment date; **credit is independently movable from the assignment**; every mutation audited with provenance.
+**Owns:** `shifts`, **`assignment_identities`**, **`assignment_snapshots`**, `credits` *(amended 2026-08-01, V-23 — `assignments` and `assignment_versions` were **deleted** by [SPEC-05](specs/SPEC-05-schedule-version-identity-and-publication.md) §1 and this ownership line still named them; `assignment_snapshots` replaces `assignments`, `assignment_identities` is the new stable identity, and `assignment_versions` has no successor because its purpose is served by querying snapshots of one identity across versions)*
+**Invariants:** **no overlapping assignments for one person within a version** (D-1a) **and none across the current published versions of different periods** (D-1b, enforced on `current_published_assignments` — [SPEC-05](specs/SPEC-05-schedule-version-identity-and-publication.md) §2.1) *(amended 2026-08-01, V-21/V-23)*; minimum rest respected; qualification enforced at the assignment date; **credit is independently movable from the assignment**; **snapshots of a published version are immutable in the database** (D-15a); every mutation audited with provenance.
 **Operations:** `createAssignment`, `moveAssignment`, `moveCredit`, `lockAssignment`, `unlockAssignment`, `validateAssignment`
 **Emits:** `AssignmentCreated/Moved/Cancelled`, `CreditMoved`, `AssignmentLocked` · **Consumes:** `BuildCompleted`, `PickRecorded`, `OpportunityClaimed`, `SwapExecuted`, `VacationCommitted`
 **Depends on:** M-05, M-06, M-09 · **Never depends on:** M-15..M-18 (they produce assignments; the arrow runs one way)
-**Transaction:** each mutation atomic with its audit event. **Concurrency:** **optimistic concurrency per assignment.**
+**Transaction:** each mutation atomic with its audit event. **Concurrency:** **optimistic concurrency on the `assignment_snapshots` row within its draft version, keyed by `assignment_identity_id`** *(amended 2026-08-01, V-23 — there is no `assignments.version` to be optimistic about; a published version's snapshots are immutable and are amended by cloning, [SPEC-05](specs/SPEC-05-schedule-version-identity-and-publication.md) §7)*.
 **Audit:** **every mutation.** **Tenant:** Group. **Sensitivity:** `INTERNAL`.
 **Capabilities:** CAP-019, CAP-020
 
@@ -281,7 +283,7 @@ graph TD
 
 #### M-17 · Picklists
 **Purpose:** turn-based drafting in three operating modes.
-**Owns:** `picklists`, `picklist_participants`, `picklist_work_items`, `picklist_turns`, `selections`, `proxies`
+**Owns:** `picklists`, `picklist_participants`, `picklist_work_items`, `picklist_turns`, `selections`, **`daily_assignments`** *(added 2026-08-01, V-13 / FD-5 — an accepted selection produces a picklist-owned daily-assignment record, **not** a schedule-version snapshot; the daily sheet is a different artefact from the master schedule, [SPEC-02](specs/SPEC-02-picklist-turn-transaction.md) §2.1)*, `picklist_commands`, `picklist_events`, `picklist_leases`, `proxies`
 **Invariants:** **server owns turn state and the clock**; **atomic work-item claim**; participants derived from the published schedule; **no control persists before an explicit save**; mode is group configuration.
 **Operations:** `prepare`, `addWorkItem`, `reorder`, `start`, `advanceTurn`, `select`, `skip`, `pause`, `resume`, `complete`, `intervene`, `pickOnBehalf`
 **Emits:** `PicklistStarted`, `TurnStarted`, `PickRecorded`, `TurnSkipped`, `PicklistCompleted` · **Consumes:** `SchedulePublished`, `ImportApplied`

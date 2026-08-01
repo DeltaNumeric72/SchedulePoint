@@ -111,7 +111,9 @@ stateDiagram-v2
 | **Page-scoped connections** | A connection opens **only** on a page with a live feature — **never globally on every page** |
 | **Ordinary refresh for administrative lists** | Picklist Manager index and history use normal request/refresh |
 
-**Tenant context is resolved at connect time from the session** ([05](05-tenancy-entitlements-authorization.md) §4.5), never from a subscribe message. A subscribe request outside the connection's tenant is denied and logged as a security event.
+> **AMENDED 2026-08-01 (V-20)** — the sentence here previously said tenant context was resolved once, from the session, at connection establishment. **That model is withdrawn**: [SPEC-01](specs/SPEC-01-request-context-and-tenant-isolation.md) §5 — *a connection is not a context* — because privileges change during long-lived connections, which is the CAR-008 defect ([rationale](remediation/internal-verification-corrections.md) §2).
+
+**Tenant context is declared on every command frame and verified per frame**, never bound once for the life of the socket *(amended 2026-08-01, V-20)*. Connection establishment fixes only `principal_user_id` and `session_epoch` and verifies Origin; every command frame carries `expected_organization_id`, `expected_group_id`, `context_version`, `session_epoch`, `aggregate_version`, and a `command_id`, and runs the full validation sequence **and the full authorization truth table against current state**. A stale frame is rejected with `CONTEXT_STALE` and the client resynchronises; it is never silently retargeted. Subscriptions are authorized per topic at subscribe **and re-evaluated on every push** for the sensitive classes, and a subscribe request outside the **frame's declared** tenant is denied and logged as a security event. Normative: [SPEC-01](specs/SPEC-01-request-context-and-tenant-isolation.md) §5, [SPEC-06](specs/SPEC-06-authorization-truth-table.md) §6 and §6.1; see also [05](05-tenancy-entitlements-authorization.md) §4.5.
 
 ### 5.1 Message contracts
 

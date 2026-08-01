@@ -37,13 +37,15 @@ I re-ran the major trade-offs rather than accepting them:
 
 ## 3. The three binding conditions of adoption
 
-1. **Independent re-review before schema freeze.** The remediation is design-verified by me only in spot-checks; 25 findings await independent verification by design. M1's schema work may begin against the SPECs, but no migration is *frozen* (i.e., built upon by feature milestones) until the re-review returns no remaining severe isolation/privacy/concurrency/irreversibility path. ([19](19-decisions-needed.md) D-B.)
-2. **TDG-01..04 closed by executed spikes before persistent code.** Web framework; data layer (`SET LOCAL` in caller-controlled transactions + exclusion constraints + partial unique indexes + triggers); pooling mode (transaction-level, never statement-level); job-queue leases. M0 exists to close these. A gate closed without its spike is reopened (SPEC-15 standing rule — ratified).
+> **AMENDED 2026-08-01 ([21-decision-resolution.md](21-decision-resolution.md) FD-2, §3):** condition 1 is now satisfied by the **internal adversarial verification review** (findings dispositioned before M1 schema freeze), with the **external** re-review REQUIRED and blocking for controlled-beta entry (M10 exit; V-04) — the architecture remains `PROPOSED` until it upgrades the verdict. Conditions 2–3 stand unchanged; the TDG gates now carry decided selections whose M0 spikes are confirmations.
+
+1. **Independent verification before schema freeze.** *(As amended above.)* Internal adversarial verification of CAR-001/002/003/004/007/008/011 against their SPECs, commissioned 2026-08-01; its findings must be dispositioned before feature milestones build on the schema. External re-review: required, blocking beta entry (V-04).
+2. **TDG-01..04 confirmed by executed spikes before persistent code.** Data layer (`SET LOCAL` in caller-controlled transactions + exclusion constraints + partial unique indexes + triggers); pooling mode (transaction-level, never statement-level); web framework; job-queue leases. M0 exists to confirm these. A gate closed without its spike is reopened (SPEC-15 standing rule — ratified).
 3. **The three proof harnesses pass at the schema stage:** SPEC-01 T-07..T-15 (isolation under pool abuse), SPEC-02 P-01..P-15 (turn atomicity, ≥50-trial races), SPEC-05 V-01..V-16 (publication immutability and cloning). These run in M0–M1/M3 *before* the features that depend on them, not as later QA.
 
 ## 4. Corrections to carry into the architecture package
 
-- **F-05:** doc 02 §3.2 still contains the withdrawn "set on every connection checkout" sentence — contradicts SPEC-01 §4; fix in the next architecture edit (no approval needed; it finishes CAR-002's application).
+- **F-05:** doc 02 §3.2's withdrawn "set on every connection checkout" sentence — **corrected 2026-08-01**; the internal verification's cross-document sweep then found and corrected twelve further stale statements (see [docs/architecture/remediation/internal-verification-corrections.md](../architecture/remediation/internal-verification-corrections.md) §2).
 - Keep `docs/architecture/` status `PROPOSED` until re-review; ADR acceptance happens per-ADR at re-review, not en bloc.
 - The drafts (CLAUDE.md/AGENTS.md) remain uninstalled; their content is absorbed and superseded for delegation purposes by [17-opus-agent-runbook.md](17-opus-agent-runbook.md), which will generate the installed versions at M0.
 

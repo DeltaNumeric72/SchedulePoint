@@ -3,6 +3,7 @@
 **Status: `PROPOSED`.** Remediates **CAR-007** (High).
 **Supersedes:** [06](../06-data-architecture.md) §3.3, invariant **D-1**, and the `assignments` / `assignment_versions` tables; [07](../07-schedule-and-publication.md) §§1–4.
 **New invariants:** **I-18**, and database invariants **D-1a**, **D-1b**, **D-14**, **D-15**, **D-16**.
+**New table (2026-08-01, V-21 / FD-8):** `current_published_assignments` — the real table on which D-1b's `EXCLUDE` constraint is declared (§2.1).
 **ADR:** [ADR-0007](../decisions/ADR-0007-schedule-versioning.md) (revised).
 
 > **What was wrong.** `D-1` was an exclusion constraint forbidding overlapping *active* assignments per membership **with no version in the equality columns**. Cloning a published V1 into a draft V2 therefore collided with V1's own identical rows. The only escapes were to mark V1's rows `superseded` — mutating history, so historical reports and calendars no longer show what staff saw — or to abandon cloning. Published immutability was **prose only**: no database rule stopped an ORM `UPDATE` on a published child row. `locked` existed twice (as a status value *and* as `is_locked`). The table's status list omitted the approval and publishing states the state diagram showed. And `assignment_versions` implied mutable assignments inside supposedly immutable versions.
@@ -31,14 +32,49 @@
 
 ## 2. Version-scoped conflict constraints
 
+> **AMENDED 2026-08-01 (V-21 / FD-8)** — D-1b's previously stated mechanism **is withdrawn**. It could not be built: a PostgreSQL `EXCLUDE` constraint is a *table* constraint and cannot be declared on a view; `REFRESH MATERIALIZED VIEW` without `CONCURRENTLY` takes an `ACCESS EXCLUSIVE` lock that would serialise every publication across every tenant; and the `CONCURRENTLY` form cannot run inside a transaction block at all, so "refreshed inside the publication transaction" forced the blocking form. A view also sits outside the per-table RLS model of [SPEC-01](SPEC-01-request-context-and-tenant-isolation.md) §4.3, so it carried no fail-closed guarantee. **D-1b is now enforced on a real table.** [Rationale](../remediation/internal-verification-corrections.md) §1 FD-8.
+
 | # | Invariant | Mechanism |
 |---|---|---|
 | **D-1a** | **No overlapping assignments for one membership *within a single version*, including across midnight** | `EXCLUDE USING gist (version_id WITH =, membership_id WITH =, tstzrange(starts_at, ends_at) WITH &&) WHERE (status = 'active')` |
-| **D-1b** | **No overlapping assignments for one membership across the *current published* versions of *different* periods** | Same exclusion evaluated over a materialised view restricted to current-published versions, refreshed inside the publication transaction |
+| **D-1b** *(mechanism amended 2026-08-01, V-21 / FD-8)* | **No overlapping assignments for one membership across the *current published* versions of *different* periods** | **`EXCLUDE` constraint on the real table `current_published_assignments`** (§2.1), maintained **inside** the publication transaction. Cross-period double-booking fails the *publishing* transaction, which is where it belongs |
 
 **`version_id` in the equality columns is the entire fix for cloning.** V1 and V2 now hold identical assignment sets without conflicting, because the constraint asks "does this membership double-book *within this version*" — which is the question that was always meant.
 
 **D-1b is what D-1 was reaching for and getting wrong.** A person must not be double-booked in reality; reality is the set of *currently published* versions, one per period. Draft and candidate versions are proposals and are deliberately allowed to conflict with published ones — that is what a proposal is.
+
+### 2.1 `current_published_assignments` *(new table, 2026-08-01, V-21 / FD-8)*
+
+| Column | Notes |
+|---|---|
+| `id` | PK |
+| `organization_id`, `group_id` | **RLS-enabled**, carrying both the organization and the group predicate ([SPEC-01](SPEC-01-request-context-and-tenant-isolation.md) §4.3). Unlike a view, this table *is* covered by the fail-closed guarantee |
+| `membership_id` | The person who must not be double-booked |
+| `period_id` | Which period this row's version belongs to |
+| `starts_at`, `ends_at` | The occupied interval |
+| `source_version_id` | The **current published** version the row was derived from |
+| `source_snapshot_id` | The `assignment_snapshots` row it was derived from |
+| `assignment_identity_id` | For traceability back to the identity |
+
+**Constraint (D-1b):**
+
+```sql
+EXCLUDE USING gist (
+    membership_id            WITH =,
+    tstzrange(starts_at, ends_at) WITH &&
+)
+```
+
+Note there is deliberately **no `version_id` and no `period_id` in the equality columns** — the point of D-1b is that a person cannot be in two places in *reality*, regardless of which period's schedule put them there. D-1a handles the within-version case; this handles the across-period case, and the two are separate constraints on separate tables for that reason.
+
+| Property | Design |
+|---|---|
+| **Maintenance** | Exclusively inside the publication transaction (§6 step 12): **delete the outgoing version's rows, insert the incoming version's rows**, under the period-scoped serialization publication already holds at step 02 |
+| **Where a violation surfaces** | In the **publishing** transaction, as a constraint violation, which aborts the publication. This is the correct place: the schedule that would create the double-booking is the one that fails |
+| **Locking** | Contention is on the **per-membership rows touched**, not on a global object. Two publications for unrelated memberships do not block each other; two publications that genuinely double-book the same person are serialised and the second fails — which is the intended behaviour, not a scalability defect |
+| **No view, no refresh** | Nothing is refreshed, nothing takes `ACCESS EXCLUSIVE`, nothing needs `CONCURRENTLY`, and nothing runs outside a transaction block |
+| **RLS** | Enabled, `FORCE ROW LEVEL SECURITY`, same predicates as every other tenant table |
+| **Test V-15 is now executable** | It asserts rejection through this constraint (§8) |
 
 ---
 
@@ -91,9 +127,23 @@ stateDiagram-v2
 | # | Mechanism | Covers |
 |---|---|---|
 | **D-15a** | `BEFORE UPDATE OR DELETE` trigger on `assignment_snapshots`, `shifts`, `schedule_conflicts`, and `credits` that **raises** when the parent version's state is `published` or `superseded` | ORM writes, ad-hoc SQL, well-meaning repair scripts |
-| **D-15b** | `BEFORE UPDATE` trigger on `schedule_versions` permitting **only** `published → superseded`, and `superseded_at`/`superseded_by_version_id` being set. **Every other column is frozen** | Version-row tampering |
+| **D-15b** *(amended 2026-08-01, V-22)* | `BEFORE UPDATE` trigger on `schedule_versions` permitting **only** the four columns in the table below, each **only via its defined transition**. **Every other column is frozen** | Version-row tampering |
 | **D-15c** | `BEFORE DELETE` trigger on `schedule_versions` that **always raises** for `published` and `superseded` | Deletion of history |
 | **D-15d** | `publication_records` and `version_supersessions` have no `UPDATE`/`DELETE` grant for any runtime role | Rewriting the publication record |
+
+### 4.1 D-15b's permitted-column set on a `published` or `superseded` row *(added 2026-08-01, V-22)*
+
+> **AMENDED 2026-08-01 (V-22)** — as previously written, D-15b froze `is_current`, which **publication step 08 must clear on the outgoing version**. The publication transaction the trigger exists to protect could therefore never run a second time, D-16 could not be maintained, and the defect would have been discovered under time pressure and closed by widening the trigger — which is how prose immutability returns. The permitted set is now stated explicitly and narrowly ([rationale](../remediation/internal-verification-corrections.md) §2).
+
+| Column | Permitted transition | Permitted only from |
+|---|---|---|
+| **`is_current`** | `true → false` on the **outgoing** version; `false → true` only as part of the same publication that sets `state='published'` | The publication transaction (§6 steps 08–09), under the step-02 period lock |
+| **`lock_state`** | `unlocked ↔ locked` | Administrator lock/unlock. Rejected by `CHECK` on `published`/`superseded` rows (§3.2), so in practice this permission matters only for the pre-publication states — it is listed here so the trigger's set is complete and reviewable |
+| **`superseded_at`** | `NULL → timestamp`, once, and only together with `state: published → superseded` | The publication transaction (§6 step 11) |
+| **`superseded_by_version_id`** | `NULL → version id`, once, and only together with `state: published → superseded` | The publication transaction (§6 step 11) |
+| **`state`** | **Only** `published → superseded` | The publication transaction (§6 step 11) |
+
+**Every other column on a `published` or `superseded` row is frozen without exception** — `version_number`, `period_id`, `published_at`, `published_by`, `cloned_from_version_id`, and everything else. A permitted column changing outside its defined transition raises exactly as an unpermitted column does: the trigger checks the *transition*, not merely the *column name*.
 
 **Why triggers rather than grants.** Grants are per-table, and the application legitimately needs `UPDATE` on `assignment_snapshots` — for **draft** versions. The permission depends on the *parent row's state*, which only a trigger can evaluate. The `app_migrator` role can still perform a reviewed corrective migration; that is deliberate, and such a migration is itself an audited, two-person event ([SPEC-11](SPEC-11-audit-assurance-and-security-boundaries.md) §3).
 
@@ -131,8 +181,17 @@ withUnitOfWork(ctx):                                   -- SPEC-01 §4
                                   published_at, published_by
   10 INSERT version_supersessions (prior_current, this_version)   -- if a prior existed
   11 UPDATE prior version SET state='superseded', superseded_at
-  12 refresh the D-1b current-published projection; the exclusion constraint
-     rejects the publication if it would double-book anyone in reality
+  12 -- amended 2026-08-01, V-21 / FD-8: a real table, not a view refresh
+     DELETE FROM current_published_assignments WHERE source_version_id = <prior current>
+     INSERT INTO current_published_assignments
+          (organization_id, group_id, membership_id, period_id,
+           starts_at, ends_at, source_version_id, source_snapshot_id,
+           assignment_identity_id)
+       SELECT ... FROM assignment_snapshots
+        WHERE version_id = :version AND status = 'active'
+     -- the EXCLUDE constraint on current_published_assignments (D-1b, §2.1) raises here
+     --   and ABORTS THE PUBLICATION if this version double-books anyone in reality.
+     -- Serialised by the step-02 period lock; contention is per-membership, not global.
   13 INSERT outbox_events (SchedulePublished, affected_membership_ids)   -- ADR-0009
   14 INSERT audit_events
   15 UPDATE publication_records SET outcome='published', ...
@@ -198,8 +257,13 @@ CLONE (source_version_id) -> new draft version
 | V-12 | Publish V2 and V3 concurrently | **Exactly one current version; exactly one outbox event**; the loser fails explicitly |
 | V-13 | Replay a publication with the same idempotency key | Publishes once |
 | V-14 | Double-book a membership within one version | **Rejected by D-1a** |
-| V-15 | Publish a version double-booking a membership already committed in another period | **Rejected by D-1b** |
-| V-16 | Kill the process mid-publication, restart | No partial state; reconciler returns the version to `approved` |
+| V-15 | Publish a version double-booking a membership already committed in another period | **Rejected by D-1b** — the `EXCLUDE` constraint on `current_published_assignments` (§2.1) raises inside the publishing transaction, which aborts. *(amended 2026-08-01, V-21 / FD-8 — executable now that the mechanism is a real table)* |
+| V-15b | Two publications for **different** memberships in different periods, concurrently *(added 2026-08-01, V-21 / FD-8)* | **Both succeed.** Contention is per-membership row, not a global lock |
+| V-15c | After V-08 and V-10, compare `current_published_assignments` to the set of `active` snapshots in the `is_current` version of every period *(added 2026-08-01, V-21 / FD-8)* | **Exactly equal.** The table has no stale rows from superseded versions |
+| V-16 | Kill the process mid-publication, restart | No partial state; reconciler returns the version to `approved`; `current_published_assignments` reflects the prior current version only |
+| V-17 | **D-15b per-column matrix** *(added 2026-08-01, V-22)*: on a `published` row, attempt each of `is_current` (`true→false`), `lock_state`, `superseded_at`, `superseded_by_version_id`, and `state` (`published→superseded`), each **via its defined transition** | **Each individually permitted change succeeds** |
+| V-18 | Same row, attempt **every other** column — `version_number`, `period_id`, `published_at`, `published_by`, `cloned_from_version_id`, and each remaining column in turn *(added 2026-08-01, V-22)* | **Each raises (D-15b).** One case per column; no column is untested |
+| V-19 | A **permitted** column changed **outside** its defined transition — e.g. `superseded_at` set without `state → superseded`, or `is_current` set `false→true` on a row that is not being published *(added 2026-08-01, V-22)* | **Raises.** The trigger gates the transition, not merely the column name |
 
 **Earliest execution point: schema/prototype stage**, per CAR-025.
 
@@ -207,13 +271,15 @@ CLONE (source_version_id) -> new draft version
 
 ## 9. Downstream reconstruction
 
+> **AMENDED 2026-08-01 (V-13 / FD-5)** — the picklist row below is corrected. Picklist selections and picklist corrections write **picklist-owned daily-assignment records**, not schedule versions ([rationale](../remediation/internal-verification-corrections.md) §1 FD-5).
+
 | Consumer | Binding |
 |---|---|
 | **Reports** | Bind an explicit `version_id` in the input snapshot ([SPEC-09](SPEC-09-report-snapshot-and-artifact-authorization.md)) |
 | **Calendar feeds** | Resolve `is_current` at render; the response records which `version_id` it rendered |
-| **Daily assignment sheet** | `is_current` at render, `version_id` printed on the artifact |
+| **Daily assignment sheet** *(amended 2026-08-01, V-13 / FD-5)* | Renders the `is_current` version's assignments **plus the `daily_assignments` overlay** for that date ([SPEC-02](SPEC-02-picklist-turn-transaction.md) §2.1); `version_id` and the overlay's provenance are both printed on the artifact |
 | **Audit** | Names the `version_id` and the `assignment_identity_id`, so "what changed for this assignment" is answerable across versions |
-| **Picklist corrections** | Produce a **new version** ([SPEC-02](SPEC-02-picklist-turn-transaction.md) §7), never an in-place edit |
+| **Picklist selections and corrections** *(amended 2026-08-01, V-13 / FD-5)* | Revise **`daily_assignments`** (audited supersession, [SPEC-02](SPEC-02-picklist-turn-transaction.md) §7), **not** schedule versions. The previous statement that picklist corrections produce a new version is **withdrawn**: a live turn never touches a published version, so D-15a is never reached by the picklist module and the turn transaction stays single-aggregate |
 | **Vacation commit** | Targets a **draft** version and is idempotent by `(selection, version)` |
 | **Marketplace** | Binds `assignment_identity_id` **and** the source `version_id` ([SPEC-13](SPEC-13-marketplace-version-binding.md)) |
 

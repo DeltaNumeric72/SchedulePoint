@@ -5,6 +5,8 @@
 **Mandate:** independently assess the entire SchedulePoint project and produce a comprehensive development plan. Reject, replace, or reuse existing material on merit only.
 **Status of this package:** planning deliverable set. **No application code was written. No source-site research was performed. No gate is claimed passed.**
 
+> **AMENDED 2026-08-01 — expanded decision authority.** After this assessment was written, the product owner delegated all remaining planning decisions to the orchestrator. Every open decision referenced below (§2.8 approvals, D-A..D-D, PO-DECs, OI/EV items) is now **resolved** — see [21-decision-resolution.md](21-decision-resolution.md) — and readiness is restated in [22-readiness-assessment.md](22-readiness-assessment.md). §2.9/§2.10's answers are superseded accordingly: the project is implementation-ready pending only the owner's authorization prompt ([24-execution-standards.md](24-execution-standards.md) §G).
+
 ---
 
 ## 1. Verdict on the existing work

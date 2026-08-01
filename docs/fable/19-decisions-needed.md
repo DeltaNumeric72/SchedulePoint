@@ -1,5 +1,9 @@
 # 19 — Decisions Needed
 
+> **RESOLVED 2026-08-01.** The product owner granted expanded decision authority delegating every item below to the Fable orchestrator (reserving only purchases/contracts, production accounts/credentials, real-hospital connections, real personal/clinical data, real notification sends, legal representations, and production deployment). **Every item in this document is now resolved** — the authoritative record with per-decision rationale, reversibility, and follow-up verification is **[21-decision-resolution.md](21-decision-resolution.md)**. The only remaining owner action is the implementation-authorization prompt ([24-execution-standards.md](24-execution-standards.md) §G); reserved matters surface if and when they arise. This document is preserved unmodified below as the historical request.
+
+---
+
 **Everything that requires your input, in one place, ordered by when it blocks.** Each item carries my recommendation. Nothing here is treated as approved until you say so; approvals are recorded in [control/PRODUCT-DECISIONS.md](control/PRODUCT-DECISIONS.md).
 
 ---

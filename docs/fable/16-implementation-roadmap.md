@@ -2,6 +2,8 @@
 
 **The complete development roadmap: 13 milestones (M0–M12) in four stages, covering all 58 production capabilities.** This is the artifact the project lacked. It is built from vertical, user-outcome slices — there are no "build backend" milestones — and it is **not** a smallest-possible-MVP plan: the end goal is high parity with the full baseline, and sequencing exists to manage risk, not to shrink scope.
 
+> **AMENDED 2026-08-01 (delegated authority — [21-decision-resolution.md](21-decision-resolution.md)).** Three deltas: **(1)** all technology gates carry decided selections (21 §3), so M0's spikes are **confirmation runs** of named choices, not evaluations; **(2)** M1's entry criterion is now *"internal-verification findings dispositioned"* — the **external** independent re-review is repositioned to **block controlled-beta entry** (M10 exit review) rather than M1 — it remains REQUIRED (V-04); **(3)** all pending product decisions are resolved, so no milestone carries a decision-pending entry condition. Milestone content is otherwise unchanged.
+
 ## 1. Standing rules
 
 - **R-1 Vertical slices only.** Every slice = migration + domain + server authorization + API + UI (with loading/empty/error/permission-denied states) + audit events + unit/integration/Playwright tests + doc update. The playbook's definition-of-done appendix is adopted verbatim and extended by the runbook.
@@ -23,7 +25,7 @@ Stage C  HARDEN     M11 reports/documents/calendar/integration → M12 productio
                     == G-PROD readiness (gates pass on evidence, not on this plan)
 ```
 
-Dependencies are honest: M4 needs M2's rules and M3's publication pipeline; M8 needs M3's version binding and M7's fan-out; M10 needs M7's ladder and M9's LIVE-SIM. M7 can start in parallel with M5–M6. The independent re-review runs in parallel with M0 and gates M1's schema freeze.
+Dependencies are honest: M4 needs M2's rules and M3's publication pipeline; M8 needs M3's version binding and M7's fan-out; M10 needs M7's ladder and M9's LIVE-SIM. M7 can start in parallel with M5–M6. The internal verification review ran during planning and gates M1's schema freeze via its dispositioned findings; the external re-review is required and blocks beta entry (M10 exit; V-04).
 
 ## 3. Milestones
 
@@ -38,12 +40,12 @@ Format per milestone: objective · user outcome · slices · key exclusions · e
 4. SP-D Job-queue durable-lease spike (TDG-04).
 5. SP-E Design-system evaluation (TDG-14 — a library fighting accessible defaults is disqualified) + **UX brief** (navigation, grid concept, tokens, status language, confirmation-friction patterns; original design, no source visuals) — closes audit finding F-07.
 6. Scaffold: monorepo (pnpm workspaces + `solver/`), CI with the full [15](15-testing-strategy.md) §4 gate battery, containerised local env, seeded synthetic data, secret handling, install adversarially-linted CLAUDE.md/AGENTS.md from the drafts.
-**Exit:** TDG-01/02/03/04/11/14 closed with spike reports; CI green including SP-HR-1/2 guards; ADR for each closed gate; re-review commissioned and underway.
+**Exit:** TDG-01/02/03/04/11/14 selections **confirmed by spike evidence** (a failed confirmation reopens only that row per SPEC-15's standing rule); CI green including SP-HR-1/2 guards; ADR for each confirmed gate.
 
 ### M1 — Tenancy, identity, authorization, audit kernel
 **Objective:** the platform every feature stands on. **User outcome:** an org admin creates an organization and groups, invites users, assigns per-membership roles; users sign in (MFA), switch groups, edit profiles; every action lands in a queryable audit log.
 **Slices:** org+group creation · SPEC-01 context middleware end-to-end · memberships+roles+grants with SPEC-06 evaluator and generated cross-product tests · entitlement records + module gating (CAP-057) · authn (password+MFA, sessions, invitation/activation, reset) · login-email change (CAR-027) · audit events + hash chain (A1) + audit query UI · MULTI env + SBX-001/002/004/005/006 · outbox + job runner (SP-D productionised).
-**Entry:** M0 exit; **re-review verdict in** (schema freeze condition). **Exit:** isolation, authz, and audit harnesses green; QA-TEN/QA-AUTH battery passing; G-ARCH SBX subset for tenancy executed and filed.
+**Entry:** M0 exit; **internal-verification findings dispositioned** (schema-freeze condition — [21](21-decision-resolution.md) FD-2). **Exit:** isolation, authz, and audit harnesses green; QA-TEN/QA-AUTH battery passing; G-ARCH SBX subset for tenancy executed and filed.
 
 ### M2 — Scheduling structure a scheduler can author
 **Objective:** the catalogue and rule model, complete. **User outcome:** a scheduler defines shift types (four flags), shift/staff/valid groups, FTE/work profiles, qualifications, holidays, and authors versioned pattern/staff/position rules — and sees them validated.
@@ -88,7 +90,7 @@ Format per milestone: objective · user outcome · slices · key exclusions · e
 ### M10 — Picklist execution == **controlled-beta entry**
 **Objective:** the signature feature, proven under contention ([13](13-picklist-plan.md) P-C..P-F). **User outcome:** a full draft day runs end-to-end: turns open on server clock, participants/proxies select with I-13 confirmation, escalation ladders fire, admins pause/skip/intervene (audited), completion publishes daily assignments, corrections are separate audited operations — under real concurrency, with AT-completable timed turns.
 **Slices:** turn machine + selection transaction + D-3a/b/c · coordinator + event relay + reconnect/resync · timers + ladder integration · proxy turns · admin intervention + monitor live · completion → daily assignments · correction flow · AX-1..5.
-**Exit:** P-01..15 green (incl. ≥50-trial batteries); SBX-021..027 + SBX-033 filed; beta-readiness review against report 24's G-BETA (never-waivable set complete; waivable items disclosed).
+**Exit:** P-01..15 green (incl. ≥50-trial batteries); SBX-021..027 + SBX-033 filed; **external independent architecture review received, verdict upgraded, findings dispositioned (REQUIRED, blocking — [21](21-decision-resolution.md) FD-2/V-04)**; beta-readiness review against report 24's G-BETA (never-waivable set complete; waivable items disclosed).
 
 ### M11 — Reports, documents, calendar, integration framework
 **Objective:** the remaining product surface. **User outcome:** six report classes as snapshot-bound artifacts with print/export/share; document repository with retention; calendar feeds (safe tokens) and schedule events; hospital integration framework live against canonical-schema fixtures (INTEG env); incident-response plan written.
@@ -117,6 +119,25 @@ All 58 capabilities appear in §3 exactly per the Roadmap column of [06](06-feat
 7. Docs + [06](06-feature-parity-matrix.md) statuses + [control/](control/) documents updated; CHANGELOG entry
 8. Known limitations recorded; no unresolved Critical defects; rollback path for every migration identified
 9. Milestone review held; next milestone's entry criteria confirmed
+
+## 6a. Final implementation sequence (compact reference)
+
+| M | Objective | Depends on | Entry gate | Exit gate / proof | Parity outcome |
+|---|---|---|---|---|---|
+| M0 | Confirm technology selections; scaffold; UX brief | — | Implementation authorization | Spike evidence for TDG-01/02/03/04/11/14; CI gate battery green | none (foundational) |
+| M1 | Tenancy/identity/authz/audit kernel | M0 | Internal-verification findings dispositioned | SPEC-01 T-tests, SPEC-06 cross-product, SPEC-11 chain subset; SBX-001/002/004/005/006 | CAP-001..010, 027(part), 057 implemented |
+| M2 | Catalogue, rules, profiles, qualifications | M1 | M1 exit | Rule AST round-trip; B-* corpus committed | CAP-004, 011–013, 016, 058 |
+| M3 | Manual schedule → immutable published version | M2 | M2 exit | SPEC-05 V-01..16; SBX-018 | CAP-014, 019, 020(part), 027 |
+| M4 | Automated generation (E1+E2) | M2, M3 | M3 exit | SBX-015/016/017; zero hard violations on corpus | CAP-015, 017, 059 |
+| M5 | Requests + vacation | M1 (M3 for commit) | M1 exit | SPEC-08 R-01..14; SBX-010..013 | CAP-021–023, 042 |
+| M6 | Fairness, stats, views — **alpha** | M4, M5 | M4+M5 exits | SBX-030/031 subset; bands frozen ≤ report-21 targets | CAP-013, 018, 020, 044, 045 |
+| M7 | Notification platform (∥ M5–M6) | M1 | M1 exit | SPEC-07 N-01..15 vs fault-injected fakes; SBX-030a/b | CAP-040, 041, 056(part) |
+| M8 | Marketplace + impersonation + bulk messaging | M3, M7 | M6+M7 exits | SPEC-13 M-01..12; SBX-013b/014b/014c | CAP-010, 024–026, 043 |
+| M9 | Picklist preparation + enclave + LIVE-SIM | M3, M7 | M8 exit (or ∥ late M8) | SBX-020; SPEC-03 I-subset; SBX-029 first sweep; LIVE-SIM meta-test | CAP-030, 060, 062(part) |
+| M10 | Picklist execution — **beta entry** | M9, M7 | M9 exit; **external review passed (required, blocking; V-04)** | SPEC-02 P-01..15 (≥50-trial races); SBX-021..027, 033; G-BETA review | CAP-031–034 |
+| M11 | Reports, documents, calendar, integration fw, IR plan | M6 | M6 exit (∥ M9–M10 where independent) | SPEC-09 F-01..14; SBX-031a/b/c, 028 | CAP-046–049, 055, 056, 062 |
+| M12 | Production hardening | all | M10+M11 exits | SBX-035 DR rehearsal; pen test; tabletop; A2 replication; G-PROD evidence review | CAP-051, 061-prep; G-PROD |
+| post-M12 | Connector certifications (per EV-1 spec) | M11 | Vendor spec in hand | SBX-028/029 per connector; G-CONN | CAP-061, 063–065 |
 
 ## 6. Estimate discipline
 

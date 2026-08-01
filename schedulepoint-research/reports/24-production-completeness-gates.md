@@ -226,7 +226,9 @@ See [23](23-pre-architecture-evidence-plan.md) §6 for what may proceed on which
 
 **Approved (2026-07-31):** `PO-DEC-00` product name = **SchedulePoint** · `PO-DEC-02` authorization model · `PO-DEC-18` real-time transport · `PO-DEC-04` entitlement architecture · `PO-DEC-08` de-identification ownership.
 
-**All others remain pending** — the saved evidence contains no explicit user approval for them. Each carries a recommended default that may be treated as the **working assumption** for planning, except where marked *approval required before architecture*.
+> **AMENDED 2026-08-01 — every remaining `pending` row below is RESOLVED under delegated authority.** The product owner granted the Fable orchestrator explicit authority to resolve all pending product decisions, owner inputs, and planning gates ("Expanded decision authority" mandate, 2026-08-01). The authoritative resolution record — with per-decision rationale, parity effect, reversibility, and follow-up verification — is [docs/fable/21-decision-resolution.md](../../docs/fable/21-decision-resolution.md). Each pending row resolved to its recommended default unless that record states otherwise. The table below is preserved unmodified as the historical register; its `Status` column reflects Phase-14 state.
+
+**Historical text:** all others remain pending — the saved evidence contains no explicit user approval for them. Each carries a recommended default that may be treated as the **working assumption** for planning, except where marked *approval required before architecture*.
 
 | ID | Question | Recommended | Reason | Alternatives | Consequences if rejected | Capabilities | Arch effect | Prod effect | Approve before arch? | Working default? | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|

@@ -1,10 +1,12 @@
 # ASSUMPTIONS (live)
 
-Canonical baseline: research report 23's ten-item assumptions register (A-01..A-10), all undischarged. Planning additions:
+Canonical baseline: report 23's A-01..A-10 (undischarged until their named tests run). Planning-layer assumptions, updated 2026-08-01:
 
 | ID | Assumption | Risk if wrong | Validated by |
 |---|---|---|---|
-| FA-1 | The 19 pending-decision working defaults hold | Bounded rework per blast-radius column (doc 19 §2.2) | PO ratifications |
-| FA-2 | Re-review returns approvable-after-changes or better | M1 rework (NR-5) | Re-review verdict |
-| FA-3 | TDG-01..04 close successfully on shortlisted candidates | M0 extends; stack row changes | M0 spikes |
-| FA-4 | LIVE-SIM deterministic harness is buildable as specified (SPEC-16) | Picklist evidence quality drops; M10 blocked | M9 meta-test |
+| FA-1 | Resolved decision defaults hold ([../21-decision-resolution.md](../21-decision-resolution.md)) | Bounded rework per recorded blast radius; all R1/R2 except PO-DEC-03 (R3, documented) | Milestone reviews; beta feedback |
+| FA-2 | Internal verification is sufficient to gate M1; executable harnesses carry the real proof burden | Design defect slips to harness stage — caught by T/P/V tests before features | Harnesses at M0–M3 + required external review before beta |
+| FA-3 | TDG selections survive their M0 confirmation spikes | Affected row reopens; bounded churn | OPUS-M0-001/003 + M0 wiring |
+| FA-4 | LIVE-SIM deterministic harness buildable as specified | M10 evidence quality drops | M9 meta-test |
+| FA-5 | Provisional platform (AWS ca-central-1) acceptable when procurement happens | Deployment-config rework only (portable set: OCI+PG+S3) | Owner procurement |
+| FA-6 | Fault-injected provider fakes faithfully model SPEC-07 contracts until real sandboxes exist | Contract drift found late — bounded to M7 adapters | First real-sandbox contract runs |

@@ -2,6 +2,8 @@
 
 **Summary judgement of the independent orchestrator, and the exact first implementation task.**
 
+> **AMENDED 2026-08-01.** The owner actions requested in §3 were subsequently delegated to the orchestrator and are resolved in [21-decision-resolution.md](21-decision-resolution.md). The OPUS-M0-001 packet below remains the first task, now finalized (with two more) in [23-opus-task-packets.md](23-opus-task-packets.md); execution awaits only the authorization prompt in [24-execution-standards.md](24-execution-standards.md) §G.
+
 ---
 
 ## 1. The recommendation in five sentences

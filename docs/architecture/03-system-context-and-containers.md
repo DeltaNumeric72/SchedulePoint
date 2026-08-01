@@ -128,9 +128,11 @@ graph TB
 
 ### 2.1 Three levels of boundary — kept deliberately distinct
 
+> **AMENDED 2026-08-01 (Sweep 3, V-05)** — the deployable-components paragraph below stated a four-class, single-image topology that [SPEC-10](specs/SPEC-10-deployment-topology.md) §2.1 withdrew. It is corrected to **six process classes across three images** ([rationale](remediation/internal-verification-corrections.md) §2). The module count in the paragraph above is **25** and is correct as written — per **V-05** the announced 25→19 consolidation was never performed and the claim is withdrawn, so this line needs no change.
+
 **Logical boundaries (many).** The 25 domain modules in [04-domain-boundaries.md](04-domain-boundaries.md). These are compile-time and review-time boundaries enforced by import rules. They exist from day one and are the thing that makes later extraction cheap.
 
-**Deployable components (four).** Web/API · background workers · scheduling workers · real-time coordinator. **One codebase, one image, four entry points.** They are separate because their *failure and scaling characteristics* differ, not because their domains do.
+**Deployable components: six process classes, three images** *(amended 2026-08-01, Sweep 3)*. Web/API · background workers · **real-time coordinator** · **solver worker** · **ingress enclave** · migration runner. **One codebase for the `app` image** — web, workers, real-time coordinator, migration runner — **plus two separately built images**: `solver` (Python, because OR-Tools ships no Node.js binding, verified fact S-04) and `ingress` (the minimal raw-ingress enclave, [SPEC-03](specs/SPEC-03-raw-ingress-trust-boundary.md)). The normative statement is [SPEC-10](specs/SPEC-10-deployment-topology.md) §2.1. The `app` classes are separate because their *failure and scaling characteristics* differ, not because their domains do; **the solver and the enclave are separate for harder reasons** — a runtime that cannot host the solver, and a trust boundary that must not inherit the application's logging, tracing, and crash behaviour.
 
 **Future extraction candidates (five).** Scheduling workers · real-time coordinator · notification delivery · hospital connectors · report generation. The first two are already separate processes, so extracting them to separate services is a deployment change. The other three are in-process modules with worker entry points today.
 

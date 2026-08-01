@@ -12,6 +12,8 @@ The picklist is the product's highest-concurrency surface. Two participants may 
 
 ## Decision
 
+> **AMENDED 2026-08-01 (V-20).** The **Tenant context** row of the Decision table below, and the Security-implications section, stated that tenant context is resolved once at connection establishment from the session. **That model is withdrawn.** [SPEC-01](../specs/SPEC-01-request-context-and-tenant-isolation.md) §5 is normative: *a connection is not a context* — privileges change during long-lived connections, which is exactly the CAR-008 defect, and binding context once at establishment repeats it. This ADR is listed as revised for **both** CAR-003 and CAR-008, and an ADR's Decision section is one of the two places an implementer looks first, so stating the withdrawn mechanism here was the most consequential instance of the drift. [Rationale](../remediation/internal-verification-corrections.md) §2.
+
 **Server-authoritative WebSocket push for turn-critical picklist state. The client renders and sends commands; it is never authoritative.**
 
 | Property | Design |
@@ -23,7 +25,8 @@ The picklist is the product's highest-concurrency surface. Two participants may 
 | **Explicit refresh fallback** | Always available; never the primary mechanism |
 | **Page-scoped connections** | A connection opens **only** on a page with a live feature — never globally |
 | **Administrative lists** | Ordinary request/refresh. Not everything needs to be live |
-| **Tenant context** | Resolved at connect from the session, **never from a subscribe message** |
+| **Tenant context** *(amended 2026-08-01, V-20)* | **Declared on every command frame and verified per frame**, never bound once for the life of the socket and **never taken from a subscribe message**. Connection establishment fixes only `principal_user_id` and `session_epoch` and verifies Origin |
+| **Authorization** *(added 2026-08-01, V-20)* | **Every command frame runs the full authorization truth table against current state** ([SPEC-06](../specs/SPEC-06-authorization-truth-table.md) §6). A revoked capability fails the **next** frame; affected subscriptions are closed immediately rather than waiting for one. Subscriptions are authorized per topic at subscribe and re-evaluated on every push for the sensitive classes (SPEC-06 §6.1) |
 
 **The concurrency winner is decided by database uniqueness constraints — three of them, not one:** `UNIQUE (turn_id) WHERE accepted` (one result per turn), `UNIQUE (picklist_id, work_item_id) WHERE accepted` (one claimant per item), and `UNIQUE (picklist_id) WHERE state='open'` (one open turn). See [ADR-0023](ADR-0023-picklist-turn-transaction.md). **Persist, then broadcast**, always in that order.
 
@@ -45,7 +48,7 @@ The picklist is the product's highest-concurrency surface. Two participants may 
 
 ## Security implications
 
-T-08 (real-time subscription leakage) is the central threat. Tenant context resolves at connect; **a subscribe outside the connection's tenant is denied and logged as a security event**. Every command carries an idempotency key so replay is a no-op.
+T-08 (real-time subscription leakage) is the central threat. *(amended 2026-08-01, V-20)* **Tenant context is declared and verified per command frame, and authorization is re-evaluated per frame** — not fixed once when the socket opens, which would leave a revoked privilege effective for the life of the connection. **A subscribe outside the frame's declared tenant is denied and logged as a security event**, and on revocation the affected subscriptions are closed immediately. Every command carries an idempotency key so replay is a no-op. Normative: [SPEC-01](../specs/SPEC-01-request-context-and-tenant-isolation.md) §5, [SPEC-06](../specs/SPEC-06-authorization-truth-table.md) §6.
 
 ## Operational implications
 

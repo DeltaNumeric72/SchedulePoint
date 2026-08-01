@@ -94,7 +94,11 @@ Commit. **Only then** do workers dispatch notifications.
 
 **Period-scoped serialisation.** Two schedulers publishing the same period concurrently must not both succeed. Enforced by taking a period-scoped advisory lock at the start of the transaction, plus the gapless-version unique constraint as a backstop. The loser receives a clear conflict message naming the version that won — not a generic error.
 
-Assignment edits within a draft use **optimistic concurrency** on `assignments.version`. A stale edit is **rejected, never merged blindly** — silently merging two schedulers' conflicting edits is how schedules become wrong in ways nobody notices.
+> **AMENDED 2026-08-01 (V-23)** — this paragraph specified optimistic concurrency on `assignments.version`, a column of the `assignments` table that [SPEC-05](specs/SPEC-05-schedule-version-identity-and-publication.md) §1 **deleted**. There is no `assignments.version` to be optimistic about ([rationale](remediation/internal-verification-corrections.md) §2).
+
+Assignment edits within a draft use **optimistic concurrency on the `assignment_snapshots` row, identified by `(version_id, assignment_identity_id)` (D-14) and guarded by that row's own version counter** *(amended 2026-08-01, V-23)*. A stale edit is **rejected, never merged blindly** — silently merging two schedulers' conflicting edits is how schedules become wrong in ways nobody notices.
+
+**Only draft versions are edited at all** *(added 2026-08-01, V-23)*. A `published` or `superseded` version's snapshots are immutable in the database (D-15a), so there is no concurrent-edit case to arbitrate there: amendment is cloning the version and editing the clone ([SPEC-05](specs/SPEC-05-schedule-version-identity-and-publication.md) §6.1, §7). The stable **`assignment_identity_id`** is what makes "the same assignment" answerable across versions, and it is the key an edit conflict is reported against — a scheduler is told which *assignment* collided, not which row id.
 
 ---
 

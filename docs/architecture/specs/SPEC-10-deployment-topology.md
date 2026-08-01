@@ -51,6 +51,25 @@
 
 **Three images, not one.** The "one image across all process classes" claim is withdrawn (CAR-005). Classes 1–3 and 6 share `app`; the solver and enclave are separately built, separately scanned, and separately patched.
 
+### 2.2 Connector ingress network path *(new subsection, 2026-08-01, V-17)*
+
+> **AMENDED 2026-08-01 (V-17)** — [SPEC-03](SPEC-03-raw-ingress-trust-boundary.md) §2 places *"TLS terminate — inside the enclave"* as the first node of the trust boundary, and CAR-004's boundary-placement hole was precisely that the old boundary sat **downstream of TLS termination**. This document defined process class 5 and then **never mentioned TLS, ingress termination, load balancing, or pass-through anywhere** — while §1 selects a managed container platform, and every mainstream managed container platform terminates TLS at a platform-managed load balancer or ingress controller **by default**, with components that commonly emit access logs, support WAF body inspection, and buffer request bodies. Built to this document as previously written, the raw payload would reach platform infrastructure before the enclave saw it, outside E-1..E-12. This subsection is the missing requirement ([rationale](../remediation/internal-verification-corrections.md) §2).
+
+**Normative requirement — this is [SPEC-03](SPEC-03-raw-ingress-trust-boundary.md) `E-13`.** Connector ingress reaches process class 5 over a **dedicated network path with TCP/SNI pass-through**. The platform load balancer routes on the unencrypted TLS SNI header and forwards the encrypted stream byte-for-byte to the enclave, which terminates TLS itself.
+
+| # | On the connector ingress path | Requirement |
+|---|---|---|
+| N-1 | **TLS termination or re-encryption at the platform edge** | **Prohibited.** Termination happens inside the enclave and nowhere else |
+| N-2 | **HTTP-layer access logging** (path, query, headers, body, or any fragment) | **Prohibited.** L4 connection-level logging — source address, byte counts, connection duration, SNI name — is permitted and is what operations uses |
+| N-3 | **Request or response body buffering** to disk or memory outside the enclave | **Prohibited** |
+| N-4 | **WAF / IDS body inspection** | **Prohibited on this path.** L3/L4 controls (rate limiting, connection limits, IP allowlisting) are permitted and encouraged |
+| N-5 | **API-gateway request capture, mirroring, sampling, or replay** | **Prohibited** |
+| N-6 | **Shared listener with the `app` classes** | **Prohibited.** The enclave has its **own listener, its own hostname, and its own load-balancer target group**, so no `app`-path logging or inspection policy can be applied to it by inheritance or by default |
+| N-7 | **Configuration attestation** | The deployed configuration is dumped and verified under [SPEC-03](SPEC-03-raw-ingress-trust-boundary.md) **C-4** at connector certification, and re-verified on any change to the ingress configuration |
+| N-8 | **Canary evidence** | Platform ingress surfaces are swept as **S-17** in [SPEC-03](SPEC-03-raw-ingress-trust-boundary.md) §7.2. A canary found there is a hard failure of `G-CONN` |
+
+**Provider selection is constrained by this.** A managed container platform that cannot expose a TCP/SNI pass-through listener — or that cannot disable edge body logging and inspection on a specific listener — **cannot host process class 5**, and that is a selection criterion under §1's owner-input column, not an implementation detail to be discovered later. If no acceptable provider path exists, the enclave runs on a dedicated network path outside the container platform's shared ingress; what is not permitted is quietly accepting edge termination.
+
 ---
 
 ## 3. Region topology
