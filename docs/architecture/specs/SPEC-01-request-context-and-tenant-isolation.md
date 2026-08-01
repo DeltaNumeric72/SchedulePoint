@@ -152,7 +152,9 @@ withUnitOfWork(ctx, fn):
     SELECT set_config('app.group_id',        ctx.expected_group_id,        true)   -- LOCAL
     SELECT set_config('app.membership_id',   ctx.membership_id,            true)   -- LOCAL
     SELECT set_config('app.correlation_id',  ctx.correlation_id,           true)   -- LOCAL
-    verify: SELECT current_setting('app.organization_id', true) == expected   -- read-back
+    verify: read back ALL FOUR settings and compare each to its expected value  -- read-back
+            -- (amended 2026-08-01, EV-M0-SPA T-14b: a single-setting read-back passes when only
+            --  app.group_id is lost, reproducing the CAR-001 defect class below the application)
     on read-back mismatch:                       -- amended 2026-08-01, V-10
         ROLLBACK
         mark the connection POISONED and discard it from the pool (never return it)
@@ -182,8 +184,8 @@ Belt and braces, because a wrapper you can forget is a wrapper that will be forg
 
 | Mechanism | Effect |
 |---|---|
-| **RLS policies read `current_setting('app.organization_id', true)`** | Outside a unit of work the setting is `NULL`, the predicate is false, and **every tenant table returns zero rows and rejects every write** |
-| **Group-scoped tables additionally read `current_setting('app.group_id', true)`** *(added 2026-08-01, V-09)* | A table carrying `group_id` has the conjunctive predicate `organization_id = current_setting('app.organization_id', true)::uuid AND group_id = current_setting('app.group_id', true)::uuid`. An application bug that resolves the **wrong group within the right organization** — the CAR-001 defect class — is then caught below the application layer, not only above it. `app.group_id` is `NULL` under an organization-scoped unit of work, so group-scoped tables are fail-closed there too |
+| **RLS policies read `nullif(current_setting('app.organization_id', true), '')::uuid`** *(normative spelling amended 2026-08-01 — EV-M0-SPA X-09: `SET LOCAL` reverts the value but does not undefine the GUC, so a REUSED pooled connection reads `''`, not `NULL`; the naive `::uuid` cast then raises 22P02 on every query instead of returning zero rows)* | Outside a unit of work the setting is `NULL` (pristine connection) **or `''` (reused connection — the production steady state)**; with the `nullif` spelling the predicate is false in both cases, and **every tenant table returns zero rows and rejects every write** |
+| **Group-scoped tables additionally read `current_setting('app.group_id', true)`** *(added 2026-08-01, V-09)* | A table carrying `group_id` has the conjunctive predicate `organization_id = nullif(current_setting('app.organization_id', true), '')::uuid AND group_id = nullif(current_setting('app.group_id', true), '')::uuid`. An application bug that resolves the **wrong group within the right organization** — the CAR-001 defect class — is then caught below the application layer, not only above it. `app.group_id` is `NULL` under an organization-scoped unit of work, so group-scoped tables are fail-closed there too |
 | **`FORCE ROW LEVEL SECURITY`** on every tenant table | The owner bypass does not apply to the application role even if ownership is misconfigured |
 | **Non-owner application role** | `app_runtime` owns nothing, is not superuser, and does not hold `BYPASSRLS` |
 | **Non-owner worker role** | `app_worker` — same constraints, separate credentials, separate grants |
@@ -202,6 +204,11 @@ Belt and braces, because a wrapper you can forget is a wrapper that will be forg
 | `EX-4 cross-group transfers and marketplace` | `transfers`, `shift_offers`, `shift_swaps` | `SELECT` on the counterparty group's row | Both groups in the same organization + the transfer/marketplace capability in each |
 
 **The list is closed.** A cross-group read that is not one of these is a defect, not a configuration change; adding an exception is a change to this section and to SPEC-06 §3, reviewed as such.
+
+> **AMENDED 2026-08-01 — executed-spike evidence (EV-M0-SPA), three additional §4 requirements.**
+> **(a) Referential-integrity tenant binding:** FK checks bypass RLS (X-06: a single-column FK accepted a cross-tenant reference). Every tenant table therefore carries `UNIQUE (id, organization_id, group_id)`, and every FK between tenant tables is composite over the tenant columns, so a reference cannot cross a tenant boundary regardless of RLS.
+> **(b) Unique-constraint existence oracle:** PK/unique checks also bypass RLS (X-11: inserting an id that exists only in another org raises 23505, disclosing existence of an invisible row). Unique keys on tenant tables are tenant-qualified wherever a caller can choose the key value, and 23505 is translated to a generic error at the edge.
+> **(c) Pooler-mode startup assertion:** the per-transaction read-back is a detector, not a proof, against statement-level routing; each process asserts transaction affinity at startup (two-statement probe equivalent to X-02) and refuses traffic on failure. The lint banning every `SET`-statement form of a tenant setting (`SET`/`SET SESSION`/`SET LOCAL app.*`; only `set_config(name, value, true)` permitted) is a CI gate.
 
 ### 4.4 Role matrix
 

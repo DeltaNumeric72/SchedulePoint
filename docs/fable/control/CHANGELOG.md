@@ -19,3 +19,9 @@
 - External re-review corrected from "advisory" back to REQUIRED, blocking controlled-beta entry (V-04); "the architecture is proposed, not approved" restored.
 - Architecture validator strengthened to 95 assertions (absence-assertions 48c/50d/55a-e per the review's meta-finding). All three validators green.
 - 22-readiness-assessment.md finalized. Frozen-checkpoint rule adopted (V-01): no amendments while a commissioned review is open.
+
+## 2026-08-01 (M0) — OPUS-M0-001 accepted; session-limit recovery
+- Recovery: prior session died mid-revision (uncommitted worktree changes). Assessment: revision complete and trustworthy after independent verification; committed and squash-merged (ea77ac5).
+- OPUS-M0-001 ACCEPTED: 36/36 isolation harness, TDG-02/03 confirmed (in-process scope), second review blocking findings fixed. Evidence: docs/evidence/EV-M0-SPA.
+- SPEC-01 §4 amended from executed evidence (FAD-9): nullif predicate, all-four read-back, composite tenant FKs, existence-oracle mitigation, startup pooler assertion.
+- OPUS-M0-002 and OPUS-M0-003 issued in parallel worktrees.

@@ -1,0 +1,131 @@
+================================================================================
+OPUS-M0-001 / SP-A — harness evidence (SPEC-01 §7.2 T-07..T-15 + TDG-02/03)
+captured: 2026-08-01T15:59:04Z
+host:     Darwin 25.5.0 arm64  macOS 26.5.2
+node:     v24.18.0   npm: 11.16.0
+server:   embedded-postgres 17.10.0-beta.17 (PostgreSQL 17.10, user-space; FAD-7)
+command:  npm test   (tsx --test --test-concurrency=1 test/*.test.ts)
+state:    .pgdata destroyed immediately before this run
+
+NOTE: counts marked as run-specific in SPIKE-REPORT.md (storm transactions,
+      statement totals, backend PIDs, probe passes) vary between runs. Every
+      figure quoted in SPIKE-REPORT.md is taken from THIS capture.
+================================================================================
+
+
+> sp-a-isolation@0.0.0 test
+> tsx --test --test-concurrency=1 test/*.test.ts
+
+      · PostgreSQL 17.10 on x86_64-apple-darwin24.6.0, compiled by Apple clang version 17.0.0 (clang-1700.6.3.2), 64-bit
+✔ A-01 environment: real PostgreSQL 17.x, user-space (FAD-7 substitution) (609.781875ms)
+      · app_breakglass{super:false,bypassrls:true}  app_migrator{super:false,bypassrls:false}  app_readonly_support{super:false,bypassrls:false}  app_runtime{super:false,bypassrls:false}  app_worker{super:false,bypassrls:false}
+✔ A-02 the five roles exist with the attributes SPEC-01 §4.4 requires (1.1895ms)
+      · assignments(owner=app_migrator,rls=true,force=true) groups(owner=app_migrator,rls=true,force=true) organizations(owner=app_migrator,rls=true,force=true) picklist_turns(owner=app_migrator,rls=true,force=true) schedule_versions(owner=app_migrator,rls=true,force=true) thing_notes_naive(owner=app_migrator,rls=true,force=true) thing_notes_scoped(owner=app_migrator,rls=true,force=true) things(owner=app_migrator,rls=true,force=true)
+✔ A-03 every tenant table has RLS ENABLED and FORCED (0.619125ms)
+      · app_migrator (schema owner) sees 0 rows in things with no context
+✔ A-04 FORCE RLS binds the owner too: app_migrator sees zero rows without context (4.615958ms)
+      · 32 (role,table) pairs checked across all 8 tenant tables; violations: 0
+✔ A-05 no runtime role holds TRUNCATE or REFERENCES on ANY tenant table (not RLS-governed, S-03) (0.542417ms)
+✔ A-06 app_runtime cannot disable RLS on a table it does not own (0.665375ms)
+      · app_readonly_support sees 2 things under Org A / Group A1 context
+✔ A-07 app_readonly_support: SELECT under context works, every write is denied (8.936833ms)
+      · app_breakglass sees 8 rows across 2 organizations with NO context
+      · up#1  ["0001_tenant_schema_and_rls","0002_constraint_expressiveness"]
+      · down  ["0002_constraint_expressiveness","0001_tenant_schema_and_rls"]
+      · up#2  ["0001_tenant_schema_and_rls","0002_constraint_expressiveness"]
+✔ A-08 app_breakglass genuinely differs: BYPASSRLS sees both organizations (3.674375ms)
+✔ B-01 migrations run up, down, and up again (plain SQL, node-pg-migrate) (0.176208ms)
+      · positive: two adjacent shifts for one membership accepted
+      · negative: overlapping shift rejected by assignments_no_overlap (SQLSTATE 23P01)
+✔ B-02 EXCLUSION CONSTRAINT: non-overlapping accepted, overlapping rejected (4.716708ms)
+      · positive: 4 non-accepted rows + 1 accepted row for one turn accepted
+      · negative: a second accepted holder rejected by picklist_turns_one_accepted (SQLSTATE 23505)
+✔ B-03 PARTIAL UNIQUE INDEX: many non-accepted rows, exactly one accepted (2.314541ms)
+      · positive: a draft schedule version updated
+      · negative: updating a published version rejected (SQLSTATE 23001)
+✔ B-04 BEFORE UPDATE TRIGGER: draft is mutable, published is immutable (3.802125ms)
+      · backend 99424 holds FOR UPDATE on the row
+      · concurrent FOR UPDATE NOWAIT on backend 99428 rejected with SQLSTATE 55P03
+✔ B-05 FOR UPDATE is expressible through Kysely and genuinely locks (6.156959ms)
+      · backend 99424: insert rolled back, 0 rows named t07-fcc66916-b7bb-41dd-b9e7-f1a99ce9ec67
+✔ T-07 exception mid-transaction: rollback, and the next checkout sees no setting (6.334625ms)
+      · cancelled: SQLSTATE 57014 — canceling statement due to user request
+✔ T-08 statement cancellation: 57014, rollback, no lingering setting (204.603084ms)
+      · client timeout surfaced as: Query read timeout (SQLSTATE undefined)
+✔ T-08b client-side timeout: the client abandons, rollback still holds (814.391458ms)
+      · server timeout: SQLSTATE 57014 — canceling statement due to statement timeout
+      · statement_timeout after the transaction: 0
+✔ T-09 server statement_timeout: 57014, rollback, no lingering setting (156.540708ms)
+      · killed backend 99430: SQLSTATE 57P01 — terminating connection due to administrator command
+      · pool now holds backends 99429,99428,99424,99439; killed backend 99430 is absent: true
+✔ T-10 connection killed mid-transaction: pool discards it, no lingering setting (216.774458ms)
+      · same backend 99429; outer committed, inner rolled back to savepoint
+✔ T-11 nested unit of work, same tenant: permitted, and behaves as a savepoint (3.65275ms)
+      · cross-organization re-tenanting refused: NESTED_TENANT_CHANGE: a nested unit of work may not re-tenant. outer=(11111111-1111-4111-8111-111111111111, 1a1a1a1a-1111-4111-8111-a1a1a1a1a1a1) inner=(22222222-2222-4222-8222-222222222222, 2a2a2a2a-2222-4222-8222-a2a2a2a2a2a2)
+      · same-organization, cross-group re-tenanting refused: NESTED_TENANT_CHANGE: a nested unit of work may not re-tenant. outer=(11111111-1111-4111-8111-111111111111, 1a1a1a1a-1111-4111-8111-a1a1a1a1a1a1) inner=(11111111-1111-4111-8111-111111111111, 1b1b1b1b-1111-4111-8111-b1b1b1b1b1b1)
+✔ T-12 nested unit of work, DIFFERENT tenant: throws, outer is untouched (2.293917ms)
+      · app_runtime: 0 rows readable, insert rejected 42501, update/delete affected 0 rows
+      · app_worker: 0 rows readable, insert rejected 42501, update/delete affected 0 rows
+✔ T-13 outside any unit of work: zero rows and every write rejected (fail-closed) (7.004542ms)
+      · Group A2 rows invisible, unaddressable, unwritable and unmodified under Group A1 context
+✔ T-13b group predicate: Group A1 context cannot see or write Group A2, same organization (3.020333ms)
+      · (a) CONTEXT_READBACK_MISMATCH: app.organization_id expected="11111111-1111-4111-8111-111111111111" actual=null; app.group_id expected="1a1a1a1a-1111-4111-8111-a1a1a1a1a1a1" actual=null; app.membership_id expected="aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa" actual=null; app.correlation_id expected="37727a85-dd11-4ddd-a698-0898cc78df91" actual=null
+      · (b) poisoned backend 99441; 12 subsequent checkouts used 99442,99443,99444
+      · (c) alert: severity=page code=CONTEXT_READBACK_MISMATCH detail.backendPid=99441
+      · control: the identical unit of work succeeds once the pooler preserves SET LOCAL
+✔ T-14 statement-pooling mode: transaction aborts, connection discarded, page alert emitted (13.043916ms)
+      · only app.group_id was lost: expected=1a1a1a1a… actual=null
+      · connection poisoned and paged, exactly as for total loss (backend 99445)
+✔ T-14b PARTIAL context loss: only app.group_id is dropped — a single-setting read-back would miss it (4.5955ms)
+      · iterations=250 unitsOfWork=1000 committed=832 injectedFaults=252
+      · probe: 713 in-wrapper passes x 8 tables = 5704 table reads; 5704 outside-wrapper table reads
+      · server-side transactions during the storm=6256
+      · statements: 19863 total = 13408 touching a tenant table + 6455 protocol/context (BEGIN, 4x set_config, read-back, COMMIT/ROLLBACK per unit of work)
+      · tables observed non-vacuously by the probe: assignments, groups, organizations, picklist_turns, schedule_versions, thing_notes_naive, thing_notes_scoped, things
+      · census rows by table: assignments=6 groups=4 organizations=2 picklist_turns=9 schedule_versions=8 thing_notes_naive=4 thing_notes_scoped=4 things=843
+      · census partitions: 30 (all legitimate: true)
+      · wrong-tenant rows observed anywhere: 0
+✔ T-15 two-organization concurrency storm: zero wrong-tenant rows anywhere (1202.701458ms)
+      · unit of work backend=99429; observed pids=99429; xact ids=1778
+✔ X-01 TRANSACTION AFFINITY: one backend, one transaction, for the whole unit of work (1.188125ms)
+      · backend 99429 (holds SET LOCAL) sees 213 rows
+      · backend 99428 (next statement, statement-level pooling) sees 0 rows, app.organization_id=
+✔ X-02 STATEMENT-POOLING COUNTER-DEMONSTRATION: set_config and the query on different clients (1.008583ms)
+      · 4 units of work across 2 organizations on 1 backend(s): A1@99456 B1@99456 A2@99456 B2@99456
+✔ X-03 pool reuse across organizations: the same backend serves A then B, cleanly (6.773375ms)
+      · contended checkout on an exhausted max=1 pool: timeout exceeded when trying to connect
+✔ X-04 pool exhaustion times out rather than silently proceeding without context (805.384583ms)
+      · app_worker: writes under context, fail-closed outside, refuses to re-tenant
+✔ X-05 worker role: identical isolation guarantees under app_worker (10.886416ms)
+      · single-column FK accepted a reference to Org B thing 9b3a8011 from an Org A unit of work
+      · composite (id, organization_id, group_id) FK rejected the same reference: thing_notes_scoped_thing_fk / 23503
+      · cleanup: 0 cross-tenant references remain across all 4 naive notes
+✔ X-06 SHARP EDGE — referential integrity is not RLS-governed; composite FK closes it (4.991375ms)
+      · context set to the empty string: 0 rows visible (no 22P02 raised)
+      · organization-scoped unit of work: things=0 (must be 0), groups=2 (EX-2 shaped)
+✔ X-07 SHARP EDGE — empty-string context is fail-closed, not an error (2.208667ms)
+      · lint self-test: 5 forms flagged (SET / SET SESSION / SET LOCAL), 4 set_config and non-tenant forms passed
+      · 11 files scanned; 12 set_config call sites; violations: 0
+      · lint-fixture lines skipped: 2 (./test/isolation.test.ts:1394, ./test/isolation.test.ts:1406)
+✔ X-08 static check: no session-scoped SET and no non-LOCAL set_config anywhere (4.682916ms)
+      · pristine backend: current_setting -> null
+      · reused backend after COMMIT:   current_setting -> ""
+      · reused backend after ROLLBACK: current_setting -> ""
+      · naive  current_setting(...)::uuid          -> 22P02 invalid input syntax for type uuid: ""
+      · safe   nullif(current_setting(...),'')::uuid -> NULL (predicate false, zero rows)
+✔ X-09 SHARP EDGE — SET LOCAL reverts the VALUE, it does not undefine the GUC (8.288958ms)
+      · raw pg: SQLSTATE 42601 — syntax error at or near "$1"
+      · kysely sql tag: SQLSTATE 42601 — syntax error at or near "$1"
+      · set_config(name, $1, true): accepted, returned 11111111…
+✔ X-10 SHARP EDGE — `SET LOCAL` cannot be parameterised; only set_config() can (2.877041ms)
+      · inserting an id that exists only in Org B: SQLSTATE 23505 on things_pkey — the row is invisible but provably present
+      · the same insert with an unused id succeeds — response differs by existence alone
+✔ X-11 SHARP EDGE — unique/PK checks bypass RLS and disclose invisible rows (existence oracle) (4.754917ms)
+ℹ tests 36
+ℹ suites 0
+ℹ pass 36
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4431.656
