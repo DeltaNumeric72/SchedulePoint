@@ -445,22 +445,37 @@ check("51b. Ambiguous and unresolved delivery outcomes exist",
 CODE_EXT = {".ts",".tsx",".js",".jsx",".sql",".py",".yaml",".yml",".tf",".dockerfile",
             ".sh",".rb",".go",".java",".cs",".proto",".prisma"}
 arte = []
+# RESCOPED 2026-08-01: implementation was authorized by the product owner
+# ("Begin Milestone M0", commit 2b64a7b is the frozen planning checkpoint).
+# The planning-phase assertion "no implementation artifact exists anywhere"
+# is therefore retired and replaced by the boundary it was protecting:
+# documentation and research trees stay free of application code, and
+# implementation lives only in authorized top-level locations.
+SKIP_DIRS = {".git", "node_modules", ".venv", "venv", "dist", "build",
+             "__pycache__", ".worktrees", ".pnpm-store", "coverage"}
+ALLOWED_IMPL_ROOTS = ("spikes", "apps", "packages", "solver", "scripts",
+                      ".github", "docs/evidence")
 for root, dirs, files in os.walk(REPO):
-    if ".git" in root:
-        continue
+    dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
     for f in files:
         ext = os.path.splitext(f)[1].lower()
         full = os.path.join(root, f)
         rel = os.path.relpath(full, REPO)
         if ext in CODE_EXT and os.path.basename(full) not in ("validate.py",) \
-           and not rel.startswith("schedulepoint-research/validate.sh"):
+           and (rel.startswith("docs/") or rel.startswith("schedulepoint-research/")):
             arte.append(rel)
-check("52a. No application or infrastructure artifact exists in the repository",
+check("52a. Documentation and research trees contain no application code",
       not arte, str(arte[:6]))
-for d in ("src","migrations","infra","terraform","k8s","deploy","app","services"):
-    if os.path.isdir(os.path.join(REPO, d)):
-        arte.append(d + "/")
-check("52b. No implementation directory exists", not arte, str(arte[:6]))
+stray = []
+for entry in sorted(os.listdir(REPO)):
+    full = os.path.join(REPO, entry)
+    if not os.path.isdir(full) or entry in SKIP_DIRS or entry.startswith("."):
+        continue
+    if entry in ("docs", "schedulepoint-research"):
+        continue
+    if not any((entry + "/").startswith(a.split("/")[0] + "/") for a in ALLOWED_IMPL_ROOTS):
+        stray.append(entry + "/")
+check("52b. Implementation exists only in authorized locations", not stray, str(stray[:6]))
 
 # ---- 53. SBX heading count vs every declared count (CAR-026 detector)
 sbx_plan = os.path.join(RESEARCH, "18-targeted-sandbox-test-plan.md")

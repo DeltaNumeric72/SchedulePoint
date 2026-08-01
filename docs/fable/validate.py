@@ -139,9 +139,18 @@ for rel in ["docs/reviews/architecture/internal-verification-2026-08-01.md",
           os.path.exists(os.path.join(REPO, rel)))
 
 # ---- 10. implementation boundary
-impl_dirs = [d for d in ("apps", "packages", "src", "migrations", "solver", "spikes")
-             if os.path.isdir(os.path.join(REPO, d))]
-check("10a. No implementation directory exists yet", not impl_dirs, str(impl_dirs))
+# RESCOPED 2026-08-01: implementation authorized ("Begin Milestone M0",
+# frozen planning checkpoint 2b64a7b). The check now protects the boundary
+# the old assertion guarded: no application code inside the docs tree.
+bad_code = []
+for root, dirs, files in os.walk(os.path.join(REPO, "docs")):
+    dirs[:] = [d for d in dirs if d not in ("node_modules", ".git")]
+    for f in files:
+        if os.path.splitext(f)[1].lower() in (".ts", ".tsx", ".js", ".sql",
+                                              ".tf", ".dockerfile") \
+           or (f.endswith(".py") and f != "validate.py"):
+            bad_code.append(os.path.relpath(os.path.join(root, f), REPO))
+check("10a. Docs tree contains no application code", not bad_code, str(bad_code[:5]))
 
 print()
 print("%d assertions, %d passed, %d failed." % (count, count - len(failures), len(failures)))
