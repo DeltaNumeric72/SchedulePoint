@@ -7,6 +7,8 @@ export const REPO_ROOT = resolve(fileURLToPath(new URL('../../..', import.meta.u
 
 const ALWAYS_SKIP = new Set([
   'node_modules',
+  '.venv',
+  'venv',
   '.git',
   'dist',
   'dist-types',

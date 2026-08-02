@@ -93,6 +93,20 @@ for need in ["Escalation conditions", "Fable review checklist", "Required eviden
 check("5c. Packets are marked not-executed",
       "NOT executed" in packets or "not executed" in packets)
 
+# ---- 5d/5e. finalized M1 packets (doc 27, added at M0 acceptance):
+# must stay three packets, fully fielded, and explicitly NOT ISSUED until
+# the owner's M1 authorization. Guards against silent issuance or scope drift.
+m1p = doc("27")
+if m1p:
+    pk1 = re.findall(r"^## (OPUS-M1-\d{3})", m1p, re.M)
+    check("5d. Three finalized M1 packets exist and are marked NOT ISSUED",
+          len(pk1) == 3 and "NOT ISSUED" in m1p, str(pk1))
+    for need in ["Escalation conditions", "Fable acceptance checklist",
+                 "Tenant-isolation requirements", "Acceptance criteria",
+                 "Prohibited files", "Required evidence"]:
+        check("5e. M1 packets carry field: %s (x3)" % need,
+              m1p.count(need) >= 3, "count=%d" % m1p.count(need))
+
 # ---- 6. decision resolution completeness
 podecs = ["PO-DEC-%02d" % n for n in
           [1,3,4,5,6,7,9,10,11,12,13,14,15,16,17,19,20,21,22,23]]

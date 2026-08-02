@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-02 — M0 acceptance review (owner-directed; Fable)
+- All exit-report claims independently re-verified against the repository: isolation harness re-run 36/36 (fresh install), CI gates 12/12, red cases 14/14, solver harness H-0..H-8 re-run 0 failed with every load-bearing finding reproduced (H-6 nondeterminism, H-5 SIGKILL cleanliness, H-8 assumption-core cost). docs/fable/26-m0-acceptance-addendum.md.
+- One defect found and fixed at acceptance: secret-scan gate walked Python virtualenvs (`.venv` missing from the shared skip list) — false-positive red gate for any developer following the spike README. Fixed in scripts/gates/lib/gate.mjs; red-case battery re-proven 14/14 after the fix. Nothing weakened.
+- First three M1 packets finalized in runbook format — docs/fable/27-m1-task-packets.md, marked NOT ISSUED; plan validator extended (+7 assertions, now 36) to guard against silent issuance.
+- M0 exit criteria confirmed PASSED (carried items unchanged). M1 recommended, NOT begun.
+
 ## 2026-08-01 — Independent planning mandate (Fable)
 - Full audit of research corpus (retained, authoritative) and remediated architecture (retained as PROPOSED, re-review required); findings F-01..F-11.
 - Created docs/fable/00–20: assessment, audits, product spec, parity matrix (58 rows), workflow catalogue, roles model, domain/state-machine ratifications, architecture adoption with conditions, engine + picklist plans, security and testing strategies, **implementation roadmap M0–M12**, Opus runbook, risk additions NR-1..8, decision register, recommendation with first task packet OPUS-M0-001.
