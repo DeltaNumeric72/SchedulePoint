@@ -1,0 +1,17 @@
+# Environment — captured 2026-08-02T19:00:34Z
+
+$ uname -a
+Darwin 192.168.1.236 25.5.0 Darwin Kernel Version 25.5.0: Tue Jun  9 22:28:34 PDT 2026; root:xnu-12377.121.10~1/RELEASE_ARM64_T6041 arm64
+
+$ node --version
+v24.18.0
+
+$ corepack pnpm --version
+11.18.0
+
+$ git rev-parse --abbrev-ref HEAD
+opus/m1-001-tenancy-context
+
+## PostgreSQL
+embedded-postgres@17.10.0-beta.17 (FAD-7 substitution; no Docker on this machine)
+platform binaries: @embedded-postgres/darwin-arm64

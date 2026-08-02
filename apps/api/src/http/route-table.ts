@@ -8,6 +8,16 @@ export interface RouteTableEntry {
   readonly url: string;
   /** `undefined` when the route was registered without a policy — a build failure. */
   readonly policy: RoutePolicy | undefined;
+  /**
+   * The route's whole `config` object, exactly as registered.
+   *
+   * `policy` above is the field the route-policy gate reads. This carries
+   * everything else a route declares — `actionScope` and `provisional` for a
+   * capability route — so a test can assert against **what was registered**
+   * rather than against a re-derived copy. Stripping it was how the scope
+   * declaration went unchecked in the first place.
+   */
+  readonly config: unknown;
 }
 
 /**
@@ -33,11 +43,12 @@ export function createRouteTable(): {
         ? routeOptions.method
         : [routeOptions.method];
 
-      const candidate = (routeOptions.config as { policy?: unknown } | undefined)?.policy;
+      const config = routeOptions.config;
+      const candidate = (config as { policy?: unknown } | undefined)?.policy;
       const policy = isRoutePolicy(candidate) ? candidate : undefined;
 
       for (const method of methods) {
-        entries.push({ method, url: routeOptions.url, policy });
+        entries.push({ method, url: routeOptions.url, policy, config });
       }
     });
   };

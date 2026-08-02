@@ -9,3 +9,10 @@ allowBuilds:
   # esbuild ships a platform-specific binary and its install script places it.
   # Required by vite and tsx.
   esbuild: true
+  # embedded-postgres downloads and unpacks the platform PostgreSQL binaries in a
+  # postinstall script. TEST INFRASTRUCTURE ONLY (FAD-7: no Docker on the
+  # reference machine); it is a devDependency of apps/api and never ships.
+  '@embedded-postgres/darwin-arm64': true
+  '@embedded-postgres/darwin-x64': true
+  '@embedded-postgres/linux-x64': true
+  '@embedded-postgres/linux-arm64': true

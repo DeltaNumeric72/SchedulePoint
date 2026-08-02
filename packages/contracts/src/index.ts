@@ -17,3 +17,19 @@ export {
   healthStatusSchema,
   type HealthStatus,
 } from './health.js';
+
+export {
+  CONTEXT_ERROR_CODES,
+  CONTEXT_HEADER,
+  contextHeaderSchema,
+  contextProbeResultSchema,
+  contextStaleBodySchema,
+  contextVersionSchema,
+  jobEnqueueResultSchema,
+  type ContextErrorCode,
+  type ContextHeaderWire,
+  type ContextProbeResult,
+  type ContextStaleBody,
+  type ContextVersionWire,
+  type JobEnqueueResult,
+} from './context.js';

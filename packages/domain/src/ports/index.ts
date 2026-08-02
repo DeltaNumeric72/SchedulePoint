@@ -1,13 +1,20 @@
 /**
- * Port registry marker.
+ * Port registry.
  *
- * The domain declares ports; infrastructure implements them. This constant is
- * the scaffold's proof that the package compiles, is importable, and exports a
- * runtime value — nothing more. It is not domain logic and carries no rules.
+ * The domain declares ports; infrastructure implements them. The registry is a
+ * runtime value so the set of declared ports is enumerable in a test — a port
+ * that exists as a type but has no implementation anywhere is invisible
+ * otherwise.
  */
 export const ports = {
-  /** Declared in `./unit-of-work.ts`; implemented in `apps/api` (OPUS-M0-001 lands here). */
+  /** `./unit-of-work.ts` — implemented by `apps/api/src/db/unit-of-work.ts`. */
   unitOfWork: 'UnitOfWorkRunner',
+  /** `./alerts.ts` — implemented by `apps/api/src/db/alerts.ts`. */
+  alerts: 'AlertSink',
+  /** `./job-queue.ts` — implemented by `apps/api/src/jobs/in-memory-queue.ts`. */
+  jobQueue: 'JobQueue',
+  /** `./principal.ts` — implemented by `apps/api/src/http/context/principal.ts`. */
+  principal: 'PrincipalResolver',
 } as const;
 
 export type PortName = keyof typeof ports;

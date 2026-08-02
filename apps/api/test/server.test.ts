@@ -89,7 +89,7 @@ describe('route table', () => {
     // actually reports rather than silently tolerating.
     const withOffender: RouteTableEntry[] = [
       ...routeTable,
-      { method: 'POST', url: '/rogue', policy: undefined },
+      { method: 'POST', url: '/rogue', policy: undefined, config: {} },
     ];
     expect(undeclaredRoutes(withOffender).map((r) => r.url)).toEqual(['/rogue']);
   });

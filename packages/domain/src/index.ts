@@ -1,14 +1,8 @@
 /**
  * `@schedulepoint/domain` — the layering root.
  *
- * Scaffold scope (OPUS-M0-002): **no domain logic exists yet.** This package
- * exists so that the boundary is enforced from the first commit rather than
- * retrofitted, and so that OPUS-M0-001's unit-of-work has a defined landing
- * spot.
- *
  * The boundary, enforced by `.dependency-cruiser.cjs` rule
- * `domain-imports-nothing-outward` and proved by
- * `scripts/red-cases/import-boundary/`:
+ * `domain-imports-nothing` and proved by `scripts/red-cases/import-boundary/`:
  *
  *   packages/domain  ->  (nothing)
  *   packages/contracts -> zod only
@@ -16,8 +10,67 @@
  *   apps/web         ->  contracts
  *
  * Domain has **zero** runtime dependencies: no Fastify, no Kysely, no `pg`, no
- * React, nothing from `apps/**`. Everything the domain needs from the outside
- * world arrives as a port (an interface declared here, implemented in `apps/api`).
+ * React, no node builtin, nothing from `apps/**`. Everything it needs from the
+ * outside world arrives as a port — an interface declared here, implemented in
+ * `apps/api`.
+ *
+ * OPUS-M1-001 adds the tenancy kernel's domain half: the SPEC-01 §2 context
+ * tuple, the **pure** §2.3 validation sequence and §3 target binding, and the
+ * §4.2 unit-of-work contract with its read-back comparison. Every one of those
+ * is a pure function or an interface, which is what lets the SPEC-01 §7.1
+ * harness enumerate the branches without a database and the §7.2 harness
+ * exercise the same code the HTTP surface uses.
  */
-export type { TenantContext, UnitOfWork, UnitOfWorkRunner } from './ports/unit-of-work.js';
-export { ports } from './ports/index.js';
+
+export {
+  ContextReadbackMismatchError,
+  NestedTenantChangeError,
+  TENANT_SETTING_NAMES,
+  isTenantChange,
+  readBackMismatches,
+  tenantSettingValues,
+  type SettingMismatch,
+  type TenantContext,
+  type TenantSettingName,
+  type UnitOfWork,
+  type UnitOfWorkRunner,
+} from './ports/unit-of-work.js';
+
+export type { AlertSeverity, AlertSink, OperationalAlert } from './ports/alerts.js';
+export type {
+  EnqueuedJob,
+  FrozenJobContext,
+  JobOutcome,
+  JobQueue,
+} from './ports/job-queue.js';
+export type { Principal, PrincipalResolution, PrincipalResolver } from './ports/principal.js';
+
+export {
+  authorizationVersionOf,
+  contextVersionsMatch,
+  type ActionScope,
+  type ContextVersion,
+  type DeclaredContext,
+  type RequestContext,
+} from './context/request-context.js';
+
+export {
+  bindTarget,
+  membershipIsActive,
+  verifyDeclaredContext,
+  type ContextFailure,
+  type ContextFailureCode,
+  type ContextSnapshot,
+  type ContextStep,
+  type ContextVerification,
+  type GroupSnapshot,
+  type MembershipKind,
+  type MembershipSnapshot,
+  type MembershipStatus,
+  type OrganizationSnapshot,
+  type PrincipalSnapshot,
+  type TargetBinding,
+  type TargetDescriptor,
+} from './context/verification.js';
+
+export { ports, type PortName } from './ports/index.js';

@@ -213,3 +213,101 @@ the browser run writes the recordings. Same reasoning as above.
 
 **Port 4173 is in use.** Playwright starts its own preview server with `--strictPort` and
 will not silently attach to something else. Stop the other process.
+
+---
+
+## 10. The tenancy harness (added by OPUS-M1-001)
+
+`corepack pnpm check`'s **unit** gate now starts a real PostgreSQL 17 server and runs
+the SPEC-01 §7.1 and §7.2 batteries against it. Nothing extra to install and nothing to
+start by hand: the harness owns the cluster's whole lifecycle.
+
+```bash
+corepack pnpm check                                          # includes the tenancy harness
+corepack pnpm exec vitest run --project api                  # just the harness
+corepack pnpm --filter @schedulepoint/api migrate:cycle:embedded   # up -> down -> up, captured
+```
+
+### What a run does
+
+1. Spawns a **cluster daemon** (`apps/api/test/support/cluster-daemon.ts`) which destroys
+   `apps/api/.pgdata-test-<port>` and re-initialises it, so no run inherits state. The port
+   is part of the directory name deliberately: with a fixed path, a second harness on a
+   different port still deleted the first one's data directory out from under it.
+2. Bootstraps the five SPEC-01 §4.4 roles and the database **as superuser** — roles are
+   cluster objects and `app_migrator` deliberately holds neither `CREATEROLE` nor
+   `CREATEDB` nor superuser.
+3. Runs the migration cycle **up → down → up**, so every test runs against a schema whose
+   down migration was just proven executable.
+4. Seeds the two-organization fixture **through the unit of work**, under `app_runtime`.
+   If the wrapper did not work, the fixture would not exist and the suite would fail
+   loudly on its first assertion.
+
+Set `SP_TEST_PG_PORT` to move the cluster off `55433` (the data directory follows the port) — required when two worktrees run
+at once, because concurrent agents never share a database instance (execution standards
+§E). `SP_STORM_ITERATIONS` overrides the T-15 storm's loop count (default 120).
+
+### ⚠ Never import `embedded-postgres` into a process whose exit code matters
+
+`embedded-postgres` registers a graceful-shutdown hook through `async-exit-hook`, which
+hooks **`beforeExit` with code 0** and calls `process.exit(0)` on a natural exit. That
+**discards `process.exitCode`**:
+
+```bash
+$ node -e "import('embedded-postgres').then(() => { process.exitCode = 1 })"
+$ echo $?
+0
+```
+
+While the package was imported into Vitest's main process, `vitest run` printed
+`1 failed | 232 passed` and **exited 0** — the `unit` gate reported PASS on a failing
+suite. `corepack pnpm red-cases` caught it; that is what the command is for.
+
+The package is therefore imported by exactly one module,
+`apps/api/test/support/cluster.ts`, which is imported by exactly one module,
+`cluster-daemon.ts`, which runs as a **child process**.
+`apps/api/test/architecture/embedded-postgres-isolation.test.ts` asserts both facts, so a
+future import cannot quietly re-introduce the masking.
+
+### Database environment variables
+
+Every credential comes from the environment and **there is no default** — a missing
+password throws at the point of use rather than falling back to a well-known string.
+
+| Variable | Meaning |
+|---|---|
+| `SP_PG_HOST` / `SP_PG_PORT` / `SP_PG_DATABASE` | Connection target |
+| `SP_PG_SUPERUSER` / `SP_PG_SUPERUSER_PASSWORD` | Cluster bootstrap only. No request path reads these |
+| `SP_PG_PASSWORD_APP_MIGRATOR` | Migrations only, never application traffic |
+| `SP_PG_PASSWORD_APP_RUNTIME` | Web/API processes |
+| `SP_PG_PASSWORD_APP_WORKER` | Background, scheduling and real-time processes |
+| `SP_PG_PASSWORD_APP_READONLY_SUPPORT` | Support tooling, `SELECT` only under RLS |
+| `SP_PG_PASSWORD_APP_BREAKGLASS` | Two-person emergency only |
+
+The harness sets all of them itself, to synthetic `fixture-local-*` values, from
+`apps/api/test/support/env.ts`. They are not secrets and must never be copied into
+non-test code.
+
+### Two more sharp edges
+
+- **`node-pg-migrate` prints `Can't determine timestamp for 0001`** on every run, because
+  the migration files use a sequential `0001_` prefix rather than a 13-digit timestamp.
+  Ordering and up/down behaviour are correct; the warning is cosmetic. One convention has
+  been picked — sequential — and it should stay picked.
+- **Do not raise `log_min_messages`** for the embedded cluster. `embedded-postgres`
+  detects readiness by matching *"database system is ready to accept connections"* on
+  stdout, and suppressing that line makes `start()` hang forever.
+
+### Running the API against a real database
+
+```bash
+corepack pnpm --filter @schedulepoint/api migrate:up     # needs SP_PG_* set
+corepack pnpm --filter @schedulepoint/api dev
+```
+
+The process asserts **transaction affinity** before it opens its socket (SPEC-01 §4
+amendment (c)) and exits if the assertion fails: a process that cannot demonstrate that a
+transaction-local setting survives to the next statement has no basis for any tenant
+guarantee it would otherwise make. It then serves `/health` and returns `401` from every
+route needing a principal — authentication lands in a later packet, and until it does the
+server fails closed rather than inventing a principal.

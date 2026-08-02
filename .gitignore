@@ -14,6 +14,12 @@ playwright-report/
 test-results/
 scripts/gates/request-budget/recordings/
 
+# The tenancy harness's throwaway PostgreSQL cluster. `embedded-postgres` removes
+# it on a clean stop (`persistent: false`), but a killed run leaves it behind —
+# and a committed data directory would carry WAL, role password hashes and a
+# fixture database into the repository.
+**/.pgdata-test-*/
+
 # Red-case fixtures are copied into the working tree while a red case runs and
 # removed afterwards. If a run is interrupted, these must never be committed.
 **/__red_case__*

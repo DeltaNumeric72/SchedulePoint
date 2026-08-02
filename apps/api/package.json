@@ -7,14 +7,23 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "node dist/src/index.js",
-    "print-routes": "tsx src/tooling/print-route-table.ts"
+    "print-routes": "tsx src/tooling/print-route-table.ts",
+    "migrate:up": "tsx src/tooling/migrate-cli.ts up",
+    "migrate:down": "tsx src/tooling/migrate-cli.ts down",
+    "migrate:cycle": "tsx src/tooling/migrate-cli.ts cycle",
+    "migrate:cycle:embedded": "tsx test/support/migrate-cycle-cli.ts"
   },
   "dependencies": {
     "@schedulepoint/contracts": "workspace:*",
     "@schedulepoint/domain": "workspace:*",
-    "fastify": "5.6.1"
+    "fastify": "5.6.1",
+    "kysely": "0.28.7",
+    "node-pg-migrate": "8.0.4",
+    "pg": "8.16.3"
   },
   "devDependencies": {
+    "@types/pg": "8.15.5",
+    "embedded-postgres": "17.10.0-beta.17",
     "tsx": "4.20.6"
   }
 }
