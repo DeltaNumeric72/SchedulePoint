@@ -19,6 +19,10 @@ import tseslint from 'typescript-eslint';
 export default tseslint.config(
   {
     ignores: [
+      // Worktrees are separate checkouts, each linted in its own context; the
+      // root run must not race their red-case fixture plants (found 2026-08-02
+      // when a root lint caught a worktree's planted violation mid-run).
+      '.worktrees/**',
       '**/dist/**',
       '**/dist-types/**',
       '**/node_modules/**',

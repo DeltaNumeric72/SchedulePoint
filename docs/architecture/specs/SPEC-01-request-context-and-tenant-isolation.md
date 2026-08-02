@@ -199,7 +199,7 @@ Belt and braces, because a wrapper you can forget is a wrapper that will be forg
 | Exception | Tables | Grants | Gated on |
 |---|---|---|---|
 | `EX-1 org-wide dashboard` | Read-model/reporting tables carrying `group_id` | `SELECT` | Organization-scoped context (`app.group_id IS NULL`) + a cross-group read capability |
-| `EX-2 organization administration` | `groups`, `memberships`, `role_capabilities` | `SELECT` | Organization membership with an organization role (§2.3 step 2, org branch) |
+| `EX-2 organization administration` | `groups`, `memberships`, `role_capabilities` | `SELECT`; **plus organization-bounded DML on `groups`/`memberships`** *(amended 2026-08-02, OPUS-M1-001 escalation 2 / FAD-11: `SELECT`-only made [SPEC-06](SPEC-06-authorization-truth-table.md) §1.1's organization-scoped `Group administration` actions — group creation among them — unimplementable; the exception list governs the cross-group **read** problem this section is about, and every DML predicate remains bounded by the organization context)* | Organization membership with an organization role (§2.3 step 2, org branch). *The role gate is enforced at §2.3 step 2 in the application layer, inside the unit of work, until the grant relations land (OPUS-M1-002) — a `memberships` policy querying `memberships` recurses (escalation 3 / FAD-11); the organization **boundary** is enforced in SQL regardless* |
 | `EX-3 entitlement administration` | Entitlement and module-availability tables | `SELECT`, and `INSERT`/`UPDATE` on entitlement rows only | Organization-scoped context + entitlement-administration capability |
 | `EX-4 cross-group transfers and marketplace` | `transfers`, `shift_offers`, `shift_swaps` | `SELECT` on the counterparty group's row | Both groups in the same organization + the transfer/marketplace capability in each |
 
@@ -267,7 +267,8 @@ Belt and braces, because a wrapper you can forget is a wrapper that will be forg
 | # | Scenario | Required outcome |
 |---|---|---|
 | T-01 | Two browser contexts, one session; switch group in B; submit a **mutation** from A | A's declared group is honoured; **no write against B** |
-| T-02 | Same, but A's membership was revoked meanwhile | `409 CONTEXT_STALE`; **no write, no event, no audit mutation** |
+| T-02 | Same, but A's membership was revoked meanwhile | **`404`** — byte-identical to a non-existent id (§2.4: a departed member learns nothing); **no write, no event, no audit mutation** *(amended 2026-08-02, OPUS-M1-001 escalation 1 / FAD-11: the original `409 CONTEXT_STALE` contradicted §2.3 step order and §2.4 — stale-context signalling is reserved for still-authorized contexts, see T-02b)* |
+| T-02b | Same, but A's membership is **active** and only the declared context version is stale (freshness counter advanced) *(added 2026-08-02, FAD-11)* | `409 CONTEXT_STALE`; **no write, no event, no audit mutation** |
 | T-03 | Same for **publication**, **report request**, **document upload**, **job enqueue**, and **WebSocket command** | Identical behaviour on every surface |
 | T-04 | Forged `expected_group_id` naming a group the user does not belong to | `404`; logged as a security event |
 | T-05 | Valid context, target object from another group, actor **is** authorized for the action in the declared group | `409 CONTEXT_TARGET_MISMATCH` **before any write** *(amended 2026-08-01, V-07)* |

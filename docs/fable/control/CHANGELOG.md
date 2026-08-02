@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-08-02 — M1 begun; OPUS-M1-001 accepted
+- M1 authorized by the owner against checkpoint b49d3dd. OPUS-M1-001 (tenancy schema + SPEC-01 context middleware + production unit-of-work) ACCEPTED and squash-merged (356ddf5) after a three-round review cycle: independent second review REVISE (3 merge-blocking findings, incl. a falsified security claim in the migration) → full revision → delta re-review APPROVE WITH FOLLOW-UPS → final hardening delta (SECURITY DEFINER pg_temp pin, roles-aware owner-exemption assertion).
+- FAD-11 (three SPEC-01 escalation rulings: revoked membership → 404 with T-02b added; EX-2 org-scoped DML; capability gate above SQL until M1-002) and FAD-12 (authorization + mutation share one unit of work on every surface) recorded; SPEC-01 §7.1/§4.3 amended with dated notes.
+- EV-M0-SPA qualified (embedded-postgres exit-code masking — per-test log unaffected); root eslint now ignores `.worktrees/**` (gate race found during verification); standing merge-discipline note added to the runbook.
+- SP-E UX brief + design tokens authored (docs/fable/28) — carried M0 item discharged.
+- OPUS-M1-002 and OPUS-M1-003 issued in parallel worktrees; EV-M1-TENANCY residuals 1–7 recorded as M1-002 entry conditions. M2 NOT authorized.
+
 ## 2026-08-02 — M0 acceptance review (owner-directed; Fable)
 - All exit-report claims independently re-verified against the repository: isolation harness re-run 36/36 (fresh install), CI gates 12/12, red cases 14/14, solver harness H-0..H-8 re-run 0 failed with every load-bearing finding reproduced (H-6 nondeterminism, H-5 SIGKILL cleanliness, H-8 assumption-core cost). docs/fable/26-m0-acceptance-addendum.md.
 - One defect found and fixed at acceptance: secret-scan gate walked Python virtualenvs (`.venv` missing from the shared skip list) — false-positive red gate for any developer following the spike README. Fixed in scripts/gates/lib/gate.mjs; red-case battery re-proven 14/14 after the fix. Nothing weakened.
