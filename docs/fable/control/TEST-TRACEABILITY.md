@@ -10,3 +10,10 @@ Execution log (M0):
 | SP-5 solver boundary (determinism, cancel, kill, INFEASIBLE) + TDG-11(solver) | OPUS-M0-003 | **PASSED H-0..H-8 (re-run by orchestrator)** | docs/evidence/EV-M0-SPC |
 
 All three M0 rows re-verified by independent rerun at the acceptance review 2026-08-02 ([../26-m0-acceptance-addendum.md](../26-m0-acceptance-addendum.md) §1): 36/36 · 12/12 + 14/14 · H-0..H-8 0 failed.
+
+Execution log (M1 — authorized 2026-08-02):
+| Harness / gate | Task | Status | Evidence |
+|---|---|---|---|
+| SPEC-01 §7.1 T-01..T-06d (scoped) + §7.2 T-07..T-15 vs production unit-of-work | OPUS-M1-001 | ISSUED — not yet run | (pending: docs/evidence/EV-M1-TENANCY) |
+| SPEC-06 §8 cross-product + deny-path battery | OPUS-M1-002 | not issued | (pending: docs/evidence/EV-M1-AUTHZ) |
+| TDG-04 micro-spike + SPEC-11 X-01..X-03 subset + I-11 proof | OPUS-M1-003 | not issued | (pending: docs/evidence/EV-M1-AUDIT) |
