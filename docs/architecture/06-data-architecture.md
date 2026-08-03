@@ -256,6 +256,8 @@ erDiagram
 > - **`groups` (settings) gains `pick_position_count`** (integer ≥ 0, **monotonically increasing only, trigger-enforced** — the observed group-wide constraint, research 05 §ADM-07); `valid_groups.allowed_pick_positions` members must be ≤ it.
 > - `group_holidays` (CAR-011) is unchanged and receives its authoring surface in M2-002 (Δ-2/W-61).
 
+> **AMENDED 2026-08-03 (FAD-17, M2-003):** `membership_weekday_fte`'s day dimension is **`{mon..sun, holiday}`** (an enumerated domain including the holiday arm), superseding the earlier `weekday (0–6)` shorthand — aligning the staffing-target dimension with `shift_type_weekday_demand`'s (FAD-16) so the M4 engine consumes one day vocabulary on both the demand and the people side.
+
 #### 3.2a Site migration boundary (PO-DEC-01)
 
 **PO-DEC-01 remains `pending`. The schema implements its working default and defines — but does not build — the path to the alternative.**
