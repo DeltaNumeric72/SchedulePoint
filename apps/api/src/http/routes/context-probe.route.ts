@@ -4,12 +4,16 @@ import {
   type ContextProbeResult,
   type JobEnqueueResult,
 } from '@schedulepoint/contracts';
-import { bindTarget, type FrozenJobContext, type TenantContext } from '@schedulepoint/domain';
-import type { Kysely } from 'kysely';
+import {
+  bindTarget,
+  type Decision,
+  type FrozenJobContext,
+  type TenantContext,
+} from '@schedulepoint/domain';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
 import { recordAuditEvent } from '../../audit/recorder.js';
-import type { Database } from '../../db/schema.js';
+import { evaluateInTransaction, respondToDenial } from '../../authz/authorize-request.js';
 import { CONTEXT_PROBE_TOUCH_JOB } from '../../jobs/handlers.js';
 import { requireTenantContext } from '../context/middleware.js';
 import { sendContextFailure, sendForbidden, sendNotFound } from '../context/responses.js';
@@ -17,7 +21,7 @@ import {
   MEMBERSHIP_AGGREGATE,
   resolveMembershipCoordinates,
 } from '../context/target-resolution.js';
-import { provisionallyAuthorized, type RouteConfigWithPolicy } from '../policy.js';
+import { type RouteConfigWithPolicy } from '../policy.js';
 
 /**
  * The context-verification surfaces.
@@ -80,66 +84,78 @@ import { provisionallyAuthorized, type RouteConfigWithPolicy } from '../policy.j
 const PROBE_CAPABILITY = 'CAP-003';
 
 /**
- * Exported so the job handler's parity test can compare against **this object**
- * rather than against a copy of its contents. A test that restates the list is a
- * test that keeps passing after the two surfaces diverge (SPEC-06 §7).
+ * The route declarations, now naming a SPEC-06 **action** rather than a list of
+ * roles.
+ *
+ * OPUS-M1-001's `provisional.allowRoles` is gone. What decides these routes is
+ * `packages/domain/src/authz`'s truth table, evaluated per request against
+ * current state inside the same transaction as the write. `scheduler` and
+ * `group_admin` still reach them and `member`, `viewer` and `telecom` still do
+ * not — but now because `SYSTEM_ROLE_CAPABILITIES` says so and
+ * `role_capabilities` holds the rows, not because a route listed two strings.
+ *
+ * Still exported, and since OPUS-M1-004 for a stronger reason:
+ * `apps/api/test/jobs/job-context.test.ts` compares the job handler's
+ * declaration against **this object**, not against a copy of its contents. The
+ * two surfaces now run the same evaluator over the same action (FAD-13 item 1),
+ * so there is one declaration to agree about rather than two lists to keep in
+ * step.
  */
 export const GROUP_SCOPED_CONFIG = {
   policy: { kind: 'capability', capability: PROBE_CAPABILITY },
   actionScope: 'group',
-  provisional: {
-    allowRoles: ['scheduler', 'group_admin'],
-    rationale:
-      'Provisional, pending the SPEC-06 evaluator (OPUS-M1-002). Two group roles only, so the ' +
-      'harness has both an authorized actor (T-05) and an unauthorized one (T-05b) without a ' +
-      'wildcard anywhere.',
+  action: {
+    key: 'membership.touch_self',
+    moduleKey: 'core_scheduling',
+    requiresObjectPolicy: false,
   },
 } as const satisfies RouteConfigWithPolicy;
 
 export const ORGANIZATION_SCOPED_CONFIG = {
   policy: { kind: 'capability', capability: PROBE_CAPABILITY },
   actionScope: 'organization',
-  provisional: {
-    allowRoles: ['org_admin'],
-    rationale:
-      'Provisional. The organization role namespace is disjoint from the group one (SPEC-06 ' +
-      'P-10), so listing `org_admin` here cannot grant anything at group scope.',
+  action: {
+    key: 'organization.membership.touch_self',
+    moduleKey: 'core_scheduling',
+    requiresObjectPolicy: false,
   },
 } as const satisfies RouteConfigWithPolicy;
 
-interface ActingMembershipRow {
-  kind: 'organization' | 'group';
-  group_role: string | null;
-  organization_role: string | null;
-}
-
 /**
- * Reads the acting membership **inside the caller's transaction**.
- *
- * Never call this in a transaction other than the one that performs the write it
- * authorizes — that is the whole of FAD-12.
+ * The target-binding route declares the SAME capability but **with** an object
+ * policy, because SPEC-01 §2.3 step 6 only has a question to answer when the
+ * action names an object.
  */
-async function readActingMembership(
-  query: Kysely<Database>,
-  membershipId: string,
-): Promise<ActingMembershipRow | undefined> {
-  const rows = (await query
-    .selectFrom('memberships')
-    .select(['kind', 'group_role', 'organization_role'])
-    .where('id', '=', membershipId)
-    .execute()) as unknown as ActingMembershipRow[];
-  return rows[0];
-}
-
-function roleOf(membership: ActingMembershipRow): string | null {
-  return membership.kind === 'group' ? membership.group_role : membership.organization_role;
-}
+export const TARGET_BINDING_CONFIG = {
+  policy: { kind: 'capability', capability: PROBE_CAPABILITY },
+  actionScope: 'group',
+  action: {
+    key: 'membership.touch_self',
+    moduleKey: 'core_scheduling',
+    requiresObjectPolicy: true,
+    /**
+     * **The declaration now has consequences, and it did not before.**
+     *
+     * An independent review flipped `requiresObjectPolicy` to `false` and
+     * nothing changed: the handler computed `authorizedInDeclaredTenant` and
+     * discarded the decision, so L5.1 was inert on the only route that declared
+     * it — the route every later feature will copy.
+     *
+     * `membership.touch_self` is self-scoped by its own name, so ownership is
+     * the honest object policy for it: the actor may touch their OWN membership
+     * and not somebody else's, unless they hold the administrative capability
+     * that lifts it. That makes the declaration testable in both directions.
+     */
+    ownershipRequired: true,
+    ownershipOverrideCapability: 'documents.manage',
+  },
+} as const satisfies RouteConfigWithPolicy;
 
 /** The outcomes a probe transaction can reach without writing anything. */
 type ProbeOutcome =
   | { readonly kind: 'ok'; readonly mutatedAt: Date }
   | { readonly kind: 'not-found' }
-  | { readonly kind: 'forbidden' };
+  | { readonly kind: 'denied'; readonly decision: Decision };
 
 interface TouchedRow {
   updated_at: Date;
@@ -158,16 +174,19 @@ async function touchActingMembership(
   const outcome = await request.server.tenancy.runtime.run(
     command,
     async (uow): Promise<ProbeOutcome> => {
+      /* ── OPUS-M1-004: evaluate → deny → mutate → audit, in ONE unit of work ──
+       *
+       * FAD-12's ordering, composed from both parallel branches. The evaluation
+       * comes FIRST so a denial writes nothing at all — not the mutation and not
+       * an audit row claiming a mutation happened. The audit write comes LAST,
+       * after the mutation it records, and inside the same transaction, so the
+       * two commit or roll back together. */
       const { query } = uow;
-      const membership = await readActingMembership(query, context.membershipId);
-      // The membership verified at step 2 is no longer visible. Fail closed.
-      if (membership === undefined) return { kind: 'not-found' };
 
-      // SPEC-06 L4.2's shape, evaluated against current state inside the same
-      // transaction as the write below (I-19, FAD-12). Nothing is cached.
-      if (!provisionallyAuthorized(route, { kind: membership.kind, role: roleOf(membership) })) {
-        return { kind: 'forbidden' };
-      }
+      // SPEC-06's full truth table, evaluated against current state inside the
+      // same transaction as the write below (I-19, FAD-12). Nothing is cached.
+      const { decision } = await evaluateInTransaction(query, { request, context, route });
+      if (!decision.allowed) return { kind: 'denied', decision };
 
       const now = new Date();
       const rows = (await query
@@ -195,9 +214,7 @@ async function touchActingMembership(
   );
 
   if (outcome.kind === 'not-found') return sendNotFound(request, reply);
-  if (outcome.kind === 'forbidden') {
-    return sendForbidden(request, reply, `role does not hold ${route.policy.capability}`);
-  }
+  if (outcome.kind === 'denied') return respondToDenial(request, reply, outcome.decision);
 
   return probeResult(context, outcome.mutatedAt);
 }
@@ -242,7 +259,7 @@ export default function contextProbeRoutes(app: FastifyInstance): void {
   /* ── target aggregate binding (§3, §2.3 step 6) ─────────────────────── T-05, T-05b ── */
   app.post(
     '/organizations/:organizationId/groups/:groupId/context-probe/targets/:targetMembershipId',
-    { config: GROUP_SCOPED_CONFIG },
+    { config: TARGET_BINDING_CONFIG },
     async (request, reply) => {
       const { context, command, route } = requireTenantContext(request);
       const targetMembershipId = (request.params as { targetMembershipId?: string })
@@ -258,19 +275,49 @@ export default function contextProbeRoutes(app: FastifyInstance): void {
           .where('id', '=', targetMembershipId)
           .execute()) as unknown as { organization_id: string; group_id: string | null }[];
 
-        const acting = await readActingMembership(query, context.membershipId);
-        // The capability verdict is computed WITHOUT the object-policy layer,
-        // which is exactly SPEC-06's reason for placing tenant binding at L5.1
-        // after L4 rather than before it.
-        const authorized =
-          acting !== undefined &&
-          provisionallyAuthorized(route, { kind: acting.kind, role: roleOf(acting) });
-
         const inScope = targetRows[0];
-        if (inScope === undefined) return { authorized, inScope: null } as const;
+
+        /* ── the decision is EVALUATED WITH THE TARGET, and honoured ──────────
+         *
+         * When the target is visible in the declared scope, L5.1 has something
+         * to run against and its verdict decides the request. The previous
+         * version passed `target: null` and then threw the decision away, which
+         * made the route's own `requiresObjectPolicy: true` declaration inert —
+         * found by an independent review flipping it to `false` and observing no
+         * change.
+         *
+         * `authorizedInDeclaredTenant` is still computed, and still WITHOUT the
+         * object-policy layer: SPEC-01 §2.3 step 6 (V-07) needs exactly that to
+         * choose between `409` and `404`, and it is why SPEC-06 places tenant
+         * binding at L5.1 after L4 rather than before it. Both come from ONE
+         * snapshot read. */
+        const verdict = await evaluateInTransaction(query, {
+          request,
+          context,
+          route,
+          target:
+            inScope === undefined
+              ? null
+              : {
+                  organizationId: inScope.organization_id,
+                  groupId: inScope.group_id,
+                  type: MEMBERSHIP_AGGREGATE,
+                  ownerMembershipId: targetMembershipId,
+                  state: null,
+                },
+        });
+
+        if (inScope === undefined) {
+          return {
+            authorized: verdict.authorizedInDeclaredTenant,
+            decision: verdict.decision,
+            inScope: null,
+          } as const;
+        }
 
         return {
-          authorized,
+          authorized: verdict.authorizedInDeclaredTenant,
+          decision: verdict.decision,
           inScope: {
             organizationId: inScope.organization_id,
             groupId: inScope.group_id,
@@ -294,7 +341,12 @@ export default function contextProbeRoutes(app: FastifyInstance): void {
           });
         }
         if (!decided.authorized) {
-          return sendForbidden(request, reply, `role does not hold ${route.policy.capability}`);
+          return sendForbidden(request, reply, `role does not hold ${route.action.key}`);
+        }
+        // L5.1 ran against a real target. Its verdict is the answer — including
+        // the ownership rule, which is the half `bindTarget` cannot see.
+        if (!decided.decision.allowed) {
+          return respondToDenial(request, reply, decided.decision);
         }
         return probeResult(context, new Date());
       }
@@ -336,16 +388,12 @@ export default function contextProbeRoutes(app: FastifyInstance): void {
     async (request, reply) => {
       const { context, command, route } = requireTenantContext(request);
 
-      const authorized = await request.server.tenancy.runtime.run(command, async ({ query }) => {
-        const acting = await readActingMembership(query, context.membershipId);
-        if (acting === undefined) return null;
-        return provisionallyAuthorized(route, { kind: acting.kind, role: roleOf(acting) });
-      });
+      const decision = await request.server.tenancy.runtime.run(
+        command,
+        async ({ query }) => (await evaluateInTransaction(query, { request, context, route })).decision,
+      );
 
-      if (authorized === null) return sendNotFound(request, reply);
-      if (!authorized) {
-        return sendForbidden(request, reply, `role does not hold ${route.policy.capability}`);
-      }
+      if (!decision.allowed) return respondToDenial(request, reply, decision);
 
       // SPEC-01 §6: the context is FROZEN into the payload at enqueue — the
       // tenant tuple, the acting membership, the correlation id, and the
@@ -356,6 +404,10 @@ export default function contextProbeRoutes(app: FastifyInstance): void {
         expectedOrganizationId: context.expectedOrganizationId,
         expectedGroupId: context.expectedGroupId,
         membershipId: context.membershipId,
+        // OPUS-M1-004: frozen so the worker can run the SPEC-06 evaluator
+        // against the principal the job was authorized for, rather than against
+        // whoever the membership row names at execution time.
+        principalUserId: context.principalUserId,
         systemActor: false,
         correlationId: context.correlationId,
         authorizationVersionAtEnqueue: context.authorizationVersion,

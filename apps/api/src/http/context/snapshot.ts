@@ -127,6 +127,36 @@ function asStatus<T extends string>(value: string, allowed: readonly T[], fallba
 }
 
 /**
+ * An instant as an ISO string, or an unparsable sentinel.
+ *
+ * **This module runs BEFORE the evaluator's loader, and it had the same
+ * unguarded `.toISOString()`.** `timestamptz` accepts `infinity`, node-postgres
+ * returns it as the JavaScript **number** `Infinity` rather than a `Date`, and
+ * `Infinity.toISOString` does not exist — so a single stored infinite bound on a
+ * membership turned that principal's **every request into a 500**, at SPEC-01
+ * §2.3 step 2, before authorization was ever reached. Found by a reviewer's
+ * repro.
+ *
+ * `0002_authorization.sql` now rejects infinite bounds with a CHECK, which makes
+ * this unreachable for **new** writes. The guard stays for rows written before
+ * that constraint existed, and because a 500 is the worst possible answer to a
+ * question whose safe answer is "this membership is not usable":
+ * `membershipIsActive` parses the sentinel to `NaN` and returns false, so the
+ * request becomes an ordinary 404 instead.
+ *
+ * The same shape survives in `apps/api/src/jobs/worker.ts`, which is
+ * OPUS-M1-003's file scope; the orchestrator is routing it to the post-merge
+ * integration task.
+ */
+const UNPARSABLE_INSTANT = 'unparsable-instant';
+
+function instantOf(value: Date | null): string | null {
+  if (value === null) return null;
+  if (!(value instanceof Date) || Number.isNaN(value.getTime())) return null;
+  return value.toISOString();
+}
+
+/**
  * Reads every fact §2.3 needs, in ONE transaction.
  *
  * Each query is scoped by an explicit predicate *as well as* by RLS. The
@@ -219,8 +249,11 @@ export async function resolveContextSnapshot(
             ),
             organizationRole: membershipRow.organization_role,
             groupRole: membershipRow.group_role,
-            validFrom: membershipRow.valid_from.toISOString(),
-            validTo: membershipRow.valid_to?.toISOString() ?? null,
+            validFrom: instantOf(membershipRow.valid_from) ?? UNPARSABLE_INSTANT,
+            validTo:
+              membershipRow.valid_to === null
+                ? null
+                : (instantOf(membershipRow.valid_to) ?? UNPARSABLE_INSTANT),
           };
 
     // The principal row is only reachable through a membership visible in this

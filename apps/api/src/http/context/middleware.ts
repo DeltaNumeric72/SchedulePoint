@@ -60,6 +60,14 @@ declare module 'fastify' {
     commandContext?: TenantContext;
     /** The route's capability declaration, narrowed. */
     routeCapability?: CapabilityRouteConfig;
+    /**
+     * Set by `evaluateInTransaction`, read by the `onSend` guard below.
+     *
+     * I-02 says an operation with no policy "fails closed". The route-policy
+     * gate proves every route *declares* one; this proves every capability route
+     * that *succeeds* actually **evaluated** it.
+     */
+    authorizationEvaluated?: boolean;
   }
 
   interface FastifyInstance {
@@ -171,6 +179,48 @@ export function registerContextMiddleware(
     request.tenantContext = verification.context;
     request.commandContext = commandContext(declared, verification.context.membershipId);
     return;
+  });
+
+  /* ────────────────────────────────────────────────────────────────────────
+   * The fail-closed guard: a capability route cannot SUCCEED without having
+   * evaluated its policy.
+   *
+   * I-02: "an operation with no policy fails closed and fails its automated
+   * test". `scripts/gates/route-policy-check.mjs` proves every route DECLARES a
+   * policy. Nothing proved that a handler actually EVALUATED it — a route could
+   * declare `organization.membership.administer`, forget the
+   * `evaluateInTransaction` call, and return 200 with the write committed. The
+   * declaration would look correct in review and in the gate.
+   *
+   * So the guard is structural rather than editorial: a `capability` route that
+   * returns a 2xx without `authorizationEvaluated` becomes a **500**, and the
+   * defect is logged as a server error. It cannot be satisfied by remembering.
+   *
+   * It runs on `onSend` rather than `onResponse` because the response must be
+   * REPLACED, not merely reported. And it deliberately does not touch 4xx or
+   * 5xx: a request refused by the context sequence never reached a handler and
+   * has nothing to evaluate.
+   *
+   * Proven by `apps/api/test/authz/fail-closed-guard.test.ts`, which registers a
+   * deliberately non-evaluating capability route against this same middleware.
+   * ──────────────────────────────────────────────────────────────────────── */
+  app.addHook('onSend', async (request: FastifyRequest, reply: FastifyReply, payload: unknown) => {
+    if (!declaresCapability(routeConfigOf(request))) return payload;
+    if (reply.statusCode >= 400) return payload;
+    if (request.authorizationEvaluated === true) return payload;
+
+    request.log.error(
+      { correlationId: request.correlationId, url: request.url, method: request.method },
+      'a capability route produced a success response without evaluating its policy (I-02)',
+    );
+    reply.code(500).type('application/json');
+    return JSON.stringify({
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: 'The request could not be completed.',
+        correlationId: request.correlationId,
+      },
+    });
   });
 }
 

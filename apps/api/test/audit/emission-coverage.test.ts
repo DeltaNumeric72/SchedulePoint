@@ -1,3 +1,8 @@
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { sql } from 'kysely';
 import type pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -6,6 +11,11 @@ import { recordAuditEvent } from '../../src/audit/recorder.js';
 import { CONTEXT_PROBE_TOUCH_JOB, defaultJobHandlers } from '../../src/jobs/handlers.js';
 import { executeJob } from '../../src/jobs/worker.js';
 import { adminClient } from '../support/admin-client.js';
+import {
+  WRITE_DETECTORS,
+  scanForMutations,
+  unauditedMutations,
+} from '../support/audit-emission-scan.js';
 import { FIXTURE, groupContext } from '../support/fixtures.js';
 import { createRuntime, log, type Runtime } from '../support/harness.js';
 import { buildHttpHarness, contextHeaders, currentCounters, type HttpHarness } from '../support/http.js';
@@ -26,10 +36,16 @@ import { buildHttpHarness, contextHeaders, currentCounters, type HttpHarness } f
  *
  * ## Coverage is enumerated from the CODE, not from a list
  *
- * The last test walks every mutating surface this milestone ships and asserts
- * each one emitted. It is a short list today — the HTTP context-probe touch and
- * its job twin — and OPUS-M1-002's mutations join it at merge. The integration
- * point is one call: see `recordAuditEvent`'s docblock.
+ * The tests below walk the mutating surfaces this milestone ships and assert
+ * each one emitted: the HTTP context-probe touch and its job twin here,
+ * OPUS-M1-002's three authorization mutations in
+ * `apps/api/test/authz/http-authorization.test.ts` (they joined at OPUS-M1-004,
+ * FAD-13 item 2).
+ *
+ * **A list of surfaces is only as good as somebody's memory of it**, so the last
+ * describe block does not use one: it scans every route module and job handler
+ * for a write and asserts that each module that writes also records. A fourth
+ * mutation added without an audit call fails there, not at review.
  */
 
 const alpha = FIXTURE.alpha;
@@ -113,6 +129,7 @@ describe('every existing mutation emits an audit event', () => {
           expectedOrganizationId: alpha.organizationId,
           expectedGroupId: alpha.groupOne.id,
           membershipId: alpha.users.scheduler.membershipId,
+          principalUserId: alpha.users.scheduler.id,
           systemActor: false,
           correlationId,
           authorizationVersionAtEnqueue: 'irrelevant-here',
@@ -265,5 +282,173 @@ describe('every existing mutation emits an audit event', () => {
       await runtime.destroy();
     }
     log('"nobody was acting" and "we failed to resolve the actor" are kept distinguishable');
+  });
+});
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * The coverage gate itself
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+describe('OPUS-M1-004 — every module that WRITES also records', () => {
+  const MUTATING_ROOTS = ['http/routes', 'jobs'] as const;
+  const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '../../src');
+
+  it('no route module or job handler writes without calling recordAuditEvent', () => {
+    const modules = scanForMutations(SRC, { subdirectories: MUTATING_ROOTS });
+
+    // A vacuous pass is the failure mode: if the scan matched nothing, it would
+    // report success for a system that audits nothing at all.
+    expect(modules.length, 'the write scan found no mutating module — it is broken').toBeGreaterThan(
+      1,
+    );
+
+    const silent = unauditedMutations(modules).map((m) => `${m.file} (${m.writes.join(', ')})`);
+    expect(silent, `these modules mutate and record nothing:\n${silent.join('\n')}`).toEqual([]);
+
+    log(
+      `${String(modules.length)} mutating modules scanned, ${String(modules.length)} record: ` +
+        modules.map((m) => m.file).join(', '),
+    );
+  });
+
+  /* ────────────────────────────────────────────────────────────────────────
+   * T-01 — the red case the gate above did not have
+   *
+   * The second review's finding, and it is the same class as R-02 against
+   * OPUS-M1-003: the detector was probed by hand and found correct, but nothing
+   * in the suite proved it could FAIL. A scanner observed only passing is not
+   * evidence — the failure modes (a typo in a pattern, a prefix matching no
+   * directory, a walk over the wrong path) all report "0 unaudited" forever.
+   *
+   * So the scanner moved to `test/support/audit-emission-scan.ts`, exported,
+   * and these cases run **it** — not a copy of its rules — against fixtures on
+   * disk. Narrow a pattern and these go red.
+   * ──────────────────────────────────────────────────────────────────────── */
+
+  const scratchDirs: string[] = [];
+  const scratch = (): string => {
+    const dir = mkdtempSync(join(tmpdir(), 'sp-emission-'));
+    scratchDirs.push(dir);
+    return dir;
+  };
+  afterAll(() => {
+    for (const dir of scratchDirs) rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('RED: a module that mutates and records nothing is reported', () => {
+    const dir = scratch();
+    writeFileSync(
+      join(dir, 'silent.route.ts'),
+      [
+        "import type { Kysely } from 'kysely';",
+        '',
+        'export async function touch(query: Kysely<never>, id: string) {',
+        "  await query.updateTable('memberships').set({ last_active_at: new Date() })",
+        "    .where('id', '=', id).execute();",
+        '  // and nothing else. No audit row. This is the defect.',
+        '}',
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+
+    const findings = unauditedMutations(scanForMutations(dir));
+    expect(findings.map((f) => f.file), 'the scanner missed an unaudited mutation').toEqual([
+      'silent.route.ts',
+    ]);
+    log(`red case: ${String(findings[0]?.writes.length)} write form(s), 0 audit calls — reported`);
+  });
+
+  it('GREEN: the same module with the one-line call is not reported', () => {
+    // Both directions in one file. A scanner that always reported a finding
+    // would satisfy the red case above and be equally useless.
+    const dir = scratch();
+    writeFileSync(
+      join(dir, 'audited.route.ts'),
+      [
+        'export async function touch(uow: never, query: never, id: string) {',
+        "  await query.updateTable('memberships').set({ x: 1 }).where('id', '=', id).execute();",
+        "  await recordAuditEvent(uow, { eventName: 'membership.activity_touched',",
+        "    subjectType: 'membership', subjectId: id });",
+        '}',
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+    expect(unauditedMutations(scanForMutations(dir))).toEqual([]);
+  });
+
+  it('RED: every write detector fires on its OWN fixture', () => {
+    // Six fixtures rather than one. With a single combined fixture a broken
+    // alternative is carried by the other five and the red case still passes —
+    // which is precisely how a decorative check survives review.
+    const cases: readonly { readonly id: string; readonly source: string }[] = [
+      { id: 'kysely-insert', source: "export const f = (q) => q.insertInto('memberships');\n" },
+      { id: 'kysely-update', source: "export const f = (q) => q.updateTable('memberships');\n" },
+      { id: 'kysely-delete', source: "export const f = (q) => q.deleteFrom('memberships');\n" },
+      { id: 'sql-insert', source: 'export const s = `insert into memberships (id) values (1)`;\n' },
+      { id: 'sql-update', source: 'export const s = `update memberships set x = 1`;\n' },
+      { id: 'sql-delete', source: 'export const s = `delete from memberships where id = 1`;\n' },
+    ];
+    expect(cases.length, 'a detector has no fixture').toBe(WRITE_DETECTORS.length);
+
+    for (const testCase of cases) {
+      const detector = WRITE_DETECTORS.find((d) => d.id === testCase.id);
+      expect(detector, `${testCase.id} is not a declared detector`).toBeDefined();
+
+      const dir = scratch();
+      writeFileSync(join(dir, `${testCase.id}.ts`), testCase.source, 'utf8');
+      const found = scanForMutations(dir);
+      expect(found, `${testCase.id}: the detector did not fire at all`).toHaveLength(1);
+      expect(found[0]?.writes, `${testCase.id}: fired as the wrong detector`).toEqual([
+        detector?.label,
+      ]);
+      expect(unauditedMutations(found), `${testCase.id}: fired but was not reported`).toHaveLength(
+        1,
+      );
+    }
+    log(`all ${String(WRITE_DETECTORS.length)} write detectors fire independently`);
+  });
+
+  it('GREEN: a read-only module is not a mutation, and a comment about one is not either', () => {
+    const dir = scratch();
+    writeFileSync(
+      join(dir, 'reader.ts'),
+      [
+        '/**',
+        ' * This module could updateTable(\'memberships\') and insert into audit_events,',
+        ' * but it is a docblock and the scan is about code.',
+        ' */',
+        "// await query.deleteFrom('memberships').execute();",
+        "export const f = (q) => q.selectFrom('memberships').selectAll();",
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+    expect(scanForMutations(dir), 'a comment or a SELECT was read as a write').toEqual([]);
+  });
+
+  it('the subdirectory filter is not silently matching nothing', () => {
+    // The quietest failure available: a prefix that matches no directory makes
+    // the production check scan zero files and pass. Asserted directly, because
+    // the non-vacuity floor above would also catch it only by accident.
+    for (const prefix of MUTATING_ROOTS) {
+      expect(
+        scanForMutations(SRC, { subdirectories: [prefix] }).length,
+        `no mutating module found under src/${prefix} — the prefix matches nothing`,
+      ).toBeGreaterThan(0);
+    }
+    expect(scanForMutations(SRC, { subdirectories: ['no/such/dir'] })).toEqual([]);
+  });
+
+  it('every audit event name the routes export is in the closed vocabulary', async () => {
+    const { AUDIT_EVENTS } = await import('../../src/http/routes/authorization.route.js');
+    const { AUDIT_EVENT_NAMES } = await import('@schedulepoint/domain');
+    for (const name of Object.values(AUDIT_EVENTS)) {
+      expect(AUDIT_EVENT_NAMES as readonly string[]).toContain(name);
+    }
+    // Rule 13 in the direction that matters: the list only grows. The three
+    // OPUS-M1-002 names are in it, and the nine that were there before still are.
+    expect(AUDIT_EVENT_NAMES.length).toBeGreaterThanOrEqual(12);
   });
 });

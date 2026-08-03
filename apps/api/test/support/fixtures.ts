@@ -1,6 +1,14 @@
-import type { TenantContext } from '@schedulepoint/domain';
+import { randomUUID } from 'node:crypto';
 
+import type { TenantContext } from '@schedulepoint/domain';
+import { sql } from 'kysely';
+
+import { LocalCheckpointSigner } from '../../src/audit/checkpoint-signer.js';
+import { writeCheckpoint } from '../../src/audit/checkpoints.js';
+import { recordAuditEvent } from '../../src/audit/recorder.js';
+import { provisionAuthorization } from '../../src/authz/provisioning.js';
 import type { PgUnitOfWorkRunner } from '../../src/db/unit-of-work.js';
+import { publishOutboxEvent } from '../../src/outbox/publisher.js';
 
 /**
  * The MULTI fixture: **two organizations, two groups each, synthetic throughout.**
@@ -137,6 +145,28 @@ export function organizationContext(
   return { organizationId, groupId: null, membershipId: null, correlationId };
 }
 
+/**
+ * An organization-scoped context acting as that organization's administrator.
+ *
+ * Since OPUS-M1-002 a privilege-bearing membership change — role, status, kind,
+ * group, validity window — is refused by
+ * `memberships_guard_administration_on_privilege_change` unless the acting
+ * membership holds `organization.membership.administer`. A test that wants to
+ * revoke a role therefore has to do it the way production does, and this is that
+ * context. Using `membershipId: null` is now a **refusal**, which is the point of
+ * the change.
+ */
+export function administratorContext(
+  organizationId: string,
+  correlationId = 'fixture-administration',
+): TenantContext {
+  const membershipId =
+    organizationId === FIXTURE.beta.organizationId
+      ? FIXTURE.beta.users.organizationAdmin.membershipId
+      : FIXTURE.alpha.users.organizationAdmin.membershipId;
+  return { organizationId, groupId: null, membershipId, correlationId };
+}
+
 export function groupContext(
   organizationId: string,
   groupId: string,
@@ -167,6 +197,28 @@ interface SeedGroupMembership {
   readonly status?: 'invited' | 'active' | 'suspended' | 'ended';
 }
 
+/**
+ * A seeded `capability_grants` row.
+ *
+ * Every group in the fixture gets exactly one, and that is not decoration: the
+ * T-15 storm and the red-case probe both assert that **every** tenant table is
+ * observed with at least one visible row, because a probe over an empty table
+ * reports "0 wrong" for the most boring possible reason. A `capability_grants`
+ * table with no rows would make the isolation claim for it vacuous.
+ *
+ * The grants are also the ones doc 08 §6 says should exist: `schedule.publish`
+ * is a `G` cell — grant-only, never role-implied — so an explicit allow is how a
+ * scheduler gets it, and an explicit deny is how a particular person is kept
+ * away from it whatever their role (SPEC-06 P-1).
+ */
+interface SeedGrant {
+  readonly grantId: string;
+  readonly membershipId: string;
+  readonly groupId: string | null;
+  readonly capabilityKey: string;
+  readonly granted: boolean;
+}
+
 async function seedOrganization(
   runner: PgUnitOfWorkRunner,
   organization: {
@@ -174,16 +226,33 @@ async function seedOrganization(
     name: string;
     groups: readonly { id: string; name: string }[];
     users: readonly { id: string; email: string; displayName: string }[];
+    /** The FIRST of these is the bootstrap administrator. Order matters — see below. */
     organizationMemberships: readonly { membershipId: string; userId: string; role: string }[];
     groupMemberships: readonly SeedGroupMembership[];
+    grants: readonly SeedGrant[];
   },
 ): Promise<void> {
-  // ── organization-scoped unit of work ──────────────────────────────────────
-  //
-  // organizations, groups, users and ORGANIZATION memberships. Every one of
-  // these writes is admitted by a `WITH CHECK` that requires the declared
-  // organization to match, so a mis-declared seed would be rejected rather than
-  // landing in the wrong tenant.
+  const bootstrapAdmin = organization.organizationMemberships[0];
+  if (bootstrapAdmin === undefined) {
+    throw new Error(
+      `fixture organization ${organization.id} has no organization membership — since ` +
+        'OPUS-M1-002 there is no other way to authorize the rest of the seed',
+    );
+  }
+
+  /* ────────────────────────────────────────────────────────────────────────
+   * PASS 1 — through the provisioning door.
+   *
+   * `0002_authorization.sql`'s `app_require_capability` waives the capability
+   * check for an ORGANIZATION-scoped context in an organization that has **no
+   * memberships at all**. That door is the only way a tenant can come into
+   * existence, and it shuts the instant the first membership row lands.
+   *
+   * So everything that needs it goes first, in one transaction, and the first
+   * organization membership goes LAST inside that transaction — its BEFORE
+   * INSERT trigger runs while `memberships` is still empty, which is the last
+   * moment the door is open.
+   * ──────────────────────────────────────────────────────────────────────── */
   await runner.run(organizationContext(organization.id), async ({ query }) => {
     await query
       .insertInto('organizations')
@@ -212,53 +281,106 @@ async function seedOrganization(
       )
       .execute();
 
-    if (organization.organizationMemberships.length > 0) {
-      await query
-        .insertInto('memberships')
-        .values(
-          organization.organizationMemberships.map((membership) => ({
-            id: membership.membershipId,
-            organization_id: organization.id,
-            group_id: null,
-            user_id: membership.userId,
-            kind: 'organization' as const,
-            organization_role: membership.role,
-            group_role: null,
-          })),
-        )
-        .execute();
-    }
+    // Roles, role capabilities, the `core_scheduling` entitlement, and
+    // per-group availability. Without these the evaluator denies every request
+    // at L1.1 or L4.2 — which is the correct behaviour for an unprovisioned
+    // organization and is asserted separately.
+    await provisionAuthorization(query, {
+      organizationId: organization.id,
+      groupIds: organization.groups.map((group) => group.id),
+    });
+
+    await query
+      .insertInto('memberships')
+      .values({
+        id: bootstrapAdmin.membershipId,
+        organization_id: organization.id,
+        group_id: null,
+        user_id: bootstrapAdmin.userId,
+        kind: 'organization' as const,
+        organization_role: bootstrapAdmin.role,
+        group_role: null,
+      })
+      .execute();
   });
 
-  // ── one group-scoped unit of work per group ───────────────────────────────
-  //
-  // A group membership can only be written under that group's context: the
-  // `memberships_group_scope` WITH CHECK requires `group_id = app.group_id`. A
-  // seed that tried to write Group Two's memberships from a Group One context
-  // would be rejected by the database, which is the same protection production
-  // code gets.
-  for (const group of organization.groups) {
-    const memberships = organization.groupMemberships.filter((m) => m.groupId === group.id);
-    if (memberships.length === 0) continue;
+  /* ────────────────────────────────────────────────────────────────────────
+   * PASS 2 — the door is shut; everything else is authorized.
+   *
+   * The acting membership is the bootstrap administrator, whose `org_admin`
+   * role carries `organization.membership.administer` through
+   * `role_capabilities`. Every membership below is created the way production
+   * creates one: an organization-scoped unit of work, an acting membership, and
+   * a capability the database checks in a BEFORE INSERT trigger.
+   *
+   * Group memberships are written from the ORGANIZATION context, which is what
+   * SPEC-06 §1.1 says "assign a group role" is, and what
+   * `memberships_organization_administration` (0002) admits. The cross-group
+   * write protection this seed used to demonstrate is asserted directly instead,
+   * by T-13b in `roles-and-schema.test.ts`.
+   * ──────────────────────────────────────────────────────────────────────── */
+  const rest = organization.organizationMemberships.slice(1);
 
-    await runner.run(groupContext(organization.id, group.id), async ({ query }) => {
-      await query
-        .insertInto('memberships')
-        .values(
-          memberships.map((membership) => ({
-            id: membership.membershipId,
-            organization_id: organization.id,
-            group_id: group.id,
-            user_id: membership.userId,
-            kind: 'group' as const,
-            group_role: membership.role,
-            organization_role: null,
-            status: membership.status ?? ('active' as const),
-          })),
-        )
-        .execute();
-    });
-  }
+  await runner.run(
+    { ...organizationContext(organization.id), membershipId: bootstrapAdmin.membershipId },
+    async ({ query }) => {
+      if (rest.length > 0) {
+        await query
+          .insertInto('memberships')
+          .values(
+            rest.map((membership) => ({
+              id: membership.membershipId,
+              organization_id: organization.id,
+              group_id: null,
+              user_id: membership.userId,
+              kind: 'organization' as const,
+              organization_role: membership.role,
+              group_role: null,
+            })),
+          )
+          .execute();
+      }
+
+      if (organization.groupMemberships.length > 0) {
+        await query
+          .insertInto('memberships')
+          .values(
+            organization.groupMemberships.map((membership) => ({
+              id: membership.membershipId,
+              organization_id: organization.id,
+              group_id: membership.groupId,
+              user_id: membership.userId,
+              kind: 'group' as const,
+              group_role: membership.role,
+              organization_role: null,
+              status: membership.status ?? ('active' as const),
+            })),
+          )
+          .execute();
+      }
+
+      // Grants come last, because `capability_grants` has a composite FK to
+      // `memberships` and the membership must exist first. Written from the
+      // ORGANIZATION context, which is where SPEC-06 §1.1 puts capability
+      // administration — and admitted by `capability_grants_organization_administration`.
+      if (organization.grants.length > 0) {
+        await query
+          .insertInto('capability_grants')
+          .values(
+            organization.grants.map((grant) => ({
+              id: grant.grantId,
+              organization_id: organization.id,
+              group_id: grant.groupId,
+              membership_id: grant.membershipId,
+              capability_key: grant.capabilityKey,
+              granted: grant.granted,
+              granted_by_membership_id: bootstrapAdmin.membershipId,
+            })),
+          )
+          .execute();
+      }
+    },
+  );
 }
 
 export async function seedFixture(runner: PgUnitOfWorkRunner): Promise<void> {
@@ -319,6 +441,34 @@ export async function seedFixture(runner: PgUnitOfWorkRunner): Promise<void> {
         role: 'scheduler',
       },
     ],
+    grants: [
+      // One per group, so `capability_grants` is non-vacuous under every group
+      // context the storm and the red-case probe use.
+      {
+        grantId: '9a000001-1111-4111-8111-000000000001',
+        membershipId: alpha.users.scheduler.membershipId,
+        groupId: alpha.groupOne.id,
+        capabilityKey: 'schedule.publish',
+        granted: true,
+      },
+      {
+        grantId: '9a000002-1111-4111-8111-000000000002',
+        membershipId: alpha.users.groupTwoScheduler.membershipId,
+        groupId: alpha.groupTwo.id,
+        capabilityKey: 'schedule.publish',
+        granted: true,
+      },
+      // An EXPLICIT DENY on a capability the role already carries. P-1's
+      // precedence has a live row to be tested against rather than only a
+      // constructed one, and this membership is the one T-05b uses.
+      {
+        grantId: '9a000003-1111-4111-8111-000000000003',
+        membershipId: alpha.users.member.membershipId,
+        groupId: alpha.groupOne.id,
+        capabilityKey: 'documents.manage',
+        granted: false,
+      },
+    ],
   });
 
   const beta = FIXTURE.beta;
@@ -354,5 +504,178 @@ export async function seedFixture(runner: PgUnitOfWorkRunner): Promise<void> {
         role: 'member',
       },
     ],
+    grants: [
+      {
+        grantId: '9b000001-2222-4222-8222-000000000001',
+        membershipId: beta.users.scheduler.membershipId,
+        groupId: beta.groupOne.id,
+        capabilityKey: 'schedule.publish',
+        granted: true,
+      },
+      {
+        grantId: '9b000002-2222-4222-8222-000000000002',
+        membershipId: 'bc000002-2222-4222-8222-000000000002',
+        groupId: beta.groupTwo.id,
+        capabilityKey: 'schedule.publish',
+        granted: false,
+      },
+    ],
   });
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * The audit and outbox partitions (OPUS-M1-004)
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Seeds `audit_events`, `outbox_events`, `outbox_effects` and
+ * `audit_checkpoints` in **both** organizations and **every** group.
+ *
+ * ## Why the fixture has to grow for this
+ *
+ * FAD-13 item 3 put migration 0003's four tenant tables into `TENANT_TABLES`,
+ * which is what the wrong-tenant probe, the T-15 storm, the pool-cleanliness
+ * check and the (role, table) matrix all iterate. **A probe over an empty table
+ * reports "0 wrong rows" for the boring reason** — it is the vacuous pass the
+ * whole probe design exists to avoid, and `probe-is-not-vacuous.test.ts` asserts
+ * against exactly that. The grants above carry the same note for the same
+ * reason.
+ *
+ * ## Every row here is written by the production path
+ *
+ * Not by hand-built INSERTs. The audit rows come from `recordAuditEvent` after a
+ * real `last_active_at` touch, the outbox rows from `publishOutboxEvent`, the
+ * checkpoints from `writeCheckpoint` with the local signer. A fixture that
+ * hand-wrote these would seed rows the application could not have produced, and
+ * the isolation claim would then be about rows nothing writes.
+ *
+ * The touch is real, so the audit row is true: `membership.activity_touched`
+ * names something that actually happened in that transaction.
+ *
+ * ## Two roles, because the grants say so
+ *
+ * `app_runtime` may append audit events and publish outbox events.
+ * `outbox_effects` and `audit_checkpoints` are `app_worker`'s alone (0003's
+ * grants, and SPEC-11 §2's rule that a request path must not be able to sign a
+ * checkpoint over a chain it just wrote). So this takes both runners, and using
+ * the wrong one raises `42501` rather than quietly succeeding.
+ */
+export async function seedAuditAndOutbox(
+  runtime: PgUnitOfWorkRunner,
+  worker: PgUnitOfWorkRunner,
+): Promise<void> {
+  const signer = new LocalCheckpointSigner({ keyId: 'fixture-seed-key' });
+
+  const organizations = [
+    {
+      id: FIXTURE.alpha.organizationId,
+      adminMembershipId: FIXTURE.alpha.users.organizationAdmin.membershipId,
+      groups: [
+        { id: FIXTURE.alpha.groupOne.id, membershipId: FIXTURE.alpha.users.scheduler.membershipId },
+        {
+          id: FIXTURE.alpha.groupTwo.id,
+          membershipId: FIXTURE.alpha.users.groupTwoScheduler.membershipId,
+        },
+      ],
+    },
+    {
+      id: FIXTURE.beta.organizationId,
+      adminMembershipId: FIXTURE.beta.users.organizationAdmin.membershipId,
+      groups: [
+        { id: FIXTURE.beta.groupOne.id, membershipId: FIXTURE.beta.users.scheduler.membershipId },
+        {
+          id: FIXTURE.beta.groupTwo.id,
+          membershipId: 'bc000002-2222-4222-8222-000000000002',
+        },
+      ],
+    },
+  ] as const;
+
+  for (const organization of organizations) {
+    for (const group of organization.groups) {
+      const correlationId = `fixture-audit-${group.id.slice(0, 8)}`;
+
+      const outboxEventId = await runtime.run(
+        groupContext(organization.id, group.id, group.membershipId, correlationId),
+        async (uow) => {
+          await uow.query
+            .updateTable('memberships')
+            .set({ last_active_at: new Date() })
+            .where('id', '=', group.membershipId)
+            .execute();
+
+          const recorded = await recordAuditEvent(uow, {
+            eventName: 'membership.activity_touched',
+            subjectType: 'membership',
+            subjectId: group.membershipId,
+          });
+
+          const published = await publishOutboxEvent(uow, recorded, {
+            kind: 'membership.activity_touched',
+            idempotencyKey: `fixture-touch:${recorded.sequence}`,
+          });
+          return published.id;
+        },
+      );
+
+      // `outbox_effects` is app_worker's. The effect row IS the effect and its
+      // primary key IS the deduplication, so this is the same shape
+      // `DatabaseOutboxSink` writes — with the worker's own credential, in the
+      // group whose outbox row it belongs to.
+      await worker.run(
+        groupContext(organization.id, group.id, null, correlationId),
+        async ({ query }) => {
+          await sql`
+            insert into outbox_effects (
+              organization_id, idempotency_key, group_id, outbox_event_id, kind,
+              correlation_id, attempt
+            ) values (
+              ${organization.id}::uuid,
+              ${`fixture-effect:${randomUUID()}`},
+              ${group.id}::uuid,
+              ${outboxEventId}::uuid,
+              ${'membership.activity_touched'},
+              ${correlationId},
+              1
+            )
+          `.execute(query);
+        },
+      );
+    }
+
+    // An ORGANIZATION-scoped audit row as well as the group ones: `audit_events`
+    // has separate group and organization INSERT policies, and the organization
+    // one requires `group_id IS NULL`. Seeding only group rows would leave that
+    // policy unexercised by every generic probe.
+    await runtime.run(
+      { ...organizationContext(organization.id, 'fixture-audit-org'), membershipId: organization.adminMembershipId },
+      async (uow) => {
+        await uow.query
+          .updateTable('memberships')
+          .set({ last_active_at: new Date() })
+          .where('id', '=', organization.adminMembershipId)
+          .execute();
+        await recordAuditEvent(uow, {
+          eventName: 'membership.activity_touched',
+          subjectType: 'membership',
+          subjectId: organization.adminMembershipId,
+        });
+      },
+    );
+
+    // The checkpoint, last, so it signs a head that already has every row above
+    // under it. Organization-scoped by construction — `writeCheckpoint` throws
+    // on a group-scoped context, because a group-scoped read sees a subset of
+    // the chain and would checkpoint a head that is not the head.
+    const written = await worker.run(
+      organizationContext(organization.id, 'fixture-checkpoint'),
+      (uow) => writeCheckpoint(uow, signer),
+    );
+    if (written === null) {
+      throw new Error(
+        `fixture: no checkpoint was written for ${organization.id} — audit_checkpoints would be ` +
+          'empty and every probe over it vacuous',
+      );
+    }
+  }
 }

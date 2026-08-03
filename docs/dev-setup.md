@@ -314,6 +314,45 @@ server fails closed rather than inventing a principal.
 
 ---
 
+## The `btree_gist` extension (added by OPUS-M1-002)
+
+`apps/api/migrations/0002_authorization.sql` begins with:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS btree_gist;
+```
+
+**Why it is needed.** SPEC-06 P-7 requires overlapping effective-dated grant windows to
+be *"prohibited by an exclusion constraint"*, and the constraint has to combine equality
+on `(organization_id, membership_id, capability_key)` with range overlap on the validity
+window:
+
+```sql
+EXCLUDE USING gist (
+    organization_id WITH =, membership_id WITH =, capability_key WITH =,
+    tstzrange(valid_from, valid_to, '[)') WITH &&
+)
+```
+
+`gist` has no built-in operator class for `uuid`/`text` **equality**; `btree_gist`
+supplies it. The same constraint shape protects `entitlements`.
+
+**Why it does not need a superuser.** `btree_gist` is a *trusted* extension in PostgreSQL
+13 and later, so the **database owner** may install it. `app_migrator` owns the database
+(`bootstrap.ts` creates it `OWNER app_migrator`), and migrations run as `app_migrator` and
+only as `app_migrator` (SPEC-01 §4.4) — so the migration installs it without any
+privilege the role matrix does not already grant. **Verified against this cluster before
+the migration was written**, because a migration that needs a superuser is a migration
+that cannot run under the role matrix at all.
+
+**If you point the API at a managed PostgreSQL** where `app_migrator` is not the database
+owner, `CREATE EXTENSION` will fail with `42501`. Install `btree_gist` once, out of band,
+as whatever role that platform gives you; the `IF NOT EXISTS` then makes the migration a
+no-op. The `down` migration drops it, so a manually-installed extension will be removed
+by a full rollback — install it again before the next `up`.
+
+---
+
 ## The audit chain and the queue (OPUS-M1-003)
 
 ### The queue schema is NOT one of our migrations

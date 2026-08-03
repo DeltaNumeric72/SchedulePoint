@@ -515,18 +515,27 @@ describe('SPEC-11 §10 X-02 — a consistently rewritten segment is caught by th
     log('X-02: the dropped foreign key cannot be re-added — the chain and the checkpoint disagree');
 
     /* ── restore the organization, and the constraint with it ──────────────── */
+    //
+    // Restored by UPDATE rather than by delete-and-reinsert. OPUS-M1-004 seeds
+    // `outbox_events` in both fixture organizations, and `outbox_events_audit_fk`
+    // references the chain — so deleting BETA's audit rows now violates it, even
+    // though the identical rows were about to be put back. Updating the three
+    // columns the rewrite touched restores exactly the same state without ever
+    // removing a row, and it needs one trigger disabled instead of three.
     await admin.query('alter table audit_events disable trigger audit_events_refuse_update');
-    await admin.query('alter table audit_events disable trigger audit_events_refuse_delete');
-    await admin.query('alter table audit_events disable trigger audit_events_assign_chain');
     try {
-      await admin.query('delete from audit_events where organization_id = $1::uuid', [
-        BETA.organizationId,
-      ]);
-      await admin.query('insert into audit_events select * from x02_saved');
+      const restored = await admin.query(
+        `update audit_events e
+            set prev_hash  = s.prev_hash,
+                entry_hash = s.entry_hash,
+                payload    = s.payload
+           from x02_saved s
+          where e.organization_id = s.organization_id and e.sequence = s.sequence`,
+      );
+      expect(restored.rowCount, 'the restore touched no rows — the chain is still rewritten')
+        .toBeGreaterThan(0);
     } finally {
       await admin.query('alter table audit_events enable always trigger audit_events_refuse_update');
-      await admin.query('alter table audit_events enable always trigger audit_events_refuse_delete');
-      await admin.query('alter table audit_events enable trigger audit_events_assign_chain');
       await admin.query('drop table x02_saved');
     }
     await admin.query(
@@ -1017,6 +1026,19 @@ describe('second-review findings — the holes the first submission left', () =>
   });
 
   it('the cross-tenant maintenance read is reachable by NO application role', async () => {
+    /* ── T-04: this is ONE HALF of FAD-14's pinning. The other half is
+     *    `SANCTIONED_ROLE_SCOPED` in `apps/api/test/tenancy/roles-and-schema.test.ts`
+     *    ("EVERY policy on EVERY tenant table applies to PUBLIC"), which allows
+     *    `audit_checkpoints_maintenance_read` by name and asserts it still exists
+     *    and is still SELECT-only.
+     *
+     *    They cover different things and neither subsumes the other: this one
+     *    covers BOTH maintenance policies including `audit_chain_heads`, which is
+     *    not in `TENANT_TABLES` and so is invisible to that test; that one is
+     *    what stops a NEW role-scoped policy appearing anywhere in the registry.
+     *    Deleting either leaves FAD-14's "the only cross-tenant read in the
+     *    system, pinned by tests" pinned by half a test. Change one, look at the
+     *    other. ── */
     // `audit_chain_heads_maintenance_read` and its checkpoint twin are the only
     // cross-tenant reads in the system. They are `TO app_migrator`, and the
     // enumeration function that uses them is granted to `app_worker` alone.

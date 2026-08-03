@@ -1,0 +1,33 @@
+OPUS-M1-004 — EV-M1-INTEGRATION environment capture
+captured: 2026-08-03T05:09:16Z
+NOTE: every artefact in this directory is from ONE capture pass, run back to
+      back, sequentially, after the last change on this branch. No output is
+      edited. NOTHING ran concurrently — see INDEX.md §5 item 15.
+
+$ uname -a
+Darwin Prabas-MacBook-Pro.local 25.5.0 Darwin Kernel Version 25.5.0: Tue Jun  9 22:28:34 PDT 2026; root:xnu-12377.121.10~1/RELEASE_ARM64_T6041 arm64
+
+$ node --version
+v24.18.0
+
+$ corepack pnpm --version
+11.18.0
+
+$ git rev-parse --abbrev-ref HEAD
+opus/m1-004-integration
+
+$ git log --oneline -8
+1dd8863 OPUS-M1-004: two docblocks that outlived what they described
+2193e72 OPUS-M1-004 evidence: EV-M1-INTEGRATION, all captures verbatim
+2b3b42f OPUS-M1-004 item 3: the tenant-table registry covers migrations 0002 and 0003
+c104f27 OPUS-M1-004 item 2: audit emission for OPUS-M1-002's three mutations
+e81a919 OPUS-M1-004 items 1 and 4: the worker runs the SPEC-06 evaluator; S-21 guarded
+fbe49cb OPUS-M1-004 step 1: merge opus/m1-002-authz-evaluator, composed at the two conflicts
+0e82eea Delta: S-22/S-21/S-24/S-25 fixed, S-23/S-26 recorded
+0c7c90f OPUS-M1-003 acceptance records: TDG-04 CLOSED (FAD-14 with GO conditions C-1..C-4), EV-M1-AUDIT indexed, FAD-13 rulings, packet fifteen-row correction
+
+$ ls apps/api/migrations
+0001_tenancy_core.sql
+0002_authorization.sql
+0003_audit_outbox.sql
+README.md

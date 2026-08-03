@@ -193,6 +193,28 @@ export function wrongTenantProbe(
       };
     }
 
+    case 'organization-only':
+    // `roles`, `role_capabilities` and `entitlements`: an organization column
+    // and no group column. Readable under a group-scoped context by design
+    // (SPEC-06 L1 and L4.2 run during group-scoped requests and these rows have
+    // no group dimension), so "wrong" means the ORGANIZATION is wrong and there
+    // is no group clause to add.
+    //
+    // fallthrough
+    case 'organization-context-only':
+      // `audit_checkpoints`: the same PREDICATE — the organization must match and
+      // there is no group column to compare — but for the opposite reason. It is
+      // readable ONLY under an organization-scoped context, so under a group
+      // context the correct result is zero visible rows and therefore zero wrong
+      // ones. The probe asks "can I see a row that is not mine", and seeing
+      // nothing answers it too.
+      return {
+        text: `select count(*) filter (where organization_id is distinct from $1::uuid)::int as wrong,
+                      count(*)::int as visible
+                 from ${table.name}`,
+        values: [context.organizationId],
+      };
+
     case 'through-membership':
       return {
         text: `select count(*) filter (where id <> all($1::uuid[]))::int as wrong,

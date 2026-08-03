@@ -1,0 +1,20 @@
+=== vitest run --project api ===
+ Test Files  17 passed (17)
+      Tests  255 passed (255)
+
+=== vitest run --project domain ===
+ Test Files  4 passed (4)
+      Tests  119 passed (119)
+
+=== vitest run --project contracts ===
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+
+=== vitest run --project gates ===
+ Test Files  6 passed (6)
+      Tests  84 passed (84)
+
+=== vitest run --project web ===
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+

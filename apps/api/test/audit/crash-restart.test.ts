@@ -205,8 +205,89 @@ describe('A — the chain survives a process killed mid-batch', () => {
   });
 });
 
+/** Every job the queue is holding, pending or leased. */
+async function queuedJobCount(): Promise<number> {
+  const { rows } = await admin.query<{ n: string }>(
+    'select count(*)::text as n from graphile_worker._private_jobs',
+  );
+  return Number(rows[0]?.n ?? '-1');
+}
+
+/**
+ * Empties the queue, so block B starts from a queue it fully controls.
+ *
+ * ## Why this exists (OPUS-M1-004 — an order dependence, measured)
+ *
+ * Block B publishes one outbox event and then starts a real worker that takes
+ * **whatever job is next** and dies holding it. Every assertion afterwards is
+ * about `published.jobId`. That is only the job the worker took if the queue was
+ * empty when it started — and the test never said so, never checked, and for a
+ * long time was right by accident.
+ *
+ * It stopped being right by accident when OPUS-M1-004's fixture began seeding
+ * `outbox_events` in both organizations (four jobs, needed so the wrong-tenant
+ * probe over that table is not vacuous). In the FULL suite an earlier file's
+ * dispatcher drained them first and the test passed; run alone, the crash worker
+ * took a fixture job, `published.jobId` was never leased, and the assertion
+ * reported `locked_by = null` — **the exact shape of the four-hour problem it
+ * exists to disprove.** Measured 5/5 in isolation, 0/5 in the full suite.
+ *
+ * A proof that depends on an unstated precondition is not a proof of the
+ * property. So the precondition is now stated, established here, and asserted:
+ * the drain below is what an earlier file used to do by luck, and
+ * `expect(delivering.outboxEventId).toBe(published.id)` is the assertion that
+ * makes a future backlog fail loudly and specifically instead of silently
+ * measuring the wrong job.
+ *
+ * Draining is done the way production does it — a real dispatcher with the real
+ * `DatabaseOutboxSink` — not by deleting rows. A test that emptied the queue with
+ * a DELETE would be asserting against a state the system cannot reach.
+ */
+async function drainQueue(label: string, timeoutMs = 45_000): Promise<number> {
+  const before = await queuedJobCount();
+  if (before === 0) return 0;
+
+  const drainer = await startOutboxRunner({
+    worker: worker.runner,
+    sink: new DatabaseOutboxSink(worker.runner),
+    label,
+    pollIntervalMs: 50,
+    // Long: the drainer must not reclaim anybody's pool. It is emptying a
+    // backlog, not exercising C-2.
+    staleAfterMs: 3_600_000,
+    sweepIntervalMs: 3_600_000,
+  });
+  try {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      if ((await queuedJobCount()) === 0) break;
+      if (Date.now() > deadline) {
+        throw new Error(
+          `the queue still holds ${String(await queuedJobCount())} job(s) after ${String(timeoutMs)} ms; ` +
+            'block B cannot establish its precondition',
+        );
+      }
+      await new Promise((r) => setTimeout(r, 50));
+    }
+  } finally {
+    await drainer.stop();
+  }
+  return before;
+}
+
 describe('B — lease recovery on restart (SP-D condition C-2, no clock manipulation)', () => {
   it('a replacement worker reclaims a dead pool\'s job and completes it in seconds', async () => {
+    /* ── the precondition, established rather than assumed ────────────────── */
+    const drained = await drainQueue('crash-lease-drain');
+    expect(
+      await queuedJobCount(),
+      'the queue must be empty before the crash worker starts, or it takes the wrong job',
+    ).toBe(0);
+    log(
+      `B precondition: drained ${String(drained)} pre-existing job(s); the queue is empty and ` +
+        'the crash worker can only take the job this test publishes',
+    );
+
     /* ── publish something for the dead worker to pick up ─────────────────── */
     const published = await runtime.runner.run(
       groupContext(
@@ -237,7 +318,14 @@ describe('B — lease recovery on restart (SP-D condition C-2, no clock manipula
     const [ready] = await child.waitFor('ready');
     const deadPoolId = String(ready?.['poolId']);
     expect(deadPoolId).toMatch(/^pool-/);
-    await child.waitFor('delivering');
+    const [delivering] = await child.waitFor('delivering');
+    expect(
+      delivering?.['outboxEventId'],
+      'the crash worker took a DIFFERENT outbox event than the one this test published — the ' +
+        'queue was not empty when it started, and every assertion below would be about the ' +
+        'wrong job. This is the order dependence, not the four-hour problem',
+    ).toBe(published.id);
+
     const exit = await child.kill();
     expect(exit.signal).toBe('SIGKILL');
 

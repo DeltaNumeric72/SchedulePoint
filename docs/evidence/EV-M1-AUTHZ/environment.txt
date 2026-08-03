@@ -1,0 +1,31 @@
+OPUS-M1-002 — EV-M1-AUTHZ environment capture
+captured: 2026-08-03T03:46:38Z
+NOTE: every artefact in this directory is from ONE capture pass on port 55473,
+      run back to back after the last change of the delta revision.
+      Two environmental flakes are disclosed in INDEX.md §1.
+
+$ uname -a
+Darwin Prabas-MacBook-Pro.local 25.5.0 Darwin Kernel Version 25.5.0: Tue Jun  9 22:28:34 PDT 2026; root:xnu-12377.121.10~1/RELEASE_ARM64_T6041 arm64
+
+$ node --version
+v24.18.0
+
+$ corepack pnpm --version
+11.18.0
+
+$ git rev-parse --abbrev-ref HEAD
+opus/m1-002-authz-evaluator
+
+$ git log --oneline -12
+d938c6c EV-M1-AUTHZ refreshed for the REVISE revision: FAD-13, S-14, §10 ledger
+81c4be3 S-05: narrow WHO may read a capability grant, not just which tenant's
+b77ce7a S-11/S-12 + L1.1 HTTP coverage: id entropy, stale citations, one more layer
+cbfb518 S-06/S-04/S-09/S-10: L5.1 honoured, cross-checks tested, two vacuous tests fixed
+93b7289 S-02: an organization cannot be left without an administrator
+8f65fde S-07 follow-through: `roleId` means the role KEY, in both callers
+cf6447a S-03/S-07/S-13: deny fails closed, inconsistent snapshots deny, dead branch out
+dad56e4 S-01/S-08 (merge-blocking): L1 reads the entitlement IN FORCE at `now`
+ca83fa6 OPUS-M1-002 remediation: independent adversarial review, 17 findings
+56f7098 OPUS-M1-002: SPEC-06 authorization evaluator, roles/grants schema, entitlements
+5fa1c46 OPUS-M1-001 acceptance records: EV-M1-TENANCY indexed, FAD-11/12 recorded, SPEC-01 T-02/T-02b + EX-2 amended, EV-M0-SPA qualified, eslint .worktrees ignore, M1-002/003 issued
+356ddf5 OPUS-M1-001 ACCEPTED: tenancy schema + SPEC-01 context middleware end-to-end

@@ -33,3 +33,20 @@ export {
   type ContextVersionWire,
   type JobEnqueueResult,
 } from './context.js';
+
+export {
+  conflictBodySchema,
+  createMembershipRequestSchema,
+  createMembershipResultSchema,
+  setEntitlementStateRequestSchema,
+  setEntitlementStateResultSchema,
+  writeGrantRequestSchema,
+  writeGrantResultSchema,
+  type ConflictBody,
+  type CreateMembershipRequest,
+  type CreateMembershipResult,
+  type SetEntitlementStateRequest,
+  type SetEntitlementStateResult,
+  type WriteGrantRequest,
+  type WriteGrantResult,
+} from './authz.js';

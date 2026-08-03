@@ -1,0 +1,94 @@
+cluster: started (embedded PostgreSQL, FAD-7 substitution)
+bootstrap: role app_migrator: created (LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS)
+bootstrap: role app_runtime: created (LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS)
+bootstrap: role app_worker: created (LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS)
+bootstrap: role app_readonly_support: created (LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS)
+bootstrap: role app_breakglass: created (LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT BYPASSRLS)
+bootstrap: database schedulepoint_test: created, owned by app_migrator
+bootstrap: schema public: owned by app_migrator, PUBLIC revoked
+
+--- up -> down -> up -------------------------------------------
+  Can't determine timestamp for 0002
+  Can't determine timestamp for 0001
+  Can't determine timestamp for 0003
+  Can't determine timestamp for 0002
+  Can't determine timestamp for 0001
+  Can't determine timestamp for 0002
+  Can't determine timestamp for 0003
+  > Migrating files:
+  > - 0001_tenancy_core
+  > - 0002_authorization
+  > - 0003_audit_outbox
+  ### MIGRATION 0001_tenancy_core (UP) ###
+  ### MIGRATION 0002_authorization (UP) ###
+  ### MIGRATION 0003_audit_outbox (UP) ###
+  Can't determine timestamp for 0002
+  Can't determine timestamp for 0001
+  Can't determine timestamp for 0003
+  Can't determine timestamp for 0002
+  Can't determine timestamp for 0001
+  Can't determine timestamp for 0003
+  Can't determine timestamp for 0002
+  > Migrating files:
+  > - 0003_audit_outbox
+  > - 0002_authorization
+  > - 0001_tenancy_core
+  ### MIGRATION 0003_audit_outbox (DOWN) ###
+  ### MIGRATION 0002_authorization (DOWN) ###
+  ### MIGRATION 0001_tenancy_core (DOWN) ###
+  Can't determine timestamp for 0002
+  Can't determine timestamp for 0001
+  Can't determine timestamp for 0003
+  Can't determine timestamp for 0002
+  Can't determine timestamp for 0001
+  Can't determine timestamp for 0002
+  Can't determine timestamp for 0003
+  > Migrating files:
+  > - 0001_tenancy_core
+  > - 0002_authorization
+  > - 0003_audit_outbox
+  ### MIGRATION 0001_tenancy_core (UP) ###
+  ### MIGRATION 0002_authorization (UP) ###
+  ### MIGRATION 0003_audit_outbox (UP) ###
+
+up   : 0001_tenancy_core, 0002_authorization, 0003_audit_outbox
+down : 0003_audit_outbox, 0002_authorization, 0001_tenancy_core
+up   : 0001_tenancy_core, 0002_authorization, 0003_audit_outbox
+
+--- down again, then verify the schema is empty ----------------
+  Can't determine timestamp for 0002
+  Can't determine timestamp for 0001
+  Can't determine timestamp for 0003
+  Can't determine timestamp for 0002
+  Can't determine timestamp for 0001
+  Can't determine timestamp for 0002
+  Can't determine timestamp for 0003
+  > Migrating files:
+  > - 0003_audit_outbox
+  > - 0002_authorization
+  > - 0001_tenancy_core
+  ### MIGRATION 0003_audit_outbox (DOWN) ###
+  ### MIGRATION 0002_authorization (DOWN) ###
+  ### MIGRATION 0001_tenancy_core (DOWN) ###
+tables remaining after down: (none)
+policies remaining after down: 0
+
+--- up, to leave a usable schema ------------------------------
+  Can't determine timestamp for 0002
+  Can't determine timestamp for 0001
+  Can't determine timestamp for 0003
+  Can't determine timestamp for 0002
+  Can't determine timestamp for 0001
+  Can't determine timestamp for 0002
+  Can't determine timestamp for 0003
+  > Migrating files:
+  > - 0001_tenancy_core
+  > - 0002_authorization
+  > - 0003_audit_outbox
+  ### MIGRATION 0001_tenancy_core (UP) ###
+  ### MIGRATION 0002_authorization (UP) ###
+  ### MIGRATION 0003_audit_outbox (UP) ###
+up   : 0001_tenancy_core, 0002_authorization, 0003_audit_outbox
+
+MIGRATION CYCLE CLEAN — up -> down -> up -> down -> up, 771ms
+cluster: stopped

@@ -704,9 +704,32 @@ describe('SPEC-01 §7.2 T-15 — two-organization concurrency storm', () => {
         ),
     ];
 
+    /**
+     * Organization-scoped probe contexts, one per organization.
+     *
+     * The acting membership is each organization's administrator — an
+     * organization-scoped context needs an organization membership, and using a
+     * group membership's id here would be refused at the context read-back
+     * rather than probing anything.
+     */
+    const organizationProbeContexts: readonly (() => TenantContext)[] = [
+      () => ({
+        organizationId: FIXTURE.alpha.organizationId,
+        groupId: null,
+        membershipId: FIXTURE.alpha.users.organizationAdmin.membershipId,
+        correlationId: randomUUID(),
+      }),
+      () => ({
+        organizationId: FIXTURE.beta.organizationId,
+        groupId: null,
+        membershipId: FIXTURE.beta.users.organizationAdmin.membershipId,
+        correlationId: randomUUID(),
+      }),
+    ];
+
     /** Precomputed ground truth for the `users` probe, one set per context. */
     const expectedUsers = new Map<string, string[]>();
-    for (const make of contexts) {
+    for (const make of [...contexts, ...organizationProbeContexts]) {
       const context = make();
       expectedUsers.set(
         `${context.organizationId}|${String(context.groupId)}`,
@@ -807,6 +830,22 @@ describe('SPEC-01 §7.2 T-15 — two-organization concurrency storm', () => {
         // The probe runs concurrently with the batch, on its own pool, both
         // inside a unit of work and outside every unit of work.
         batch.push(probeInside(probeRuntime, contexts[iteration % contexts.length]!()));
+        // …and under an ORGANIZATION-scoped context as well (OPUS-M1-004).
+        //
+        // The storm's workload is deliberately group-scoped — it writes
+        // `memberships where group_id = context.groupId`, which has no meaning
+        // without a group — so the organization contexts are added as PROBE
+        // contexts rather than as workload contexts. Without them
+        // `audit_checkpoints` is never observed with a visible row: its policy
+        // is organization-context-only by design (0003, R-06), so a
+        // group-scoped probe over it reports the vacuous zero this storm's own
+        // non-vacuity assertion exists to catch.
+        batch.push(
+          probeInside(
+            probeRuntime,
+            organizationProbeContexts[iteration % organizationProbeContexts.length]!(),
+          ),
+        );
         batch.push(probeOutside(probeRuntime));
 
         await Promise.all(batch);

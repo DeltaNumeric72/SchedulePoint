@@ -73,6 +73,13 @@ export {
   type TargetDescriptor,
 } from './context/verification.js';
 
+/**
+ * OPUS-M1-002 adds the authorization kernel: SPEC-06's capability catalogue, its
+ * `PolicyInput`, and the pure truth-table evaluator. Same rule as everything
+ * above it — no I/O, no clock, no database.
+ */
+export * from './authz/index.js';
+
 export { ports, type PortName } from './ports/index.js';
 
 /* ── OPUS-M1-003: the audit chain and outbox ports (SPEC-11, ADR-0019) ────────

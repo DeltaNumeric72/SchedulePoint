@@ -7,9 +7,12 @@
  * group-scoped or organization-scoped, never both.
  *
  * These are the identifiers only. The capability envelope behind each of them is
- * SPEC-06's truth table, which lands with the evaluator in OPUS-M1-002; nothing
- * in this milestone maps a role to a capability set beyond the explicit
- * per-route `provisional.allowRoles` list.
+ * SPEC-06's truth table (`packages/domain/src/authz`), and the rows that carry
+ * it are `roles` and `role_capabilities`, written by
+ * `apps/api/src/authz/provisioning.ts`. OPUS-M1-001's per-route
+ * `provisional.allowRoles` list is gone — replaced on the HTTP surface by
+ * OPUS-M1-002 and deleted outright at OPUS-M1-004, when the job surface joined
+ * the same evaluator.
  *
  * `Genius` is deliberately absent: it merges into `scheduler` unless a real,
  * testable capability difference is ever specified, and an untestable

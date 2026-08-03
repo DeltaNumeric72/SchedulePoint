@@ -16,19 +16,22 @@ export const CONTEXT_PROBE_TOUCH_JOB = 'context-probe.touch';
 
 export const contextProbeTouchHandler: JobHandler = {
   kind: CONTEXT_PROBE_TOUCH_JOB,
+  // OPUS-M1-004: the SAME SPEC-06 action the HTTP route declares, evaluated by
+  // the SAME truth table (FAD-13 item 1). The provisional role allow-list this
+  // replaced could not see entitlements, module availability or grants.
+  //
+  // `apps/api/test/jobs/job-context.test.ts`, describe block "SPEC-06 §7 — one
+  // evaluator, every path", compares this declaration against the route's own
+  // `GROUP_SCOPED_CONFIG` object rather than against a copy of its contents, so
+  // the two surfaces cannot drift.
   policy: {
     capability: 'CAP-003',
     actionScope: 'group',
-    // The same list the HTTP route declares. If the two ever diverge, one
-    // surface authorizes differently from another, which SPEC-06 §7 calls a
-    // defect — `apps/api/test/jobs/job-context.test.ts`, describe block
-    // "SPEC-06 §7 — the two surfaces authorize identically", compares this list
-    // against the route's own `GROUP_SCOPED_CONFIG.provisional.allowRoles`
-    // object rather than against a copy of it.
-    allowRoles: ['scheduler', 'group_admin'],
-    rationale:
-      'Provisional, pending the SPEC-06 evaluator: the same roles the HTTP context-probe ' +
-      'mutation permits, so the two surfaces cannot disagree.',
+    action: {
+      key: 'membership.touch_self',
+      moduleKey: 'core_scheduling',
+      requiresObjectPolicy: false,
+    },
   },
   run: async (uow, _job, membership) => {
     await uow.query

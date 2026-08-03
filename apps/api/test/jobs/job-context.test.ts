@@ -1,11 +1,14 @@
+import { randomUUID } from 'node:crypto';
+
 import type { EnqueuedJob, FrozenJobContext } from '@schedulepoint/domain';
+import { sql } from 'kysely';
 import type pg from 'pg';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { defaultJobHandlers, contextProbeTouchHandler, CONTEXT_PROBE_TOUCH_JOB } from '../../src/jobs/handlers.js';
 import { executeJob } from '../../src/jobs/worker.js';
 import { adminClient } from '../support/admin-client.js';
-import { FIXTURE } from '../support/fixtures.js';
+import { FIXTURE, administratorContext } from '../support/fixtures.js';
 import { createRuntime, log, type Runtime } from '../support/harness.js';
 import {
   buildHttpHarness,
@@ -76,13 +79,11 @@ async function setMembershipField(
   membershipId: string,
   values: { group_role?: string; status?: 'invited' | 'active' | 'suspended' | 'ended' },
 ): Promise<void> {
+  // As the organization administrator: since OPUS-M1-002 a privilege-bearing
+  // membership change with no acting membership is refused at the database
+  // (EV-M1-TENANCY residual 4's control).
   await harness.runtime.runner.run(
-    {
-      organizationId: alpha.organizationId,
-      groupId: alpha.groupOne.id,
-      membershipId: null,
-      correlationId: 'job-context-role-change',
-    },
+    administratorContext(alpha.organizationId, 'job-context-role-change'),
     async ({ query }) => {
       await query
         .updateTable('memberships')
@@ -93,12 +94,103 @@ async function setMembershipField(
   );
 }
 
+/**
+ * The administrative writes the OPUS-M1-004 cases need, all through a unit of
+ * work under the organization administrator.
+ *
+ * Not through the superuser: since OPUS-M1-002 these tables are guarded by
+ * `app_require_capability`, and a test that reached around that guard would be
+ * proving the evaluator against a state the product cannot actually reach.
+ */
+async function asAdministrator<T>(
+  fn: (query: Parameters<Parameters<HttpHarness['runtime']['runner']['run']>[1]>[0]['query']) => Promise<T>,
+): Promise<T> {
+  return harness.runtime.runner.run(
+    administratorContext(alpha.organizationId, 'job-context-admin'),
+    async ({ query }) => fn(query),
+  );
+}
+
+async function setEntitlementState(
+  moduleKey: string,
+  state: 'trial' | 'active' | 'suspended' | 'revoked',
+): Promise<void> {
+  await asAdministrator(async (query) => {
+    await query
+      .updateTable('entitlements')
+      .set({ state })
+      .where('organization_id', '=', alpha.organizationId)
+      .where('module_key', '=', moduleKey)
+      .execute();
+  });
+}
+
+async function setModuleAvailability(
+  groupId: string,
+  moduleKey: string,
+  available: boolean,
+): Promise<void> {
+  await asAdministrator(async (query) => {
+    await query
+      .updateTable('group_module_availability')
+      .set({ available })
+      .where('organization_id', '=', alpha.organizationId)
+      .where('group_id', '=', groupId)
+      .where('module_key', '=', moduleKey)
+      .execute();
+  });
+}
+
+/** An explicit DENY (SPEC-06 P-1) on a membership, returning the row's id. */
+async function writeDenyGrant(
+  membershipId: string,
+  groupId: string,
+  capabilityKey: string,
+): Promise<string> {
+  const id = randomUUID();
+  await asAdministrator(async (query) => {
+    await query
+      .insertInto('capability_grants')
+      .values({
+        id,
+        organization_id: alpha.organizationId,
+        group_id: groupId,
+        membership_id: membershipId,
+        capability_key: capabilityKey,
+        granted: false,
+        granted_by_membership_id: alpha.users.organizationAdmin.membershipId,
+      })
+      .execute();
+  });
+  return id;
+}
+
+async function removeGrant(id: string): Promise<void> {
+  // No runtime role holds DELETE on `capability_grants`, so the grant is CLOSED
+  // rather than removed — which is also what the product would do (PO-DEC-04:
+  // disabling never deletes data).
+  //
+  // BOTH bounds move. `capability_grants_window` is `valid_to > valid_from`, and
+  // `valid_from` defaulted to the insert's `now()`, so closing the window means
+  // moving the whole window into the past rather than only its upper bound.
+  const from = new Date(Date.now() - 2000);
+  const to = new Date(Date.now() - 1000);
+  await asAdministrator(async (query) => {
+    await query
+      .updateTable('capability_grants')
+      .set({ valid_from: from, valid_to: to })
+      .where('id', '=', id)
+      .execute();
+  });
+}
+
 function frozenContext(overrides: Partial<FrozenJobContext> = {}): FrozenJobContext {
   return {
     actionScope: 'group',
     expectedOrganizationId: alpha.organizationId,
     expectedGroupId: alpha.groupOne.id,
     membershipId: alpha.users.scheduler.membershipId,
+    principalUserId: alpha.users.scheduler.id,
     systemActor: false,
     correlationId: 'job-context-test',
     authorizationVersionAtEnqueue: 'av1:1.1.1.1',
@@ -275,28 +367,42 @@ describe('SPEC-01 §6 / SPEC-06 §5 — execution re-evaluates against current s
   });
 });
 
-describe('SPEC-06 §7 — the two surfaces authorize identically', () => {
-  it('the job handler and the HTTP route share ONE allow-list object, not two copies', async () => {
-    // "One evaluator, every path. A surface with its own authorization logic is
-    // a defect." Until the SPEC-06 evaluator lands, the closest available
-    // assertion is that the two declarations are the SAME VALUE — compared
-    // against the route module's exported config object, not against a literal
-    // restated here. A test that restates the list keeps passing after the two
-    // surfaces diverge, which is precisely what it was written to prevent.
+describe('SPEC-06 §7 — one evaluator, every path', () => {
+  /**
+   * **The two surfaces now DO share one evaluator, and this is what says so.**
+   *
+   * OPUS-M1-002 replaced the HTTP surface's role allow-list with SPEC-06's truth
+   * table but could not touch `apps/api/src/jobs/**`, which was OPUS-M1-003's
+   * parallel file scope — so the job surface kept OPUS-M1-001's allow-list and
+   * SPEC-06 §7's "One evaluator, every path. A surface with its own
+   * authorization logic is a defect" was **not** satisfied. FAD-13 item 1 issued
+   * this integration task to close it.
+   *
+   * The test that stood here compared the worker's allow-list against the
+   * catalogue, which was the strongest thing available while two evaluators
+   * existed. It is replaced rather than deleted: the declaration is now compared
+   * against the ROUTE's own object, and the dimensions the allow-list could not
+   * see are exercised below.
+   */
+  it('the job handler declares the SAME SPEC-06 action object the HTTP route declares', async () => {
     const { GROUP_SCOPED_CONFIG } = await import('../../src/http/routes/context-probe.route.js');
 
-    expect(contextProbeTouchHandler.policy.capability).toBe(
-      GROUP_SCOPED_CONFIG.policy.capability,
-    );
+    expect(contextProbeTouchHandler.policy.capability).toBe(GROUP_SCOPED_CONFIG.policy.capability);
     expect(contextProbeTouchHandler.policy.actionScope).toBe(GROUP_SCOPED_CONFIG.actionScope);
-    expect([...contextProbeTouchHandler.policy.allowRoles].sort()).toEqual(
-      [...GROUP_SCOPED_CONFIG.provisional.allowRoles].sort(),
-    );
+    // Compared against the route's object, not against a copy of its contents:
+    // a test that restates the declaration keeps passing after the two diverge.
+    expect(contextProbeTouchHandler.policy.action).toEqual(GROUP_SCOPED_CONFIG.action);
 
-    // And the comparison is non-vacuous: both sides actually list something.
-    expect(GROUP_SCOPED_CONFIG.provisional.allowRoles.length).toBeGreaterThan(0);
+    // And the declaration names something the catalogue knows, or the evaluator
+    // would deny at L4 for a reason that looks like a permissions problem.
+    const { capabilityDefinition } = await import('@schedulepoint/domain');
+    const definition = capabilityDefinition(contextProbeTouchHandler.policy.action.key);
+    expect(definition, 'the job action is not in the capability catalogue').toBeDefined();
+    expect(definition?.scope).toBe(contextProbeTouchHandler.policy.actionScope);
+
     log(
-      `both surfaces authorize ${GROUP_SCOPED_CONFIG.policy.capability} at ${GROUP_SCOPED_CONFIG.actionScope} scope for [${GROUP_SCOPED_CONFIG.provisional.allowRoles.join(', ')}]`,
+      `both surfaces evaluate ${contextProbeTouchHandler.policy.action.key} through ` +
+        'packages/domain/src/authz — one truth table, one loader, one transaction',
     );
   });
 
@@ -312,6 +418,134 @@ describe('SPEC-06 §7 — the two surfaces authorize identically', () => {
       ).toBe(contextProbeTouchHandler.policy.capability);
     } finally {
       await app.close();
+    }
+  });
+});
+
+describe('the dimensions the worker could NOT see before OPUS-M1-004 (SPEC-06 A-07)', () => {
+  const handlers = defaultJobHandlers();
+
+  /**
+   * Each of these three would have COMPLETED under the role allow-list.
+   *
+   * The allow-list read `memberships.group_role` and nothing else, so an
+   * entitlement revoked after enqueue, a module withdrawn from the group, or an
+   * explicit deny grant written against the actor were all invisible to it. They
+   * are the reason FAD-13 called the gap "a real gap, not a cosmetic one".
+   */
+  it('L1: an entitlement revoked between enqueue and execution cancels the job', async () => {
+    const before = await lastActiveAt(admin, alpha.users.scheduler.membershipId);
+    await setEntitlementState('core_scheduling', 'revoked');
+    try {
+      const outcome = await executeJob(worker.runner, job(frozenContext()), handlers);
+      expect(outcome.status, 'a revoked module still ran its queued job').toBe(
+        'cancelled_unauthorized',
+      );
+      expect(await lastActiveAt(admin, alpha.users.scheduler.membershipId)).toStrictEqual(before);
+      log(`entitlement revoked after enqueue: ${outcome.status}`);
+    } finally {
+      await setEntitlementState('core_scheduling', 'active');
+    }
+  });
+
+  it('L2: the module made unavailable in the group cancels the job', async () => {
+    const before = await lastActiveAt(admin, alpha.users.scheduler.membershipId);
+    await setModuleAvailability(alpha.groupOne.id, 'core_scheduling', false);
+    try {
+      const outcome = await executeJob(worker.runner, job(frozenContext()), handlers);
+      expect(outcome.status).toBe('cancelled_unauthorized');
+      expect(await lastActiveAt(admin, alpha.users.scheduler.membershipId)).toStrictEqual(before);
+      log(`module availability withdrawn after enqueue: ${outcome.status}`);
+    } finally {
+      await setModuleAvailability(alpha.groupOne.id, 'core_scheduling', true);
+    }
+  });
+
+  it('L4: an explicit DENY grant on the actor cancels the job (P-1)', async () => {
+    const before = await lastActiveAt(admin, alpha.users.scheduler.membershipId);
+    const grantId = await writeDenyGrant(
+      alpha.users.scheduler.membershipId,
+      alpha.groupOne.id,
+      'membership.touch_self',
+    );
+    try {
+      const outcome = await executeJob(worker.runner, job(frozenContext()), handlers);
+      expect(outcome.status, 'an explicit deny grant did not reach the job surface').toBe(
+        'cancelled_unauthorized',
+      );
+      expect(await lastActiveAt(admin, alpha.users.scheduler.membershipId)).toStrictEqual(before);
+      log(`explicit deny grant: ${outcome.status}`);
+    } finally {
+      await removeGrant(grantId);
+    }
+  });
+
+  it('a frozen context whose principal no longer matches the membership is cancelled', async () => {
+    // The frozen principal is a real control rather than bookkeeping: it is what
+    // the evaluator's L3 cross-check compares the membership row against.
+    const outcome = await executeJob(
+      worker.runner,
+      job(frozenContext({ principalUserId: alpha.users.member.id })),
+      handlers,
+    );
+    expect(outcome.status).toBe('cancelled_unauthorized');
+  });
+
+  it('a frozen context with NO principal is refused, not evaluated without the check', async () => {
+    const outcome = await executeJob(
+      worker.runner,
+      job(frozenContext({ principalUserId: null })),
+      handlers,
+    );
+    expect(outcome.status).toBe('refused_no_context');
+  });
+
+  it('S-21: an INFINITE validity bound cancels the job instead of crashing the worker', async () => {
+    // `timestamptz` accepts `infinity`; node-postgres returns it as the JavaScript
+    // number `Infinity`, and `Infinity.toISOString` does not exist. Before the
+    // guard, `executeJob` threw a `TypeError` here — a job that neither completed
+    // nor reached a terminal state, which is exactly what SPEC-06 §5 forbids.
+    //
+    // ## Why this test drops a constraint, and why that is the honest repro
+    //
+    // `0002_authorization.sql` added `memberships_finite_window`, so this row
+    // CANNOT be written any more. The guard exists for rows written **before**
+    // that constraint did, and the only way to produce one is to put the schema
+    // briefly back into the state those rows were written in. The constraint is
+    // dropped and re-added by the SUPERUSER, around a write made through a
+    // genuine administrator unit of work (the administration trigger is NOT
+    // touched — the write is legitimate, only the bound is impossible).
+    //
+    // Re-adding the constraint at the end is a second assertion: `ADD CONSTRAINT`
+    // validates every existing row, so it fails if the repair did not land or if
+    // any other infinite bound leaked out of this test.
+    const membershipId = alpha.users.scheduler.membershipId;
+    await admin.query('alter table memberships drop constraint memberships_finite_window');
+    try {
+      await asAdministrator(async (query) => {
+        await sql`update memberships set valid_to = 'infinity'::timestamptz
+                   where id = ${membershipId}::uuid`.execute(query);
+      });
+
+      const outcome = await executeJob(worker.runner, job(frozenContext()), handlers);
+      expect(outcome.status, 'an infinite bound must not crash the worker').toBe(
+        'cancelled_unauthorized',
+      );
+      log(`membership with valid_to = infinity: ${outcome.status}, no TypeError`);
+    } finally {
+      await asAdministrator(async (query) => {
+        await query
+          .updateTable('memberships')
+          .set({ valid_to: null })
+          .where('id', '=', membershipId)
+          .execute();
+      });
+      await admin.query(
+        `alter table memberships add constraint memberships_finite_window check (
+             valid_from > '-infinity'::timestamptz and valid_from < 'infinity'::timestamptz
+         and (valid_to is null
+              or (valid_to > '-infinity'::timestamptz and valid_to < 'infinity'::timestamptz)))`,
+      );
     }
   });
 });

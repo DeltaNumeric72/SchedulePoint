@@ -8,7 +8,7 @@ import { PgUnitOfWorkRunner } from '../../src/db/unit-of-work.js';
 import { installQueueSchema } from '../../src/db/queue-schema.js';
 import { startClusterDaemon, stopClusterDaemon } from './cluster-process.js';
 import { applyHarnessEnv } from './env.js';
-import { seedFixture } from './fixtures.js';
+import { seedAuditAndOutbox, seedFixture } from './fixtures.js';
 
 /**
  * One cluster for the whole `api` test project.
@@ -66,10 +66,24 @@ export async function setup(): Promise<void> {
     pool,
     alerts: new ProcessAlertSink({ write: () => {} }),
   });
+  // OPUS-M1-004: `outbox_effects` and `audit_checkpoints` are app_worker's
+  // alone (0003's grants, SPEC-11 §2), so seeding them needs the worker's own
+  // credential. Using app_runtime raises 42501 rather than quietly succeeding,
+  // which is the grant matrix doing its job.
+  const workerPool = createPool('app_worker', { max: 2, allowExitOnIdle: true });
+  const workerRunner = new PgUnitOfWorkRunner({
+    role: 'app_worker',
+    pool: workerPool,
+    alerts: new ProcessAlertSink({ write: () => {} }),
+  });
   try {
     await seedFixture(runner);
+    // Migration 0003's four tenant tables are in `TENANT_TABLES` since
+    // OPUS-M1-004, and a probe over an empty table is a vacuous probe.
+    await seedAuditAndOutbox(runner, workerRunner);
   } finally {
     await pool.end();
+    await workerPool.end();
   }
 }
 

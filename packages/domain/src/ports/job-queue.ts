@@ -32,6 +32,18 @@ export interface FrozenJobContext {
   readonly expectedGroupId: string | null;
   /** The requesting membership, or `null` for an explicit system actor. */
   readonly membershipId: string | null;
+  /**
+   * The principal the membership was frozen for, or `null` for a system actor.
+   *
+   * Added by OPUS-M1-004 (FAD-13 item 1) because the SPEC-06 evaluator's
+   * `EvaluationContext` requires it, and the worker must not synthesise it from
+   * the membership row it is about to authorize: `loadPolicyInput` cross-checks
+   * `membership.user_id` against this value, and a principal derived from the row
+   * would make that check compare the row with itself. Frozen, it is a real
+   * control — a membership re-pointed at another user between enqueue and
+   * execution fails L3 and the job terminates `cancelled_unauthorized`.
+   */
+  readonly principalUserId: string | null;
   /** `true` when this job has no human requester. Audited as a system action. */
   readonly systemActor: boolean;
   readonly correlationId: string;

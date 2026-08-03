@@ -1,9 +1,11 @@
+import { randomUUID } from 'node:crypto';
+
 import { CONTEXT_HEADER } from '@schedulepoint/contracts';
 import type pg from 'pg';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { adminClient } from '../support/admin-client.js';
-import { FIXTURE, NONEXISTENT_ID } from '../support/fixtures.js';
+import { FIXTURE, NONEXISTENT_ID, administratorContext } from '../support/fixtures.js';
 import { log } from '../support/harness.js';
 import {
   buildHttpHarness,
@@ -450,8 +452,28 @@ describe('SPEC-01 §7.1 T-05 / T-05b — target aggregate binding and its disclo
     );
   });
 
-  it('a target in the actor\'s OWN group binds and is accepted', async () => {
-    const response = await harness.app.inject({
+  it('a target in the actor\'s OWN group binds, and the OBJECT POLICY then decides', async () => {
+    // CHANGED BY THE S-06 FIX. This route declares `requiresObjectPolicy: true`,
+    // and the declaration used to be inert — the handler computed the capability
+    // verdict and threw the decision away, so flipping the declaration to
+    // `false` changed nothing. It is honoured now, and
+    // `membership.touch_self` is self-scoped, so tenant binding passing is not
+    // the end of the question: ownership is.
+    //
+    // Own membership → bound AND owned → 200.
+    const own = await harness.app.inject({
+      method: 'POST',
+      url: targetPath(alpha.groupOne.id, alpha.users.scheduler.membershipId),
+      headers: contextHeaders(
+        alpha.users.scheduler.id,
+        await countersFor(alpha.users.scheduler.id, alpha.groupOne.id),
+      ),
+    });
+    expect(own.statusCode, own.body).toBe(200);
+
+    // Another member's membership, same group → bound, NOT owned, and the actor
+    // holds no override → 404 at L5.1. Tenant binding alone would have said yes.
+    const other = await harness.app.inject({
       method: 'POST',
       url: targetPath(alpha.groupOne.id, alpha.users.member.membershipId),
       headers: contextHeaders(
@@ -459,7 +481,69 @@ describe('SPEC-01 §7.1 T-05 / T-05b — target aggregate binding and its disclo
         await countersFor(alpha.users.scheduler.id, alpha.groupOne.id),
       ),
     });
-    expect(response.statusCode).toBe(200);
+    expect(
+      other.statusCode,
+      'the object policy is inert again — L5.1 did not decide an in-scope target',
+    ).toBe(404);
+    log('in-scope target: owned → 200, not owned → 404 at L5.1');
+  });
+
+  it('the ownership OVERRIDE lifts it — asserted in BOTH directions', async () => {
+    // **The negative half only used to exist**, under a title claiming the
+    // override lifts ownership — with an actor holding neither the override nor
+    // ownership, so it asserted nothing about the override at all. A second
+    // reviewer called it out and confirmed the positive case works; here it is.
+    //
+    // `groupOnly` is a `scheduler` in Group One: no ownership of the scheduler's
+    // membership, and `documents.manage` is not in `scheduler`'s role set.
+    const withoutOverride = await harness.app.inject({
+      method: 'POST',
+      url: targetPath(alpha.groupOne.id, alpha.users.scheduler.membershipId),
+      headers: contextHeaders(
+        alpha.users.groupOnly.id,
+        await countersFor(alpha.users.groupOnly.id, alpha.groupOne.id),
+      ),
+    });
+    expect(withoutOverride.statusCode).toBe(404);
+
+    // Now grant `documents.manage` — the route's declared override — and the
+    // SAME request succeeds. Written by the organization administrator, because
+    // a principal may not grant their own memberships.
+    const grantId = randomUUID();
+    try {
+      await harness.runtime.runner.run(
+        administratorContext(alpha.organizationId, 't05-override'),
+        async ({ query }) => {
+          await query
+            .insertInto('capability_grants')
+            .values({
+              id: grantId,
+              organization_id: alpha.organizationId,
+              group_id: alpha.groupOne.id,
+              membership_id: alpha.users.groupOnly.membershipId,
+              capability_key: 'documents.manage',
+              granted: true,
+            })
+            .execute();
+        },
+      );
+
+      const withOverride = await harness.app.inject({
+        method: 'POST',
+        url: targetPath(alpha.groupOne.id, alpha.users.scheduler.membershipId),
+        headers: contextHeaders(
+          alpha.users.groupOnly.id,
+          await countersFor(alpha.users.groupOnly.id, alpha.groupOne.id),
+        ),
+      });
+      expect(
+        withOverride.statusCode,
+        `the ownership override did not lift the object policy: ${withOverride.body}`,
+      ).toBe(200);
+      log('ownership override: 404 without it, 200 with it');
+    } finally {
+      await admin.query('delete from capability_grants where id = $1', [grantId]);
+    }
   });
 
   it('an authorized actor is still denied a target in another ORGANIZATION — 404, never 409', async () => {
@@ -632,13 +716,14 @@ describe('FAD-12 — authorization and mutation share one unit of work', () => {
    * interleaving index it is being triggered from.
    */
   async function setGroupRole(membershipId: string, role: string): Promise<void> {
+    // Acting as the organization administrator, in an ORGANIZATION-scoped
+    // context. Since OPUS-M1-002 a role change with no acting membership is
+    // refused by `memberships_guard_administration_on_privilege_change` — the
+    // control that closes EV-M1-TENANCY residual 4 — so the interleaved
+    // revocation this test performs has to be a real administrative change
+    // rather than a context-free UPDATE.
     await harness.runtime.runner.run(
-      {
-        organizationId: alpha.organizationId,
-        groupId: alpha.groupOne.id,
-        membershipId: null,
-        correlationId: 'fad-12-role-change',
-      },
+      administratorContext(alpha.organizationId, 'fad-12-role-change'),
       async ({ query }) => {
         await query
           .updateTable('memberships')

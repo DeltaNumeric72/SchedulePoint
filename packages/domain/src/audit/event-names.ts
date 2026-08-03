@@ -17,9 +17,9 @@
  * ## Why the list is short
  *
  * It contains the events the mutations that exist today actually emit, and
- * nothing speculative. OPUS-M1-002's authorization mutations add theirs when
- * they land — see `docs/evidence/EV-M1-AUDIT/INDEX.md` for the integration
- * point. A vocabulary padded with names nothing emits is a vocabulary nobody
+ * nothing speculative. OPUS-M1-002's authorization mutations added theirs at
+ * integration (OPUS-M1-004) — three names, one per shipped mutation, and not
+ * one more. A vocabulary padded with names nothing emits is a vocabulary nobody
  * trusts to be complete.
  */
 
@@ -42,6 +42,20 @@ export const AUDIT_EVENT_NAMES = [
   'audit.chain_verified',
   /** Chain verification ran and found a break. Always also an operational alert. */
   'audit.chain_broken',
+
+  /* ── OPUS-M1-002's authorization mutations, wired at OPUS-M1-004 ───────────
+   *
+   * The names are the ones `apps/api/src/http/routes/authorization.route.ts`
+   * exported as `AUDIT_EVENTS` when the routes shipped — a contract with this
+   * milestone rather than three strings invented at the integration. That file
+   * still exports them and a test compares the two, so they cannot drift. */
+
+  /** A membership was created by an administrator (SPEC-06 §1.1). */
+  'authorization.membership.created',
+  /** A capability grant was written — an allow OR an explicit deny (P-1). */
+  'authorization.capability_grant.written',
+  /** An entitlement's state moved: trial/active/suspended/revoked (CAP-057). */
+  'authorization.entitlement.state_changed',
 ] as const;
 
 export type AuditEventName = (typeof AUDIT_EVENT_NAMES)[number];
@@ -65,6 +79,14 @@ export const AUDIT_SUBJECT_TYPES = [
   'job',
   'outbox_event',
   'audit_chain',
+  /* ── OPUS-M1-004 ────────────────────────────────────────────────────────────
+   * The two aggregates OPUS-M1-002's mutations act on that were not already
+   * here. `authorization.membership.created` reuses `membership`; a grant and an
+   * entitlement are their own aggregates and must not be filed under the
+   * membership they happen to reference — a query for "everything that happened
+   * to this membership" would then return rows about a module. */
+  'capability_grant',
+  'entitlement',
 ] as const;
 
 export type AuditSubjectType = (typeof AUDIT_SUBJECT_TYPES)[number];

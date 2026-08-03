@@ -1,0 +1,158 @@
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/opus-m1-004
+
+stdout | test/authz/named-cases.test.ts > SPEC-06 §8.2 coverage ledger > prints the ledger, so the evidence bundle can quote it verbatim
+      · A-01: here — explicit deny + role allow
+      · A-02: here — explicit allow + unentitled module
+      · A-03: here — two-level dependency chain
+      · A-04: here — suspended membership + valid grant
+      · A-05: here (two instants) and apps/api/test/authz/http-authorization.test.ts (mid-session)
+      · A-06: DEFERRED — no WebSocket surface exists (SPEC-01 §5 / SPEC-02 milestone)
+      · A-07: DEFERRED (partial) — the job surface re-authorizes, but on OPUS-M1-001's role allow-list; apps/api/src/jobs/** is OPUS-M1-003's file scope. See EV-M1-AUTHZ §5 escalation 1
+      · A-08: DEFERRED — no report or artifact surface exists (SPEC-09 milestone)
+      · A-09: apps/api/test/authz/http-authorization.test.ts — disable, deny, re-enable, data intact
+      · A-10: here — PROXY_GRANTOR_DENIED
+      · A-11: here — credential surface, and the intersection rule
+      · A-12: apps/api/test/authz/schema.test.ts — the EXCLUDE constraint rejects the overlap
+      · A-13: DEFERRED — nothing caches an authorization decision in this milestone (see EV-M1-AUTHZ §5)
+      · A-14: apps/api/test/http/route-declarations.test.ts — `routeActionProblems` over the registered table
+      · A-15: packages/domain/test/authz/cross-product.test.ts — allow/deny pair per capability
+      · A-16: here — overlapping and duplicate capability keys
+      · A-17: here — organization role satisfies an organization-scoped action
+      · A-18: here — P-9: a group role never satisfies an organization-scoped action
+      · A-19: here — P-8: an organization role never reaches into a group
+      · A-20: here — organization membership suspended / expired / roleless
+      · A-21: DEFERRED — picklist fan-out does not exist (SPEC-02 milestone)
+      · A-22: DEFERRED — picklist fan-out does not exist (SPEC-02 milestone)
+      · A-23: DEFERRED — picklist fan-out does not exist (SPEC-02 milestone)
+      · 7 of 23 deferred, each with a named reason
+
+ ✓ |domain| test/authz/named-cases.test.ts > SPEC-06 §8.2 named cases decided by the pure evaluator > A-01 explicit deny + role allow → DENY (P-1) 1ms
+ ✓ |domain| test/authz/named-cases.test.ts > SPEC-06 §8.2 named cases decided by the pure evaluator > A-02 explicit allow + unentitled module → DENY NOT_ENTITLED (P-2, P-3) 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > SPEC-06 §8.2 named cases decided by the pure evaluator > A-03 dependency unsatisfied, module entitled → MODULE_DEPENDENCY_UNSATISFIED 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > SPEC-06 §8.2 named cases decided by the pure evaluator > A-04 suspended membership + valid grant → MEMBERSHIP_SUSPENDED 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > SPEC-06 §8.2 named cases decided by the pure evaluator > A-05 entitlement expires mid-session → the next evaluation is denied 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > SPEC-06 §8.2 named cases decided by the pure evaluator > A-10 proxy acts; grantor lacks the capability → PROXY_GRANTOR_DENIED 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > SPEC-06 §8.2 named cases decided by the pure evaluator > A-11 impersonation reaching a credential surface → DENY 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > SPEC-06 §8.2 named cases decided by the pure evaluator > A-11b the intersection rule: the operator must hold it in their own right 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > SPEC-06 §8.2 named cases decided by the pure evaluator > A-16 no capability key is declared in both namespaces (P-10) 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > SPEC-06 §8.2 named cases decided by the pure evaluator > A-17 organization-scoped action, organization role carries it → ALLOW, L0.2/L2.1 skipped 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > SPEC-06 §8.2 named cases decided by the pure evaluator > A-18 organization-scoped action, actor holds ONLY a group membership → NO_ORG_MEMBERSHIP (P-9) 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > SPEC-06 §8.2 named cases decided by the pure evaluator > A-19 group-scoped action, actor holds ONLY an organization role → NO_MEMBERSHIP (P-8) 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > SPEC-06 §8.2 named cases decided by the pure evaluator > A-20 organization membership suspended / expired / roleless → L3.2 / L3.3 / L3.1 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > SPEC-06 §8.2 named cases decided by the pure evaluator > P-4 backstop: an action key the catalogue does not know DENIES rather than throwing 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > SPEC-06 §8.2 named cases decided by the pure evaluator > P-4 backstop: a route whose declared scope disagrees with the catalogue DENIES 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > SPEC-06 §8.2 named cases decided by the pure evaluator > P-4 backstop: a route naming the wrong module for its capability DENIES 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > L5.1 — the object-policy branch an independent review found untested > own object: ALLOW. someone else's, with no override declared: OBJECT_POLICY 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > L5.1 — the object-policy branch an independent review found untested > an override carried by the ROLE lifts ownership 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > L5.1 — the object-policy branch an independent review found untested > an override carried by an in-window GRANT lifts ownership 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > L5.1 — the object-policy branch an independent review found untested > P-1 AT L5.1: an in-window explicit DENY of the override beats the role 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > L5.1 — the object-policy branch an independent review found untested > an OUT-OF-WINDOW override does not lift ownership 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > L5.1 — the object-policy branch an independent review found untested > SPEC-06 §3.1 State: an action legal only in some target states 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > L5.1 — the object-policy branch an independent review found untested > an action that requires an object policy but resolved no target DENIES 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > L6.2 — a malformed instant fails CLOSED > an unparseable `expiresAt` denies rather than reading as still valid 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > S-03 — an EXPLICIT DENY with an undecidable window still denies > a DENY whose validFrom is 'not-a-date' still denies 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > S-03 — an EXPLICIT DENY with an undecidable window still denies > a DENY whose validFrom is 'infinity' still denies 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > S-03 — an EXPLICIT DENY with an undecidable window still denies > a DENY whose validFrom is '-infinity' still denies 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > S-03 — an EXPLICIT DENY with an undecidable window still denies > a DENY whose validFrom is '' still denies 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > S-03 — an EXPLICIT DENY with an undecidable window still denies > a DENY whose validTo is 'not-a-date' still denies 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > S-03 — an EXPLICIT DENY with an undecidable window still denies > a DENY whose validTo is 'infinity' still denies 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > S-03 — an EXPLICIT DENY with an undecidable window still denies > a DENY whose validTo is '-infinity' still denies 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > S-03 — an EXPLICIT DENY with an undecidable window still denies > a DENY whose validTo is '' still denies 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > S-03 — an EXPLICIT DENY with an undecidable window still denies > an ALLOW with an undecidable window does NOT authorize — the positive layer stays fail-closed 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > S-03 — an EXPLICIT DENY with an undecidable window still denies > the same rule governs L5.1's ownership override 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > S-03 — an EXPLICIT DENY with an undecidable window still denies > a DECIDABLE, out-of-window deny does NOT deny — the fix is not "deny always" 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > S-07 — an inconsistent snapshot DENIES rather than allowing > an entitlement for a DIFFERENT module than the action denies 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > S-07 — an inconsistent snapshot DENIES rather than allowing > a DEPENDENCY row for the wrong module denies 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > S-07 — an inconsistent snapshot DENIES rather than allowing > a role that is not the one the membership names denies 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > S-07 — an inconsistent snapshot DENIES rather than allowing > a role supplied for a membership carrying none denies 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > S-07 — an inconsistent snapshot DENIES rather than allowing > the CONSISTENT snapshot still allows — these are not blanket refusals 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > S-13 — PROXY_MEMBERSHIP is unreachable, and that is asserted > no proxy configuration produces it 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > S-13 — PROXY_MEMBERSHIP is unreachable, and that is asserted > its disclosure mapping is still defined, because the reason still exists 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > P-5 / P-6 — the 404-vs-403 discipline > every L0, L1, L2 denial is 404 (P-5) 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > P-5 / P-6 — the 404-vs-403 discipline > every L3 denial is 404 — a non-member learns nothing (SPEC-01 §2.4) 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > P-5 / P-6 — the 404-vs-403 discipline > L4 and L6 denials are 403 — the actor already knows the tenant exists 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > P-5 / P-6 — the 404-vs-403 discipline > L5.1 defaults to 404 so a caller that forgets `bindTarget` discloses nothing 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > P-5 / P-6 — the 404-vs-403 discipline > `passedCapabilityLayer` is true exactly when L4 was cleared — SPEC-01 §2.3 step 6 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > P-5 / P-6 — the 404-vs-403 discipline > `authorizeWithoutObjectPolicy` allows exactly where L5.1 was the only failure 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > the catalogue > every capability names a module that exists 1ms
+ ✓ |domain| test/authz/named-cases.test.ts > the catalogue > no module depends on itself, directly or transitively 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > the catalogue > `moduleClosure` is transitive, not one level 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > the catalogue > every capability has a description a reviewer can read 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > SPEC-06 §8.2 coverage ledger > the ledger covers A-01..A-23 with no gaps 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > SPEC-06 §8.2 coverage ledger > prints the ledger, so the evidence bundle can quote it verbatim 1ms
+ ✓ |domain| test/layering.test.ts > @schedulepoint/domain > exports the port registry 0ms
+ ✓ |domain| test/layering.test.ts > @schedulepoint/domain > contains no import of any outward layer 1ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 — the happy path > produces the immutable tuple, with the membership derived server-side 1ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 — the happy path > the organization branch resolves the ORGANIZATION membership 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 1–3 — every failure is 404 and nothing else > organization does not resolve -> NOT_FOUND 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 1–3 — every failure is 404 and nothing else > organization is inactive -> NOT_FOUND 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 1–3 — every failure is 404 and nothing else > no membership at all -> NOT_FOUND 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 1–3 — every failure is 404 and nothing else > membership is suspended -> NOT_FOUND 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 1–3 — every failure is 404 and nothing else > membership is ended (a departed member) -> NOT_FOUND 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 1–3 — every failure is 404 and nothing else > membership window has closed -> NOT_FOUND 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 1–3 — every failure is 404 and nothing else > membership window has not opened -> NOT_FOUND 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 1–3 — every failure is 404 and nothing else > membership belongs to a different principal -> NOT_FOUND 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 1–3 — every failure is 404 and nothing else > an ORGANIZATION membership offered for a group-scoped action (P-8) -> NOT_FOUND 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 1–3 — every failure is 404 and nothing else > group membership is in a different group -> NOT_FOUND 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 1–3 — every failure is 404 and nothing else > group-scoped action declaring no group (T-06d) -> NOT_FOUND 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 1–3 — every failure is 404 and nothing else > group does not resolve -> NOT_FOUND 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 1–3 — every failure is 404 and nothing else > group belongs to a different organization -> NOT_FOUND 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 1–3 — every failure is 404 and nothing else > group is inactive -> NOT_FOUND 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 1–3 — every failure is 404 and nothing else > principal is not visible -> NOT_FOUND 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 1–3 — every failure is 404 and nothing else > principal is deactivated -> NOT_FOUND 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 1–3 — every failure is 404 and nothing else > T-06c a GROUP membership never satisfies an organization-scoped action (P-9) 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 1–3 — every failure is 404 and nothing else > an organization-scoped action that declares a group is rejected at step 3 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 4–5 — freshness is a separate, recoverable answer > a mismatched organization_version is CONTEXT_STALE 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 4–5 — freshness is a separate, recoverable answer > a mismatched group_version is CONTEXT_STALE 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 4–5 — freshness is a separate, recoverable answer > a mismatched membership_set_version is CONTEXT_STALE 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 4–5 — freshness is a separate, recoverable answer > NO declared version is stale, not exempt 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 4–5 — freshness is a separate, recoverable answer > a mismatched session_epoch is SESSION_STALE, distinctly 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 4–5 — freshness is a separate, recoverable answer > freshness is only reached AFTER membership — a departed member never sees 409 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §3 / §2.3 step 6 — target binding and the V-07 disclosure rule > a target in the declared tenant binds 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §3 / §2.3 step 6 — target binding and the V-07 disclosure rule > T-05 sibling group + AUTHORIZED -> CONTEXT_TARGET_MISMATCH 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §3 / §2.3 step 6 — target binding and the V-07 disclosure rule > T-05b sibling group + NOT authorized -> NOT_FOUND, and a security event 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §3 / §2.3 step 6 — target binding and the V-07 disclosure rule > a target that does not resolve is NOT_FOUND whatever the actor holds 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §3 / §2.3 step 6 — target binding and the V-07 disclosure rule > the wrong aggregate type is a mismatch, not a silent accept 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §3 / §2.3 step 6 — target binding and the V-07 disclosure rule > an organization-scoped context does not compare the group 0ms
+ ✓ |domain| test/context-verification.test.ts > the unit-of-work read-back comparison > a null group and a null membership are the empty string on the wire 0ms
+ ✓ |domain| test/context-verification.test.ts > the unit-of-work read-back comparison > an exact read-back reports no mismatch 0ms
+ ✓ |domain| test/context-verification.test.ts > the unit-of-work read-back comparison > T-14b a lost app.group_id is reported — a single-setting read-back would not see it 0ms
+ ✓ |domain| test/context-verification.test.ts > the unit-of-work read-back comparison > every one of the four settings is compared 0ms
+ ✓ |domain| test/context-verification.test.ts > supporting pure functions > authorizationVersionOf distinguishes every input 0ms
+ ✓ |domain| test/context-verification.test.ts > supporting pure functions > contextVersionsMatch treats a null group version as distinct from a numeric one 0ms
+ ✓ |domain| test/context-verification.test.ts > supporting pure functions > membershipIsActive implements SPEC-06 L3.2 and L3.3 0ms
+ ✓ |domain| test/context-verification.test.ts > R-15 — a nested unit of work may not change tenant OR actor > the same tuple is not a change 0ms
+ ✓ |domain| test/context-verification.test.ts > R-15 — a nested unit of work may not change tenant OR actor > a different organization or group is a change 0ms
+ ✓ |domain| test/context-verification.test.ts > R-15 — a nested unit of work may not change tenant OR actor > a different NON-NULL acting membership is a change — attribution integrity 0ms
+ ✓ |domain| test/context-verification.test.ts > R-15 — a nested unit of work may not change tenant OR actor > a NULL inner membership is NOT a change — it means "no actor of my own" 0ms
+ ✓ |domain| test/context-verification.test.ts > R-15 — a nested unit of work may not change tenant OR actor > an outer with no actor and an inner that names one is still a change 0ms
+stdout | test/authz/cross-product.test.ts > SPEC-06 §8.1 — the full generated cross-product > every case agrees with the independent oracle
+      · 39285000 cases evaluated in 19305 ms, 0 disagreements
+      · outcomes: ALLOW=2160 L0.1 ORG_INACTIVE=19642500 L0.2 GROUP_INACTIVE=8910000 L1.1 NOT_ENTITLED=2146500 L1.2 ENTITLEMENT_REVOKED=2146500 L1.2 ENTITLEMENT_SUSPENDED=2146500 L1.3 ENTITLEMENT_EXPIRED=2862000 L1.4 MODULE_DEPENDENCY_UNSATISFIED=445500 L2.1 MODULE_UNAVAILABLE_IN_GROUP=378000 L3.1 NO_MEMBERSHIP=75600 L3.1 NO_ORG_MEMBERSHIP=107100 L3.2 MEMBERSHIP_ENDED=106200 L3.2 MEMBERSHIP_INVITED=106200 L3.2 MEMBERSHIP_SUSPENDED=106200 L3.3 MEMBERSHIP_EXPIRED=53100 L4.1 EXPLICIT_DENY=17700 L4.2 NO_CAPABILITY=15150 L5.1 OBJECT_POLICY=6750 L6.1 PROXY_GRANTOR_DENIED=2700 L6.1 PROXY_INVALID=2700 L6.1 PROXY_SCOPE=2700 L6.2 IMPERSONATION_EXPIRED=1080 L6.2 IMPERSONATION_FORBIDDEN_SURFACE=2160
+
+ ✓ |domain| test/authz/cross-product.test.ts > SPEC-06 §8.1 — the full generated cross-product > every case agrees with the independent oracle 6ms
+ ✓ |domain| test/authz/cross-product.test.ts > SPEC-06 §8.1 — the full generated cross-product > the battery is the full product, not a sample 0ms
+ ✓ |domain| test/authz/cross-product.test.ts > SPEC-06 §8.1 — the full generated cross-product > EVERY row of the truth table is exercised by a generated case 0ms
+ ✓ |domain| test/authz/cross-product.test.ts > SPEC-06 §8.1 — the full generated cross-product > A-15: every capability has BOTH an allow and a deny case 0ms
+ ✓ |domain| test/authz/cross-product.test.ts > SPEC-06 §8.1 — the full generated cross-product > both halves of the scope dimension are non-empty for every capability 652ms
+ ✓ |domain| test/authz/cross-product.test.ts > SPEC-06 §8.1 — the full generated cross-product > every denial resolves to exactly one disclosure, and none of them is an explanation 1ms
+ ✓ |domain| test/authz/cross-product.test.ts > the oracle is not the evaluator > the base case is an ALLOW in both 0ms
+ ✓ |domain| test/authz/cross-product.test.ts > the oracle is not the evaluator > moving orgStatus alone denies with { orgStatus: 'inactive' } in both 0ms
+ ✓ |domain| test/authz/cross-product.test.ts > the oracle is not the evaluator > moving groupStatus alone denies with { groupStatus: 'inactive' } in both 0ms
+ ✓ |domain| test/authz/cross-product.test.ts > the oracle is not the evaluator > moving entitlement alone denies with { entitlement: 'absent' } in both 0ms
+ ✓ |domain| test/authz/cross-product.test.ts > the oracle is not the evaluator > moving window alone denies with { window: 'after' } in both 0ms
+ ✓ |domain| test/authz/cross-product.test.ts > the oracle is not the evaluator > moving availability alone denies with { available: false } in both 0ms
+ ✓ |domain| test/authz/cross-product.test.ts > the oracle is not the evaluator > moving membership alone denies with { membershipStatus: 'absent' } in both 0ms
+ ✓ |domain| test/authz/cross-product.test.ts > the oracle is not the evaluator > moving membership window alone denies with { membershipWindow: 'expired' } in both 0ms
+ ✓ |domain| test/authz/cross-product.test.ts > the oracle is not the evaluator > moving role alone denies with { role: 'member' } in both 0ms
+ ✓ |domain| test/authz/cross-product.test.ts > the oracle is not the evaluator > moving grant alone denies with { grant: 'deny' } in both 0ms
+ ✓ |domain| test/authz/cross-product.test.ts > the oracle is not the evaluator > moving ownership alone denies with { ownership: 'other' } in both 0ms
+ ✓ |domain| test/authz/cross-product.test.ts > the oracle is not the evaluator > moving proxy alone denies with { proxy: 'notifications-only' } in both 0ms
+ ✓ |domain| test/authz/cross-product.test.ts > the oracle is not the evaluator > moving impersonation alone denies with { impersonation: 'expired' } in both 0ms
+
+ Test Files  4 passed (4)
+      Tests  119 passed (119)
+   Start at  01:07:35
+   Duration  20.17s (transform 117ms, setup 0ms, collect 19.54s, tests 672ms, environment 0ms, prepare 169ms)
+

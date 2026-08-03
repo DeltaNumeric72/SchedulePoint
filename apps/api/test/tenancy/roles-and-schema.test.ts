@@ -5,8 +5,15 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { ROLES } from '../../src/db/roles.js';
 import { TENANT_TABLES } from '../../src/db/schema.js';
+import { NON_TENANT_TABLES, accountedForTables } from '../support/schema-census.js';
 import { adminClient } from '../support/admin-client.js';
-import { FIXTURE, NONEXISTENT_ID, groupContext, organizationContext } from '../support/fixtures.js';
+import {
+  FIXTURE,
+  NONEXISTENT_ID,
+  administratorContext,
+  groupContext,
+  organizationContext,
+} from '../support/fixtures.js';
 import { createRuntime, log, outsideUnitOfWork, type Runtime } from '../support/harness.js';
 
 /**
@@ -192,6 +199,20 @@ describe('A — environment and the SPEC-01 §4.4 role matrix', () => {
   });
 
   it('A-04 FORCE RLS binds the OWNER too: app_migrator sees zero rows without context', async () => {
+    /* The ONE table this is not true of, and it is true on purpose.
+     *
+     * `audit_checkpoints` carries FAD-14's maintenance-plane read — `FOR SELECT
+     * TO app_migrator USING (true)` — so the schema owner CAN read it without a
+     * tenant context, which is the whole reason the policy exists: the periodic
+     * checkpoint and verification jobs must ask "which organizations are due?"
+     * before any per-tenant unit of work exists to ask it in.
+     *
+     * Asserted in both directions rather than skipped. Skipping it would make
+     * the exemption invisible here; asserting `> 0` makes it fail if the policy
+     * is ever removed, and asserting the other roles see nothing makes it fail if
+     * the reach ever widens beyond `app_migrator`. */
+    const MAINTENANCE_READABLE = new Set(['audit_checkpoints']);
+
     const migrator = createRuntime('app_migrator', { max: 1 });
     try {
       for (const table of TENANT_TABLES) {
@@ -199,12 +220,52 @@ describe('A — environment and the SPEC-01 §4.4 role matrix', () => {
           migrator,
           `select count(*)::int as n from ${table.name}`,
         );
+        if (MAINTENANCE_READABLE.has(table.name)) {
+          expect(
+            result.rows[0]?.n,
+            `${table.name} carries FAD-14's maintenance read but app_migrator sees nothing — ` +
+              'either the policy is gone or the fixture seeds no rows, and both make this vacuous',
+          ).toBeGreaterThan(0);
+          continue;
+        }
         expect(result.rows[0]?.n, `app_migrator sees ${table.name} rows without context`).toBe(0);
       }
-      log('app_migrator, the schema owner, reads 0 rows from every tenant table without context');
+      log(
+        `app_migrator reads 0 rows from every tenant table without context except ` +
+          `${[...MAINTENANCE_READABLE].join(', ')} (FAD-14's sanctioned maintenance read)`,
+      );
     } finally {
       await migrator.destroy();
     }
+  });
+
+  it('the FAD-14 maintenance read reaches app_migrator ALONE, and no runtime role', async () => {
+    // The exemption's blast radius, asserted directly. Every RLS-bound role must
+    // see nothing without context — including `app_worker`, which is the role
+    // that actually writes checkpoints.
+    //
+    // `app_breakglass` is excluded and must be: SPEC-01 §4.4 gives it
+    // `BYPASSRLS` deliberately ("two-person emergency only, every session
+    // audited and alerted"), so it reads every table in every tenant by
+    // definition. Asserting 0 for it would contradict the role matrix, and A-08
+    // asserts the attribute directly. It is named here rather than silently
+    // omitted so the omission is a decision a reader can see.
+    for (const role of ['app_runtime', 'app_worker', 'app_readonly_support'] as const) {
+      const runtime = createRuntime(role, { max: 1 });
+      try {
+        const result = await outsideUnitOfWork<{ n: number }>(
+          runtime,
+          'select count(*)::int as n from audit_checkpoints',
+        );
+        expect(
+          result.rows[0]?.n,
+          `${role} reached audit_checkpoints without a tenant context`,
+        ).toBe(0);
+      } finally {
+        await runtime.destroy();
+      }
+    }
+    log('FAD-14 maintenance read: app_migrator only; the three RLS-bound roles read 0 rows');
   });
 
   it('A-05 no runtime role holds TRUNCATE or REFERENCES on ANY tenant table', async () => {
@@ -361,20 +422,40 @@ describe('X — sharp edges from the executed spike, re-proved against productio
 
     // Now prove the FK itself, out of band, where RLS is not the thing being
     // tested: as superuser, a cross-tenant composite reference still fails.
-    await expect(
-      admin.query(
-        `insert into memberships (id, organization_id, group_id, user_id, kind, group_role)
-         values ($1, $2, $3, $4, 'group', 'member')`,
-        [
-          randomUUID(),
-          FIXTURE.alpha.organizationId,
-          FIXTURE.beta.groupOne.id,
-          FIXTURE.alpha.users.scheduler.id,
-        ],
-      ),
-    ).rejects.toMatchObject({ code: '23503' });
+    //
+    // CHANGED BY OPUS-M1-002. The statement now has to get PAST the capability
+    // guard first — `memberships_guard_administration_on_insert` fires BEFORE
+    // the FK and would report 42501, which would make this assertion pass for
+    // the wrong reason and stop measuring the FK at all. So the session declares
+    // an authorized administrator, and the 23503 that follows is the composite
+    // FK and nothing else. The version of this test that just expected "some
+    // rejection" would have silently stopped testing X-06.
+    await admin.query('BEGIN');
+    try {
+      await admin.query(`select set_config('app.organization_id', $1, true)`, [
+        FIXTURE.alpha.organizationId,
+      ]);
+      await admin.query(`select set_config('app.group_id', '', true)`);
+      await admin.query(`select set_config('app.membership_id', $1, true)`, [
+        FIXTURE.alpha.users.organizationAdmin.membershipId,
+      ]);
+      await expect(
+        admin.query(
+          `insert into memberships (id, organization_id, group_id, user_id, kind, group_role)
+           values ($1, $2, $3, $4, 'group', 'member')`,
+          [
+            randomUUID(),
+            FIXTURE.alpha.organizationId,
+            FIXTURE.beta.groupOne.id,
+            FIXTURE.alpha.users.scheduler.id,
+          ],
+        ),
+      ).rejects.toMatchObject({ code: '23503' });
+    } finally {
+      await admin.query('ROLLBACK');
+    }
 
-    log('cross-tenant membership reference rejected by the composite FK (23503) even as superuser');
+    log('cross-tenant membership reference rejected by the composite FK (23503) even as an authorized superuser');
   });
 
   it('X-11 tenant-qualified unique keys keep 23505 inside the caller\'s own tenant', async () => {
@@ -556,6 +637,112 @@ describe('X — sharp edges from the executed spike, re-proved against productio
   });
 });
 
+describe('OPUS-M1-004 — the registry accounts for EVERY table in the schema', () => {
+  /**
+   * The omission this task exists to fix, turned into a check.
+   *
+   * `TENANT_TABLES` drives the pool-cleanliness probe, the wrong-tenant probe,
+   * the T-15 storm, the (role, table) privilege matrix and the nullif-guard
+   * scan. Migration 0003's four tenant tables were left out of it — not by
+   * anyone's choice, but because `db/schema.ts` was a parallel task's file scope
+   * — and nothing noticed, because **nothing was asking**. Every one of those
+   * probes reported clean while covering none of them.
+   *
+   * So the question is asked here, against the database rather than against a
+   * list: every table in the public schema is either registered as a tenant
+   * table or declared as a non-tenant one WITH A REASON. A future migration
+   * cannot add a table that both lists forget.
+   */
+  it('every public table is either in TENANT_TABLES or declared with a reason', async () => {
+    const result = await admin.query<{ tablename: string }>(
+      `select c.relname as tablename
+         from pg_class c join pg_namespace n on n.oid = c.relnamespace
+        where n.nspname = 'public' and c.relkind = 'r'
+        order by 1`,
+    );
+    const actual = result.rows.map((row) => row.tablename).sort();
+    expect(actual.length, 'no tables found — the check would be vacuous').toBeGreaterThan(10);
+
+    const accounted = new Set(accountedForTables());
+    const unaccounted = actual.filter((name) => !accounted.has(name));
+    expect(
+      unaccounted,
+      `these tables are in neither list — register them in TENANT_TABLES or declare them in ` +
+        `test/support/schema-census.ts with a reason:\n${unaccounted.join('\n')}`,
+    ).toEqual([]);
+
+    // And the other direction: a registry entry naming a table that does not
+    // exist silently drops that table from every probe above, and reads as
+    // coverage.
+    const missing = [...accounted].filter((name) => !actual.includes(name)).sort();
+    expect(missing, `these registry entries name no real table:\n${missing.join('\n')}`).toEqual([]);
+
+    log(
+      `${String(actual.length)} public tables: ${String(TENANT_TABLES.length)} tenant, ` +
+        `${String(NON_TENANT_TABLES.length)} declared non-tenant, 0 unaccounted`,
+    );
+  });
+
+  it('every declared non-tenant table carries a real reason', () => {
+    for (const table of NON_TENANT_TABLES) {
+      expect(table.reason.length, `${table.name}'s exclusion has no reason`).toBeGreaterThan(60);
+    }
+  });
+
+  it('the audit and outbox tables are registered with the scope their POLICIES have', async () => {
+    // The registry's `scope` is what `wrongTenantProbe` builds its predicate
+    // from, so a mis-declared scope produces a probe that cannot fail. Checked
+    // against `pg_policies` rather than against the migration text.
+    const expected: readonly { table: string; groupPredicate: boolean }[] = [
+      { table: 'audit_events', groupPredicate: true },
+      { table: 'outbox_events', groupPredicate: true },
+      { table: 'outbox_effects', groupPredicate: true },
+      { table: 'audit_checkpoints', groupPredicate: false },
+    ];
+
+    for (const { table, groupPredicate } of expected) {
+      const registered = TENANT_TABLES.find((entry) => entry.name === table);
+      expect(registered, `${table} is not registered`).toBeDefined();
+      expect(registered?.scope).toBe(
+        groupPredicate ? 'organization-and-group' : 'organization-context-only',
+      );
+
+      // A `group_id` COLUMN is what makes the group half of the probe's
+      // predicate expressible at all. `wrongTenantProbe`'s
+      // `organization-and-group` branch compares it; if the column is absent the
+      // probe would not compile, and if it is present but the table is
+      // registered organization-only the group half of the check silently
+      // vanishes. Read from the catalogue, not from the migration text.
+      const columns = await admin.query<{ n: string }>(
+        `select count(*)::text as n from information_schema.columns
+          where table_schema = 'public' and table_name = $1 and column_name = 'group_id'`,
+        [table],
+      );
+      expect(
+        columns.rows[0]?.n === '1',
+        `${table}'s registered scope disagrees with whether it HAS a group_id column`,
+      ).toBe(groupPredicate);
+
+      const policies = await admin.query<{ qual: string | null; with_check: string | null }>(
+        `select qual, with_check from pg_policies
+          where schemaname = 'public' and tablename = $1 and roles::text = '{public}'`,
+        [table],
+      );
+      expect(policies.rows.length, `${table} has no PUBLIC policy`).toBeGreaterThan(0);
+
+      // Every one of them reads `app.group_id` — the group-scoped tables to bind
+      // against it, `audit_checkpoints` to require it be NULL (0003, R-06). A
+      // policy on a tenant table that never consults the group setting is a
+      // policy that cannot distinguish the two contexts.
+      const consultsGroupSetting = policies.rows.every((row) =>
+        /app\.group_id/.test(`${row.qual ?? ''} ${row.with_check ?? ''}`),
+      );
+      expect(consultsGroupSetting, `a policy on ${table} never reads app.group_id`).toBe(true);
+    }
+    log('four 0003 tables registered with the scope their policies actually implement');
+  });
+});
+
 describe('R-05 — app_runtime\'s DML envelope is bounded by grants, not by convention', () => {
   const COUNTER_COLUMNS: readonly { table: string; column: string }[] = [
     { table: 'organizations', column: 'organization_version' },
@@ -683,9 +870,15 @@ describe('R-05 — app_runtime\'s DML envelope is bounded by grants, not by conv
 
     const inGroupOne = (): ReturnType<typeof groupContext> =>
       groupContext(FIXTURE.alpha.organizationId, FIXTURE.alpha.groupOne.id);
+    // A ROLE change is a privilege change, and since OPUS-M1-002 that needs an
+    // acting administrator (EV-M1-TENANCY residual 4's control). A
+    // `last_active_at` touch is not, and deliberately still runs in the plain
+    // group context below — the two paths differing is the property under test.
+    const asAdministrator = (): ReturnType<typeof groupContext> =>
+      administratorContext(FIXTURE.alpha.organizationId, 'r05-role-change');
 
     const before = await read();
-    await runtime.runner.run(inGroupOne(), async ({ query }) =>
+    await runtime.runner.run(asAdministrator(), async ({ query }) =>
       query.updateTable('memberships').set({ group_role: 'viewer' }).where('id', '=', membershipId).execute(),
     );
     const afterRoleChange = await read();
@@ -700,7 +893,7 @@ describe('R-05 — app_runtime\'s DML envelope is bounded by grants, not by conv
       afterRoleChange,
     );
 
-    await runtime.runner.run(inGroupOne(), async ({ query }) =>
+    await runtime.runner.run(asAdministrator(), async ({ query }) =>
       query.updateTable('memberships').set({ group_role: 'member' }).where('id', '=', membershipId).execute(),
     );
     log('role change bumps membership_set_version; last_active_at does not');
@@ -750,23 +943,35 @@ describe('R-05 — app_runtime\'s DML envelope is bounded by grants, not by conv
   });
 });
 
-describe('residuals this milestone leaves open', () => {
-  // R-03(c). These tests DOCUMENT current behaviour rather than asserting a
-  // desired property: each one passing means the residual is real and still
-  // open. When OPUS-M1-002's capability gate lands, these are the assertions it
-  // flips — a red baseline, deliberately left red-side-up.
+describe('EV-M1-TENANCY residuals 1, 2 and 4 — CLOSED by OPUS-M1-002', () => {
+  // These three tests were written by OPUS-M1-001 as a deliberately red-side-up
+  // baseline: each one PASSED by demonstrating that the residual was real, and
+  // the describe block was called "residuals this milestone leaves open".
   //
-  // They are recorded in `apps/api/migrations/0001_tenancy_core.sql` (the `users`
-  // docblock) and in `docs/evidence/EV-M1-TENANCY/INDEX.md` §5.
+  // They have been flipped. Each now asserts the control, and the assertion is
+  // the mirror image of what it replaced — same statement, same context, opposite
+  // outcome. The closure is recorded in `docs/evidence/EV-M1-AUTHZ/INDEX.md` §4;
+  // EV-M1-TENANCY §5.2 is left as the historical record and is not edited.
+  //
+  // The control is `apps/api/migrations/0002_authorization.sql`'s
+  // `memberships_guard_administration_on_insert` / `_on_privilege_change`, which
+  // require `organization.membership.administer` from the acting membership.
+  // FAD-11 ruling 3 permits it: a TRIGGER on `memberships` that reads
+  // `memberships` is not the infinite recursion a POLICY on `memberships` that
+  // reads `memberships` would be.
 
-  it('RESIDUAL (1): an organization-scoped writer can attach ANY user to its organization', async () => {
-    // `memberships_organization_scope`'s WITH CHECK constrains organization_id
-    // and group_id; it never inspects user_id, and it cannot — `users` carries no
-    // tenant column by PO-DEC-06's design, so there is no tenant to compare
-    // against. The control is SPEC-06 L4.2 on the user-administration
-    // capability, which does not exist yet.
+  it('RESIDUAL (1) CLOSED: an actor with no capability can no longer attach ANY user', async () => {
     const betaOnlyUser = FIXTURE.beta.users.organizationAdmin.id;
     const attachedMembershipId = '0f000001-1111-4111-8111-00000000f001';
+
+    // The counter is read BEFORE, so the "did not move" claim below is an
+    // assertion rather than a log line. The first version of this test selected
+    // the value, interpolated it into a message, and compared it to nothing —
+    // found by an independent review.
+    const counterBefore = await admin.query<{ v: string }>(
+      'select membership_set_version as v from users where id = $1',
+      [betaOnlyUser],
+    );
 
     // Before: Beta's user is invisible under Alpha's organization context.
     const invisibleBefore = await runtime.runner.run(
@@ -776,64 +981,96 @@ describe('residuals this milestone leaves open', () => {
     );
     expect(invisibleBefore).toHaveLength(0);
 
+    // The statement that used to succeed. It is byte-for-byte the one
+    // OPUS-M1-001 recorded, including the context with no acting membership.
+    await expect(
+      runtime.runner.run(organizationContext(FIXTURE.alpha.organizationId), async ({ query }) =>
+        query
+          .insertInto('memberships')
+          .values({
+            id: attachedMembershipId,
+            organization_id: FIXTURE.alpha.organizationId,
+            group_id: null,
+            user_id: betaOnlyUser,
+            kind: 'organization',
+            organization_role: 'org_admin',
+            group_role: null,
+          })
+          .execute(),
+      ),
+      'the residual is OPEN again — an unauthorized actor attached a foreign user',
+    ).rejects.toMatchObject({ code: '42501' });
+
+    // And the two consequences the residual named are both absent: the user is
+    // still invisible, and the FOREIGN user's monotonic, un-lowerable
+    // `membership_set_version` did not move.
+    const invisibleAfter = await runtime.runner.run(
+      organizationContext(FIXTURE.alpha.organizationId),
+      async ({ query }) =>
+        query.selectFrom('users').select(['id']).where('id', '=', betaOnlyUser).execute(),
+    );
+    expect(invisibleAfter, 'the foreign user became readable').toHaveLength(0);
+
+    const rows = await admin.query<{ n: string; v: string }>(
+      `select (select count(*) from memberships where id = $1)::text as n,
+              (select membership_set_version from users where id = $2)::text as v`,
+      [attachedMembershipId, betaOnlyUser],
+    );
+    expect(rows.rows[0]?.n, 'the membership row landed anyway').toBe('0');
+    expect(
+      Number(rows.rows[0]?.v),
+      "the foreign user's monotonic, un-lowerable membership_set_version moved",
+    ).toBe(Number(counterBefore.rows[0]?.v));
+    log(
+      `RESIDUAL 1 CLOSED: unauthorized attach -> 42501; foreign user's membership_set_version ` +
+        `asserted unchanged at ${String(rows.rows[0]?.v)}`,
+    );
+  });
+
+  it('RESIDUAL (1) CLOSED, both directions: an AUTHORIZED administrator still can', async () => {
+    // A gate that refused everything would satisfy the test above and break the
+    // product. The organization administrator holds
+    // `organization.membership.administer` through `role_capabilities`, so the
+    // same statement succeeds — for a user of its OWN organization.
+    const membershipId = '0f000004-1111-4111-8111-00000000f004';
     try {
-      // One statement, and the user becomes Alpha's.
       await runtime.runner.run(
-        organizationContext(FIXTURE.alpha.organizationId),
+        administratorContext(FIXTURE.alpha.organizationId, 'residual-1-positive'),
         async ({ query }) =>
           query
             .insertInto('memberships')
             .values({
-              id: attachedMembershipId,
+              id: membershipId,
               organization_id: FIXTURE.alpha.organizationId,
-              group_id: null,
-              user_id: betaOnlyUser,
-              kind: 'organization',
-              organization_role: 'org_admin',
-              group_role: null,
+              group_id: FIXTURE.alpha.groupTwo.id,
+              user_id: FIXTURE.alpha.users.member.id,
+              kind: 'group',
+              group_role: 'member',
+              organization_role: null,
             })
             .execute(),
       );
-
-      const visibleAfter = await runtime.runner.run(
-        organizationContext(FIXTURE.alpha.organizationId),
-        async ({ query }) =>
-          query.selectFrom('users').select(['id', 'login_email']).where('id', '=', betaOnlyUser).execute(),
+      const landed = await admin.query<{ n: string }>(
+        'select count(*)::text as n from memberships where id = $1',
+        [membershipId],
       );
-      expect(
-        visibleAfter,
-        'the residual has been closed — update this test and INDEX.md §5',
-      ).toHaveLength(1);
-      log(
-        'RESIDUAL CONFIRMED: a membership INSERT attaches a foreign user and makes them readable. ' +
-          'Owner: OPUS-M1-002 (capability gate on user administration).',
-      );
+      expect(landed.rows[0]?.n, 'the gate refuses an authorized administrator too').toBe('1');
+      log('an authorized administrator can still create a membership — the gate is not a wall');
     } finally {
-      await admin.query('delete from memberships where id = $1', [attachedMembershipId]);
+      await admin.query('delete from memberships where id = $1', [membershipId]);
     }
-
-    // The tenant boundary itself is NOT breached: Beta's own rows stay invisible.
-    const betaMemberships = await runtime.runner.run(
-      organizationContext(FIXTURE.alpha.organizationId),
-      async ({ query }) =>
-        query
-          .selectFrom('memberships')
-          .select(['id'])
-          .where('organization_id', '=', FIXTURE.beta.organizationId)
-          .execute(),
-    );
-    expect(betaMemberships, 'the ORGANIZATION boundary leaked, which would be a different finding').toHaveLength(0);
   });
 
-  it('RESIDUAL (2): the membership FK is a global user-id existence oracle', async () => {
-    // `memberships.user_id REFERENCES users (id)` is checked outside RLS. A
-    // membership INSERT naming a non-existent user raises 23503; one naming an
-    // existing-but-invisible user gets past the FK. The pair distinguishes "this
-    // id exists somewhere" from "it does not".
+  it('RESIDUAL (2) CLOSED: the FK is no longer a global user-id existence oracle', async () => {
+    // The oracle was the DIFFERENCE between two outcomes: a non-existent user id
+    // raised 23503 (the FK talking) while an existing-but-invisible one was
+    // accepted. Both statements now stop at the same place, with the same
+    // SQLSTATE, before the FK is ever consulted — a BEFORE ROW trigger runs
+    // before referential integrity is checked, measured on this cluster rather
+    // than assumed.
     const probeId = '0f000002-1111-4111-8111-00000000f002';
 
-    // (a) An id that exists nowhere: 23503, the FK talking.
-    await expect(
+    const attempt = (userId: string): Promise<unknown> =>
       runtime.runner.run(organizationContext(FIXTURE.alpha.organizationId), async ({ query }) =>
         query
           .insertInto('memberships')
@@ -841,39 +1078,118 @@ describe('residuals this milestone leaves open', () => {
             id: probeId,
             organization_id: FIXTURE.alpha.organizationId,
             group_id: null,
-            user_id: NONEXISTENT_ID,
+            user_id: userId,
             kind: 'organization',
             organization_role: 'org_admin',
             group_role: null,
           })
           .execute(),
-      ),
-    ).rejects.toMatchObject({ code: '23503' });
+      );
 
-    // (b) An id that exists only in Beta: the FK is satisfied, so the failure
-    //     mode differs — and the difference is the oracle.
-    try {
-      await runtime.runner.run(organizationContext(FIXTURE.alpha.organizationId), async ({ query }) =>
-        query
-          .insertInto('memberships')
-          .values({
-            id: probeId,
-            organization_id: FIXTURE.alpha.organizationId,
-            group_id: null,
-            user_id: FIXTURE.beta.users.scheduler.id,
-            kind: 'organization',
-            organization_role: 'org_admin',
-            group_role: null,
-          })
-          .execute(),
+    const codes: string[] = [];
+    for (const userId of [NONEXISTENT_ID, FIXTURE.beta.users.scheduler.id]) {
+      await attempt(userId).then(
+        () => {
+          codes.push('ACCEPTED');
+        },
+        (error: unknown) => {
+          codes.push(String((error as { code?: string }).code));
+        },
       );
-      log(
-        'RESIDUAL CONFIRMED: non-existent user id -> 23503, invisible-but-existing user id -> accepted. ' +
-          'Owner: OPUS-M1-002 (capability gate on the INSERT).',
-      );
-    } finally {
-      await admin.query('delete from memberships where id = $1', [probeId]);
     }
+
+    expect(codes, 'the two outcomes still differ — the oracle is open').toEqual(['42501', '42501']);
+    const landed = await admin.query<{ n: string }>(
+      'select count(*)::text as n from memberships where id = $1',
+      [probeId],
+    );
+    expect(landed.rows[0]?.n).toBe('0');
+    log(
+      'RESIDUAL 2 CLOSED: a non-existent user id and an existing-but-invisible one now produce ' +
+        'the SAME SQLSTATE (42501), so the pair discloses nothing',
+    );
+  });
+
+  it('RESIDUAL (4) CLOSED: a member cannot escalate its own role', async () => {
+    // "An actor with UPDATE on `memberships` in its own group can raise its own
+    // role." The acting membership is the Alpha member — role `member`, which
+    // holds no administration capability — and the target is itself.
+    const membershipId = FIXTURE.alpha.users.member.membershipId;
+    const before = await admin.query<{ group_role: string }>(
+      'select group_role from memberships where id = $1',
+      [membershipId],
+    );
+
+    await expect(
+      runtime.runner.run(
+        groupContext(FIXTURE.alpha.organizationId, FIXTURE.alpha.groupOne.id, membershipId),
+        async ({ query }) =>
+          query
+            .updateTable('memberships')
+            .set({ group_role: 'group_admin' })
+            .where('id', '=', membershipId)
+            .execute(),
+      ),
+      'a member escalated its own role',
+    ).rejects.toMatchObject({ code: '42501' });
+
+    const after = await admin.query<{ group_role: string }>(
+      'select group_role from memberships where id = $1',
+      [membershipId],
+    );
+    expect(after.rows[0]?.group_role).toBe(before.rows[0]?.group_role);
+
+    // Nor can a SCHEDULER — a role with a capability, just not this one. The
+    // gate is about the capability, not about being unprivileged.
+    await expect(
+      runtime.runner.run(
+        groupContext(
+          FIXTURE.alpha.organizationId,
+          FIXTURE.alpha.groupOne.id,
+          FIXTURE.alpha.users.scheduler.membershipId,
+        ),
+        async ({ query }) =>
+          query
+            .updateTable('memberships')
+            .set({ group_role: 'group_admin' })
+            .where('id', '=', FIXTURE.alpha.users.scheduler.membershipId)
+            .execute(),
+      ),
+    ).rejects.toMatchObject({ code: '42501' });
+
+    log('RESIDUAL 4 CLOSED: self role escalation refused 42501 for member and for scheduler');
+  });
+
+  it('a PRINCIPAL may not write a capability grant for any of their own memberships', async () => {
+    // Not in SPEC-06 — the database half of residual 4, and unconditional. Even
+    // the organization administrator, who holds `organization.role.administer`,
+    // is refused.
+    //
+    // **The check keys on the USER, not on the membership row**, and the first
+    // version of it did not: an independent review escalated through a second
+    // membership of the same user in two requests. The cross-membership case is
+    // exercised over HTTP in `apps/api/test/authz/http-authorization.test.ts`,
+    // describe block "a principal cannot grant themselves a capability through a
+    // SECOND membership"; this is the same-membership case.
+    const adminMembership = FIXTURE.alpha.users.organizationAdmin.membershipId;
+    await expect(
+      runtime.runner.run(
+        administratorContext(FIXTURE.alpha.organizationId, 'self-grant'),
+        async ({ query }) =>
+          query
+            .insertInto('capability_grants')
+            .values({
+              id: '0f000003-1111-4111-8111-00000000f003',
+              organization_id: FIXTURE.alpha.organizationId,
+              group_id: null,
+              membership_id: adminMembership,
+              capability_key: 'identity.impersonate',
+              granted: true,
+            })
+            .execute(),
+      ),
+    ).rejects.toMatchObject({ code: '42501' });
+    log('a self-grant is refused even for the organization administrator');
   });
 });
 
@@ -935,11 +1251,66 @@ describe('the counter bump enforces the unit of work', () => {
 
     expect(policies.rows.length, 'no policies found — the check would be vacuous').toBeGreaterThan(0);
 
+    /* ── the ONE sanctioned exemption, named (FAD-14) ─────────────────────────
+     *
+     * OPUS-M1-004 registered migration 0003's tenant tables, and one of them
+     * carries a policy scoped `TO app_migrator`. It is not an oversight and it
+     * is not new: it is the maintenance-plane cross-tenant read FAD-14 adopted
+     * as normative, and it is described there as **"the only cross-tenant read
+     * in the system, pinned by tests, not itself audited"**. This is that pin.
+     *
+     * The periodic checkpoint and verification jobs (SPEC-11 §2) must answer
+     * "which organizations are due?" before they can open a per-tenant unit of
+     * work for any of them, and there is no tenant context in which that
+     * question can be asked. FORCE RLS binds the table owner too, so a SECURITY
+     * DEFINER function alone does not reach it — the reach has to be a policy,
+     * written down, rather than a bypass nobody can see.
+     *
+     * The exemption is allowed by NAME and by SHAPE. Anything else — a second
+     * such policy, a different role, a widening from SELECT, or the same name on
+     * a different table — fails here. `audit_chain_heads` carries the twin
+     * policy and is not in the registry (see test/support/schema-census.ts), so
+     * it is not reachable through this list at all. */
+    // T-04: the OTHER half of this pinning is
+    // `apps/api/test/audit/chain.test.ts`, "the cross-tenant maintenance read is
+    // reachable by NO application role", which covers both maintenance policies
+    // — including the one on `audit_chain_heads`, which is not in TENANT_TABLES
+    // and so cannot be seen from here. Change one, look at the other.
+    const SANCTIONED_ROLE_SCOPED = [
+      { table: 'audit_checkpoints', policy: 'audit_checkpoints_maintenance_read', roles: '{app_migrator}' },
+    ] as const;
+
     const roleScoped = policies.rows.filter((row) => row.roles !== '{public}');
+    const unsanctioned = roleScoped.filter(
+      (row) =>
+        !SANCTIONED_ROLE_SCOPED.some(
+          (allowed) =>
+            allowed.table === row.tablename &&
+            allowed.policy === row.policyname &&
+            allowed.roles === row.roles,
+        ),
+    );
     expect(
-      roleScoped.map((row) => `${row.tablename}.${row.policyname} TO ${row.roles}`),
+      unsanctioned.map((row) => `${row.tablename}.${row.policyname} TO ${row.roles}`),
       'a policy is scoped to a named role — that is a per-role exemption',
     ).toEqual([]);
+
+    // The allowance is not a hole that can quietly widen: the sanctioned policy
+    // must actually exist (an allowance for a policy nobody wrote is an
+    // allowance for whatever is written next under that name), and it must be
+    // SELECT-only. FAD-14: "FOR SELECT only. Nothing may be written cross-tenant."
+    const commands = await admin.query<{ tablename: string; policyname: string; cmd: string }>(
+      `select tablename, policyname, cmd from pg_policies
+        where schemaname = 'public' and roles::text <> '{public}'
+        order by tablename, policyname`,
+    );
+    for (const allowed of SANCTIONED_ROLE_SCOPED) {
+      const found = commands.rows.find(
+        (row) => row.tablename === allowed.table && row.policyname === allowed.policy,
+      );
+      expect(found, `${allowed.table}.${allowed.policy} no longer exists`).toBeDefined();
+      expect(found?.cmd, `${allowed.policy} is no longer SELECT-only`).toBe('SELECT');
+    }
 
     // And the qual spelling of the same idea, kept as well: an exemption can be
     // written either way and neither is acceptable.
@@ -952,22 +1323,45 @@ describe('the counter bump enforces the unit of work', () => {
     log(`${String(policies.rows.length)} policies checked; all apply TO public, none tests current_user`);
   });
 
-  it('a privilege-bearing membership change OUTSIDE a unit of work is refused', async () => {
-    // The enforcement point. The statement below is a plain superuser UPDATE
-    // with no transaction-local tenant context — which is exactly what I-15
-    // forbids — and it fails rather than committing a privilege change with a
-    // stale counter.
+  it('a privilege-bearing membership change OUTSIDE a unit of work is refused — by TWO independent controls', async () => {
+    // The enforcement point, and since OPUS-M1-002 there are two of them. They
+    // are asserted separately, because a test that accepts "some rejection"
+    // stops noticing when one of the two disappears.
     const membershipId = FIXTURE.beta.users.scheduler.membershipId;
+
+    // (a) The CAPABILITY guard, added by 0002. No context at all means no acting
+    //     membership, so `app_acting_membership_holds` is false and the BEFORE
+    //     UPDATE trigger refuses with 42501 before anything else runs.
     await expect(
       admin.query(`update memberships set status = 'suspended' where id = $1`, [membershipId]),
-    ).rejects.toMatchObject({ code: '23001' });
+    ).rejects.toMatchObject({ code: '42501' });
+
+    // (b) The COUNTER trigger from 0001, which is a different control for a
+    //     different reason (I-15: a privilege change must not commit with a
+    //     stale counter). To reach it the statement has to satisfy (a) first, so
+    //     the session declares an authorized administrator — and STILL omits the
+    //     organization context the counter bump needs. 23001, as before.
+    await admin.query('BEGIN');
+    try {
+      await admin.query(`select set_config('app.membership_id', $1, true)`, [
+        FIXTURE.beta.users.organizationAdmin.membershipId,
+      ]);
+      await expect(
+        admin.query(`update memberships set status = 'suspended' where id = $1`, [membershipId]),
+      ).rejects.toMatchObject({ code: '23001' });
+    } finally {
+      await admin.query('ROLLBACK');
+    }
 
     const unchanged = await admin.query<{ status: string }>(
       'select status from memberships where id = $1',
       [membershipId],
     );
     expect(unchanged.rows[0]?.status, 'the refused change committed anyway').toBe('active');
-    log('membership status change with no tenant context refused 23001; row unchanged');
+    log(
+      'membership status change with no context: 42501 (capability guard); with an actor but no ' +
+        'tenant context: 23001 (counter trigger). Row unchanged either way.',
+    );
   });
 
   it('the SAME change INSIDE a unit of work succeeds and advances the counter', async () => {
@@ -982,8 +1376,11 @@ describe('the counter bump enforces the unit of work', () => {
       );
       return Number(r.rows[0]?.v);
     };
+    // An administrator's organization-scoped context: a status change is a
+    // privilege change, and privilege changes are organization-scoped actions
+    // (SPEC-06 §1.1) that now require the capability.
     const context = (): ReturnType<typeof groupContext> =>
-      groupContext(FIXTURE.beta.organizationId, FIXTURE.beta.groupOne.id);
+      administratorContext(FIXTURE.beta.organizationId, 'counter-bump-inside');
 
     const before = await read();
     await runtime.runner.run(context(), async ({ query }) =>

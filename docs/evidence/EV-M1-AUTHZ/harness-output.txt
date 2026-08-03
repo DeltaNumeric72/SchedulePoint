@@ -1,0 +1,883 @@
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/opus-m1-002
+
+ ✓ |contracts| test/health.test.ts > healthStatusSchema > accepts a well-formed health payload 1ms
+ ✓ |contracts| test/health.test.ts > healthStatusSchema > rejects unknown keys rather than stripping them 0ms
+ ✓ |contracts| test/health.test.ts > healthStatusSchema > rejects a non-ISO timestamp 0ms
+ ✓ |contracts| test/health.test.ts > errorEnvelopeSchema > requires a screaming-snake-case code 0ms
+ ✓ |domain| test/layering.test.ts > @schedulepoint/domain > exports the port registry 0ms
+ ✓ |domain| test/layering.test.ts > @schedulepoint/domain > contains no import of any outward layer 1ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 — the happy path > produces the immutable tuple, with the membership derived server-side 1ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 — the happy path > the organization branch resolves the ORGANIZATION membership 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 1–3 — every failure is 404 and nothing else > organization does not resolve -> NOT_FOUND 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 1–3 — every failure is 404 and nothing else > organization is inactive -> NOT_FOUND 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 1–3 — every failure is 404 and nothing else > no membership at all -> NOT_FOUND 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 1–3 — every failure is 404 and nothing else > membership is suspended -> NOT_FOUND 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 1–3 — every failure is 404 and nothing else > membership is ended (a departed member) -> NOT_FOUND 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 1–3 — every failure is 404 and nothing else > membership window has closed -> NOT_FOUND 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 1–3 — every failure is 404 and nothing else > membership window has not opened -> NOT_FOUND 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 1–3 — every failure is 404 and nothing else > membership belongs to a different principal -> NOT_FOUND 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 1–3 — every failure is 404 and nothing else > an ORGANIZATION membership offered for a group-scoped action (P-8) -> NOT_FOUND 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 1–3 — every failure is 404 and nothing else > group membership is in a different group -> NOT_FOUND 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 1–3 — every failure is 404 and nothing else > group-scoped action declaring no group (T-06d) -> NOT_FOUND 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 1–3 — every failure is 404 and nothing else > group does not resolve -> NOT_FOUND 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 1–3 — every failure is 404 and nothing else > group belongs to a different organization -> NOT_FOUND 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 1–3 — every failure is 404 and nothing else > group is inactive -> NOT_FOUND 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 1–3 — every failure is 404 and nothing else > principal is not visible -> NOT_FOUND 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 1–3 — every failure is 404 and nothing else > principal is deactivated -> NOT_FOUND 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 1–3 — every failure is 404 and nothing else > T-06c a GROUP membership never satisfies an organization-scoped action (P-9) 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 1–3 — every failure is 404 and nothing else > an organization-scoped action that declares a group is rejected at step 3 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 4–5 — freshness is a separate, recoverable answer > a mismatched organization_version is CONTEXT_STALE 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 4–5 — freshness is a separate, recoverable answer > a mismatched group_version is CONTEXT_STALE 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 4–5 — freshness is a separate, recoverable answer > a mismatched membership_set_version is CONTEXT_STALE 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 4–5 — freshness is a separate, recoverable answer > NO declared version is stale, not exempt 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 4–5 — freshness is a separate, recoverable answer > a mismatched session_epoch is SESSION_STALE, distinctly 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §2.3 steps 4–5 — freshness is a separate, recoverable answer > freshness is only reached AFTER membership — a departed member never sees 409 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §3 / §2.3 step 6 — target binding and the V-07 disclosure rule > a target in the declared tenant binds 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §3 / §2.3 step 6 — target binding and the V-07 disclosure rule > T-05 sibling group + AUTHORIZED -> CONTEXT_TARGET_MISMATCH 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §3 / §2.3 step 6 — target binding and the V-07 disclosure rule > T-05b sibling group + NOT authorized -> NOT_FOUND, and a security event 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §3 / §2.3 step 6 — target binding and the V-07 disclosure rule > a target that does not resolve is NOT_FOUND whatever the actor holds 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §3 / §2.3 step 6 — target binding and the V-07 disclosure rule > the wrong aggregate type is a mismatch, not a silent accept 0ms
+ ✓ |domain| test/context-verification.test.ts > SPEC-01 §3 / §2.3 step 6 — target binding and the V-07 disclosure rule > an organization-scoped context does not compare the group 0ms
+ ✓ |domain| test/context-verification.test.ts > the unit-of-work read-back comparison > a null group and a null membership are the empty string on the wire 0ms
+ ✓ |domain| test/context-verification.test.ts > the unit-of-work read-back comparison > an exact read-back reports no mismatch 0ms
+ ✓ |domain| test/context-verification.test.ts > the unit-of-work read-back comparison > T-14b a lost app.group_id is reported — a single-setting read-back would not see it 0ms
+ ✓ |domain| test/context-verification.test.ts > the unit-of-work read-back comparison > every one of the four settings is compared 0ms
+ ✓ |domain| test/context-verification.test.ts > supporting pure functions > authorizationVersionOf distinguishes every input 0ms
+ ✓ |domain| test/context-verification.test.ts > supporting pure functions > contextVersionsMatch treats a null group version as distinct from a numeric one 0ms
+ ✓ |domain| test/context-verification.test.ts > supporting pure functions > membershipIsActive implements SPEC-06 L3.2 and L3.3 0ms
+ ✓ |domain| test/context-verification.test.ts > R-15 — a nested unit of work may not change tenant OR actor > the same tuple is not a change 0ms
+ ✓ |domain| test/context-verification.test.ts > R-15 — a nested unit of work may not change tenant OR actor > a different organization or group is a change 0ms
+ ✓ |domain| test/context-verification.test.ts > R-15 — a nested unit of work may not change tenant OR actor > a different NON-NULL acting membership is a change — attribution integrity 0ms
+ ✓ |domain| test/context-verification.test.ts > R-15 — a nested unit of work may not change tenant OR actor > a NULL inner membership is NOT a change — it means "no actor of my own" 0ms
+ ✓ |domain| test/context-verification.test.ts > R-15 — a nested unit of work may not change tenant OR actor > an outer with no actor and an inner that names one is still a change 0ms
+stdout | test/authz/named-cases.test.ts > SPEC-06 §8.2 coverage ledger > prints the ledger, so the evidence bundle can quote it verbatim
+      · A-01: here — explicit deny + role allow
+      · A-02: here — explicit allow + unentitled module
+      · A-03: here — two-level dependency chain
+      · A-04: here — suspended membership + valid grant
+      · A-05: here (two instants) and apps/api/test/authz/http-authorization.test.ts (mid-session)
+      · A-06: DEFERRED — no WebSocket surface exists (SPEC-01 §5 / SPEC-02 milestone)
+      · A-07: DEFERRED (partial) — the job surface re-authorizes, but on OPUS-M1-001's role allow-list; apps/api/src/jobs/** is OPUS-M1-003's file scope. See EV-M1-AUTHZ §5 escalation 1
+      · A-08: DEFERRED — no report or artifact surface exists (SPEC-09 milestone)
+      · A-09: apps/api/test/authz/http-authorization.test.ts — disable, deny, re-enable, data intact
+      · A-10: here — PROXY_GRANTOR_DENIED
+      · A-11: here — credential surface, and the intersection rule
+      · A-12: apps/api/test/authz/schema.test.ts — the EXCLUDE constraint rejects the overlap
+      · A-13: DEFERRED — nothing caches an authorization decision in this milestone (see EV-M1-AUTHZ §5)
+      · A-14: apps/api/test/http/route-declarations.test.ts — `routeActionProblems` over the registered table
+      · A-15: packages/domain/test/authz/cross-product.test.ts — allow/deny pair per capability
+      · A-16: here — overlapping and duplicate capability keys
+      · A-17: here — organization role satisfies an organization-scoped action
+      · A-18: here — P-9: a group role never satisfies an organization-scoped action
+      · A-19: here — P-8: an organization role never reaches into a group
+      · A-20: here — organization membership suspended / expired / roleless
+      · A-21: DEFERRED — picklist fan-out does not exist (SPEC-02 milestone)
+      · A-22: DEFERRED — picklist fan-out does not exist (SPEC-02 milestone)
+      · A-23: DEFERRED — picklist fan-out does not exist (SPEC-02 milestone)
+      · 7 of 23 deferred, each with a named reason
+
+ ✓ |domain| test/authz/named-cases.test.ts > SPEC-06 §8.2 named cases decided by the pure evaluator > A-01 explicit deny + role allow → DENY (P-1) 1ms
+ ✓ |domain| test/authz/named-cases.test.ts > SPEC-06 §8.2 named cases decided by the pure evaluator > A-02 explicit allow + unentitled module → DENY NOT_ENTITLED (P-2, P-3) 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > SPEC-06 §8.2 named cases decided by the pure evaluator > A-03 dependency unsatisfied, module entitled → MODULE_DEPENDENCY_UNSATISFIED 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > SPEC-06 §8.2 named cases decided by the pure evaluator > A-04 suspended membership + valid grant → MEMBERSHIP_SUSPENDED 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > SPEC-06 §8.2 named cases decided by the pure evaluator > A-05 entitlement expires mid-session → the next evaluation is denied 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > SPEC-06 §8.2 named cases decided by the pure evaluator > A-10 proxy acts; grantor lacks the capability → PROXY_GRANTOR_DENIED 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > SPEC-06 §8.2 named cases decided by the pure evaluator > A-11 impersonation reaching a credential surface → DENY 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > SPEC-06 §8.2 named cases decided by the pure evaluator > A-11b the intersection rule: the operator must hold it in their own right 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > SPEC-06 §8.2 named cases decided by the pure evaluator > A-16 no capability key is declared in both namespaces (P-10) 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > SPEC-06 §8.2 named cases decided by the pure evaluator > A-17 organization-scoped action, organization role carries it → ALLOW, L0.2/L2.1 skipped 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > SPEC-06 §8.2 named cases decided by the pure evaluator > A-18 organization-scoped action, actor holds ONLY a group membership → NO_ORG_MEMBERSHIP (P-9) 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > SPEC-06 §8.2 named cases decided by the pure evaluator > A-19 group-scoped action, actor holds ONLY an organization role → NO_MEMBERSHIP (P-8) 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > SPEC-06 §8.2 named cases decided by the pure evaluator > A-20 organization membership suspended / expired / roleless → L3.2 / L3.3 / L3.1 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > SPEC-06 §8.2 named cases decided by the pure evaluator > P-4 backstop: an action key the catalogue does not know DENIES rather than throwing 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > SPEC-06 §8.2 named cases decided by the pure evaluator > P-4 backstop: a route whose declared scope disagrees with the catalogue DENIES 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > SPEC-06 §8.2 named cases decided by the pure evaluator > P-4 backstop: a route naming the wrong module for its capability DENIES 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > L5.1 — the object-policy branch an independent review found untested > own object: ALLOW. someone else's, with no override declared: OBJECT_POLICY 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > L5.1 — the object-policy branch an independent review found untested > an override carried by the ROLE lifts ownership 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > L5.1 — the object-policy branch an independent review found untested > an override carried by an in-window GRANT lifts ownership 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > L5.1 — the object-policy branch an independent review found untested > P-1 AT L5.1: an in-window explicit DENY of the override beats the role 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > L5.1 — the object-policy branch an independent review found untested > an OUT-OF-WINDOW override does not lift ownership 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > L5.1 — the object-policy branch an independent review found untested > SPEC-06 §3.1 State: an action legal only in some target states 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > L5.1 — the object-policy branch an independent review found untested > an action that requires an object policy but resolved no target DENIES 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > L6.2 — a malformed instant fails CLOSED > an unparseable `expiresAt` denies rather than reading as still valid 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > S-03 — an EXPLICIT DENY with an undecidable window still denies > a DENY whose validFrom is 'not-a-date' still denies 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > S-03 — an EXPLICIT DENY with an undecidable window still denies > a DENY whose validFrom is 'infinity' still denies 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > S-03 — an EXPLICIT DENY with an undecidable window still denies > a DENY whose validFrom is '-infinity' still denies 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > S-03 — an EXPLICIT DENY with an undecidable window still denies > a DENY whose validFrom is '' still denies 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > S-03 — an EXPLICIT DENY with an undecidable window still denies > a DENY whose validTo is 'not-a-date' still denies 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > S-03 — an EXPLICIT DENY with an undecidable window still denies > a DENY whose validTo is 'infinity' still denies 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > S-03 — an EXPLICIT DENY with an undecidable window still denies > a DENY whose validTo is '-infinity' still denies 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > S-03 — an EXPLICIT DENY with an undecidable window still denies > a DENY whose validTo is '' still denies 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > S-03 — an EXPLICIT DENY with an undecidable window still denies > an ALLOW with an undecidable window does NOT authorize — the positive layer stays fail-closed 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > S-03 — an EXPLICIT DENY with an undecidable window still denies > the same rule governs L5.1's ownership override 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > S-03 — an EXPLICIT DENY with an undecidable window still denies > a DECIDABLE, out-of-window deny does NOT deny — the fix is not "deny always" 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > S-07 — an inconsistent snapshot DENIES rather than allowing > an entitlement for a DIFFERENT module than the action denies 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > S-07 — an inconsistent snapshot DENIES rather than allowing > a DEPENDENCY row for the wrong module denies 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > S-07 — an inconsistent snapshot DENIES rather than allowing > a role that is not the one the membership names denies 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > S-07 — an inconsistent snapshot DENIES rather than allowing > a role supplied for a membership carrying none denies 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > S-07 — an inconsistent snapshot DENIES rather than allowing > the CONSISTENT snapshot still allows — these are not blanket refusals 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > S-13 — PROXY_MEMBERSHIP is unreachable, and that is asserted > no proxy configuration produces it 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > S-13 — PROXY_MEMBERSHIP is unreachable, and that is asserted > its disclosure mapping is still defined, because the reason still exists 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > P-5 / P-6 — the 404-vs-403 discipline > every L0, L1, L2 denial is 404 (P-5) 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > P-5 / P-6 — the 404-vs-403 discipline > every L3 denial is 404 — a non-member learns nothing (SPEC-01 §2.4) 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > P-5 / P-6 — the 404-vs-403 discipline > L4 and L6 denials are 403 — the actor already knows the tenant exists 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > P-5 / P-6 — the 404-vs-403 discipline > L5.1 defaults to 404 so a caller that forgets `bindTarget` discloses nothing 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > P-5 / P-6 — the 404-vs-403 discipline > `passedCapabilityLayer` is true exactly when L4 was cleared — SPEC-01 §2.3 step 6 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > P-5 / P-6 — the 404-vs-403 discipline > `authorizeWithoutObjectPolicy` allows exactly where L5.1 was the only failure 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > the catalogue > every capability names a module that exists 1ms
+ ✓ |domain| test/authz/named-cases.test.ts > the catalogue > no module depends on itself, directly or transitively 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > the catalogue > `moduleClosure` is transitive, not one level 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > the catalogue > every capability has a description a reviewer can read 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > SPEC-06 §8.2 coverage ledger > the ledger covers A-01..A-23 with no gaps 0ms
+ ✓ |domain| test/authz/named-cases.test.ts > SPEC-06 §8.2 coverage ledger > prints the ledger, so the evidence bundle can quote it verbatim 1ms
+stdout | test/authz/cross-product.test.ts > SPEC-06 §8.1 — the full generated cross-product > every case agrees with the independent oracle
+      · 39285000 cases evaluated in 19505 ms, 0 disagreements
+      · outcomes: ALLOW=2160 L0.1 ORG_INACTIVE=19642500 L0.2 GROUP_INACTIVE=8910000 L1.1 NOT_ENTITLED=2146500 L1.2 ENTITLEMENT_REVOKED=2146500 L1.2 ENTITLEMENT_SUSPENDED=2146500 L1.3 ENTITLEMENT_EXPIRED=2862000 L1.4 MODULE_DEPENDENCY_UNSATISFIED=445500 L2.1 MODULE_UNAVAILABLE_IN_GROUP=378000 L3.1 NO_MEMBERSHIP=75600 L3.1 NO_ORG_MEMBERSHIP=107100 L3.2 MEMBERSHIP_ENDED=106200 L3.2 MEMBERSHIP_INVITED=106200 L3.2 MEMBERSHIP_SUSPENDED=106200 L3.3 MEMBERSHIP_EXPIRED=53100 L4.1 EXPLICIT_DENY=17700 L4.2 NO_CAPABILITY=15150 L5.1 OBJECT_POLICY=6750 L6.1 PROXY_GRANTOR_DENIED=2700 L6.1 PROXY_INVALID=2700 L6.1 PROXY_SCOPE=2700 L6.2 IMPERSONATION_EXPIRED=1080 L6.2 IMPERSONATION_FORBIDDEN_SURFACE=2160
+
+ ✓ |domain| test/authz/cross-product.test.ts > SPEC-06 §8.1 — the full generated cross-product > every case agrees with the independent oracle 6ms
+ ✓ |domain| test/authz/cross-product.test.ts > SPEC-06 §8.1 — the full generated cross-product > the battery is the full product, not a sample 0ms
+ ✓ |domain| test/authz/cross-product.test.ts > SPEC-06 §8.1 — the full generated cross-product > EVERY row of the truth table is exercised by a generated case 0ms
+ ✓ |domain| test/authz/cross-product.test.ts > SPEC-06 §8.1 — the full generated cross-product > A-15: every capability has BOTH an allow and a deny case 0ms
+ ✓ |domain| test/authz/cross-product.test.ts > SPEC-06 §8.1 — the full generated cross-product > both halves of the scope dimension are non-empty for every capability 673ms
+ ✓ |domain| test/authz/cross-product.test.ts > SPEC-06 §8.1 — the full generated cross-product > every denial resolves to exactly one disclosure, and none of them is an explanation 1ms
+ ✓ |domain| test/authz/cross-product.test.ts > the oracle is not the evaluator > the base case is an ALLOW in both 0ms
+ ✓ |domain| test/authz/cross-product.test.ts > the oracle is not the evaluator > moving orgStatus alone denies with { orgStatus: 'inactive' } in both 0ms
+ ✓ |domain| test/authz/cross-product.test.ts > the oracle is not the evaluator > moving groupStatus alone denies with { groupStatus: 'inactive' } in both 0ms
+ ✓ |domain| test/authz/cross-product.test.ts > the oracle is not the evaluator > moving entitlement alone denies with { entitlement: 'absent' } in both 0ms
+ ✓ |domain| test/authz/cross-product.test.ts > the oracle is not the evaluator > moving window alone denies with { window: 'after' } in both 0ms
+ ✓ |domain| test/authz/cross-product.test.ts > the oracle is not the evaluator > moving availability alone denies with { available: false } in both 0ms
+ ✓ |domain| test/authz/cross-product.test.ts > the oracle is not the evaluator > moving membership alone denies with { membershipStatus: 'absent' } in both 0ms
+ ✓ |domain| test/authz/cross-product.test.ts > the oracle is not the evaluator > moving membership window alone denies with { membershipWindow: 'expired' } in both 0ms
+ ✓ |domain| test/authz/cross-product.test.ts > the oracle is not the evaluator > moving role alone denies with { role: 'member' } in both 0ms
+ ✓ |domain| test/authz/cross-product.test.ts > the oracle is not the evaluator > moving grant alone denies with { grant: 'deny' } in both 0ms
+ ✓ |domain| test/authz/cross-product.test.ts > the oracle is not the evaluator > moving ownership alone denies with { ownership: 'other' } in both 0ms
+ ✓ |domain| test/authz/cross-product.test.ts > the oracle is not the evaluator > moving proxy alone denies with { proxy: 'notifications-only' } in both 0ms
+ ✓ |domain| test/authz/cross-product.test.ts > the oracle is not the evaluator > moving impersonation alone denies with { impersonation: 'expired' } in both 0ms
+stdout | test/red-cases/gates-fail-on-violations.test.ts > red case — migration+RLS pairing (I-15) > GREEN: the real tenancy migration passes
+      · PASS  migration-rls-pairing (I-15) — 2 migration file(s) in apps/api/migrations
+
+stdout | test/red-cases/gates-fail-on-violations.test.ts > red case — migration+RLS pairing (I-15) > RED: a tenant table created without ENABLE + FORCE + a policy fails the gate
+      · FAIL  migration-rls-pairing (I-15) — 1 violation(s)
+  ../../../../../../var/folders/x3/3hfck_x11s7932bkg43dw4v00000gn/T/sp-redcase-migration-0nvbAP/0001_missing_rls.sql:2  table "shift_assignments" created without ENABLE ROW LEVEL SECURITY + FORCE ROW LEVEL SECURITY + CREATE POLICY in the same migration
+      scanned: 1 migration file(s) in ../../../../../../var/folders/x3/3hfck_x11s7932bkg43dw4v00000gn/T/sp-redcase-migration-0nvbAP
+
+stdout | test/red-cases/gates-fail-on-violations.test.ts > red case — route without a policy (I-02) > GREEN: every registered route declares a policy
+      · PASS  route-policy-check (I-02) — 9 registered route(s)
+
+ ✓ |api| test/red-cases/gates-fail-on-violations.test.ts > red case — migration+RLS pairing (I-15) > GREEN: the real tenancy migration passes 27ms
+ ✓ |api| test/red-cases/gates-fail-on-violations.test.ts > red case — migration+RLS pairing (I-15) > RED: a tenant table created without ENABLE + FORCE + a policy fails the gate 24ms
+ ✓ |api| test/red-cases/gates-fail-on-violations.test.ts > red case — migration+RLS pairing (I-15) > RED: ENABLE and a policy but no FORCE still fails — the owner bypass is the whole point 25ms
+ ✓ |api| test/red-cases/gates-fail-on-violations.test.ts > red case — route without a policy (I-02) > GREEN: every registered route declares a policy 206ms
+stdout | test/red-cases/gates-fail-on-violations.test.ts > red case — route without a policy (I-02) > RED: a route registered with no config.policy fails the gate
+      · FAIL  route-policy-check (I-02) — 1 violation(s)
+  POST /red-case/undeclared:0  route registered without a policy declaration (config.policy)
+      scanned: 10 registered route(s)
+
+ ✓ |api| test/red-cases/gates-fail-on-violations.test.ts > red case — route without a policy (I-02) > RED: a route registered with no config.policy fails the gate 202ms
+ ✓ |api| test/red-cases/gates-fail-on-violations.test.ts > red case — the lint ban on every statement form of a tenant setting > GREEN: the permitted `set_config(name, value, true)` spelling lints clean 278ms
+stdout | test/red-cases/gates-fail-on-violations.test.ts > red case — the lint ban on every statement form of a tenant setting > RED: the transaction-local statement form, in a string literal, fails lint
+      · /Users/prabashan/Claude/SchedulePoint/.worktrees/opus-m1-002/__red_case__set-local.ts
+  2:22  error  Tenant settings are established only with set_config(name, value, true). Every SET / SET SESSION / SET LOCAL form requires interpolating the tenant id into SQL (SPIKE-REPORT §7.2)  no-restricted-syntax
+
+✖ 1 problem (1 error, 0 warnings)
+
+ ✓ |api| test/red-cases/gates-fail-on-violations.test.ts > red case — the lint ban on every statement form of a tenant setting > RED: the transaction-local statement form, in a string literal, fails lint 278ms
+ ✓ |api| test/red-cases/gates-fail-on-violations.test.ts > red case — the lint ban on every statement form of a tenant setting > RED: the same bypass in a template literal fails lint 273ms
+ ✓ |api| test/red-cases/gates-fail-on-violations.test.ts > red case — the lint ban on every statement form of a tenant setting > RED: the session-scoped statement form fails lint 285ms
+stdout | test/red-cases/gates-fail-on-violations.test.ts > red case — the test runner's exit code is real > HAZARD: importing the package registers an exit-code-clobbering beforeExit handler
+      · beforeExit listeners 0 -> 1 on import (1 async-exit-hook); a failing run in that process exited 0 (observed, not asserted)
+
+ ✓ |api| test/red-cases/gates-fail-on-violations.test.ts > red case — the test runner's exit code is real > HAZARD: importing the package registers an exit-code-clobbering beforeExit handler 417ms
+stdout | test/red-cases/gates-fail-on-violations.test.ts > red case — the test runner's exit code is real > RED: WITHOUT that import, the same failing spec exits non-zero
+      · without the import: 1 failed test, exit status 1
+
+ ✓ |api| test/red-cases/gates-fail-on-violations.test.ts > red case — the test runner's exit code is real > RED: WITHOUT that import, the same failing spec exits non-zero 376ms
+stdout | test/red-cases/gates-fail-on-violations.test.ts > red case — the test runner's exit code is real > RED: the REAL api project exits non-zero on a failing spec
+      · real api project, failing spec -> exit status 1
+
+ ✓ |api| test/red-cases/gates-fail-on-violations.test.ts > red case — the test runner's exit code is real > RED: the REAL api project exits non-zero on a failing spec 1222ms
+stdout | test/tenancy/unit-of-work.test.ts > the wrapper establishes and confines context > X-01 transaction affinity: one backend, one transaction, for the whole unit of work
+      · backend 39230, transaction 757, both statements
+
+stdout | test/tenancy/unit-of-work.test.ts > the wrapper establishes and confines context > the startup pooler-mode assertion passes against the real pool
+      · affinity probe: backend 39230, setting survived within the transaction and expired after it
+
+stdout | test/tenancy/unit-of-work.test.ts > the wrapper establishes and confines context > the startup pooler-mode assertion REFUSES a pool that drops set_config
+      · assertTransactionAffinity threw POOLER_MODE_UNSUPPORTED on a pooler that drops set_config
+
+stdout | test/tenancy/unit-of-work.test.ts > the wrapper establishes and confines context > X-03 pool reuse across organizations: the same backend serves Alpha then Beta, cleanly
+      · backend 39232 served Alpha (4 rows) then Beta (1 rows), no bleed
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 — injected faults > T-07 exception mid-transaction: rollback, and the next checkout sees no setting
+      · backend 39230: insert rolled back, 0 rows named t07-29957d76-c2cc-4f7d-8b3e-2d292331216b
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 — injected faults > T-08 statement cancellation: 57014, rollback, no lingering setting
+      · cancelled: SQLSTATE 57014, transaction rolled back
+
+ ✓ |api| test/tenancy/unit-of-work.test.ts > the wrapper establishes and confines context > X-01 transaction affinity: one backend, one transaction, for the whole unit of work 7ms
+ ✓ |api| test/tenancy/unit-of-work.test.ts > the wrapper establishes and confines context > the startup pooler-mode assertion passes against the real pool 1ms
+ ✓ |api| test/tenancy/unit-of-work.test.ts > the wrapper establishes and confines context > the startup pooler-mode assertion REFUSES a pool that drops set_config 4ms
+ ✓ |api| test/tenancy/unit-of-work.test.ts > the wrapper establishes and confines context > X-03 pool reuse across organizations: the same backend serves Alpha then Beta, cleanly 5ms
+ ✓ |api| test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 — injected faults > T-07 exception mid-transaction: rollback, and the next checkout sees no setting 19ms
+ ✓ |api| test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 — injected faults > T-08 statement cancellation: 57014, rollback, no lingering setting 228ms
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 — injected faults > T-08b a client-side deadline abandons the wait; the rollback still holds
+      · client-side deadline surfaced with no SQLSTATE; transaction rolled back
+
+ ✓ |api| test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 — injected faults > T-08b a client-side deadline abandons the wait; the rollback still holds 840ms
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 — injected faults > T-09 server statement_timeout: 57014, rollback, and the timeout itself expires
+      · server timeout: 57014, rolled back, statement_timeout back to 0 afterwards
+
+ ✓ |api| test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 — injected faults > T-09 server statement_timeout: 57014, rollback, and the timeout itself expires 168ms
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 — injected faults > T-10 connection killed mid-transaction: the pool discards it and never re-issues it
+      · killed backend 39235; pool now holds 39234,39233,39230,39239
+
+ ✓ |api| test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 — injected faults > T-10 connection killed mid-transaction: the pool discards it and never re-issues it 233ms
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 — injected faults > T-11 nested unit of work, SAME tenant: permitted, and behaves as a savepoint
+      · same backend 39234; outer committed, inner rolled back to savepoint
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 — injected faults > T-12 nested unit of work, DIFFERENT tenant: throws, and the outer is untouched
+      · cross-organization and cross-group re-tenanting both refused; outer still sees 4 correctly-tenanted rows
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 — injected faults > T-13 outside any unit of work: zero rows, and every write rejected (fail-closed)
+      · app_runtime: 0 rows readable on all 9 tenant tables, INSERT 42501, UPDATE affected 0 rows, DELETE 42501 (no grant)
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 — injected faults > T-13 outside any unit of work: zero rows, and every write rejected (fail-closed)
+      · app_worker: 0 rows readable on all 9 tenant tables, INSERT 42501, UPDATE affected 0 rows, DELETE 42501 (no grant)
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 — injected faults > T-13b Group One context cannot see or write Group Two, in the SAME organization
+      · Group Two rows invisible, unaddressable and unwritable under a Group One context; DELETE refused 42501 by grant; target unmodified
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 T-14 — the prohibited pooling mode is detected > T-14 total context loss: transaction aborted, connection discarded, page alert emitted
+      · (a) aborted, body never ran · (b) backend 39241 destroyed, 12 later checkouts used 39242,39243,39244 · (c) severity=page
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 T-14 — the prohibited pooling mode is detected > T-14 total context loss: transaction aborted, connection discarded, page alert emitted
+      · control: the identical unit of work succeeds once the pooler preserves set_config
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 T-14 — the prohibited pooling mode is detected > T-14b PARTIAL loss — only app.group_id — which a single-setting read-back would miss
+      · only app.group_id lost; exactly one mismatch reported; backend 39245 poisoned and paged
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 T-15 — two-organization concurrency storm > runs both roles against every tenant table under injected faults with zero wrong-tenant rows
+      · 900 iterations · 3600 units of work · 3087 committed · 513 injected faults
+      · 900 probe passes × 9 tables = 8100 in-wrapper reads, 8100 outside-wrapper reads
+      · 15300 tenant-table statements (protocol overhead counted separately)
+      · census: 15 partitions, 0 impossible · WRONG-TENANT ROWS: 0
+
+ ✓ |api| test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 — injected faults > T-11 nested unit of work, SAME tenant: permitted, and behaves as a savepoint 5ms
+ ✓ |api| test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 — injected faults > T-12 nested unit of work, DIFFERENT tenant: throws, and the outer is untouched 5ms
+ ✓ |api| test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 — injected faults > T-13 outside any unit of work: zero rows, and every write rejected (fail-closed) 10ms
+ ✓ |api| test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 — injected faults > T-13b Group One context cannot see or write Group Two, in the SAME organization 6ms
+ ✓ |api| test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 T-14 — the prohibited pooling mode is detected > T-14 total context loss: transaction aborted, connection discarded, page alert emitted 9ms
+ ✓ |api| test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 T-14 — the prohibited pooling mode is detected > T-14b PARTIAL loss — only app.group_id — which a single-setting read-back would miss 3ms
+ ✓ |api| test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 T-15 — two-organization concurrency storm > runs both roles against every tenant table under injected faults with zero wrong-tenant rows 1048ms
+stdout | test/tenancy/unit-of-work.test.ts > R-15 — a nested unit of work may not change the acting membership > re-tenanting the ACTOR throws before any statement, and the outer commits
+      · nested actor change refused before any statement; outer transaction unaffected
+
+ ✓ |api| test/tenancy/unit-of-work.test.ts > R-15 — a nested unit of work may not change the acting membership > re-tenanting the ACTOR throws before any statement, and the outer commits 2ms
+stdout | test/authz/http-authorization.test.ts > SPEC-06 §8.1 — the HTTP half agrees with the pure evaluator > the eight rows above cover eight DISTINCT layers — the table is not one case repeated
+      · HTTP subset covers L0.1, L1.2, L1.3, L2.1, L3.2, L3.3, L4.1, L4.2
+
+stdout | test/authz/http-authorization.test.ts > A-05 and A-09 — entitlement revocation mid-session, and data intact on re-enable > A-05: a request that would have succeeded is denied the moment the entitlement is revoked
+      · entitlement revoked mid-session: the next request is 404, not 403
+
+stdout | test/authz/http-authorization.test.ts > A-05 and A-09 — entitlement revocation mid-session, and data intact on re-enable > A-09: re-enabling restores access, and no row was deleted while it was off
+      · module disabled then re-enabled: access restored, row count unchanged
+
+stdout | test/authz/http-authorization.test.ts > deny paths and allow paths for every GRANT type > an explicit ALLOW grant lets a role through that would otherwise be denied
+      · member: 403 without a grant, 200 with one — L4.2 both ways
+
+ ✓ |api| test/authz/http-authorization.test.ts > SPEC-06 §8.1 — the HTTP half agrees with the pure evaluator > the baseline ALLOWS, so every denial below is caused by the dimension it moves 19ms
+ ✓ |api| test/authz/http-authorization.test.ts > SPEC-06 §8.1 — the HTTP half agrees with the pure evaluator > L0.1 the organization is inactive → ORG_INACTIVE (404) 4ms
+ ✓ |api| test/authz/http-authorization.test.ts > SPEC-06 §8.1 — the HTTP half agrees with the pure evaluator > L1.2 the module entitlement is suspended → ENTITLEMENT_SUSPENDED (404) 5ms
+ ✓ |api| test/authz/http-authorization.test.ts > SPEC-06 §8.1 — the HTTP half agrees with the pure evaluator > L1.3 the entitlement window has closed → ENTITLEMENT_EXPIRED (404) 3ms
+ ✓ |api| test/authz/http-authorization.test.ts > SPEC-06 §8.1 — the HTTP half agrees with the pure evaluator > L2.1 the module is unavailable in this group → MODULE_UNAVAILABLE_IN_GROUP (404) 4ms
+ ✓ |api| test/authz/http-authorization.test.ts > SPEC-06 §8.1 — the HTTP half agrees with the pure evaluator > L3.2 the membership is suspended → MEMBERSHIP_SUSPENDED (404) 3ms
+ ✓ |api| test/authz/http-authorization.test.ts > SPEC-06 §8.1 — the HTTP half agrees with the pure evaluator > L3.3 the membership validity window has closed → MEMBERSHIP_EXPIRED (404) 3ms
+ ✓ |api| test/authz/http-authorization.test.ts > SPEC-06 §8.1 — the HTTP half agrees with the pure evaluator > L4.1 an explicit DENY grant beats the role (P-1) → EXPLICIT_DENY (403) 4ms
+ ✓ |api| test/authz/http-authorization.test.ts > SPEC-06 §8.1 — the HTTP half agrees with the pure evaluator > L4.2 the role does not carry the capability → NO_CAPABILITY (403) 2ms
+ ✓ |api| test/authz/http-authorization.test.ts > SPEC-06 §8.1 — the HTTP half agrees with the pure evaluator > the eight rows above cover eight DISTINCT layers — the table is not one case repeated 0ms
+ ✓ |api| test/authz/http-authorization.test.ts > A-05 and A-09 — entitlement revocation mid-session, and data intact on re-enable > A-05: a request that would have succeeded is denied the moment the entitlement is revoked 10ms
+ ✓ |api| test/authz/http-authorization.test.ts > A-05 and A-09 — entitlement revocation mid-session, and data intact on re-enable > A-09: re-enabling restores access, and no row was deleted while it was off 7ms
+ ✓ |api| test/authz/http-authorization.test.ts > deny paths and allow paths for every GRANT type > an explicit ALLOW grant lets a role through that would otherwise be denied 7ms
+ ✓ |api| test/authz/http-authorization.test.ts > deny paths and allow paths for every GRANT type > an EXPIRED grant does not authorize 4ms
+stdout | test/authz/http-authorization.test.ts > the membership-creation route — EV-M1-TENANCY residuals 1 and 2 > RESIDUAL 2: a non-existent user and a foreign user are BYTE-IDENTICAL to an unauthorized actor
+      · residual 2: non-existent user and foreign user both answer 404 with a byte-identical body
+
+stdout | test/authz/http-authorization.test.ts > the membership-creation route — EV-M1-TENANCY residuals 1 and 2 > RESIDUAL 1b, STATED AS IT IS: an AUTHORIZED administrator CAN still attach a foreign user
+      · RESIDUAL 1b OPEN and asserted: an authorized administrator attaches a foreign user and raises their monotonic membership_set_version 5 -> 6. Owner: the provisioning design (EV-M1-AUTHZ §4)
+
+stdout | test/authz/http-authorization.test.ts > the membership-creation route — EV-M1-TENANCY residuals 1 and 2 > X-11: the caller CANNOT choose the row id — a client-supplied one is rejected outright
+      · a client-supplied membershipId is rejected: the server owns the primary key
+
+stdout | test/authz/http-authorization.test.ts > FAD-12 — the evaluation and the mutation share ONE unit of work > a request still opens exactly TWO transactions with the real evaluator in place
+      · one request, two transactions: the §2.3 snapshot and the command
+
+stdout | test/authz/http-authorization.test.ts > FAD-12 — the evaluation and the mutation share ONE unit of work > an entitlement revoked BETWEEN the snapshot and the command is caught by the command
+      · entitlement revoked between snapshot and command: 404, no write
+
+stdout | test/authz/http-authorization.test.ts > the surfaces agree on the SAME case, not merely on the same status > a case the pure evaluator denies at L4.2 is denied at L4.2 over HTTP
+      · pure evaluator and HTTP both deny at L4.2 with NO_CAPABILITY
+
+stdout | test/authz/http-authorization.test.ts > a principal cannot grant themselves a capability through a SECOND membership > hop 2 is REFUSED: the grant names a membership of the acting principal
+      · the two-hop self-grant is refused at the route: the check keys on the principal
+
+ ✓ |api| test/authz/http-authorization.test.ts > deny paths and allow paths for every GRANT type > a grant for a DIFFERENT capability does not authorize this action 4ms
+ ✓ |api| test/authz/http-authorization.test.ts > deny paths and allow paths for every GRANT type > A-12 over HTTP: an overlapping grant window is a 409, and the first grant is untouched 5ms
+ ✓ |api| test/authz/http-authorization.test.ts > deny paths and allow paths for every GRANT type > an unknown capability key is refused before any row is written 1ms
+ ✓ |api| test/authz/http-authorization.test.ts > the membership-creation route — EV-M1-TENANCY residuals 1 and 2 > an actor WITHOUT the capability cannot create a membership at all 1ms
+ ✓ |api| test/authz/http-authorization.test.ts > the membership-creation route — EV-M1-TENANCY residuals 1 and 2 > RESIDUAL 2: a non-existent user and a foreign user are BYTE-IDENTICAL to an unauthorized actor 2ms
+ ✓ |api| test/authz/http-authorization.test.ts > the membership-creation route — EV-M1-TENANCY residuals 1 and 2 > RESIDUAL 1b, STATED AS IT IS: an AUTHORIZED administrator CAN still attach a foreign user 3ms
+ ✓ |api| test/authz/http-authorization.test.ts > the membership-creation route — EV-M1-TENANCY residuals 1 and 2 > X-11: the caller CANNOT choose the row id — a client-supplied one is rejected outright 1ms
+ ✓ |api| test/authz/http-authorization.test.ts > the membership-creation route — EV-M1-TENANCY residuals 1 and 2 > an authorized administrator CAN create a membership for a user of its own organization 2ms
+ ✓ |api| test/authz/http-authorization.test.ts > FAD-12 — the evaluation and the mutation share ONE unit of work > a request still opens exactly TWO transactions with the real evaluator in place 2ms
+ ✓ |api| test/authz/http-authorization.test.ts > FAD-12 — the evaluation and the mutation share ONE unit of work > an entitlement revoked BETWEEN the snapshot and the command is caught by the command 3ms
+ ✓ |api| test/authz/http-authorization.test.ts > P-8 and P-9 over HTTP — the namespaces stay disjoint > the organization administrator is allowed at organization scope 1ms
+ ✓ |api| test/authz/http-authorization.test.ts > P-8 and P-9 over HTTP — the namespaces stay disjoint > P-8: the organization administrator holds NOTHING inside a group 1ms
+ ✓ |api| test/authz/http-authorization.test.ts > P-8 and P-9 over HTTP — the namespaces stay disjoint > P-9: a group-only principal is refused an organization-scoped action 1ms
+ ✓ |api| test/authz/http-authorization.test.ts > mutations are shaped for audit emission, and emit none > the event names are stable and exported 1ms
+ ✓ |api| test/authz/http-authorization.test.ts > the surfaces agree on the SAME case, not merely on the same status > a case the pure evaluator denies at L4.2 is denied at L4.2 over HTTP 2ms
+ ✓ |api| test/authz/http-authorization.test.ts > a principal cannot grant themselves a capability through a SECOND membership > hop 1 succeeds — an administrator may legitimately give themselves a group membership 2ms
+ ✓ |api| test/authz/http-authorization.test.ts > a principal cannot grant themselves a capability through a SECOND membership > hop 2 is REFUSED: the grant names a membership of the acting principal 3ms
+ ✓ |api| test/authz/http-authorization.test.ts > a principal cannot grant themselves a capability through a SECOND membership > the ROUTE half refuses it on its own — isolated from the trigger 3ms
+ ✓ |api| test/authz/http-authorization.test.ts > a principal cannot grant themselves a capability through a SECOND membership > and the DATABASE refuses it too, with the route bypassed entirely 3ms
+ ✓ |api| test/authz/http-authorization.test.ts > a principal cannot grant themselves a capability through a SECOND membership > granting ANOTHER principal the same capability still works — the gate is not a wall 2ms
+ ✓ |api| test/authz/http-authorization.test.ts > a capability grant must carry its membership's group > a mismatched group_id is refused rather than filed where nobody can see it 1ms
+ ✓ |api| test/authz/http-authorization.test.ts > a capability grant must carry its membership's group > a system role cannot be deprecated — that would destroy the capability to undo it 1ms
+stdout | test/authz/provisioning.test.ts > the provisioning door opens once > a fresh organization can be provisioned with no acting membership
+      · provisioned 7 roles, 9 role capabilities, 3 entitlements
+
+stdout | test/authz/provisioning.test.ts > and then it is shut > the provisioned administrator CAN continue — the door shutting is not a lockout
+      · the provisioned org_admin can create further memberships — the gate is capability-based
+
+stdout | test/authz/provisioning.test.ts > an UNPROVISIONED organization denies everything > a membership with no roles seeded resolves to no capabilities at all
+      · a role key with no `roles` row behind it grants nothing — fail-closed
+
+stdout | test/authz/provisioning.test.ts > the bootstrap door is unreachable over HTTP — residual 7, revisited > a request declaring a freshly created, membership-less organization is a 404
+      · a self-created, membership-less organization is inert over HTTP: §2.3 step 2 refuses before any command transaction opens, so the provisioning door is never entered
+
+stdout | test/authz/provisioning.test.ts > S-02 — an organization cannot be left without an administrator > a sole administrator cannot end their own membership
+      · a sole administrator cannot end their own membership
+
+ ✓ |api| test/authz/provisioning.test.ts > the provisioning door opens once > a fresh organization can be provisioned with no acting membership 12ms
+ ✓ |api| test/authz/provisioning.test.ts > and then it is shut > a SECOND membership with no acting administrator is refused 3ms
+ ✓ |api| test/authz/provisioning.test.ts > and then it is shut > a second ROLE with no acting administrator is refused 3ms
+ ✓ |api| test/authz/provisioning.test.ts > and then it is shut > a second ENTITLEMENT with no acting administrator is refused 2ms
+ ✓ |api| test/authz/provisioning.test.ts > and then it is shut > the door never opens under a GROUP-scoped context, even in an empty group 2ms
+ ✓ |api| test/authz/provisioning.test.ts > and then it is shut > the provisioned administrator CAN continue — the door shutting is not a lockout 4ms
+ ✓ |api| test/authz/provisioning.test.ts > an UNPROVISIONED organization denies everything > a membership with no roles seeded resolves to no capabilities at all 1ms
+ ✓ |api| test/authz/provisioning.test.ts > the bootstrap door is unreachable over HTTP — residual 7, revisited > a request declaring a freshly created, membership-less organization is a 404 5ms
+ ✓ |api| test/authz/provisioning.test.ts > the bootstrap door is unreachable over HTTP — residual 7, revisited > and the foreign user's monotonic counter did not move 1ms
+ ✓ |api| test/authz/provisioning.test.ts > S-02 — an organization cannot be left without an administrator > a sole administrator cannot end their own membership 3ms
+stdout | test/authz/provisioning.test.ts > S-02 — an organization cannot be left without an administrator > SELF-demotion is refused even when another administrator exists
+      · another administrator CAN end the first — the guard is a two-person rule, not a wall
+
+stdout | test/authz/provisioning.test.ts > S-11 — derived ids do not collide across organizations > two organizations sharing eight leading hex characters get distinct role ids
+      · 7 roles per organization, 0 id collisions across the two
+
+ ✓ |api| test/authz/provisioning.test.ts > S-02 — an organization cannot be left without an administrator > nor demote themselves by changing their organization role 3ms
+ ✓ |api| test/authz/provisioning.test.ts > S-02 — an organization cannot be left without an administrator > nor close their own validity window 2ms
+ ✓ |api| test/authz/provisioning.test.ts > S-02 — an organization cannot be left without an administrator > SELF-demotion is refused even when another administrator exists 4ms
+ ✓ |api| test/authz/provisioning.test.ts > S-02 — an organization cannot be left without an administrator > a NON-administrator membership can still be ended normally 3ms
+ ✓ |api| test/authz/provisioning.test.ts > S-11 — derived ids do not collide across organizations > two organizations sharing eight leading hex characters get distinct role ids 2ms
+ ✓ |api| test/authz/provisioning.test.ts > S-11 — derived ids do not collide across organizations > the derivation is still DETERMINISTIC — the same organization gets the same ids 2ms
+ ✓ |api| test/authz/provisioning.test.ts > S-11 — derived ids do not collide across organizations > every derived id is a well-formed UUID 1ms
+stdout | test/http/context-surface.test.ts > SPEC-01 §7.1 — declared context is honoured, never substituted > T-01 ONE principal, two tabs: A's declared group is honoured, no write against B
+      · one principal, two memberships: Tab A declared and wrote Group One; Group Two unchanged since Tab B at 2026-08-03T03:49:05.876Z
+
+stdout | test/http/context-surface.test.ts > SPEC-01 §7.1 — declared context is honoured, never substituted > T-02 a revoked membership: no write, no event — and 404, not a stale-context hint
+      · revoked membership: 404, no write, no job enqueued
+
+stdout | test/http/context-surface.test.ts > SPEC-01 §7.1 — declared context is honoured, never substituted > T-02b an ACTIVE membership whose counters advanced: 409 CONTEXT_STALE, no write
+      · membership_set_version advanced: 409 CONTEXT_STALE with a re-fetch directive, no write
+
+stdout | test/http/context-surface.test.ts > SPEC-01 §7.1 — declared context is honoured, never substituted > T-04 a forged group id: 404 byte-identical to a non-existent id, AND a security event
+      · forged and non-existent group ids are byte-identical ({"error":{"code":"NOT_FOUND","message":"Not found.","correlationId":"forged12345678"}}); security event logged at step 2
+
+stdout | test/http/context-surface.test.ts > SPEC-01 §7.1 T-05 / T-05b — target aggregate binding and its disclosure rule > T-05 authorized actor, target in a sibling group: 409 CONTEXT_TARGET_MISMATCH, before any write
+      · authorized actor + sibling-group target: 409 CONTEXT_TARGET_MISMATCH, target unmodified
+
+stdout | test/http/context-surface.test.ts > SPEC-01 §7.1 T-05 / T-05b — target aggregate binding and its disclosure rule > T-05b unauthorized actor: 404, BYTE-IDENTICAL to a non-existent id
+      · unauthorized cross-group target and non-existent id are byte-identical: {"error":{"code":"NOT_FOUND","message":"Not found.","correlationId":"redcase12345678"}}
+
+stdout | test/http/context-surface.test.ts > SPEC-01 §7.1 T-05 / T-05b — target aggregate binding and its disclosure rule > a target in the actor's OWN group binds, and the OBJECT POLICY then decides
+      · in-scope target: owned → 200, not owned → 404 at L5.1
+
+stdout | test/http/context-surface.test.ts > SPEC-01 §7.1 T-05 / T-05b — target aggregate binding and its disclosure rule > the ownership OVERRIDE lifts it — asserted in BOTH directions
+      · ownership override: 404 without it, 200 with it
+
+stdout | test/http/context-surface.test.ts > SPEC-01 §7.1 T-05 / T-05b — target aggregate binding and its disclosure rule > an authorized actor is still denied a target in another ORGANIZATION — 404, never 409
+      · cross-ORGANIZATION target: 404 even for an authorized actor — no 409, no disclosure
+
+stdout | test/http/context-surface.test.ts > SPEC-01 §7.1 T-06 — entitlement-class change, and the scope branches > T-06 an organization-version change invalidates a long-lived form with no partial effect
+      · organization_version advanced: 409 CONTEXT_STALE, no partial effect
+
+stdout | test/http/context-surface.test.ts > SPEC-01 §7.1 T-06 — entitlement-class change, and the scope branches > T-06b organization-scoped action with an active organization membership and role: accepted
+      · organization-scoped action accepted; membership_id resolved to the organization membership
+
+stdout | test/http/context-surface.test.ts > SPEC-01 §7.1 T-06 — entitlement-class change, and the scope branches > T-06c organization-scoped action, actor holds only a GROUP membership: 404
+      · group-only member attempting an organization-scoped action: 404
+
+stdout | test/http/context-surface.test.ts > SPEC-01 §7.1 T-06 — entitlement-class change, and the scope branches > T-06d group-scoped action declaring no group: 404 — the branch follows the ROUTE's scope
+      · group-scoped route with no declared group: 404 for every actor
+
+ ✓ |api| test/http/context-surface.test.ts > the middleware cannot be skipped > denies every capability route without a session (401) 0ms
+ ✓ |api| test/http/context-surface.test.ts > the middleware cannot be skipped > rejects a capability route with no context header (400) — the path segment is not enough 0ms
+ ✓ |api| test/http/context-surface.test.ts > the middleware cannot be skipped > the production principal resolver denies everything 2ms
+ ✓ |api| test/http/context-surface.test.ts > SPEC-01 §7.1 — declared context is honoured, never substituted > T-01 ONE principal, two tabs: A's declared group is honoured, no write against B 12ms
+ ✓ |api| test/http/context-surface.test.ts > SPEC-01 §7.1 — declared context is honoured, never substituted > T-01b the same principal is refused a group it does NOT belong to 1ms
+ ✓ |api| test/http/context-surface.test.ts > SPEC-01 §7.1 — declared context is honoured, never substituted > T-02 a revoked membership: no write, no event — and 404, not a stale-context hint 1ms
+ ✓ |api| test/http/context-surface.test.ts > SPEC-01 §7.1 — declared context is honoured, never substituted > T-02b an ACTIVE membership whose counters advanced: 409 CONTEXT_STALE, no write 2ms
+ ✓ |api| test/http/context-surface.test.ts > SPEC-01 §7.1 — declared context is honoured, never substituted > SESSION_STALE is distinct from CONTEXT_STALE 1ms
+ ✓ |api| test/http/context-surface.test.ts > SPEC-01 §7.1 — declared context is honoured, never substituted > T-04 a forged group id: 404 byte-identical to a non-existent id, AND a security event 2ms
+ ✓ |api| test/http/context-surface.test.ts > SPEC-01 §7.1 — declared context is honoured, never substituted > a forged ORGANIZATION id answers 404 and reveals nothing about the other tenant 1ms
+ ✓ |api| test/http/context-surface.test.ts > SPEC-01 §7.1 T-05 / T-05b — target aggregate binding and its disclosure rule > T-05 authorized actor, target in a sibling group: 409 CONTEXT_TARGET_MISMATCH, before any write 2ms
+ ✓ |api| test/http/context-surface.test.ts > SPEC-01 §7.1 T-05 / T-05b — target aggregate binding and its disclosure rule > T-05b unauthorized actor: 404, BYTE-IDENTICAL to a non-existent id 3ms
+ ✓ |api| test/http/context-surface.test.ts > SPEC-01 §7.1 T-05 / T-05b — target aggregate binding and its disclosure rule > a target in the actor's OWN group binds, and the OBJECT POLICY then decides 3ms
+ ✓ |api| test/http/context-surface.test.ts > SPEC-01 §7.1 T-05 / T-05b — target aggregate binding and its disclosure rule > the ownership OVERRIDE lifts it — asserted in BOTH directions 13ms
+ ✓ |api| test/http/context-surface.test.ts > SPEC-01 §7.1 T-05 / T-05b — target aggregate binding and its disclosure rule > an authorized actor is still denied a target in another ORGANIZATION — 404, never 409 2ms
+ ✓ |api| test/http/context-surface.test.ts > SPEC-01 §7.1 T-06 — entitlement-class change, and the scope branches > T-06 an organization-version change invalidates a long-lived form with no partial effect 1ms
+ ✓ |api| test/http/context-surface.test.ts > SPEC-01 §7.1 T-06 — entitlement-class change, and the scope branches > T-06b organization-scoped action with an active organization membership and role: accepted 2ms
+ ✓ |api| test/http/context-surface.test.ts > SPEC-01 §7.1 T-06 — entitlement-class change, and the scope branches > T-06c organization-scoped action, actor holds only a GROUP membership: 404 1ms
+stdout | test/http/context-surface.test.ts > deny-by-default holds for the provisional policies > an actor whose role is not listed is denied 403, and writes nothing
+      · role `member` is not in the provisional allow-list: 403, no write
+
+stdout | test/http/context-surface.test.ts > FAD-12 — authorization and mutation share one unit of work > a request opens exactly TWO transactions: the §2.3 snapshot, then the command
+      · one request = 1 resolution transaction + 1 command transaction
+
+stdout | test/http/context-surface.test.ts > FAD-12 — authorization and mutation share one unit of work > a role revoked BETWEEN the snapshot and the command is caught by the command itself
+      · role revoked between snapshot and command: 403, no write
+
+ ✓ |api| test/http/context-surface.test.ts > SPEC-01 §7.1 T-06 — entitlement-class change, and the scope branches > T-06d group-scoped action declaring no group: 404 — the branch follows the ROUTE's scope 1ms
+ ✓ |api| test/http/context-surface.test.ts > deny-by-default holds for the provisional policies > an actor whose role is not listed is denied 403, and writes nothing 2ms
+ ✓ |api| test/http/context-surface.test.ts > deny-by-default holds for the provisional policies > an organization role never satisfies a group-scoped action (P-8) 1ms
+ ✓ |api| test/http/context-surface.test.ts > FAD-12 — authorization and mutation share one unit of work > a request opens exactly TWO transactions: the §2.3 snapshot, then the command 2ms
+ ✓ |api| test/http/context-surface.test.ts > FAD-12 — authorization and mutation share one unit of work > a role revoked BETWEEN the snapshot and the command is caught by the command itself 4ms
+ ✓ |api| test/http/context-surface.test.ts > FAD-12 — authorization and mutation share one unit of work > the same holds for the job-enqueue surface: no enqueue on a revoked role 4ms
+stdout | test/tenancy/roles-and-schema.test.ts > A — environment and the SPEC-01 §4.4 role matrix > A-01 runs against a real PostgreSQL 17.x server (FAD-7 substitution)
+      · PostgreSQL 17.10 on x86_64-apple-darwin24.6.0, compiled by Apple clang version 17.0.0 (clang-1700.6.3.2), 64-bit
+
+stdout | test/tenancy/roles-and-schema.test.ts > A — environment and the SPEC-01 §4.4 role matrix > A-02 the five roles exist with exactly the attributes SPEC-01 §4.4 requires
+      · app_migrator: superuser=false bypassrls=false createrole=false
+      · app_runtime: superuser=false bypassrls=false createrole=false
+      · app_worker: superuser=false bypassrls=false createrole=false
+      · app_readonly_support: superuser=false bypassrls=false createrole=false
+      · app_breakglass: superuser=false bypassrls=true createrole=false
+
+stdout | test/tenancy/roles-and-schema.test.ts > A — environment and the SPEC-01 §4.4 role matrix > A-03 every tenant table has RLS ENABLED and FORCED, with at least one policy
+      · capability_grants: enabled+forced, 3 policy/policies
+      · entitlements: enabled+forced, 2 policy/policies
+      · group_module_availability: enabled+forced, 2 policy/policies
+      · groups: enabled+forced, 2 policy/policies
+      · memberships: enabled+forced, 4 policy/policies
+      · organizations: enabled+forced, 1 policy/policies
+      · role_capabilities: enabled+forced, 2 policy/policies
+      · roles: enabled+forced, 2 policy/policies
+      · users: enabled+forced, 3 policy/policies
+
+stdout | test/tenancy/roles-and-schema.test.ts > A — environment and the SPEC-01 §4.4 role matrix > A-03b EVERY tenant-setting reference in EVERY policy is nullif-guarded
+      · capability_grants.capability_grants_group_scope: every reference guarded
+      · capability_grants.capability_grants_organization_administration: every reference guarded
+      · capability_grants.capability_grants_own: every reference guarded
+      · entitlements.entitlements_organization_read: every reference guarded
+      · entitlements.entitlements_organization_write: every reference guarded
+      · group_module_availability.group_module_availability_group_scope: every reference guarded
+      · group_module_availability.group_module_availability_organization_scope: every reference guarded
+      · groups.groups_group_scope: every reference guarded
+      · groups.groups_organization_scope: every reference guarded
+      · memberships.memberships_group_scope: every reference guarded
+      · memberships.memberships_organization_administration: every reference guarded
+      · memberships.memberships_organization_read: every reference guarded
+      · memberships.memberships_organization_scope: every reference guarded
+      · organizations.organizations_tenant: every reference guarded
+      · role_capabilities.role_capabilities_organization_read: every reference guarded
+      · role_capabilities.role_capabilities_organization_write: every reference guarded
+      · roles.roles_organization_read: every reference guarded
+      · roles.roles_organization_write: every reference guarded
+      · users.users_readable_through_membership: every reference guarded
+      · users.users_updatable_through_membership: every reference guarded
+      · users.users_writable_under_organization_context: every reference guarded
+      · 72 individual tenant-setting references checked
+
+stdout | test/tenancy/roles-and-schema.test.ts > A — environment and the SPEC-01 §4.4 role matrix > A-04 FORCE RLS binds the OWNER too: app_migrator sees zero rows without context
+      · app_migrator, the schema owner, reads 0 rows from every tenant table without context
+
+stdout | test/tenancy/roles-and-schema.test.ts > A — environment and the SPEC-01 §4.4 role matrix > A-05 no runtime role holds TRUNCATE or REFERENCES on ANY tenant table
+      · 36 (role, table) pairs checked, 0 TRUNCATE/REFERENCES violations
+
+stdout | test/tenancy/roles-and-schema.test.ts > A — environment and the SPEC-01 §4.4 role matrix > A-05b no runtime role holds TEMP on the database
+      · no runtime role holds TEMP; the trigger pins search_path=public, pg_temp (pg_temp last)
+
+stdout | test/tenancy/roles-and-schema.test.ts > A — environment and the SPEC-01 §4.4 role matrix > A-06 app_runtime cannot disable RLS on a table it does not own
+      · app_runtime: ALTER TABLE ... DISABLE ROW LEVEL SECURITY rejected 42501
+
+stdout | test/tenancy/roles-and-schema.test.ts > A — environment and the SPEC-01 §4.4 role matrix > A-07 app_readonly_support reads under context and is denied every write
+      · app_readonly_support: 4 memberships readable under context, UPDATE rejected 42501
+
+stdout | test/tenancy/roles-and-schema.test.ts > A — environment and the SPEC-01 §4.4 role matrix > A-08 app_breakglass genuinely differs: BYPASSRLS sees both organizations
+      · app_breakglass sees both organizations with no context — the role is genuinely distinct
+
+stdout | test/tenancy/roles-and-schema.test.ts > X — sharp edges from the executed spike, re-proved against production schema > X-06 composite tenant FK: a cross-tenant membership reference is rejected
+      · cross-tenant membership INSERT under RLS rejected with SQLSTATE 42501
+
+stdout | test/tenancy/roles-and-schema.test.ts > X — sharp edges from the executed spike, re-proved against production schema > X-06 composite tenant FK: a cross-tenant membership reference is rejected
+      · cross-tenant membership reference rejected by the composite FK (23503) even as an authorized superuser
+
+stdout | test/tenancy/roles-and-schema.test.ts > X — sharp edges from the executed spike, re-proved against production schema > X-11 tenant-qualified unique keys keep 23505 inside the caller's own tenant
+      · capability_grants_pkey: primary key on a server-generated id
+      · capability_grants_tenant_identity: tenant-qualified
+      · entitlements_pkey: primary key on a server-generated id
+      · entitlements_tenant_identity: tenant-qualified
+      · group_module_availability_pkey: primary key on a server-generated id
+      · group_module_availability_unique_in_group: tenant-qualified
+      · groups_name_unique_in_organization: tenant-qualified
+      · groups_pkey: primary key on a server-generated id
+      · groups_tenant_identity: tenant-qualified
+      · memberships_one_org_membership_per_user: tenant-qualified
+      · memberships_one_per_user_and_group: tenant-qualified
+      · memberships_pkey: primary key on a server-generated id
+      · memberships_tenant_identity: tenant-qualified
+      · organizations_pkey: primary key on a server-generated id
+      · role_capabilities_pkey: primary key on a server-generated id
+      · role_capabilities_unique_in_organization: tenant-qualified
+      · roles_key_unique_in_organization: tenant-qualified
+      · roles_pkey: primary key on a server-generated id
+      · roles_tenant_identity: tenant-qualified
+      · users_login_email_unique: GLOBAL (login identity)
+      · users_pkey: primary key on a server-generated id
+
+stdout | test/tenancy/roles-and-schema.test.ts > X — sharp edges from the executed spike, re-proved against production schema > X-09 SET LOCAL reverts the VALUE and does not undefine the GUC
+      · pristine=NULL, after COMMIT='', after ROLLBACK=''; predicate false, 0 rows, no 22P02
+
+stdout | test/tenancy/roles-and-schema.test.ts > X — sharp edges from the executed spike, re-proved against production schema > X-10 `SET LOCAL` cannot be parameterised; only set_config() can
+      · SET LOCAL with a bind parameter -> 42601; set_config(name, $1, true) -> accepted
+
+stdout | test/tenancy/roles-and-schema.test.ts > X — sharp edges from the executed spike, re-proved against production schema > X-07 an organization-scoped context is fail-closed on group-scoped rows
+      · organization-scoped context: 1 organization membership, 6 groups, all in Alpha
+
+stdout | test/tenancy/roles-and-schema.test.ts > R-05 — app_runtime's DML envelope is bounded by grants, not by convention > D/E: no runtime role holds column-level UPDATE on any freshness counter
+      · 8 (role, counter) pairs checked; none is application-writable
+
+stdout | test/tenancy/roles-and-schema.test.ts > R-05 — app_runtime's DML envelope is bounded by grants, not by convention > D/E: an attempted counter write under app_runtime is rejected 42501
+      · app_runtime UPDATE of organization_version rejected 42501
+
+stdout | test/tenancy/roles-and-schema.test.ts > R-05 — app_runtime's DML envelope is bounded by grants, not by convention > MONOTONIC: a counter cannot be moved backwards, even by a superuser
+      · organization_version and session_epoch both refuse to decrease (23001)
+
+stdout | test/tenancy/roles-and-schema.test.ts > R-05 — app_runtime's DML envelope is bounded by grants, not by convention > TRIGGER-MAINTAINED: a status change advances organization_version by itself
+      · status change advances organization_version; a name-only update does not
+
+stdout | test/tenancy/roles-and-schema.test.ts > R-05 — app_runtime's DML envelope is bounded by grants, not by convention > TRIGGER-MAINTAINED: a membership role change advances the user's membership_set_version
+      · role change bumps membership_set_version; last_active_at does not
+
+stdout | test/tenancy/roles-and-schema.test.ts > R-05 — app_runtime's DML envelope is bounded by grants, not by convention > F/B: DELETE is granted to no runtime role on any tenant table
+      · 36 (role, table) pairs checked; DELETE granted nowhere
+
+stdout | test/tenancy/roles-and-schema.test.ts > R-05 — app_runtime's DML envelope is bounded by grants, not by convention > F/B: an attempted DELETE under app_runtime is rejected 42501, inside the wrapper
+      · DELETE on memberships rejected 42501; the row survives
+
+stdout | test/tenancy/roles-and-schema.test.ts > EV-M1-TENANCY residuals 1, 2 and 4 — CLOSED by OPUS-M1-002 > RESIDUAL (1) CLOSED: an actor with no capability can no longer attach ANY user
+      · RESIDUAL 1 CLOSED: unauthorized attach -> 42501; foreign user's membership_set_version asserted unchanged at 2
+
+stdout | test/tenancy/roles-and-schema.test.ts > EV-M1-TENANCY residuals 1, 2 and 4 — CLOSED by OPUS-M1-002 > RESIDUAL (1) CLOSED, both directions: an AUTHORIZED administrator still can
+      · an authorized administrator can still create a membership — the gate is not a wall
+
+stdout | test/tenancy/roles-and-schema.test.ts > EV-M1-TENANCY residuals 1, 2 and 4 — CLOSED by OPUS-M1-002 > RESIDUAL (2) CLOSED: the FK is no longer a global user-id existence oracle
+      · RESIDUAL 2 CLOSED: a non-existent user id and an existing-but-invisible one now produce the SAME SQLSTATE (42501), so the pair discloses nothing
+
+stdout | test/tenancy/roles-and-schema.test.ts > EV-M1-TENANCY residuals 1, 2 and 4 — CLOSED by OPUS-M1-002 > RESIDUAL (4) CLOSED: a member cannot escalate its own role
+      · RESIDUAL 4 CLOSED: self role escalation refused 42501 for member and for scheduler
+
+stdout | test/tenancy/roles-and-schema.test.ts > EV-M1-TENANCY residuals 1, 2 and 4 — CLOSED by OPUS-M1-002 > a PRINCIPAL may not write a capability grant for any of their own memberships
+      · a self-grant is refused even for the organization administrator
+
+stdout | test/tenancy/roles-and-schema.test.ts > the counter bump enforces the unit of work > A-04 still holds for users: the owner reads zero rows without context
+      · app_migrator still reads 0 user rows without context; the policy is UPDATE-only
+
+stdout | test/tenancy/roles-and-schema.test.ts > the counter bump enforces the unit of work > EVERY policy on EVERY tenant table applies to PUBLIC — no role is exempted
+      · 21 policies checked; all apply TO public, none tests current_user
+
+stdout | test/tenancy/roles-and-schema.test.ts > the counter bump enforces the unit of work > a privilege-bearing membership change OUTSIDE a unit of work is refused — by TWO independent controls
+      · membership status change with no context: 42501 (capability guard); with an actor but no tenant context: 23001 (counter trigger). Row unchanged either way.
+
+stdout | test/tenancy/roles-and-schema.test.ts > the counter bump enforces the unit of work > the SAME change INSIDE a unit of work succeeds and advances the counter
+      · the same change inside a unit of work advances membership_set_version twice
+
+ ✓ |api| test/tenancy/roles-and-schema.test.ts > A — environment and the SPEC-01 §4.4 role matrix > A-01 runs against a real PostgreSQL 17.x server (FAD-7 substitution) 0ms
+ ✓ |api| test/tenancy/roles-and-schema.test.ts > A — environment and the SPEC-01 §4.4 role matrix > A-02 the five roles exist with exactly the attributes SPEC-01 §4.4 requires 1ms
+ ✓ |api| test/tenancy/roles-and-schema.test.ts > A — environment and the SPEC-01 §4.4 role matrix > A-03 every tenant table has RLS ENABLED and FORCED, with at least one policy 1ms
+ ✓ |api| test/tenancy/roles-and-schema.test.ts > A — environment and the SPEC-01 §4.4 role matrix > A-03b EVERY tenant-setting reference in EVERY policy is nullif-guarded 2ms
+ ✓ |api| test/tenancy/roles-and-schema.test.ts > A — environment and the SPEC-01 §4.4 role matrix > A-03c the per-reference check would CATCH a half-guarded predicate 0ms
+ ✓ |api| test/tenancy/roles-and-schema.test.ts > A — environment and the SPEC-01 §4.4 role matrix > A-04 FORCE RLS binds the OWNER too: app_migrator sees zero rows without context 5ms
+ ✓ |api| test/tenancy/roles-and-schema.test.ts > A — environment and the SPEC-01 §4.4 role matrix > A-05 no runtime role holds TRUNCATE or REFERENCES on ANY tenant table 2ms
+ ✓ |api| test/tenancy/roles-and-schema.test.ts > A — environment and the SPEC-01 §4.4 role matrix > A-05b no runtime role holds TEMP on the database 1ms
+ ✓ |api| test/tenancy/roles-and-schema.test.ts > A — environment and the SPEC-01 §4.4 role matrix > A-06 app_runtime cannot disable RLS on a table it does not own 2ms
+ ✓ |api| test/tenancy/roles-and-schema.test.ts > A — environment and the SPEC-01 §4.4 role matrix > A-07 app_readonly_support reads under context and is denied every write 5ms
+ ✓ |api| test/tenancy/roles-and-schema.test.ts > A — environment and the SPEC-01 §4.4 role matrix > A-08 app_breakglass genuinely differs: BYPASSRLS sees both organizations 3ms
+ ✓ |api| test/tenancy/roles-and-schema.test.ts > X — sharp edges from the executed spike, re-proved against production schema > X-06 composite tenant FK: a cross-tenant membership reference is rejected 5ms
+ ✓ |api| test/tenancy/roles-and-schema.test.ts > X — sharp edges from the executed spike, re-proved against production schema > X-11 tenant-qualified unique keys keep 23505 inside the caller's own tenant 2ms
+ ✓ |api| test/tenancy/roles-and-schema.test.ts > X — sharp edges from the executed spike, re-proved against production schema > X-09 SET LOCAL reverts the VALUE and does not undefine the GUC 3ms
+ ✓ |api| test/tenancy/roles-and-schema.test.ts > X — sharp edges from the executed spike, re-proved against production schema > X-10 `SET LOCAL` cannot be parameterised; only set_config() can 2ms
+ ✓ |api| test/tenancy/roles-and-schema.test.ts > X — sharp edges from the executed spike, re-proved against production schema > X-07 an organization-scoped context is fail-closed on group-scoped rows 1ms
+ ✓ |api| test/tenancy/roles-and-schema.test.ts > R-05 — app_runtime's DML envelope is bounded by grants, not by convention > D/E: no runtime role holds column-level UPDATE on any freshness counter 0ms
+ ✓ |api| test/tenancy/roles-and-schema.test.ts > R-05 — app_runtime's DML envelope is bounded by grants, not by convention > D/E: the counters the application DOES need are still writable 0ms
+ ✓ |api| test/tenancy/roles-and-schema.test.ts > R-05 — app_runtime's DML envelope is bounded by grants, not by convention > D/E: an attempted counter write under app_runtime is rejected 42501 1ms
+ ✓ |api| test/tenancy/roles-and-schema.test.ts > R-05 — app_runtime's DML envelope is bounded by grants, not by convention > MONOTONIC: a counter cannot be moved backwards, even by a superuser 0ms
+ ✓ |api| test/tenancy/roles-and-schema.test.ts > R-05 — app_runtime's DML envelope is bounded by grants, not by convention > TRIGGER-MAINTAINED: a status change advances organization_version by itself 1ms
+ ✓ |api| test/tenancy/roles-and-schema.test.ts > R-05 — app_runtime's DML envelope is bounded by grants, not by convention > TRIGGER-MAINTAINED: a membership role change advances the user's membership_set_version 5ms
+ ✓ |api| test/tenancy/roles-and-schema.test.ts > R-05 — app_runtime's DML envelope is bounded by grants, not by convention > F/B: DELETE is granted to no runtime role on any tenant table 1ms
+ ✓ |api| test/tenancy/roles-and-schema.test.ts > R-05 — app_runtime's DML envelope is bounded by grants, not by convention > F/B: an attempted DELETE under app_runtime is rejected 42501, inside the wrapper 1ms
+ ✓ |api| test/tenancy/roles-and-schema.test.ts > EV-M1-TENANCY residuals 1, 2 and 4 — CLOSED by OPUS-M1-002 > RESIDUAL (1) CLOSED: an actor with no capability can no longer attach ANY user 2ms
+ ✓ |api| test/tenancy/roles-and-schema.test.ts > EV-M1-TENANCY residuals 1, 2 and 4 — CLOSED by OPUS-M1-002 > RESIDUAL (1) CLOSED, both directions: an AUTHORIZED administrator still can 1ms
+ ✓ |api| test/tenancy/roles-and-schema.test.ts > EV-M1-TENANCY residuals 1, 2 and 4 — CLOSED by OPUS-M1-002 > RESIDUAL (2) CLOSED: the FK is no longer a global user-id existence oracle 1ms
+ ✓ |api| test/tenancy/roles-and-schema.test.ts > EV-M1-TENANCY residuals 1, 2 and 4 — CLOSED by OPUS-M1-002 > RESIDUAL (4) CLOSED: a member cannot escalate its own role 1ms
+ ✓ |api| test/tenancy/roles-and-schema.test.ts > EV-M1-TENANCY residuals 1, 2 and 4 — CLOSED by OPUS-M1-002 > a PRINCIPAL may not write a capability grant for any of their own memberships 1ms
+ ✓ |api| test/tenancy/roles-and-schema.test.ts > the counter bump enforces the unit of work > A-04 still holds for users: the owner reads zero rows without context 3ms
+ ✓ |api| test/tenancy/roles-and-schema.test.ts > the counter bump enforces the unit of work > EVERY policy on EVERY tenant table applies to PUBLIC — no role is exempted 1ms
+ ✓ |api| test/tenancy/roles-and-schema.test.ts > the counter bump enforces the unit of work > a privilege-bearing membership change OUTSIDE a unit of work is refused — by TWO independent controls 1ms
+ ✓ |api| test/tenancy/roles-and-schema.test.ts > the counter bump enforces the unit of work > the SAME change INSIDE a unit of work succeeds and advances the counter 2ms
+stdout | test/authz/entitlement-in-force.test.ts > S-01 — a historical entitlement row must not govern > a CLOSED, REVOKED historical window alongside the live one changes nothing
+      · a closed revoked window beside the live one leaves evaluation unaffected
+
+stdout | test/authz/entitlement-in-force.test.ts > S-01 — a historical entitlement row must not govern > L1.4 uses the same selection: a DEPENDENCY's historical row does not govern
+      · a dependency's historical row is ignored; its live row governs
+
+stdout | test/authz/entitlement-in-force.test.ts > S-08 — the entitlement write must target the row in force > changing state leaves a historical row untouched
+      · the entitlement write touches the in-force row only; history is intact
+
+stdout | test/authz/entitlement-in-force.test.ts > S-06 (second half) — HTTP coverage for L1.1 > with NO entitlement row at all, the denial is NOT_ENTITLED at L1.1
+      · no entitlement row: 404 at L1.1, over HTTP
+
+ ✓ |api| test/authz/entitlement-in-force.test.ts > S-01 — a historical entitlement row must not govern > the baseline allows, so the assertions below measure the planted row 12ms
+ ✓ |api| test/authz/entitlement-in-force.test.ts > S-01 — a historical entitlement row must not govern > a CLOSED, REVOKED historical window alongside the live one changes nothing 5ms
+ ✓ |api| test/authz/entitlement-in-force.test.ts > S-01 — a historical entitlement row must not govern > a closed SUSPENDED historical window likewise changes nothing 4ms
+ ✓ |api| test/authz/entitlement-in-force.test.ts > S-01 — a historical entitlement row must not govern > the LIVE row still governs when it is the one that changes 4ms
+ ✓ |api| test/authz/entitlement-in-force.test.ts > S-01 — a historical entitlement row must not govern > L1.3 is still reachable: with only an EXPIRED row, the denial is EXPIRED not NOT_ENTITLED 3ms
+ ✓ |api| test/authz/entitlement-in-force.test.ts > S-01 — a historical entitlement row must not govern > L1.4 uses the same selection: a DEPENDENCY's historical row does not govern 6ms
+ ✓ |api| test/authz/entitlement-in-force.test.ts > S-08 — the entitlement write must target the row in force > changing state leaves a historical row untouched 4ms
+ ✓ |api| test/authz/entitlement-in-force.test.ts > S-08 — the entitlement write must target the row in force > with NO row in force, the write is a 404 rather than a history rewrite 2ms
+ ✓ |api| test/authz/entitlement-in-force.test.ts > S-08 — the entitlement write must target the row in force > re-window then re-evaluate: the correct row governs afterwards 6ms
+ ✓ |api| test/authz/entitlement-in-force.test.ts > the selection rule itself > prefers the row in force over any number of closed ones 0ms
+ ✓ |api| test/authz/entitlement-in-force.test.ts > the selection rule itself > falls back to the most recently ENDED row so L1.3 can fire 0ms
+ ✓ |api| test/authz/entitlement-in-force.test.ts > the selection rule itself > falls back to the earliest FUTURE row when nothing has started 0ms
+ ✓ |api| test/authz/entitlement-in-force.test.ts > the selection rule itself > an UNPARSABLE upper bound is not open-ended 0ms
+ ✓ |api| test/authz/entitlement-in-force.test.ts > the selection rule itself > no rows at all is null — L1.1 0ms
+ ✓ |api| test/authz/entitlement-in-force.test.ts > S-06 (second half) — HTTP coverage for L1.1 > with NO entitlement row at all, the denial is NOT_ENTITLED at L1.1 2ms
+stdout | test/authz/schema.test.ts > the authorization tables are tenant tables in every sense > RLS is ENABLED and FORCED on all five
+      · 5 authorization tables: RLS enabled and forced
+
+stdout | test/authz/schema.test.ts > the authorization tables are tenant tables in every sense > A-03b: EVERY current_setting reference in EVERY new policy is nullif-guarded
+      · 55 current_setting references checked, all nullif-guarded
+
+stdout | test/authz/schema.test.ts > the authorization tables are tenant tables in every sense > composite tenant FKs, and tenant-qualified unique keys
+      · 7 FKs and 6 unique keys, all tenant-qualified
+
+stdout | test/authz/schema.test.ts > the authorization tables are tenant tables in every sense > DELETE is granted to no runtime role on any authorization table
+      · 60 (role, table, privilege) triples checked; none granted
+
+stdout | test/authz/schema.test.ts > the authorization tables are tenant tables in every sense > T-13: outside a unit of work every authorization table returns zero rows
+      · all five authorization tables fail closed outside the wrapper
+
+stdout | test/authz/schema.test.ts > the authorization tables are tenant tables in every sense > S-05 / T-13b: a group-scoped context sees only its OWN grants, not the group's
+      · under a group context a principal sees their OWN grants and no others
+
+stdout | test/authz/schema.test.ts > the authorization tables are tenant tables in every sense > S-05: an organization role WITHOUT the administration capability reads no grants
+      · org_observer reads 0 grants; org_admin reads 3 — EX-2's gate is applied, not just cited
+
+stdout | test/authz/schema.test.ts > SPEC-06 P-7 / A-12 — overlapping grant windows are rejected by the exclusion constraint > the constraint exists, and is a gist EXCLUDE over the window
+      · EXCLUDE USING gist (organization_id WITH =, membership_id WITH =, capability_key WITH =, tstzrange(valid_from, valid_to, '[)'::text) WITH &&)
+
+stdout | test/authz/schema.test.ts > SPEC-06 P-7 / A-12 — overlapping grant windows are rejected by the exclusion constraint > A-12: a second, OVERLAPPING window for the same (membership, capability) is rejected 23P01
+      · overlapping window rejected 23P01; a touching window at the same instant accepted
+
+stdout | test/authz/schema.test.ts > the seeded role capabilities match the catalogue > every seeded (role, capability) pair is catalogued at the role's own scope (P-10)
+      · 9 seeded role capabilities, all catalogued at the matching scope
+
+ ✓ |api| test/authz/schema.test.ts > the authorization tables are tenant tables in every sense > every one of them is registered in TENANT_TABLES 0ms
+ ✓ |api| test/authz/schema.test.ts > the authorization tables are tenant tables in every sense > RLS is ENABLED and FORCED on all five 1ms
+ ✓ |api| test/authz/schema.test.ts > the authorization tables are tenant tables in every sense > A-03b: EVERY current_setting reference in EVERY new policy is nullif-guarded 1ms
+ ✓ |api| test/authz/schema.test.ts > the authorization tables are tenant tables in every sense > no policy anywhere calls `app_acting_membership_holds` — that would be infinite recursion 1ms
+ ✓ |api| test/authz/schema.test.ts > the authorization tables are tenant tables in every sense > every policy applies TO public — no per-role exemption crept in 0ms
+ ✓ |api| test/authz/schema.test.ts > the authorization tables are tenant tables in every sense > composite tenant FKs, and tenant-qualified unique keys 1ms
+ ✓ |api| test/authz/schema.test.ts > the authorization tables are tenant tables in every sense > DELETE is granted to no runtime role on any authorization table 2ms
+ ✓ |api| test/authz/schema.test.ts > the authorization tables are tenant tables in every sense > T-13: outside a unit of work every authorization table returns zero rows 4ms
+ ✓ |api| test/authz/schema.test.ts > the authorization tables are tenant tables in every sense > S-05 / T-13b: a group-scoped context sees only its OWN grants, not the group's 1ms
+ ✓ |api| test/authz/schema.test.ts > the authorization tables are tenant tables in every sense > S-05: an organization role WITHOUT the administration capability reads no grants 6ms
+ ✓ |api| test/authz/schema.test.ts > SPEC-06 P-7 / A-12 — overlapping grant windows are rejected by the exclusion constraint > the constraint exists, and is a gist EXCLUDE over the window 0ms
+ ✓ |api| test/authz/schema.test.ts > SPEC-06 P-7 / A-12 — overlapping grant windows are rejected by the exclusion constraint > A-12: a second, OVERLAPPING window for the same (membership, capability) is rejected 23P01 5ms
+ ✓ |api| test/authz/schema.test.ts > SPEC-06 P-7 / A-12 — overlapping grant windows are rejected by the exclusion constraint > the same EXCLUDE shape protects entitlements 0ms
+ ✓ |api| test/authz/schema.test.ts > SPEC-06 §4 — the counters an authorization change bumps > an entitlement state change advances organization_version, in the same transaction 2ms
+ ✓ |api| test/authz/schema.test.ts > SPEC-06 §4 — the counters an authorization change bumps > a module-availability change advances group_version 2ms
+ ✓ |api| test/authz/schema.test.ts > SPEC-06 §4 — the counters an authorization change bumps > a grant change advances the GRANTEE's membership_set_version 1ms
+ ✓ |api| test/authz/schema.test.ts > the seeded role capabilities match the catalogue > every seeded (role, capability) pair is catalogued at the role's own scope (P-10) 1ms
+ ✓ |api| test/authz/schema.test.ts > S-22 — infinite window bounds are rejected, on every effective-dated table > memberships.valid_to = 'infinity' is refused by a CHECK 2ms
+stdout | test/authz/schema.test.ts > S-22 — infinite window bounds are rejected, on every effective-dated table > a FINITE bound is still accepted — the constraint is not a blanket refusal
+      · infinite bounds refused on all three tables; a finite bound still lands
+
+ ✓ |api| test/authz/schema.test.ts > S-22 — infinite window bounds are rejected, on every effective-dated table > memberships.valid_to = '-infinity' is refused by a CHECK 1ms
+ ✓ |api| test/authz/schema.test.ts > S-22 — infinite window bounds are rejected, on every effective-dated table > capability_grants.valid_to = 'infinity' is refused by a CHECK 1ms
+ ✓ |api| test/authz/schema.test.ts > S-22 — infinite window bounds are rejected, on every effective-dated table > capability_grants.valid_to = '-infinity' is refused by a CHECK 0ms
+ ✓ |api| test/authz/schema.test.ts > S-22 — infinite window bounds are rejected, on every effective-dated table > entitlements.effective_to = 'infinity' is refused by a CHECK 1ms
+ ✓ |api| test/authz/schema.test.ts > S-22 — infinite window bounds are rejected, on every effective-dated table > entitlements.effective_to = '-infinity' is refused by a CHECK 0ms
+ ✓ |api| test/authz/schema.test.ts > S-22 — infinite window bounds are rejected, on every effective-dated table > memberships.valid_from = '-infinity' is refused too — both bounds, not just the upper 0ms
+ ✓ |api| test/authz/schema.test.ts > S-22 — infinite window bounds are rejected, on every effective-dated table > a FINITE bound is still accepted — the constraint is not a blanket refusal 1ms
+ ✓ |api| test/authz/schema.test.ts > S-22 — infinite window bounds are rejected, on every effective-dated table > the three CHECK constraints exist by name, so a rename cannot silently drop one 0ms
+stdout | test/authz/no-explanation-leaks.test.ts > the evaluator produces real explanations — the check below is not vacuous > there are many distinct explanations, and each is a sentence
+      · 19 distinct denial explanations exist and must never ship
+
+stdout | test/authz/no-explanation-leaks.test.ts > no denial explanation, reason code, step or capability key reaches the client > the 403 and 404 bodies are FIXED — the same for every reason
+      · L4.1 and L4.2 produce byte-identical 403 bodies
+
+ ✓ |api| test/authz/no-explanation-leaks.test.ts > the evaluator produces real explanations — the check below is not vacuous > there are many distinct explanations, and each is a sentence 1ms
+ ✓ |api| test/authz/no-explanation-leaks.test.ts > no denial explanation, reason code, step or capability key reaches the client > L4.2 — a role without the capability 10ms
+ ✓ |api| test/authz/no-explanation-leaks.test.ts > no denial explanation, reason code, step or capability key reaches the client > L4.1 — an explicit deny grant 7ms
+ ✓ |api| test/authz/no-explanation-leaks.test.ts > no denial explanation, reason code, step or capability key reaches the client > L1.2 — a suspended entitlement (P-3: the module shape is not disclosed) 4ms
+ ✓ |api| test/authz/no-explanation-leaks.test.ts > no denial explanation, reason code, step or capability key reaches the client > the 403 and 404 bodies are FIXED — the same for every reason 6ms
+stdout | test/jobs/job-context.test.ts > SPEC-01 §6 — enqueue freezes the context > T-03 (job surface) an enqueue carries the verified context, frozen
+      · enqueued 37603ac8-a487-45cb-8698-48b281e5e938 with frozen context {"organizationId":"11111111-1111-4111-8111-111111111111","groupId":"1a1a1a1a-1111-4111-8111-a1a1a1a1a1a1","membershipId":"ac000001-1111-4111-8111-000000000001","actionScope":"group","authorizationVersionAtEnqueue":"av1:52.7.17.2"}
+
+stdout | test/jobs/job-context.test.ts > SPEC-01 §6 / SPEC-06 §5 — execution re-evaluates against current state > a job whose actor still holds the capability completes, and writes under the frozen tenant
+      · job completed under app_worker and wrote inside the frozen tenant
+
+stdout | test/jobs/job-context.test.ts > SPEC-01 §6 / SPEC-06 §5 — execution re-evaluates against current state > "No context: the worker REFUSES the job. There is no default tenant."
+      · no organization: refused_no_context
+
+stdout | test/jobs/job-context.test.ts > SPEC-01 §6 / SPEC-06 §5 — execution re-evaluates against current state > "No context: the worker REFUSES the job. There is no default tenant."
+      · group-scoped with no group: refused_no_context
+
+stdout | test/jobs/job-context.test.ts > SPEC-01 §6 / SPEC-06 §5 — execution re-evaluates against current state > "No context: the worker REFUSES the job. There is no default tenant."
+      · no membership and not a system actor: refused_no_context
+
+stdout | test/jobs/job-context.test.ts > SPEC-01 §6 / SPEC-06 §5 — execution re-evaluates against current state > "No context: the worker REFUSES the job. There is no default tenant."
+      · scope disagrees with the handler: refused_no_context
+
+stdout | test/jobs/job-context.test.ts > SPEC-01 §6 / SPEC-06 §5 — execution re-evaluates against current state > a job whose actor LOST the capability terminates cancelled_unauthorized, writing nothing
+      · role demoted between enqueue and execution: cancelled_unauthorized
+
+stdout | test/jobs/job-context.test.ts > SPEC-06 §7 — the two surfaces, and where they no longer agree > the job surface's allow-list equals the set of system roles the CATALOGUE grants that capability
+      · HTTP authorizes membership.touch_self through the SPEC-06 evaluator; the job surface authorizes it through a role allow-list [group_admin, scheduler] — the role dimension agrees, the entitlement / availability / grant dimensions are NOT evaluated by the worker (EV-M1-AUTHZ §5 item 1)
+
+ ✓ |api| test/jobs/job-context.test.ts > SPEC-01 §6 — enqueue freezes the context > T-03 (job surface) an enqueue carries the verified context, frozen 10ms
+ ✓ |api| test/jobs/job-context.test.ts > SPEC-01 §6 — enqueue freezes the context > an unauthorized actor enqueues nothing at all 3ms
+ ✓ |api| test/jobs/job-context.test.ts > SPEC-01 §6 — enqueue freezes the context > the frozen context is a COPY — mutating the caller's object cannot retarget the job 0ms
+ ✓ |api| test/jobs/job-context.test.ts > SPEC-01 §6 / SPEC-06 §5 — execution re-evaluates against current state > a job whose actor still holds the capability completes, and writes under the frozen tenant 4ms
+ ✓ |api| test/jobs/job-context.test.ts > SPEC-01 §6 / SPEC-06 §5 — execution re-evaluates against current state > "No context: the worker REFUSES the job. There is no default tenant." 0ms
+ ✓ |api| test/jobs/job-context.test.ts > SPEC-01 §6 / SPEC-06 §5 — execution re-evaluates against current state > a system-actor job is refused until OPUS-M1-002 defines its capability set 0ms
+ ✓ |api| test/jobs/job-context.test.ts > SPEC-01 §6 / SPEC-06 §5 — execution re-evaluates against current state > a job whose actor LOST the capability terminates cancelled_unauthorized, writing nothing 5ms
+ ✓ |api| test/jobs/job-context.test.ts > SPEC-01 §6 / SPEC-06 §5 — execution re-evaluates against current state > a job whose membership was ENDED terminates cancelled_unauthorized 3ms
+ ✓ |api| test/jobs/job-context.test.ts > SPEC-01 §6 / SPEC-06 §5 — execution re-evaluates against current state > a job naming a membership from ANOTHER tenant is cancelled, not executed 1ms
+ ✓ |api| test/jobs/job-context.test.ts > SPEC-01 §6 / SPEC-06 §5 — execution re-evaluates against current state > an unregistered job kind fails explicitly rather than silently succeeding 0ms
+ ✓ |api| test/jobs/job-context.test.ts > SPEC-06 §7 — the two surfaces, and where they no longer agree > the job surface's allow-list equals the set of system roles the CATALOGUE grants that capability 0ms
+ ✓ |api| test/jobs/job-context.test.ts > SPEC-06 §7 — the two surfaces, and where they no longer agree > the enqueue route the job is reached through declares that same capability 1ms
+stdout | test/authz/loader-cross-checks.test.ts > S-04 — each cross-check, individually necessary > GROUP: a membership in a sibling group is discarded
+      · all four loader cross-checks reject a mismatched context
+
+ ✓ |api| test/authz/loader-cross-checks.test.ts > the honest baseline > a context that agrees with the row resolves the membership and ALLOWS 6ms
+ ✓ |api| test/authz/loader-cross-checks.test.ts > S-04 — each cross-check, individually necessary > KIND: an ORGANIZATION membership does not satisfy a group-scoped action 2ms
+ ✓ |api| test/authz/loader-cross-checks.test.ts > S-04 — each cross-check, individually necessary > KIND, the other direction: a GROUP membership does not satisfy an organization-scoped action 1ms
+ ✓ |api| test/authz/loader-cross-checks.test.ts > S-04 — each cross-check, individually necessary > PRINCIPAL: a membership belonging to somebody else is discarded 1ms
+ ✓ |api| test/authz/loader-cross-checks.test.ts > S-04 — each cross-check, individually necessary > ORGANIZATION: a row from a different organization than the context declares is discarded 1ms
+ ✓ |api| test/authz/loader-cross-checks.test.ts > S-04 — each cross-check, individually necessary > GROUP: a membership in a sibling group is discarded 1ms
+ ✓ |api| test/authz/loader-cross-checks.test.ts > S-04 — each cross-check, individually necessary > a membership id that resolves to nothing is null too — the trivial case still holds 1ms
+ ✓ |api| test/authz/loader-cross-checks.test.ts > S-04 — each cross-check, individually necessary > a discarded membership takes its ROLE with it — no capabilities leak through 1ms
+stdout | test/red-cases/probe-is-not-vacuous.test.ts > the wrong-tenant probe reports a violation when one is expected > RED: probing Group One's rows against Group Two's expectation reports wrong > 0
+      · probe against a deliberately wrong expectation: [["organizations",0],["groups",1],["users",3],["memberships",4],["roles",0],["role_capabilities",0],["capability_grants",1],["entitlements",0],["group_module_availability",3]]
+
+stdout | test/red-cases/probe-is-not-vacuous.test.ts > the wrong-tenant probe reports a violation when one is expected > RED: probing Alpha's rows against Beta's expectation reports wrong > 0 on every table
+      · every tenant table reports wrong > 0 when probed against the other organization
+
+stdout | test/red-cases/probe-is-not-vacuous.test.ts > the ground-truth census reports a violation when one is planted > RED: a row in a partition that does not exist is flagged
+      · census flagged 1 impossible partition(s) when one was withheld
+
+ ✓ |api| test/red-cases/probe-is-not-vacuous.test.ts > the wrong-tenant probe reports a violation when one is expected > RED: probing Group One's rows against Group Two's expectation reports wrong > 0 7ms
+ ✓ |api| test/red-cases/probe-is-not-vacuous.test.ts > the wrong-tenant probe reports a violation when one is expected > RED: probing Alpha's rows against Beta's expectation reports wrong > 0 on every table 2ms
+ ✓ |api| test/red-cases/probe-is-not-vacuous.test.ts > the wrong-tenant probe reports a violation when one is expected > GREEN: the same probe reports zero against the CORRECT expectation 2ms
+ ✓ |api| test/red-cases/probe-is-not-vacuous.test.ts > the ground-truth census reports a violation when one is planted > RED: a row in a partition that does not exist is flagged 1ms
+ ✓ |api| test/red-cases/probe-is-not-vacuous.test.ts > the ground-truth census reports a violation when one is planted > GREEN: with the real partitions, the census is clean 0ms
+stdout | test/authz/fail-closed-guard.test.ts > a capability route that forgets to evaluate cannot return success > the FORGETFUL route answers 500, not 200, for a fully authorized request
+      · a capability route that skips evaluation is converted to 500 by the onSend guard
+
+ ✓ |api| test/authz/fail-closed-guard.test.ts > a capability route that forgets to evaluate cannot return success > the FORGETFUL route answers 500, not 200, for a fully authorized request 5ms
+ ✓ |api| test/authz/fail-closed-guard.test.ts > a capability route that forgets to evaluate cannot return success > the CORRECT route answers 200 — the guard is not simply refusing everything 4ms
+ ✓ |api| test/authz/fail-closed-guard.test.ts > a capability route that forgets to evaluate cannot return success > the guard does not touch a 4xx — a context refusal has nothing to evaluate 0ms
+ ✓ |api| test/authz/fail-closed-guard.test.ts > a capability route that forgets to evaluate cannot return success > and it does not touch a PUBLIC route, which evaluates nothing by design 0ms
+stdout | test/architecture/no-tenant-access-outside-unit-of-work.test.ts > no tenant access outside the unit of work (I-15) > GREEN: no module outside the connection owners touches a connection or a tenant table
+      · scanned apps/api/src; 5 permitted connection owner(s): db/unit-of-work.ts, db/pool.ts, db/pooler-assertion.ts, db/bootstrap.ts, db/migrate.ts
+
+stdout | test/architecture/no-tenant-access-outside-unit-of-work.test.ts > no tenant access outside the unit of work (I-15) > RED: the REAL scanner flags a direct query in a handler-shaped module
+      · red case: 4 finding(s) — imports the pg driver outside the unit of work · checks out a connection outside the unit of work · issues a raw statement outside the unit of work · names the tenant table `memberships` in a SQL string literal
+
+ ✓ |api| test/architecture/no-tenant-access-outside-unit-of-work.test.ts > no tenant access outside the unit of work (I-15) > GREEN: no module outside the connection owners touches a connection or a tenant table 5ms
+ ✓ |api| test/architecture/no-tenant-access-outside-unit-of-work.test.ts > no tenant access outside the unit of work (I-15) > RED: the REAL scanner flags a direct query in a handler-shaped module 0ms
+ ✓ |api| test/architecture/no-tenant-access-outside-unit-of-work.test.ts > no tenant access outside the unit of work (I-15) > RED: each detector fires on its own, so no one of them is carrying the others 1ms
+ ✓ |api| test/architecture/no-tenant-access-outside-unit-of-work.test.ts > no tenant access outside the unit of work (I-15) > GREEN: a type-only pg import is not a violation — it holds no connection 0ms
+ ✓ |api| test/architecture/no-tenant-access-outside-unit-of-work.test.ts > no tenant access outside the unit of work (I-15) > the allow-list exempts real files, and each entry has a recorded reason 0ms
+ ✓ |api| test/architecture/no-tenant-access-outside-unit-of-work.test.ts > no ambient tenant state (SPEC-01 §3.1) > nothing reads a session-global active organization or active group 3ms
+ ✓ |api| test/architecture/no-tenant-access-outside-unit-of-work.test.ts > no ambient tenant state (SPEC-01 §3.1) > RED: the ambient-tenant patterns match the code they exist to catch 0ms
+ ✓ |api| test/architecture/no-tenant-access-outside-unit-of-work.test.ts > no ambient tenant state (SPEC-01 §3.1) > the only shipped principal resolver denies, and no header-based one exists in src 1ms
+ ✓ |api| test/architecture/no-tenant-access-outside-unit-of-work.test.ts > set_config is always transaction-local > no call site passes `false` as the third argument 1ms
+ ✓ |api| test/architecture/no-tenant-access-outside-unit-of-work.test.ts > set_config is always transaction-local > RED: the pattern catches the session form and spares the transaction-local one 0ms
+stdout | test/architecture/embedded-postgres-isolation.test.ts > embedded-postgres is confined to the cluster daemon > only support/cluster.ts imports embedded-postgres
+      · embedded-postgres is imported by exactly one module: support/cluster.ts
+
+stdout | test/architecture/embedded-postgres-isolation.test.ts > embedded-postgres is confined to the cluster daemon > only support/cluster-daemon.ts imports support/cluster.ts
+      · support/cluster.ts is imported by exactly one module: support/cluster-daemon.ts
+
+ ✓ |api| test/architecture/embedded-postgres-isolation.test.ts > embedded-postgres is confined to the cluster daemon > only support/cluster.ts imports embedded-postgres 3ms
+ ✓ |api| test/architecture/embedded-postgres-isolation.test.ts > embedded-postgres is confined to the cluster daemon > only support/cluster-daemon.ts imports support/cluster.ts 2ms
+ ✓ |api| test/architecture/embedded-postgres-isolation.test.ts > embedded-postgres is confined to the cluster daemon > no production source imports it — it is a devDependency of the harness 2ms
+ ✓ |api| test/architecture/embedded-postgres-isolation.test.ts > embedded-postgres is confined to the cluster daemon > the scan can actually find an importer — it is not matching nothing 2ms
+ ✓ |api| test/architecture/embedded-postgres-isolation.test.ts > embedded-postgres is confined to the cluster daemon > this very process therefore has no exit-code-clobbering beforeExit hook 0ms
+stdout | test/http/route-declarations.test.ts > route declarations > registers more than the scaffold's single route
+      · POST /organizations/:organizationId/memberships -> capability
+        POST /organizations/:organizationId/memberships/:membershipId/grants -> capability
+        PATCH /organizations/:organizationId/entitlements/:moduleKey -> capability
+        POST /organizations/:organizationId/groups/:groupId/context-probe/touch -> capability
+        POST /organizations/:organizationId/context-probe/touch -> capability
+        POST /organizations/:organizationId/context-probe/group-scoped-touch -> capability
+        POST /organizations/:organizationId/groups/:groupId/context-probe/targets/:targetMembershipId -> capability
+        POST /organizations/:organizationId/groups/:groupId/context-probe/enqueue -> capability
+        GET /health -> public
+
+stdout | test/http/route-declarations.test.ts > route declarations > every CAPABILITY route declares an action scope and a catalogued action (A-14, A-16)
+      · POST /organizations/:organizationId/memberships: organization-scoped, CAP-006, action=organization.membership.administer, module=organization_administration, objectPolicy=false
+      · POST /organizations/:organizationId/memberships/:membershipId/grants: organization-scoped, CAP-006, action=organization.role.administer, module=organization_administration, objectPolicy=false
+      · PATCH /organizations/:organizationId/entitlements/:moduleKey: organization-scoped, CAP-057, action=organization.entitlement.administer, module=entitlements, objectPolicy=false
+      · POST /organizations/:organizationId/groups/:groupId/context-probe/touch: group-scoped, CAP-003, action=membership.touch_self, module=core_scheduling, objectPolicy=false
+      · POST /organizations/:organizationId/context-probe/touch: organization-scoped, CAP-003, action=organization.membership.touch_self, module=core_scheduling, objectPolicy=false
+      · POST /organizations/:organizationId/context-probe/group-scoped-touch: group-scoped, CAP-003, action=membership.touch_self, module=core_scheduling, objectPolicy=false
+      · POST /organizations/:organizationId/groups/:groupId/context-probe/targets/:targetMembershipId: group-scoped, CAP-003, action=membership.touch_self, module=core_scheduling, objectPolicy=true
+      · POST /organizations/:organizationId/groups/:groupId/context-probe/enqueue: group-scoped, CAP-003, action=membership.touch_self, module=core_scheduling, objectPolicy=false
+
+ ✓ |api| test/http/route-declarations.test.ts > route declarations > registers more than the scaffold's single route 0ms
+ ✓ |api| test/http/route-declarations.test.ts > route declarations > no route is registered without a policy (I-02) 0ms
+ ✓ |api| test/http/route-declarations.test.ts > route declarations > every CAPABILITY route declares an action scope and a catalogued action (A-14, A-16) 0ms
+ ✓ |api| test/http/route-declarations.test.ts > route declarations > the role namespaces are still disjoint, and every shipped role is catalogued (P-10) 0ms
+ ✓ |api| test/http/route-declarations.test.ts > route declarations > the registered config is really carried through — the assertion above is not vacuous 0ms
+ ✓ |api| test/http/route-declarations.test.ts > route declarations > a capability config missing its scope or action is NOT accepted by the narrowing function 0ms
+ ✓ |api| test/http/route-declarations.test.ts > the new build-failing check: a policy naming an unknown capability > accepts a well-formed, catalogued declaration 0ms
+ ✓ |api| test/http/route-declarations.test.ts > the new build-failing check: a policy naming an unknown capability > REJECTS an action key that is not in the catalogue 0ms
+ ✓ |api| test/http/route-declarations.test.ts > the new build-failing check: a policy naming an unknown capability > REJECTS a route whose declared scope disagrees with the catalogue (A-16) 0ms
+ ✓ |api| test/http/route-declarations.test.ts > the new build-failing check: a policy naming an unknown capability > REJECTS a route naming the wrong module for its capability 0ms
+ ✓ |api| test/http/route-declarations.test.ts > the new build-failing check: a policy naming an unknown capability > REJECTS an ownership override naming an uncatalogued capability 0ms
+ ✓ |api| test/http/route-declarations.test.ts > the new build-failing check: a policy naming an unknown capability > says nothing about a public or internal route 0ms
+ ✓ |api| test/http/route-declarations.test.ts > the job surface's surviving provisional check is deny-by-default > an empty allow-list denies every role 0ms
+ ✓ |api| test/http/route-declarations.test.ts > the job surface's surviving provisional check is deny-by-default > a null role is denied 0ms
+ ✓ |api| test/http/route-declarations.test.ts > the job surface's surviving provisional check is deny-by-default > P-8: an organization membership never satisfies a group-scoped route 0ms
+ ✓ |api| test/http/route-declarations.test.ts > the job surface's surviving provisional check is deny-by-default > P-9: a group membership never satisfies an organization-scoped route 0ms
+ ✓ |api| test/http/route-declarations.test.ts > the job surface's surviving provisional check is deny-by-default > P-10: the two role namespaces do not overlap 0ms
+ ✓ |api| test/http/route-declarations.test.ts > the job surface's surviving provisional check is deny-by-default > only an exactly-listed role is allowed — there is no wildcard 0ms
+ ✓ |api| test/server.test.ts > GET /health > returns a payload that satisfies the shared contract 0ms
+ ✓ |api| test/server.test.ts > GET /health > declares an explicit public policy 0ms
+ ✓ |api| test/server.test.ts > correlation id > echoes an acceptable client-supplied id 0ms
+ ✓ |api| test/server.test.ts > correlation id > replaces — never sanitises — an unacceptable id 0ms
+ ✓ |api| test/server.test.ts > correlation id > generates one when the client sends none 0ms
+ ✓ |api| test/server.test.ts > error envelope > wraps a 404 in the typed envelope with the correlation id 0ms
+ ✓ |api| test/server.test.ts > route table > has no route without a policy declaration 0ms
+ ✓ |api| test/server.test.ts > route table > flags a route registered without a policy 0ms
+
+ Test Files  22 passed (22)
+      Tests  378 passed (378)
+   Start at  23:48:37
+   Duration  28.41s (transform 261ms, setup 12ms, collect 20.03s, tests 7.51s, environment 0ms, prepare 211ms)
+
+vitest exit=0

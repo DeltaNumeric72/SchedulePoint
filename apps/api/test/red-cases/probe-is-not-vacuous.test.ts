@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { TENANT_TABLES } from '../../src/db/schema.js';
 import { adminClient } from '../support/admin-client.js';
-import { FIXTURE, groupContext } from '../support/fixtures.js';
+import { FIXTURE, administratorContext, groupContext } from '../support/fixtures.js';
 import {
   createRuntime,
   expectedVisibleUserIds,
@@ -29,7 +29,25 @@ import {
  * tables, same fixture, one wrong input.
  *
  * The census gets the same treatment, for the same reason.
+ *
+ * ## Two contexts, because one scope class cannot be probed from a group
+ *
+ * `audit_checkpoints` is `organization-context-only`: a checkpoint covers an
+ * organization's whole chain, so its read policy carries `app.group_id IS NULL`
+ * and a group-scoped context correctly sees nothing. Probing it from a group
+ * context would report `visible = 0` — the vacuous pass this file exists to
+ * catch — so tables in that class are probed under an ORGANIZATION-scoped
+ * context instead. Every other table is probed exactly as before, and no table
+ * goes unprobed.
  */
+
+/** Tables whose RLS predicate requires an organization-scoped context to see anything. */
+const ORGANIZATION_CONTEXT_ONLY = TENANT_TABLES.filter(
+  (table) => table.scope === 'organization-context-only',
+);
+const GROUP_PROBABLE = TENANT_TABLES.filter(
+  (table) => table.scope !== 'organization-context-only',
+);
 
 let admin: pg.Client;
 let runtime: Runtime;
@@ -100,8 +118,12 @@ describe('the wrong-tenant probe reports a violation when one is expected', () =
     );
     const wrongUserExpectation = await expectedVisibleUserIds(admin, otherOrganization);
 
-    await runtime.runner.run(realContext, async ({ query }) => {
-      for (const table of TENANT_TABLES) {
+    const probed: string[] = [];
+    const assertReportsWrong = async (
+      query: Parameters<Parameters<Runtime['runner']['run']>[1]>[0]['query'],
+      tables: readonly (typeof TENANT_TABLES)[number][],
+    ): Promise<void> => {
+      for (const table of tables) {
         const probe = wrongTenantProbe(table, otherOrganization, wrongUserExpectation);
         const result = (await query.executeQuery(
           CompiledQuery.raw(probe.text, probe.values),
@@ -110,34 +132,62 @@ describe('the wrong-tenant probe reports a violation when one is expected', () =
           result.rows[0]?.wrong ?? 0,
           `${table.name}: the probe reported 0 wrong rows against another organization's expectation`,
         ).toBeGreaterThan(0);
+        probed.push(table.name);
       }
-    });
+    };
+
+    await runtime.runner.run(realContext, ({ query }) =>
+      assertReportsWrong(query, GROUP_PROBABLE),
+    );
+    await runtime.runner.run(
+      administratorContext(FIXTURE.alpha.organizationId, 'probe-red-organization'),
+      ({ query }) => assertReportsWrong(query, ORGANIZATION_CONTEXT_ONLY),
+    );
+
+    // Every registered table was probed under SOME context. A table silently
+    // skipped by the partition above would otherwise be a table this red case
+    // never exercises.
+    expect([...probed].sort()).toEqual(TENANT_TABLES.map((t) => t.name).sort());
     log('every tenant table reports wrong > 0 when probed against the other organization');
   });
 
-  it('GREEN: the same probe reports zero against the CORRECT expectation', () => {
+  it('GREEN: the same probe reports zero against the CORRECT expectation', async () => {
     // Both directions, in one file. A probe that always reported a violation
     // would satisfy the red cases above and be equally useless.
-    return runtime.runner.run(
-      groupContext(
-        FIXTURE.alpha.organizationId,
-        FIXTURE.alpha.groupOne.id,
-        FIXTURE.alpha.users.scheduler.membershipId,
-      ),
-      async ({ query, context }) => {
-        const expected = await expectedVisibleUserIds(admin, context);
-        for (const table of TENANT_TABLES) {
-          const probe = wrongTenantProbe(table, context, expected);
-          const result = (await query.executeQuery(
-            CompiledQuery.raw(probe.text, probe.values),
-          )) as unknown as { rows: ProbeResult[] };
-          expect(result.rows[0]?.wrong ?? 0, `${table.name} reported a false positive`).toBe(0);
-          expect(
-            result.rows[0]?.visible ?? 0,
-            `${table.name} probe was vacuous — no visible rows to be wrong about`,
-          ).toBeGreaterThan(0);
-        }
-      },
+    const assertCleanAndNonVacuous = async (
+      query: Parameters<Parameters<Runtime['runner']['run']>[1]>[0]['query'],
+      context: ReturnType<typeof groupContext>,
+      tables: readonly (typeof TENANT_TABLES)[number][],
+    ): Promise<void> => {
+      const expected = await expectedVisibleUserIds(admin, context);
+      for (const table of tables) {
+        const probe = wrongTenantProbe(table, context, expected);
+        const result = (await query.executeQuery(
+          CompiledQuery.raw(probe.text, probe.values),
+        )) as unknown as { rows: ProbeResult[] };
+        expect(result.rows[0]?.wrong ?? 0, `${table.name} reported a false positive`).toBe(0);
+        expect(
+          result.rows[0]?.visible ?? 0,
+          `${table.name} probe was vacuous — no visible rows to be wrong about`,
+        ).toBeGreaterThan(0);
+      }
+    };
+
+    const group = groupContext(
+      FIXTURE.alpha.organizationId,
+      FIXTURE.alpha.groupOne.id,
+      FIXTURE.alpha.users.scheduler.membershipId,
+    );
+    await runtime.runner.run(group, ({ query, context }) =>
+      assertCleanAndNonVacuous(query, context, GROUP_PROBABLE),
+    );
+
+    const organization = administratorContext(
+      FIXTURE.alpha.organizationId,
+      'probe-green-organization',
+    );
+    await runtime.runner.run(organization, ({ query, context }) =>
+      assertCleanAndNonVacuous(query, context, ORGANIZATION_CONTEXT_ONLY),
     );
   });
 });

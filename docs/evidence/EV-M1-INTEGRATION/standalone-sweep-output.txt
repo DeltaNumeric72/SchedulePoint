@@ -1,0 +1,36 @@
+OPUS-M1-004 — standalone sweep: every api test file, run ALONE
+captured: 2026-08-03T05:08:10Z
+Command (per file): corepack pnpm exec vitest run --project api <file>
+
+Rationale: a suite result is a suite result. A proof that only holds when
+another file has run first is not a proof of the property. The C-2 lease-
+recovery block was found this way (5/5 failures alone, 0/5 in the suite).
+
+FILE                                                                     RESULT
+------------------------------------------------------------------------ ----------------
+apps/api/test/architecture/embedded-postgres-isolation.test.ts           Tests  5 passed (5)
+apps/api/test/architecture/no-tenant-access-outside-unit-of-work.test.ts Tests  10 passed (10)
+apps/api/test/audit/architecture.test.ts                                 Tests  5 passed (5)
+apps/api/test/audit/chain.test.ts                                        Tests  27 passed (27)
+apps/api/test/audit/crash-restart.test.ts                                Tests  4 passed (4)
+apps/api/test/audit/emission-coverage.test.ts                            Tests  12 passed (12)
+apps/api/test/audit/outbox-dispatch.test.ts                              Tests  12 passed (12)
+apps/api/test/audit/payload-closedness.test.ts                           Tests  5 passed (5)
+apps/api/test/audit/periodic.test.ts                                     Tests  6 passed (6)
+apps/api/test/authz/entitlement-in-force.test.ts                         Tests  15 passed (15)
+apps/api/test/authz/fail-closed-guard.test.ts                            Tests  4 passed (4)
+apps/api/test/authz/http-authorization.test.ts                           Tests  42 passed (42)
+apps/api/test/authz/loader-cross-checks.test.ts                          Tests  8 passed (8)
+apps/api/test/authz/no-explanation-leaks.test.ts                         Tests  5 passed (5)
+apps/api/test/authz/provisioning.test.ts                                 Tests  17 passed (17)
+apps/api/test/authz/schema.test.ts                                       Tests  26 passed (26)
+apps/api/test/http/context-surface.test.ts                               Tests  24 passed (24)
+apps/api/test/http/route-declarations.test.ts                            Tests  15 passed (15)
+apps/api/test/jobs/job-context.test.ts                                   Tests  18 passed (18)
+apps/api/test/red-cases/gates-fail-on-violations.test.ts                 Tests  12 passed (12)
+apps/api/test/red-cases/probe-is-not-vacuous.test.ts                     Tests  5 passed (5)
+apps/api/test/server.test.ts                                             Tests  8 passed (8)
+apps/api/test/tenancy/roles-and-schema.test.ts                           Tests  37 passed (37)
+apps/api/test/tenancy/unit-of-work.test.ts                               Tests  17 passed (17)
+
+24 files, 24 pass alone. 0 order-dependent.
