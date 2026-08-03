@@ -8,9 +8,22 @@ import { registerCorrelationId } from '../../src/http/correlation-id.js';
 import { registerErrorEnvelope } from '../../src/http/errors.js';
 import type { RouteConfigWithPolicy } from '../../src/http/policy.js';
 import { adminClient } from '../support/admin-client.js';
-import { FIXTURE } from '../support/fixtures.js';
+
 import { createRuntime, log, type Runtime } from '../support/harness.js';
 import { contextHeaders, currentCounters, testPrincipalResolver } from '../support/http.js';
+import { ownedMulti } from '../support/owned-multi.js';
+
+/**
+ * FAD-15 Layer 2 — this file owns its tenant.
+ *
+ * It used to write to the shared MULTI baseline, which every other file also read.
+ * NR-13 measured what that cost: six order-dependent tests across five files, and
+ * eleven of twenty-four files modifying rows the shared seed created. The fixture
+ * below has the same shape and fresh identifiers, and RLS — not agreement — is what
+ * keeps it out of everybody else's queries.
+ */
+const multi = ownedMulti('authz-fail-closed-guard');
+
 
 /**
  * **I-02, made structural: a capability route cannot SUCCEED without evaluating.**
@@ -51,7 +64,8 @@ let app: FastifyInstance;
 let runtime: Runtime;
 let admin: pg.Client;
 
-const alpha = FIXTURE.alpha;
+/** Lazy: the owned fixture does not exist until `beforeAll` has run. */
+const alpha = () => multi().alpha;
 
 beforeAll(async () => {
   admin = adminClient();
@@ -105,11 +119,11 @@ afterAll(async () => {
 
 async function authorizedHeaders(): Promise<Record<string, string>> {
   return contextHeaders(
-    alpha.users.scheduler.id,
+    alpha().users.scheduler.id,
     await currentCounters(admin, {
-      organizationId: alpha.organizationId,
-      groupId: alpha.groupOne.id,
-      userId: alpha.users.scheduler.id,
+      organizationId: alpha().organizationId,
+      groupId: alpha().groupOne.id,
+      userId: alpha().users.scheduler.id,
     }),
   );
 }
@@ -118,7 +132,7 @@ describe('a capability route that forgets to evaluate cannot return success', ()
   it('the FORGETFUL route answers 500, not 200, for a fully authorized request', async () => {
     const response = await app.inject({
       method: 'POST',
-      url: `/organizations/${alpha.organizationId}/groups/${alpha.groupOne.id}/guard/forgetful`,
+      url: `/organizations/${alpha().organizationId}/groups/${alpha().groupOne.id}/guard/forgetful`,
       headers: await authorizedHeaders(),
     });
 
@@ -138,7 +152,7 @@ describe('a capability route that forgets to evaluate cannot return success', ()
   it('the CORRECT route answers 200 — the guard is not simply refusing everything', async () => {
     const response = await app.inject({
       method: 'POST',
-      url: `/organizations/${alpha.organizationId}/groups/${alpha.groupOne.id}/guard/correct`,
+      url: `/organizations/${alpha().organizationId}/groups/${alpha().groupOne.id}/guard/correct`,
       headers: await authorizedHeaders(),
     });
     expect(response.statusCode, response.body).toBe(200);
@@ -151,7 +165,7 @@ describe('a capability route that forgets to evaluate cannot return success', ()
     // into a server error.
     const response = await app.inject({
       method: 'POST',
-      url: `/organizations/${alpha.organizationId}/groups/${alpha.groupOne.id}/guard/forgetful`,
+      url: `/organizations/${alpha().organizationId}/groups/${alpha().groupOne.id}/guard/forgetful`,
     });
     expect(response.statusCode).toBe(401);
   });

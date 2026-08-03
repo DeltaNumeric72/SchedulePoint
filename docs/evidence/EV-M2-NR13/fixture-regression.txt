@@ -1,0 +1,61 @@
+FAD-15 regression gate — with seed 65339 in the fixed set
+captured: 2026-08-03T18:00:47Z
+commit:   7dde6600a8d3cf34aa2fe99d38049966ce1f82ba + the seed-65339 fix
+
+$ node scripts/sbx/fixture-regression.mjs
+FAD-15 fixture-isolation regression gate
+==============================================================================
+
+1. FIXED SEED SET — file order AND test order shuffled
+PASS  seed 1                                           16.3s  373 passed (373)
+PASS  seed 7                                           16.0s  373 passed (373)
+PASS  seed 42                                          16.2s  373 passed (373)
+PASS  seed 424242                                      16.0s  373 passed (373)
+PASS  seed 20260803                                    16.8s  373 passed (373)
+PASS  seed 31337                                       16.5s  373 passed (373)
+PASS  seed 99991                                       16.2s  373 passed (373)
+PASS  seed 123456                                      16.1s  373 passed (373)
+PASS  seed 20250101                                    16.0s  373 passed (373)
+PASS  seed 8675309                                     16.1s  373 passed (373)
+PASS  seed 65339                                       16.0s  373 passed (373)
+
+2. ROTATING SEED — this run drew 880944
+   FAD-15 ruling 3: a failure here is a DEFECT TO FIX, never a flake to retry.
+   Reproduce with --sequence.seed=880944, fix it, then add the seed to FIXED_SEEDS.
+PASS  rotating seed 880944                             16.2s  373 passed (373)
+
+3. STANDALONE SWEEP — every file alone
+PASS  architecture/embedded-postgres-isolation.test.ts    1.6s  5 passed (5)
+PASS  architecture/no-tenant-access-outside-unit-of-work.test.ts    1.6s  10 passed (10)
+PASS  audit/architecture.test.ts                        1.6s  5 passed (5)
+PASS  audit/chain.test.ts                               1.7s  27 passed (27)
+PASS  audit/crash-restart.test.ts                       2.8s  4 passed (4)
+PASS  audit/emission-coverage.test.ts                   1.8s  12 passed (12)
+PASS  audit/outbox-dispatch.test.ts                     1.7s  12 passed (12)
+PASS  audit/payload-closedness.test.ts                  1.6s  5 passed (5)
+PASS  audit/periodic.test.ts                            4.8s  6 passed (6)
+PASS  authz/entitlement-in-force.test.ts                1.8s  15 passed (15)
+PASS  authz/fail-closed-guard.test.ts                   1.7s  4 passed (4)
+PASS  authz/http-authorization.test.ts                  1.9s  42 passed (42)
+PASS  authz/loader-cross-checks.test.ts                 1.7s  8 passed (8)
+PASS  authz/no-explanation-leaks.test.ts                1.8s  5 passed (5)
+PASS  authz/provisioning.test.ts                        1.8s  17 passed (17)
+PASS  authz/schema.test.ts                              1.7s  26 passed (26)
+PASS  fixture/multi.test.ts                             1.7s  12 passed (12)
+PASS  http/context-surface.test.ts                      1.9s  24 passed (24)
+PASS  http/route-declarations.test.ts                   1.7s  15 passed (15)
+PASS  jobs/job-context.test.ts                          1.8s  18 passed (18)
+PASS  red-cases/fixture-isolation-controls.test.ts      1.6s  5 passed (5)
+PASS  red-cases/gates-fail-on-violations.test.ts        5.6s  12 passed (12)
+PASS  red-cases/probe-is-not-vacuous.test.ts            1.6s  5 passed (5)
+PASS  sbx/sbx.test.ts                                   2.0s  17 passed (17)
+PASS  server.test.ts                                    1.7s  8 passed (8)
+PASS  tenancy/roles-and-schema.test.ts                  1.7s  37 passed (37)
+PASS  tenancy/unit-of-work.test.ts                      5.0s  17 passed (17)
+
+==============================================================================
+39 run(s): 39 passed, 0 failed
+Order-independent under every seed tried.
+Every file also passes alone.
+The shared baseline was unmodified in every run (the Layer 1 control runs in each).
+EXIT=0

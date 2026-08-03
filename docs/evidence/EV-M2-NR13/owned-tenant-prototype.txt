@@ -1,0 +1,57 @@
+NR-13 owned-tenant prototype — the recommended mechanism, at the real file count
+captured: 2026-08-03T13:47:56Z
+commit:   959ee03aaf8e2b2ef28f154a539320ba3bea1c76
+host:     Mac16,8, 12 cores; node v24.18.0
+command:  SP_TEST_PG_PORT=55439 SP_NR13_TENANTS=24 corepack pnpm exec tsx apps/api/test/nr13/owned-tenant-prototype.ts
+
+
+P1  AGGREGATE COST — one owned tenant per existing api test file
+      shared MULTI baseline (unchanged, seeded once): 44.3 ms
+      owned tenants provisioned:                      24
+      per tenant:  min 4.2 ms  median 4.7 ms  max 6.3 ms
+      TOTAL added to a run:                           113.5 ms
+      Each owned tenant is a full working tenant: 2 groups, an organization
+      administrator, a group scheduler, a capability grant, and one audited +
+      published event, all through the production paths.
+
+P2  IS THE ISOLATION REAL? — every owned tenant probes every tenant table
+      probes: 288 (tenant x table), asked from inside each tenant's own
+      unit of work, with the shared baseline and 23 sibling tenants all present
+      WORST wrong-tenant row count across every probe: 0
+      Visibility inside the first owned tenant, to show the probe is not vacuous
+      (a probe over an empty table reports 0 wrong for the boring reason):
+        organizations: 1 visible, 0 wrong
+        groups: 2 visible, 0 wrong
+        memberships: 2 visible, 0 wrong
+        roles: 7 visible, 0 wrong
+        role_capabilities: 9 visible, 0 wrong
+        capability_grants: 0 visible, 0 wrong
+        entitlements: 3 visible, 0 wrong
+        group_module_availability: 6 visible, 0 wrong
+        audit_events: 1 visible, 0 wrong
+        audit_checkpoints: 0 visible, 0 wrong
+        outbox_events: 1 visible, 0 wrong
+        outbox_effects: 0 visible, 0 wrong
+
+EXIT=0
+
+HONESTY NOTE ON P2's 288 PROBES
+Three of the twelve tables report `0 visible` inside an owned tenant:
+capability_grants, audit_checkpoints, outbox_effects. Those three probes are
+therefore VACUOUS in this prototype — a probe over a table it cannot see
+reports "0 wrong" for the boring reason, which is precisely the failure mode
+`red-cases/probe-is-not-vacuous.test.ts` exists to catch. The cause is the
+prototype's probe context, not the mechanism:
+
+  capability_grants   its policies are group-scoped or own-scoped; an
+                      organization-scoped context with no acting membership
+                      reads none (asserted directly by authz/schema.test.ts).
+  audit_checkpoints   written by app_worker only; this prototype provisions
+                      under app_runtime and writes no checkpoint.
+  outbox_effects      likewise app_worker's alone.
+
+So P2 establishes zero cross-tenant leakage on NINE tables with rows actually
+visible, and establishes nothing on the other three. Closing that gap is not
+this prototype's job — it is deliverable B (the SBX-004 sweep), which probes
+under every role and every context class. Recorded here so the number 288 is
+not read as 288 meaningful probes.

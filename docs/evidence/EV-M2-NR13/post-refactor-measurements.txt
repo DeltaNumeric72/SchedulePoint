@@ -1,0 +1,53 @@
+POST-REFACTOR MEASUREMENTS — the phase-A projections, now measured
+captured: 2026-08-03T17:21:38Z
+commit:   4b4222a9a57eda5af65d98285993257de145bc0e
+host:     Mac16,8, 12 cores; node v24.18.0; macOS 26.5.2
+
+Phase A projected (MEASUREMENTS.md §5): api ~= 14.6 s (14.5 s baseline + 113 ms of
+owned-tenant provisioning), standalone worst file 5.33 s + ~5 ms. Those were
+projections from a measured baseline plus a measured unit price. Here they are
+measured end to end on the converted suite.
+
+NOTE ON COMPARABILITY: the post-refactor suite is LARGER — 339 -> 364 api tests
+(24 -> 27 files), because deliverable C's MULTI file, the FAD-15 control red cases
+and the SBX harness were added. It also does strictly more work per file: every
+file provisions its own tenant AND the Layer 1 baseline digest runs after each one.
+The comparison is therefore not like-for-like and is not presented as one.
+
+A. FULL WORKSPACE SUITE, 3 repetitions
+  A1 vitest run                                                38.45 s  exit=0  584 passed (584)
+  A2 vitest run                                                37.79 s  exit=0  584 passed (584)
+  A3 vitest run                                                38.04 s  exit=0  584 passed (584)
+
+B. api PROJECT ONLY, 3 repetitions
+  B1 vitest run --project api                                  17.25 s  exit=0  372 passed (372)
+  B2 vitest run --project api                                  17.17 s  exit=0  372 passed (372)
+  B3 vitest run --project api                                  17.19 s  exit=0  372 passed (372)
+
+C. STANDALONE — the three files that were slowest before
+  red-cases/gates-fail-on-violations.test.ts                    6.23 s  exit=0  12 passed (12)
+  tenancy/unit-of-work.test.ts                                  5.41 s  exit=0  17 passed (17)
+  audit/periodic.test.ts                                        5.21 s  exit=0  6 passed (6)
+
+D. NAMED-CONDITION PROOFS — standalone, in the api package suite, and in the
+   complete battery. All three reported, per the standing verification discipline.
+
+   proof 1 + 2: SBX-004 zero-cross-tenant sweep, and vacuity-detector efficacy
+                (apps/api/test/sbx/sbx.test.ts)
+    standalone                                                  2.44 s  exit=0  16 passed (16)
+    in the api package suite                                   17.13 s  exit=0  372 passed (372)
+    in the complete battery                                    37.47 s  exit=0  584 passed (584)
+
+   proof 4: MULTI double-provision determinism (apps/api/test/fixture/multi.test.ts)
+   (R-10: the package-suite mode below is the REAL --project api run; it was
+    previously a directory-filtered run, i.e. the standalone run repeated.)
+    standalone                                                  2.19 s  exit=0  12 passed (12)
+    in the api package suite                                   16.45 s  exit=0  372 passed (372)
+    in the complete battery                                    36.45 s  exit=0  584 passed (584)
+
+   proof 3: order-independence of the full suite is the regression gate itself
+            (11 shuffled runs + 27 standalone runs) — captured separately in
+            fixture-regression.txt, which is that proof in all three modes by
+            construction.
+
+DONE 2026-08-03T17:26:33Z

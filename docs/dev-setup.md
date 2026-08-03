@@ -457,3 +457,68 @@ await recordAuditEvent(uow, {
 The event-name list **only grows** (rule 13). Payloads carry identifiers and tokens only:
 a string value must be printable ASCII with no space, at most 64 characters, enforced by
 both the domain validator and a CHECK constraint (I-07).
+
+---
+
+## Fixture isolation: the regression gate (FAD-15)
+
+```bash
+corepack pnpm fixture-regression          # the gate
+corepack pnpm fixture-regression --quick  # seeds only, no standalone sweep
+```
+
+**What it runs.** Eleven full `api` suite runs with **both** `--sequence.shuffle.files`
+and `--sequence.shuffle.tests` — ten fixed seeds plus one rotating seed drawn per run —
+and then **every test file on its own**. The FAD-15 Layer 1 baseline control runs inside
+all of them, so a run that writes to the shared read-only MULTI fixture fails and names
+the file that did it.
+
+**Why it is not in `pnpm check`.** 35 suite runs is the wrong cost for a per-commit gate
+and the right cost for an acceptance gate. It is a **standing acceptance-time
+requirement**: it runs at every task acceptance and at every milestone exit, not on every
+push. (Wiring it into the gate runner would also be a gate-runner edit, which task packets
+treat as an escalation.)
+
+**What a red means.** Not a flake. NR-13 measured that a *single* shuffled run is a weak
+detector — four of ten seeds found nothing against the pre-refactor suite — so a seed that
+does find something has found a real order dependence.
+
+- The rotating seed is **printed before its run**, so a failure is reproducible from the
+  log alone: `--sequence.shuffle.files --sequence.shuffle.tests --sequence.seed=<n>`.
+- **A rotating-seed failure is a defect to fix, never a flake to retry.**
+- Once a seed has exposed a defect it **joins the fixed set** in
+  `scripts/sbx/fixture-regression.mjs` — so the gate keeps proving that fix while a fresh
+  seed keeps hunting beside it.
+
+**The rule the gate exists to hold.** The shared MULTI baseline is **read-only**. A test
+that needs to write calls `ownedMulti('<slug>')`
+(`apps/api/test/support/owned-multi.ts`) and works in its own tenant.
+
+Two controls keep tenants apart, and it is worth being exact about which does what: a
+**per-run slug registry** (a duplicate slug throws, naming both owners) and a **per-run
+nonce** in each owned fixture's effective slug, so its ids cannot be re-derived from the
+declared slug. **RLS is not the ownership control** — it keeps a tenant's rows invisible to
+a *different declared context*, which is a different guarantee.
+
+**Cleanup.** On a normal run — pass, fail, or thrown error — there is nothing to clean; the
+cluster is per-run. On a **SIGKILL**, teardown does not run and the data directory
+survives. The next run does not silently inherit it: it refuses to start and prints the
+orphan pid, the data directory, and the recovery commands:
+
+```bash
+lsof -nP -i:55433 -t | xargs -r kill -9
+rm -rf apps/api/.pgdata-test-55433
+```
+
+## The SBX evidence harness
+
+```bash
+corepack pnpm sbx
+```
+
+Runs the SPEC-16 scenario subset and prints the table it writes to
+`docs/evidence/EV-M2-SBX/scenario-report.txt`. Every scenario declares all nine SPEC-16
+contract fields — a missing or blank field makes it **not runnable** — and carries a
+falsifiability probe that must fail. A scenario that cannot be made to fail is reported
+**VACUOUS** and fails the run. `EVIDENCE_BLOCKED` is never a pass and never a silent skip,
+and on a **gate-required** scenario it fails the run outright.

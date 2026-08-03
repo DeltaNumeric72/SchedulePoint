@@ -7,14 +7,21 @@ import { ROLES } from '../../src/db/roles.js';
 import { TENANT_TABLES } from '../../src/db/schema.js';
 import { NON_TENANT_TABLES, accountedForTables } from '../support/schema-census.js';
 import { adminClient } from '../support/admin-client.js';
-import {
-  FIXTURE,
-  NONEXISTENT_ID,
-  administratorContext,
-  groupContext,
-  organizationContext,
-} from '../support/fixtures.js';
+import { NONEXISTENT_ID, groupContext, organizationContext } from '../support/fixtures.js';
 import { createRuntime, log, outsideUnitOfWork, type Runtime } from '../support/harness.js';
+import { ownedMulti } from '../support/owned-multi.js';
+
+/**
+ * FAD-15 Layer 2 — this file owns its tenant.
+ *
+ * It used to write to the shared MULTI baseline, which every other file also read.
+ * NR-13 measured what that cost: six order-dependent tests across five files, and
+ * eleven of twenty-four files modifying rows the shared seed created. The fixture
+ * below has the same shape and fresh identifiers, and RLS — not agreement — is what
+ * keeps it out of everybody else's queries.
+ */
+const multi = ownedMulti('tenancy-roles-and-schema');
+
 
 /**
  * Suite A / X — the environment, the SPEC-01 §4.4 role matrix, the RLS policy
@@ -339,19 +346,19 @@ describe('A — environment and the SPEC-01 §4.4 role matrix', () => {
     const support = createRuntime('app_readonly_support', { max: 2 });
     try {
       const seen = await support.runner.run(
-        groupContext(FIXTURE.alpha.organizationId, FIXTURE.alpha.groupOne.id),
+        groupContext(multi().alpha.organizationId, multi().alpha.groupOne.id),
         async ({ query }) => query.selectFrom('memberships').select(['id']).execute(),
       );
       expect(seen.length).toBeGreaterThan(0);
 
       await expect(
         support.runner.run(
-          groupContext(FIXTURE.alpha.organizationId, FIXTURE.alpha.groupOne.id),
+          groupContext(multi().alpha.organizationId, multi().alpha.groupOne.id),
           async ({ query }) =>
             query
               .updateTable('memberships')
               .set({ last_active_at: new Date() })
-              .where('id', '=', FIXTURE.alpha.users.scheduler.membershipId)
+              .where('id', '=', multi().alpha.users.scheduler.membershipId)
               .execute(),
         ),
       ).rejects.toMatchObject({ code: '42501' });
@@ -367,14 +374,25 @@ describe('A — environment and the SPEC-01 §4.4 role matrix', () => {
   it('A-08 app_breakglass genuinely differs: BYPASSRLS sees both organizations', async () => {
     const breakglass = createRuntime('app_breakglass', { max: 1 });
     try {
-      const result = await outsideUnitOfWork<{ n: number }>(
+      const result = await outsideUnitOfWork<{ organization_id: string }>(
         breakglass,
-        'select count(distinct organization_id)::int as n from memberships',
+        'select distinct organization_id from memberships',
       );
-      // Two organizations, with NO context set at all. That is what BYPASSRLS
-      // means, and why the role exists only for two-person emergency use.
-      expect(result.rows[0]?.n).toBe(2);
-      log('app_breakglass sees both organizations with no context — the role is genuinely distinct');
+      const seen = new Set(result.rows.map((row) => row.organization_id));
+      // BOTH of this file's organizations, with NO context set at all. That is
+      // what BYPASSRLS means, and why the role exists only for two-person
+      // emergency use.
+      //
+      // Named rather than counted, since FAD-15: every file now provisions its
+      // own tenant, so the number of organizations in the cluster is a property
+      // of the run. Naming them is the stronger assertion anyway — a count of
+      // two is satisfied by seeing two organizations that are not these.
+      expect(seen.has(multi().alpha.organizationId), 'breakglass could not see Alpha').toBe(true);
+      expect(seen.has(multi().beta.organizationId), 'breakglass could not see Beta').toBe(true);
+      log(
+        `app_breakglass sees both of this file's organizations (of ${String(seen.size)} in the ` +
+          'cluster) with no context — the role is genuinely distinct',
+      );
     } finally {
       await breakglass.destroy();
     }
@@ -398,15 +416,15 @@ describe('X — sharp edges from the executed spike, re-proved against productio
     // an evaluation order the server does not promise.
     await expect(
       runtime.runner.run(
-        groupContext(FIXTURE.alpha.organizationId, FIXTURE.beta.groupOne.id),
+        groupContext(multi().alpha.organizationId, multi().beta.groupOne.id),
         async ({ query }) =>
           query
             .insertInto('memberships')
             .values({
               id: randomUUID(),
-              organization_id: FIXTURE.alpha.organizationId,
-              group_id: FIXTURE.beta.groupOne.id,
-              user_id: FIXTURE.alpha.users.scheduler.id,
+              organization_id: multi().alpha.organizationId,
+              group_id: multi().beta.groupOne.id,
+              user_id: multi().alpha.users.scheduler.id,
               kind: 'group',
               group_role: 'member',
               organization_role: null,
@@ -433,11 +451,11 @@ describe('X — sharp edges from the executed spike, re-proved against productio
     await admin.query('BEGIN');
     try {
       await admin.query(`select set_config('app.organization_id', $1, true)`, [
-        FIXTURE.alpha.organizationId,
+        multi().alpha.organizationId,
       ]);
       await admin.query(`select set_config('app.group_id', '', true)`);
       await admin.query(`select set_config('app.membership_id', $1, true)`, [
-        FIXTURE.alpha.users.organizationAdmin.membershipId,
+        multi().alpha.users.organizationAdmin.membershipId,
       ]);
       await expect(
         admin.query(
@@ -445,9 +463,9 @@ describe('X — sharp edges from the executed spike, re-proved against productio
            values ($1, $2, $3, $4, 'group', 'member')`,
           [
             randomUUID(),
-            FIXTURE.alpha.organizationId,
-            FIXTURE.beta.groupOne.id,
-            FIXTURE.alpha.users.scheduler.id,
+            multi().alpha.organizationId,
+            multi().beta.groupOne.id,
+            multi().alpha.users.scheduler.id,
           ],
         ),
       ).rejects.toMatchObject({ code: '23503' });
@@ -524,7 +542,7 @@ describe('X — sharp edges from the executed spike, re-proved against productio
         await client.query('BEGIN');
         await client.query('select set_config($1, $2, true)', [
           'app.organization_id',
-          FIXTURE.alpha.organizationId,
+          multi().alpha.organizationId,
         ]);
         await client.query('COMMIT');
         const afterCommit = await client.query<{ v: string | null }>(
@@ -535,7 +553,7 @@ describe('X — sharp edges from the executed spike, re-proved against productio
         await client.query('BEGIN');
         await client.query('select set_config($1, $2, true)', [
           'app.organization_id',
-          FIXTURE.beta.organizationId,
+          multi().beta.organizationId,
         ]);
         await client.query('ROLLBACK');
         const afterRollback = await client.query<{ v: string | null }>(
@@ -575,16 +593,16 @@ describe('X — sharp edges from the executed spike, re-proved against productio
         const setLocalStatement = ['SET', 'LOCAL', 'app.organization_id', '= $1'].join(' ');
         await client.query('BEGIN');
         await expect(
-          client.query(setLocalStatement, [FIXTURE.alpha.organizationId]),
+          client.query(setLocalStatement, [multi().alpha.organizationId]),
         ).rejects.toMatchObject({ code: '42601' });
         await client.query('ROLLBACK');
 
         await client.query('BEGIN');
         const ok = await client.query<{ set_config: string }>(
           'select set_config($1, $2, true)',
-          ['app.organization_id', FIXTURE.alpha.organizationId],
+          ['app.organization_id', multi().alpha.organizationId],
         );
-        expect(ok.rows[0]?.set_config).toBe(FIXTURE.alpha.organizationId);
+        expect(ok.rows[0]?.set_config).toBe(multi().alpha.organizationId);
         await client.query('ROLLBACK');
 
         log('SET LOCAL with a bind parameter -> 42601; set_config(name, $1, true) -> accepted');
@@ -601,7 +619,7 @@ describe('X — sharp edges from the executed spike, re-proved against productio
     // group-scoped predicate under an organization-scoped unit of work must be
     // false rather than matching everything.
     const seen = await runtime.runner.run(
-      organizationContext(FIXTURE.alpha.organizationId),
+      organizationContext(multi().alpha.organizationId),
       async ({ query }) => {
         const organizationMemberships = await query
           .selectFrom('memberships')
@@ -624,12 +642,12 @@ describe('X — sharp edges from the executed spike, re-proved against productio
     // suite rather than the isolation.
     expect(seen.groups.length).toBeGreaterThanOrEqual(2);
     expect(
-      seen.groups.every((group) => group.organization_id === FIXTURE.alpha.organizationId),
+      seen.groups.every((group) => group.organization_id === multi().alpha.organizationId),
       'a group from another organization was visible',
     ).toBe(true);
     const ids = seen.groups.map((group) => group.id);
-    expect(ids).toContain(FIXTURE.alpha.groupOne.id);
-    expect(ids).toContain(FIXTURE.alpha.groupTwo.id);
+    expect(ids).toContain(multi().alpha.groupOne.id);
+    expect(ids).toContain(multi().alpha.groupTwo.id);
 
     log(
       `organization-scoped context: 1 organization membership, ${String(seen.groups.length)} groups, all in Alpha`,
@@ -795,12 +813,12 @@ describe('R-05 — app_runtime\'s DML envelope is bounded by grants, not by conv
     // the catalogue merely says it should.
     await expect(
       runtime.runner.run(
-        organizationContext(FIXTURE.alpha.organizationId),
+        organizationContext(multi().alpha.organizationId),
         async ({ query }) =>
           query
             .updateTable('organizations')
             .set({ organization_version: '99' })
-            .where('id', '=', FIXTURE.alpha.organizationId)
+            .where('id', '=', multi().alpha.organizationId)
             .execute(),
       ),
     ).rejects.toMatchObject({ code: '42501' });
@@ -813,13 +831,13 @@ describe('R-05 — app_runtime\'s DML envelope is bounded by grants, not by conv
     // clamped — clamping would hide the bug that caused it.
     await expect(
       admin.query('update organizations set organization_version = 0 where id = $1', [
-        FIXTURE.alpha.organizationId,
+        multi().alpha.organizationId,
       ]),
     ).rejects.toMatchObject({ code: '23001' });
 
     await expect(
       admin.query('update users set session_epoch = 0 where id = $1', [
-        FIXTURE.alpha.users.scheduler.id,
+        multi().alpha.users.scheduler.id,
       ]),
     ).rejects.toMatchObject({ code: '23001' });
     log('organization_version and session_epoch both refuse to decrease (23001)');
@@ -828,38 +846,38 @@ describe('R-05 — app_runtime\'s DML envelope is bounded by grants, not by conv
   it('TRIGGER-MAINTAINED: a status change advances organization_version by itself', async () => {
     const before = await admin.query<{ v: string }>(
       'select organization_version as v from organizations where id = $1',
-      [FIXTURE.beta.organizationId],
+      [multi().beta.organizationId],
     );
     // The status round-trip leaves the row as it was and the counter advanced
     // twice — which is the point: the counter tracks CHANGES, not final state.
     await admin.query(`update organizations set status = 'inactive' where id = $1`, [
-      FIXTURE.beta.organizationId,
+      multi().beta.organizationId,
     ]);
     await admin.query(`update organizations set status = 'active' where id = $1`, [
-      FIXTURE.beta.organizationId,
+      multi().beta.organizationId,
     ]);
     const after = await admin.query<{ v: string }>(
       'select organization_version as v from organizations where id = $1',
-      [FIXTURE.beta.organizationId],
+      [multi().beta.organizationId],
     );
     expect(Number(after.rows[0]?.v)).toBe(Number(before.rows[0]?.v) + 2);
 
     // And a non-privilege-bearing update does NOT advance it (SPEC-01 §2.1,
     // V-08: a routine edit must not make 409 CONTEXT_STALE routine).
     await admin.query(`update organizations set name = name where id = $1`, [
-      FIXTURE.beta.organizationId,
+      multi().beta.organizationId,
     ]);
     const unchanged = await admin.query<{ v: string }>(
       'select organization_version as v from organizations where id = $1',
-      [FIXTURE.beta.organizationId],
+      [multi().beta.organizationId],
     );
     expect(Number(unchanged.rows[0]?.v)).toBe(Number(after.rows[0]?.v));
     log('status change advances organization_version; a name-only update does not');
   });
 
   it('TRIGGER-MAINTAINED: a membership role change advances the user\'s membership_set_version', async () => {
-    const userId = FIXTURE.alpha.users.member.id;
-    const membershipId = FIXTURE.alpha.users.member.membershipId;
+    const userId = multi().alpha.users.member.id;
+    const membershipId = multi().alpha.users.member.membershipId;
     const read = async (): Promise<number> => {
       const r = await admin.query<{ v: string }>(
         'select membership_set_version as v from users where id = $1',
@@ -869,13 +887,13 @@ describe('R-05 — app_runtime\'s DML envelope is bounded by grants, not by conv
     };
 
     const inGroupOne = (): ReturnType<typeof groupContext> =>
-      groupContext(FIXTURE.alpha.organizationId, FIXTURE.alpha.groupOne.id);
+      groupContext(multi().alpha.organizationId, multi().alpha.groupOne.id);
     // A ROLE change is a privilege change, and since OPUS-M1-002 that needs an
     // acting administrator (EV-M1-TENANCY residual 4's control). A
     // `last_active_at` touch is not, and deliberately still runs in the plain
     // group context below — the two paths differing is the property under test.
     const asAdministrator = (): ReturnType<typeof groupContext> =>
-      administratorContext(FIXTURE.alpha.organizationId, 'r05-role-change');
+      multi.administrator(multi().alpha.organizationId, 'r05-role-change');
 
     const before = await read();
     await runtime.runner.run(asAdministrator(), async ({ query }) =>
@@ -925,18 +943,18 @@ describe('R-05 — app_runtime\'s DML envelope is bounded by grants, not by conv
     // in development rather than quietly doing nothing.
     await expect(
       runtime.runner.run(
-        groupContext(FIXTURE.alpha.organizationId, FIXTURE.alpha.groupOne.id),
+        groupContext(multi().alpha.organizationId, multi().alpha.groupOne.id),
         async ({ query }) =>
           query
             .deleteFrom('memberships')
-            .where('id', '=', FIXTURE.alpha.users.member.membershipId)
+            .where('id', '=', multi().alpha.users.member.membershipId)
             .execute(),
       ),
     ).rejects.toMatchObject({ code: '42501' });
 
     const survivor = await admin.query<{ n: number }>(
       'select count(*)::int as n from memberships where id = $1',
-      [FIXTURE.alpha.users.member.membershipId],
+      [multi().alpha.users.member.membershipId],
     );
     expect(survivor.rows[0]?.n).toBe(1);
     log('DELETE on memberships rejected 42501; the row survives');
@@ -961,7 +979,7 @@ describe('EV-M1-TENANCY residuals 1, 2 and 4 — CLOSED by OPUS-M1-002', () => {
   // reads `memberships` would be.
 
   it('RESIDUAL (1) CLOSED: an actor with no capability can no longer attach ANY user', async () => {
-    const betaOnlyUser = FIXTURE.beta.users.organizationAdmin.id;
+    const betaOnlyUser = multi().beta.users.organizationAdmin.id;
     const attachedMembershipId = '0f000001-1111-4111-8111-00000000f001';
 
     // The counter is read BEFORE, so the "did not move" claim below is an
@@ -975,7 +993,7 @@ describe('EV-M1-TENANCY residuals 1, 2 and 4 — CLOSED by OPUS-M1-002', () => {
 
     // Before: Beta's user is invisible under Alpha's organization context.
     const invisibleBefore = await runtime.runner.run(
-      organizationContext(FIXTURE.alpha.organizationId),
+      organizationContext(multi().alpha.organizationId),
       async ({ query }) =>
         query.selectFrom('users').select(['id']).where('id', '=', betaOnlyUser).execute(),
     );
@@ -984,12 +1002,12 @@ describe('EV-M1-TENANCY residuals 1, 2 and 4 — CLOSED by OPUS-M1-002', () => {
     // The statement that used to succeed. It is byte-for-byte the one
     // OPUS-M1-001 recorded, including the context with no acting membership.
     await expect(
-      runtime.runner.run(organizationContext(FIXTURE.alpha.organizationId), async ({ query }) =>
+      runtime.runner.run(organizationContext(multi().alpha.organizationId), async ({ query }) =>
         query
           .insertInto('memberships')
           .values({
             id: attachedMembershipId,
-            organization_id: FIXTURE.alpha.organizationId,
+            organization_id: multi().alpha.organizationId,
             group_id: null,
             user_id: betaOnlyUser,
             kind: 'organization',
@@ -1005,7 +1023,7 @@ describe('EV-M1-TENANCY residuals 1, 2 and 4 — CLOSED by OPUS-M1-002', () => {
     // still invisible, and the FOREIGN user's monotonic, un-lowerable
     // `membership_set_version` did not move.
     const invisibleAfter = await runtime.runner.run(
-      organizationContext(FIXTURE.alpha.organizationId),
+      organizationContext(multi().alpha.organizationId),
       async ({ query }) =>
         query.selectFrom('users').select(['id']).where('id', '=', betaOnlyUser).execute(),
     );
@@ -1035,15 +1053,15 @@ describe('EV-M1-TENANCY residuals 1, 2 and 4 — CLOSED by OPUS-M1-002', () => {
     const membershipId = '0f000004-1111-4111-8111-00000000f004';
     try {
       await runtime.runner.run(
-        administratorContext(FIXTURE.alpha.organizationId, 'residual-1-positive'),
+        multi.administrator(multi().alpha.organizationId, 'residual-1-positive'),
         async ({ query }) =>
           query
             .insertInto('memberships')
             .values({
               id: membershipId,
-              organization_id: FIXTURE.alpha.organizationId,
-              group_id: FIXTURE.alpha.groupTwo.id,
-              user_id: FIXTURE.alpha.users.member.id,
+              organization_id: multi().alpha.organizationId,
+              group_id: multi().alpha.groupTwo.id,
+              user_id: multi().alpha.users.member.id,
               kind: 'group',
               group_role: 'member',
               organization_role: null,
@@ -1071,12 +1089,12 @@ describe('EV-M1-TENANCY residuals 1, 2 and 4 — CLOSED by OPUS-M1-002', () => {
     const probeId = '0f000002-1111-4111-8111-00000000f002';
 
     const attempt = (userId: string): Promise<unknown> =>
-      runtime.runner.run(organizationContext(FIXTURE.alpha.organizationId), async ({ query }) =>
+      runtime.runner.run(organizationContext(multi().alpha.organizationId), async ({ query }) =>
         query
           .insertInto('memberships')
           .values({
             id: probeId,
-            organization_id: FIXTURE.alpha.organizationId,
+            organization_id: multi().alpha.organizationId,
             group_id: null,
             user_id: userId,
             kind: 'organization',
@@ -1087,7 +1105,7 @@ describe('EV-M1-TENANCY residuals 1, 2 and 4 — CLOSED by OPUS-M1-002', () => {
       );
 
     const codes: string[] = [];
-    for (const userId of [NONEXISTENT_ID, FIXTURE.beta.users.scheduler.id]) {
+    for (const userId of [NONEXISTENT_ID, multi().beta.users.scheduler.id]) {
       await attempt(userId).then(
         () => {
           codes.push('ACCEPTED');
@@ -1114,7 +1132,7 @@ describe('EV-M1-TENANCY residuals 1, 2 and 4 — CLOSED by OPUS-M1-002', () => {
     // "An actor with UPDATE on `memberships` in its own group can raise its own
     // role." The acting membership is the Alpha member — role `member`, which
     // holds no administration capability — and the target is itself.
-    const membershipId = FIXTURE.alpha.users.member.membershipId;
+    const membershipId = multi().alpha.users.member.membershipId;
     const before = await admin.query<{ group_role: string }>(
       'select group_role from memberships where id = $1',
       [membershipId],
@@ -1122,7 +1140,7 @@ describe('EV-M1-TENANCY residuals 1, 2 and 4 — CLOSED by OPUS-M1-002', () => {
 
     await expect(
       runtime.runner.run(
-        groupContext(FIXTURE.alpha.organizationId, FIXTURE.alpha.groupOne.id, membershipId),
+        groupContext(multi().alpha.organizationId, multi().alpha.groupOne.id, membershipId),
         async ({ query }) =>
           query
             .updateTable('memberships')
@@ -1144,15 +1162,15 @@ describe('EV-M1-TENANCY residuals 1, 2 and 4 — CLOSED by OPUS-M1-002', () => {
     await expect(
       runtime.runner.run(
         groupContext(
-          FIXTURE.alpha.organizationId,
-          FIXTURE.alpha.groupOne.id,
-          FIXTURE.alpha.users.scheduler.membershipId,
+          multi().alpha.organizationId,
+          multi().alpha.groupOne.id,
+          multi().alpha.users.scheduler.membershipId,
         ),
         async ({ query }) =>
           query
             .updateTable('memberships')
             .set({ group_role: 'group_admin' })
-            .where('id', '=', FIXTURE.alpha.users.scheduler.membershipId)
+            .where('id', '=', multi().alpha.users.scheduler.membershipId)
             .execute(),
       ),
     ).rejects.toMatchObject({ code: '42501' });
@@ -1171,16 +1189,16 @@ describe('EV-M1-TENANCY residuals 1, 2 and 4 — CLOSED by OPUS-M1-002', () => {
     // exercised over HTTP in `apps/api/test/authz/http-authorization.test.ts`,
     // describe block "a principal cannot grant themselves a capability through a
     // SECOND membership"; this is the same-membership case.
-    const adminMembership = FIXTURE.alpha.users.organizationAdmin.membershipId;
+    const adminMembership = multi().alpha.users.organizationAdmin.membershipId;
     await expect(
       runtime.runner.run(
-        administratorContext(FIXTURE.alpha.organizationId, 'self-grant'),
+        multi.administrator(multi().alpha.organizationId, 'self-grant'),
         async ({ query }) =>
           query
             .insertInto('capability_grants')
             .values({
               id: '0f000003-1111-4111-8111-00000000f003',
-              organization_id: FIXTURE.alpha.organizationId,
+              organization_id: multi().alpha.organizationId,
               group_id: null,
               membership_id: adminMembership,
               capability_key: 'identity.impersonate',
@@ -1327,7 +1345,7 @@ describe('the counter bump enforces the unit of work', () => {
     // The enforcement point, and since OPUS-M1-002 there are two of them. They
     // are asserted separately, because a test that accepts "some rejection"
     // stops noticing when one of the two disappears.
-    const membershipId = FIXTURE.beta.users.scheduler.membershipId;
+    const membershipId = multi().beta.users.scheduler.membershipId;
 
     // (a) The CAPABILITY guard, added by 0002. No context at all means no acting
     //     membership, so `app_acting_membership_holds` is false and the BEFORE
@@ -1344,7 +1362,7 @@ describe('the counter bump enforces the unit of work', () => {
     await admin.query('BEGIN');
     try {
       await admin.query(`select set_config('app.membership_id', $1, true)`, [
-        FIXTURE.beta.users.organizationAdmin.membershipId,
+        multi().beta.users.organizationAdmin.membershipId,
       ]);
       await expect(
         admin.query(`update memberships set status = 'suspended' where id = $1`, [membershipId]),
@@ -1367,8 +1385,8 @@ describe('the counter bump enforces the unit of work', () => {
   it('the SAME change INSIDE a unit of work succeeds and advances the counter', async () => {
     // Both directions. A trigger that refused everything would satisfy the test
     // above and break the product.
-    const userId = FIXTURE.beta.users.scheduler.id;
-    const membershipId = FIXTURE.beta.users.scheduler.membershipId;
+    const userId = multi().beta.users.scheduler.id;
+    const membershipId = multi().beta.users.scheduler.membershipId;
     const read = async (): Promise<number> => {
       const r = await admin.query<{ v: string }>(
         'select membership_set_version as v from users where id = $1',
@@ -1380,7 +1398,7 @@ describe('the counter bump enforces the unit of work', () => {
     // privilege change, and privilege changes are organization-scoped actions
     // (SPEC-06 §1.1) that now require the capability.
     const context = (): ReturnType<typeof groupContext> =>
-      administratorContext(FIXTURE.beta.organizationId, 'counter-bump-inside');
+      multi.administrator(multi().beta.organizationId, 'counter-bump-inside');
 
     const before = await read();
     await runtime.runner.run(context(), async ({ query }) =>

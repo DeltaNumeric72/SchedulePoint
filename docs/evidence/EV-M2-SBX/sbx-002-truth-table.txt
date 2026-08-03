@@ -1,0 +1,60 @@
+SBX-002 — Capability mapping (CAP-006 / CAP-057): the grant x entitlement x role truth table, proven server-side
+generated: 2026-08-03T18:04:52.012Z
+
+STATE: PASS   falsifiability probe: FALSIFIABLE   gate-required: YES
+
+SPEC-16 §1 contract
+  owner                    OPUS-M2-001 (implementer) / Fable (acceptance)
+  fixtureProvenance        MULTI `full` profile: Alpha is entitled to core_scheduling, Gamma deliberately is not, and Alpha carries an explicit ALLOW grant and an explicit DENY grant.
+  deterministicSetup       The truth table is evaluated through the shipped SPEC-06 evaluator against seeded rows; no clock, no concurrency, no ordering dependence.
+  externalDependency       None.
+  faultControls            None injected.
+  objectiveOracle          TWELVE of the fifteen SPEC-06 truth-table rows are exercised server-side over the real HTTP surface, in 15 concrete non-vacuous cases — each preceded by an ALLOW control on the same actor and route, so a denial cannot pass merely because the actor was never allowed. Twelve rows execute; L1.4, L6.1 and L6.2 have no surface and are EVIDENCE_BLOCKED with their dependency named. COMPANION EVIDENCE, exhaustive rather than sampled: packages/domain/test/authz/cross-product.test.ts evaluates all 39,285,000 cases against an independent oracle with 0 disagreements. The sampling relationship is deliberate and is the whole design — the EVALUATOR is proved exhaustively at the domain level, and this scenario proves the SERVER reaches that evaluator on every row. Neither substitutes for the other: an exhaustive evaluator wired to nothing would still pass its own test.
+  retainedArtifact         docs/evidence/EV-M2-SBX/sbx-002-truth-table.txt
+  environment              MULTI
+  earliestExecutionPoint   E1
+
+tables exercised: capability_grants, entitlements, group_module_availability, groups, memberships, organizations
+policies exercised: SPEC-06 L1.1 NOT_ENTITLED | SPEC-06 P-1 explicit deny precedence | SPEC-06 fifteen-row truth table over the HTTP surface
+
+EVIDENCE_BLOCKED sub-scenarios (never a pass, never a silent skip):
+  - L1.4 MODULE_DEPENDENCY_UNSATISFIED
+      EVIDENCE_BLOCKED(module-with-dependencies milestone — no registered route declares an action in a module that HAS a dependency. Per MODULE_DEPENDENCIES only requests_vacation, marketplace, communications, reporting_documents, picklist and hospital_integration have any, and none of them has a route yet)
+  - L6.1 PROXY_INVALID / PROXY_SCOPE / PROXY_GRANTOR_DENIED
+      EVIDENCE_BLOCKED(proxy milestone (no proxy surface exists))
+  - L6.2 IMPERSONATION_EXPIRED / IMPERSONATION_FORBIDDEN_SURFACE
+      EVIDENCE_BLOCKED(impersonation milestone (no impersonation surface exists))
+  - the picklist-specific arm (group-level Pick List Access x per-user Picklist Admin)
+      EVIDENCE_BLOCKED(picklist milestone (SPEC-02; no picklist surface exists). Recorded per the packet: this arm re-executes at the picklist milestone, and the reinterpretation is stated here)
+
+OBSERVATIONS
+
+  truth table dimensions:
+    entitlement ON (Alpha: core_scheduling, entitlements, organization_administration) x OFF (Gamma: entitlements, organization_administration) x grant ALLOW(2) / DENY(1) x 7 roles
+
+  fifteen rows, server-side:
+    12 of the 15 SPEC-06 rows execute, in 15 concrete cases over the real HTTP surface (some rows carry more than one case; L1.4, L6.1 and L6.2 have no surface and are EVIDENCE_BLOCKED below):
+    context refused by SPEC-01 §2.3 before the evaluator: 200 -> 404 [aimed at L0.1]  (ORG_INACTIVE)
+    context refused by SPEC-01 §2.3 before the evaluator: 200 -> 404 [aimed at L0.2]  (GROUP_INACTIVE)
+    L1.2 ENTITLEMENT_REVOKED: 200 -> 404  (ENTITLEMENT_REVOKED)
+    L1.2 ENTITLEMENT_SUSPENDED: 200 -> 404  (ENTITLEMENT_SUSPENDED)
+    L1.3 ENTITLEMENT_EXPIRED: 200 -> 404  (ENTITLEMENT_EXPIRED)
+    L2.1 MODULE_UNAVAILABLE_IN_GROUP: 200 -> 404  (MODULE_UNAVAILABLE_IN_GROUP)
+    L1.1 NOT_ENTITLED: 404 (entitlement-OFF organization)
+    context refused by SPEC-01 §2.3 before the evaluator: 404  (organization membership only)
+    context refused by SPEC-01 §2.3 before the evaluator: 404  (aimed at MEMBERSHIP_ENDED)
+    context refused by SPEC-01 §2.3 before the evaluator: 404  (aimed at MEMBERSHIP_SUSPENDED)
+    context refused by SPEC-01 §2.3 before the evaluator: 404  (aimed at MEMBERSHIP_INVITED)
+    context refused by SPEC-01 §2.3 before the evaluator: 200 -> 404 [aimed at L3.3]  (MEMBERSHIP_EXPIRED)
+    L4.1 EXPLICIT_DENY: 200 -> 403  (EXPLICIT_DENY)
+    L4.2 NO_CAPABILITY: 403  (role viewer)
+    L5.1 OBJECT_POLICY: 404  (in-scope target the actor does not own)
+
+  WHICH LAYER ANSWERED — stated, because the count alone would mislead:
+    8 of 15 cases were refused by the SPEC-06 EVALUATOR and report their own layer. The other 7 were refused EARLIER, by SPEC-01 §2.3 context resolution, which answers the same 404 — an inactive organization or group, and a membership that is absent, ended, suspended, invited or out of window, are all resolved before the evaluator is reached. That is the architecture working as SPEC-01 specifies, not a gap: both layers deny, both disclose identically, and http-authorization.test.ts already records the same split with its `deniedBy: 'context'` cases. What this scenario adds is that TWELVE of the fifteen rows have a concrete server-side case (L1.4, L6.1 and L6.2 have no surface and are EVIDENCE_BLOCKED), and what it does NOT claim is that every executed row is demonstrated at the evaluator layer. The exhaustive evaluator-level evidence is the 39,285,000-case cross-product cited in the objective oracle.
+
+  rows with no surface, named:
+    L1.4 MODULE_DEPENDENCY_UNSATISFIED -> EVIDENCE_BLOCKED(module-with-dependencies milestone: no registered route declares an action in a module that has one) | L6.1 PROXY_* -> EVIDENCE_BLOCKED(proxy milestone) | L6.2 IMPERSONATION_* -> EVIDENCE_BLOCKED(impersonation milestone)
+
+  note:
+    the picklist-specific arm is EVIDENCE_BLOCKED(picklist milestone) and re-executes there

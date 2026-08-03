@@ -1,0 +1,51 @@
+SBX-001 — Role x registered-surface matrix — every route an explicit allow or a clean deny
+generated: 2026-08-03T18:04:52.011Z
+
+STATE: PASS   falsifiability probe: FALSIFIABLE   gate-required: YES
+
+SPEC-16 §1 contract
+  owner                    OPUS-M2-001 (implementer) / Fable (acceptance)
+  fixtureProvenance        MULTI `full` profile — every SPEC-06 role has a membership in it.
+  deterministicSetup       The registered route table is read from the server itself, not from a list kept in the test; the matrix is therefore generated rather than transcribed.
+  externalDependency       None.
+  faultControls            None injected.
+  objectiveOracle          Every registered route declares a policy (deny-by-default, I-02), and every (role, route) cell resolves to a declared allow or a declared deny. A route with no policy is a failure, not an omission.
+  retainedArtifact         docs/evidence/EV-M2-SBX/sbx-001-matrix.txt
+  environment              MULTI
+  earliestExecutionPoint   E1
+
+tables exercised: memberships
+policies exercised: SPEC-01 §2.4 byte-identical 404 (FAD-11 revoked membership) | SPEC-06 evaluator over the HTTP surface, every role | route policy declaration (I-02 deny-by-default)
+
+EVIDENCE_BLOCKED sub-scenarios (never a pass, never a silent skip):
+  - navigation-tree capture and per-role screenshots
+      EVIDENCE_BLOCKED(UI milestone (no web surface for these routes exists yet — OPUS-M2-002))
+  - sign in as each role in turn
+      EVIDENCE_BLOCKED(authn milestone (no authentication subsystem exists; no M1 packet contained it))
+
+OBSERVATIONS
+
+  registered routes:
+    POST /organizations/:organizationId/memberships -> capability | POST /organizations/:organizationId/memberships/:membershipId/grants -> capability | PATCH /organizations/:organizationId/entitlements/:moduleKey -> capability | POST /organizations/:organizationId/groups/:groupId/context-probe/touch -> capability | POST /organizations/:organizationId/context-probe/touch -> capability | POST /organizations/:organizationId/context-probe/group-scoped-touch -> capability | POST /organizations/:organizationId/groups/:groupId/context-probe/targets/:targetMembershipId -> capability | POST /organizations/:organizationId/groups/:groupId/context-probe/enqueue -> capability | GET /health -> public
+
+  roles present:
+    group_admin, member, org_admin, org_observer, scheduler, telecom, viewer
+
+  role x route matrix:
+    13 principals x 8 routes = 104 cells; 8 allow, 84 clean deny (403/404), 12 context refusal (409), 0 unclassified
+    scheduler(G1+G2)   POST :organizationId/memberships=404  POST :membershipId/grants=404  PATCH entitlements/:moduleKey=404  POST context-probe/touch=200  POST context-probe/touch=404  POST context-probe/group-scoped-touch=404  POST targets/:targetMembershipId=409  POST context-probe/enqueue=200
+    member(G1)         POST :organizationId/memberships=404  POST :membershipId/grants=404  PATCH entitlements/:moduleKey=404  POST context-probe/touch=403  POST context-probe/touch=404  POST context-probe/group-scoped-touch=404  POST targets/:targetMembershipId=404  POST context-probe/enqueue=403
+    scheduler(G2)      POST :organizationId/memberships=404  POST :membershipId/grants=404  PATCH entitlements/:moduleKey=404  POST context-probe/touch=404  POST context-probe/touch=404  POST context-probe/group-scoped-touch=404  POST targets/:targetMembershipId=404  POST context-probe/enqueue=404
+    org_admin          POST :organizationId/memberships=409  POST :membershipId/grants=409  PATCH entitlements/:moduleKey=409  POST context-probe/touch=404  POST context-probe/touch=409  POST context-probe/group-scoped-touch=404  POST targets/:targetMembershipId=404  POST context-probe/enqueue=404
+    group-only         POST :organizationId/memberships=404  POST :membershipId/grants=404  PATCH entitlements/:moduleKey=404  POST context-probe/touch=200  POST context-probe/touch=404  POST context-probe/group-scoped-touch=404  POST targets/:targetMembershipId=409  POST context-probe/enqueue=200
+    departed(ended)    POST :organizationId/memberships=404  POST :membershipId/grants=404  PATCH entitlements/:moduleKey=404  POST context-probe/touch=404  POST context-probe/touch=404  POST context-probe/group-scoped-touch=404  POST targets/:targetMembershipId=404  POST context-probe/enqueue=404
+    viewer(G1)         POST :organizationId/memberships=404  POST :membershipId/grants=404  PATCH entitlements/:moduleKey=404  POST context-probe/touch=403  POST context-probe/touch=404  POST context-probe/group-scoped-touch=404  POST targets/:targetMembershipId=404  POST context-probe/enqueue=403
+    telecom(G1)        POST :organizationId/memberships=404  POST :membershipId/grants=404  PATCH entitlements/:moduleKey=404  POST context-probe/touch=403  POST context-probe/touch=404  POST context-probe/group-scoped-touch=404  POST targets/:targetMembershipId=404  POST context-probe/enqueue=403
+    group_admin(G1)    POST :organizationId/memberships=404  POST :membershipId/grants=404  PATCH entitlements/:moduleKey=404  POST context-probe/touch=200  POST context-probe/touch=404  POST context-probe/group-scoped-touch=404  POST targets/:targetMembershipId=409  POST context-probe/enqueue=200
+    org_observer       POST :organizationId/memberships=409  POST :membershipId/grants=409  PATCH entitlements/:moduleKey=409  POST context-probe/touch=404  POST context-probe/touch=409  POST context-probe/group-scoped-touch=404  POST targets/:targetMembershipId=404  POST context-probe/enqueue=404
+    suspended(G2)      POST :organizationId/memberships=404  POST :membershipId/grants=404  PATCH entitlements/:moduleKey=404  POST context-probe/touch=404  POST context-probe/touch=404  POST context-probe/group-scoped-touch=404  POST targets/:targetMembershipId=404  POST context-probe/enqueue=404
+    invited(G2)        POST :organizationId/memberships=404  POST :membershipId/grants=404  PATCH entitlements/:moduleKey=404  POST context-probe/touch=404  POST context-probe/touch=404  POST context-probe/group-scoped-touch=404  POST targets/:targetMembershipId=404  POST context-probe/enqueue=404
+    dual-role(G1+G2)   POST :organizationId/memberships=404  POST :membershipId/grants=404  PATCH entitlements/:moduleKey=404  POST context-probe/touch=200  POST context-probe/touch=404  POST context-probe/group-scoped-touch=404  POST targets/:targetMembershipId=409  POST context-probe/enqueue=200
+
+  byte-identity:
+    a revoked (ended) membership and a forged group id are both 404 with an identical body: {"error":{"code":"NOT_FOUND","message":"Not found.","correlationId":"sbx001disclosure"}}

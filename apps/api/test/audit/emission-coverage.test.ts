@@ -16,9 +16,22 @@ import {
   scanForMutations,
   unauditedMutations,
 } from '../support/audit-emission-scan.js';
-import { FIXTURE, groupContext } from '../support/fixtures.js';
+import { groupContext } from '../support/fixtures.js';
 import { createRuntime, log, type Runtime } from '../support/harness.js';
 import { buildHttpHarness, contextHeaders, currentCounters, type HttpHarness } from '../support/http.js';
+import { ownedMulti } from '../support/owned-multi.js';
+
+/**
+ * FAD-15 Layer 2 — this file owns its tenant.
+ *
+ * It used to write to the shared MULTI baseline, which every other file also read.
+ * NR-13 measured what that cost: six order-dependent tests across five files, and
+ * eleven of twenty-four files modifying rows the shared seed created. The fixture
+ * below has the same shape and fresh identifiers, and RLS — not agreement — is what
+ * keeps it out of everybody else's queries.
+ */
+const multi = ownedMulti('audit-emission-coverage');
+
 
 /**
  * **Emission coverage — every mutation that exists today writes an audit row,
@@ -48,12 +61,13 @@ import { buildHttpHarness, contextHeaders, currentCounters, type HttpHarness } f
  * mutation added without an audit call fails there, not at review.
  */
 
-const alpha = FIXTURE.alpha;
+/** Lazy: the owned fixture does not exist until `beforeAll` has run. */
+const alpha = () => multi().alpha;
 let http: HttpHarness;
 let worker: Runtime;
 let admin: pg.Client;
 
-const groupOnePath = `/organizations/${alpha.organizationId}/groups/${alpha.groupOne.id}/context-probe/touch`;
+const groupOnePath = () => `/organizations/${alpha().organizationId}/groups/${alpha().groupOne.id}/context-probe/touch`;
 
 beforeAll(async () => {
   http = await buildHttpHarness();
@@ -92,15 +106,15 @@ describe('every existing mutation emits an audit event', () => {
   it('the HTTP mutation emits one, attributed to the acting membership and the declared group', async () => {
     const correlationId = 'emit-http-1';
     const counters = await currentCounters(admin, {
-      organizationId: alpha.organizationId,
-      groupId: alpha.groupOne.id,
-      userId: alpha.users.scheduler.id,
+      organizationId: alpha().organizationId,
+      groupId: alpha().groupOne.id,
+      userId: alpha().users.scheduler.id,
     });
 
     const response = await http.app.inject({
       method: 'POST',
-      url: groupOnePath,
-      headers: contextHeaders(alpha.users.scheduler.id, counters, correlationId),
+      url: groupOnePath(),
+      headers: contextHeaders(alpha().users.scheduler.id, counters, correlationId),
     });
     expect(response.statusCode).toBe(200);
 
@@ -108,9 +122,9 @@ describe('every existing mutation emits an audit event', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]?.event_name).toBe('membership.activity_touched');
     expect(rows[0]?.actor_kind).toBe('membership');
-    expect(rows[0]?.actor_membership_id).toBe(alpha.users.scheduler.membershipId);
-    expect(rows[0]?.group_id, 'attributed to the DECLARED group').toBe(alpha.groupOne.id);
-    expect(rows[0]?.subject_id).toBe(alpha.users.scheduler.membershipId);
+    expect(rows[0]?.actor_membership_id).toBe(alpha().users.scheduler.membershipId);
+    expect(rows[0]?.group_id, 'attributed to the DECLARED group').toBe(alpha().groupOne.id);
+    expect(rows[0]?.subject_id).toBe(alpha().users.scheduler.membershipId);
     log(
       `HTTP touch → audit sequence ${String(rows[0]?.sequence)}, ` +
         `${String(rows[0]?.event_name)}, actor ${String(rows[0]?.actor_membership_id)}`,
@@ -126,10 +140,10 @@ describe('every existing mutation emits an audit event', () => {
         kind: CONTEXT_PROBE_TOUCH_JOB,
         context: {
           actionScope: 'group',
-          expectedOrganizationId: alpha.organizationId,
-          expectedGroupId: alpha.groupOne.id,
-          membershipId: alpha.users.scheduler.membershipId,
-          principalUserId: alpha.users.scheduler.id,
+          expectedOrganizationId: alpha().organizationId,
+          expectedGroupId: alpha().groupOne.id,
+          membershipId: alpha().users.scheduler.membershipId,
+          principalUserId: alpha().users.scheduler.id,
           systemActor: false,
           correlationId,
           authorizationVersionAtEnqueue: 'irrelevant-here',
@@ -147,9 +161,9 @@ describe('every existing mutation emits an audit event', () => {
     // ever diverge in what they audit, one of these two tests fails.
     expect(rows[0]?.event_name).toBe('membership.activity_touched');
     expect(rows[0]?.actor_kind).toBe('membership');
-    expect(rows[0]?.actor_membership_id).toBe(alpha.users.scheduler.membershipId);
-    expect(rows[0]?.group_id).toBe(alpha.groupOne.id);
-    expect(rows[0]?.subject_id).toBe(alpha.users.scheduler.membershipId);
+    expect(rows[0]?.actor_membership_id).toBe(alpha().users.scheduler.membershipId);
+    expect(rows[0]?.group_id).toBe(alpha().groupOne.id);
+    expect(rows[0]?.subject_id).toBe(alpha().users.scheduler.membershipId);
     log('job touch → the same event name, actor, group and subject as the HTTP surface');
   });
 
@@ -160,9 +174,9 @@ describe('every existing mutation emits an audit event', () => {
       await expect(
         runtime.runner.run(
           groupContext(
-            alpha.organizationId,
-            alpha.groupOne.id,
-            alpha.users.scheduler.membershipId,
+            alpha().organizationId,
+            alpha().groupOne.id,
+            alpha().users.scheduler.membershipId,
             correlationId,
           ),
           async (uow) => {
@@ -171,13 +185,13 @@ describe('every existing mutation emits an audit event', () => {
             // succeeded and its row already exists on this connection.
             await sql`
               update memberships set last_active_at = now()
-               where id = ${alpha.users.scheduler.membershipId}::uuid
+               where id = ${alpha().users.scheduler.membershipId}::uuid
             `.execute(uow.query);
 
             const recorded = await recordAuditEvent(uow, {
               eventName: 'membership.activity_touched',
               subjectType: 'membership',
-              subjectId: alpha.users.scheduler.membershipId,
+              subjectId: alpha().users.scheduler.membershipId,
             });
             expect(recorded.sequence, 'the audit row exists inside the transaction').toMatch(
               /^\d+$/,
@@ -214,7 +228,7 @@ describe('every existing mutation emits an audit event', () => {
     // silent until the first rollback in production.
     const before = await admin.query<{ n: string }>(
       'select coalesce(max(sequence), 0)::text as n from audit_events where organization_id = $1::uuid',
-      [alpha.organizationId],
+      [alpha().organizationId],
     );
 
     const runtime = createRuntime('app_runtime');
@@ -222,16 +236,16 @@ describe('every existing mutation emits an audit event', () => {
       await expect(
         runtime.runner.run(
           groupContext(
-            alpha.organizationId,
-            alpha.groupOne.id,
-            alpha.users.scheduler.membershipId,
+            alpha().organizationId,
+            alpha().groupOne.id,
+            alpha().users.scheduler.membershipId,
             'emit-rollback-2',
           ),
           async (uow) => {
             await recordAuditEvent(uow, {
               eventName: 'membership.activity_touched',
               subjectType: 'membership',
-              subjectId: alpha.users.scheduler.membershipId,
+              subjectId: alpha().users.scheduler.membershipId,
             });
             throw new Error('rolled back (synthetic)');
           },
@@ -240,16 +254,16 @@ describe('every existing mutation emits an audit event', () => {
 
       const after = await runtime.runner.run(
         groupContext(
-          alpha.organizationId,
-          alpha.groupOne.id,
-          alpha.users.scheduler.membershipId,
+          alpha().organizationId,
+          alpha().groupOne.id,
+          alpha().users.scheduler.membershipId,
           'emit-rollback-3',
         ),
         (uow) =>
           recordAuditEvent(uow, {
             eventName: 'membership.activity_touched',
             subjectType: 'membership',
-            subjectId: alpha.users.scheduler.membershipId,
+            subjectId: alpha().users.scheduler.membershipId,
           }),
       );
       expect(
@@ -269,12 +283,12 @@ describe('every existing mutation emits an audit event', () => {
         runtime.runner.run(
           // A context with no acting membership, and a draft that did not say
           // it was a system action.
-          groupContext(alpha.organizationId, alpha.groupOne.id, null, 'emit-no-actor'),
+          groupContext(alpha().organizationId, alpha().groupOne.id, null, 'emit-no-actor'),
           (uow) =>
             recordAuditEvent(uow, {
               eventName: 'membership.activity_touched',
               subjectType: 'membership',
-              subjectId: alpha.users.scheduler.membershipId,
+              subjectId: alpha().users.scheduler.membershipId,
             }),
         ),
       ).rejects.toThrow('AUDIT_ACTOR_UNRESOLVED');

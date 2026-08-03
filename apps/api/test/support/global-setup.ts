@@ -6,9 +6,18 @@ import { migrateCycle } from '../../src/db/migrate.js';
 import { createPool } from '../../src/db/pool.js';
 import { PgUnitOfWorkRunner } from '../../src/db/unit-of-work.js';
 import { installQueueSchema } from '../../src/db/queue-schema.js';
-import { startClusterDaemon, stopClusterDaemon } from './cluster-process.js';
+import { adminClient } from './admin-client.js';
+import { captureBaselineDigest } from './baseline-guard.js';
+import {
+  startClusterDaemon,
+  stopClusterDaemon,
+  withClusterDiagnostic,
+} from './cluster-process.js';
+import { drainQueue } from './queue.js';
 import { applyHarnessEnv } from './env.js';
-import { seedAuditAndOutbox, seedFixture } from './fixtures.js';
+import { LocalCheckpointSigner } from '../../src/audit/checkpoint-signer.js';
+import { writeCheckpoint } from '../../src/audit/checkpoints.js';
+import { FIXTURE, seedAuditAndOutbox, seedFixture } from './fixtures.js';
 
 /**
  * One cluster for the whole `api` test project.
@@ -44,7 +53,11 @@ export async function setup(): Promise<void> {
   applyHarnessEnv();
 
   daemon = await startClusterDaemon();
-  await bootstrapCluster({ passwords: rolePasswordsFromEnv() });
+  // The FIRST thing that connects. A stale postmaster surfaces here, so this is
+  // where the diagnostic has to be (D-06).
+  await withClusterDiagnostic('bootstrapCluster', () =>
+    bootstrapCluster({ passwords: rolePasswordsFromEnv() }),
+  );
 
   const cycle = await migrateCycle();
   if (cycle.up1.length === 0 || cycle.down.length === 0 || cycle.up2.length === 0) {
@@ -85,6 +98,56 @@ export async function setup(): Promise<void> {
     await pool.end();
     await workerPool.end();
   }
+
+  // FAD-15 Layer 3: the queue is NOT a tenant table. The baseline's seeded
+  // outbox events enqueue jobs, and any worker any later file starts takes
+  // whatever job is next — which would dispatch the baseline's rows and change
+  // the very state Layer 1 protects. Draining here, through the real dispatcher,
+  // leaves the baseline in the state production would leave it in and leaves the
+  // queue empty, so no file inherits a backlog it did not create. That is the
+  // C-2 lesson (EV-M1-INTEGRATION §3.5) applied at the source instead of once
+  // per test that tripped over it.
+  const drainPool = createPool('app_worker', { max: 2, allowExitOnIdle: true });
+  const drainRunner = new PgUnitOfWorkRunner({
+    role: 'app_worker',
+    pool: drainPool,
+    alerts: new ProcessAlertSink({ write: () => {} }),
+  });
+  const admin = adminClient();
+  await admin.connect();
+  try {
+    await drainQueue({ worker: drainRunner, admin, label: 'global-setup-drain' });
+
+    // Dispatching appended `outbox.dispatched` rows, so each baseline chain head
+    // is now AHEAD of the checkpoint the seed signed. The periodic checkpoint
+    // sweep is a maintenance-plane operation over EVERY organization — tenancy
+    // does not scope it — so it would legitimately checkpoint the baseline and
+    // trip Layer 1. Checkpointing the settled head here leaves nothing due, so
+    // the sweep is a no-op for the baseline and the file running it only affects
+    // its own tenant. Layer 3 again: the fix belongs at the shared resource, not
+    // in every test that meets it.
+    const signer = new LocalCheckpointSigner({ keyId: 'baseline-settled-key' });
+    for (const organizationId of FIXTURE.organizationIds) {
+      await drainRunner.run(
+        {
+          organizationId,
+          groupId: null,
+          membershipId: null,
+          correlationId: 'global-setup-settle',
+        },
+        (uow) => writeCheckpoint(uow, signer),
+      );
+    }
+  } finally {
+    await admin.end();
+    await drainPool.end();
+  }
+
+  // FAD-15 Layer 1: the reference digest of the read-only baseline. Every test
+  // file re-digests it afterwards (`setup-env.ts`) and the run fails naming any
+  // file that changed a row. Taken LAST, so it covers the audit, outbox and
+  // dispatch rows above as well as the tenants.
+  await captureBaselineDigest();
 }
 
 export async function teardown(): Promise<void> {

@@ -1,0 +1,41 @@
+NR-13 coupled-test POPULATION — how big is the migration, actually?
+captured: 2026-08-03T13:42:23Z
+commit:   959ee03aaf8e2b2ef28f154a539320ba3bea1c76
+
+One seed found three order-dependent tests. Three is a lower bound, not a
+count: a shuffle only exposes a coupling when it happens to invert that
+particular pair. Ten seeds of --sequence.shuffle.tests, union of the
+failures, is a better estimate of how many tests do not own their state.
+
+SEED           EXIT     TESTS
+1              0        339 passed (339)
+7              1        1 failed | 338 passed (339)
+42             0        339 passed (339)
+424242         0        339 passed (339)
+20260803       1        3 failed | 336 passed (339)
+31337          1        3 failed | 336 passed (339)
+99991          0        339 passed (339)
+123456         1        3 failed | 336 passed (339)
+20250101       1        4 failed | 335 passed (339)
+8675309        1        5 failed | 334 passed (339)
+
+########## UNION of failing tests across all ten seeds ##########
+
+       1	test/audit/chain.test.ts > second-review findings — the holes the first submission left > R-04: a checkpoint CANNOT be signed over a hash the chain never had
+       2	test/audit/crash-restart.test.ts > B — lease recovery on restart (SP-D condition C-2, no clock manipulation) > the effect was applied EXACTLY ONCE despite the crash and the re-execution
+       3	test/audit/outbox-dispatch.test.ts > I-11 — a delivery failure NEVER rolls back the domain change > the recorded failure is a CODE and cannot be an exception message
+       4	test/audit/outbox-dispatch.test.ts > R-02 — the two windows in which the same event was delivered twice > the effect row itself is append-only — a suppressed duplicate cannot overwrite it
+       5	test/audit/periodic.test.ts > SPEC-11 §2 — the periodic checkpoint sweep > is idempotent: a second sweep with nothing new writes nothing
+       6	test/authz/http-authorization.test.ts > deny paths and allow paths for every GRANT type > A-12 over HTTP: an overlapping grant window is a 409, and the first grant is untouched
+
+  distinct coupled tests: 6
+  distinct files involved: 5
+
+  files involved:
+    test/audit/chain.test.ts
+    test/audit/crash-restart.test.ts
+    test/audit/outbox-dispatch.test.ts
+    test/audit/periodic.test.ts
+    test/authz/http-authorization.test.ts
+
+DONE 2026-08-03T13:44:48Z

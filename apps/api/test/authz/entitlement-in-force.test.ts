@@ -7,9 +7,22 @@ import { authorize } from '@schedulepoint/domain';
 
 import { loadPolicyInput, pickEntitlementInForce } from '../../src/authz/load-policy-input.js';
 import { adminClient } from '../support/admin-client.js';
-import { FIXTURE } from '../support/fixtures.js';
+
 import { log } from '../support/harness.js';
 import { buildHttpHarness, contextHeaders, currentCounters, type HttpHarness } from '../support/http.js';
+import { ownedMulti } from '../support/owned-multi.js';
+
+/**
+ * FAD-15 Layer 2 — this file owns its tenant.
+ *
+ * It used to write to the shared MULTI baseline, which every other file also read.
+ * NR-13 measured what that cost: six order-dependent tests across five files, and
+ * eleven of twenty-four files modifying rows the shared seed created. The fixture
+ * below has the same shape and fresh identifiers, and RLS — not agreement — is what
+ * keeps it out of everybody else's queries.
+ */
+const multi = ownedMulti('authz-entitlement-in-force');
+
 
 /**
  * **S-01 / S-08 — L1 must read the entitlement IN FORCE, and the write must
@@ -32,8 +45,9 @@ import { buildHttpHarness, contextHeaders, currentCounters, type HttpHarness } f
 
 let harness: HttpHarness;
 let admin: pg.Client;
-const alpha = FIXTURE.alpha;
-const groupPath = `/organizations/${alpha.organizationId}/groups/${alpha.groupOne.id}/context-probe/touch`;
+/** Lazy: the owned fixture does not exist until `beforeAll` has run. */
+const alpha = () => multi().alpha;
+const groupPath = () => `/organizations/${alpha().organizationId}/groups/${alpha().groupOne.id}/context-probe/touch`;
 
 /** Rows this file plants, removed after each test. */
 const planted: string[] = [];
@@ -55,11 +69,11 @@ async function asAdministratorSql<T extends pg.QueryResultRow = pg.QueryResultRo
   await admin.query('BEGIN');
   try {
     await admin.query(`select set_config('app.organization_id', $1, true)`, [
-      alpha.organizationId,
+      alpha().organizationId,
     ]);
     await admin.query(`select set_config('app.group_id', '', true)`);
     await admin.query(`select set_config('app.membership_id', $1, true)`, [
-      alpha.users.organizationAdmin.membershipId,
+      alpha().users.organizationAdmin.membershipId,
     ]);
     const result = await admin.query<T>(text, values);
     await admin.query('COMMIT');
@@ -94,14 +108,14 @@ afterEach(async () => {
                              effective_from = '2020-01-01T00:00:00Z',
                              effective_to = null
       where organization_id = $1 and module_key = 'core_scheduling'`,
-    [alpha.organizationId],
+    [alpha().organizationId],
   );
 });
 
 async function headersFor(userId: string, groupId: string | null): Promise<Record<string, string>> {
   return contextHeaders(
     userId,
-    await currentCounters(admin, { organizationId: alpha.organizationId, groupId, userId }),
+    await currentCounters(admin, { organizationId: alpha().organizationId, groupId, userId }),
   );
 }
 
@@ -119,7 +133,7 @@ async function plantHistoricalRow(state: 'revoked' | 'suspended'): Promise<strin
   await asAdministratorSql(
     `insert into entitlements (id, organization_id, module_key, state, effective_from, effective_to)
      values ($1, $2, 'core_scheduling', $3, '2016-01-01T00:00:00Z', '2017-01-01T00:00:00Z')`,
-    [id, alpha.organizationId, state],
+    [id, alpha().organizationId, state],
   );
   return id;
 }
@@ -128,8 +142,8 @@ describe('S-01 — a historical entitlement row must not govern', () => {
   it('the baseline allows, so the assertions below measure the planted row', async () => {
     const response = await harness.app.inject({
       method: 'POST',
-      url: groupPath,
-      headers: await headersFor(alpha.users.scheduler.id, alpha.groupOne.id),
+      url: groupPath(),
+      headers: await headersFor(alpha().users.scheduler.id, alpha().groupOne.id),
     });
     expect(response.statusCode).toBe(200);
   });
@@ -142,14 +156,14 @@ describe('S-01 — a historical entitlement row must not govern', () => {
     const rows = await admin.query<{ n: string }>(
       `select count(*)::text as n from entitlements
         where organization_id = $1 and module_key = 'core_scheduling'`,
-      [alpha.organizationId],
+      [alpha().organizationId],
     );
     expect(rows.rows[0]?.n, 'the fixture no longer has two rows — the test is vacuous').toBe('2');
 
     const response = await harness.app.inject({
       method: 'POST',
-      url: groupPath,
-      headers: await headersFor(alpha.users.scheduler.id, alpha.groupOne.id),
+      url: groupPath(),
+      headers: await headersFor(alpha().users.scheduler.id, alpha().groupOne.id),
     });
     expect(
       response.statusCode,
@@ -162,8 +176,8 @@ describe('S-01 — a historical entitlement row must not govern', () => {
     await plantHistoricalRow('suspended');
     const response = await harness.app.inject({
       method: 'POST',
-      url: groupPath,
-      headers: await headersFor(alpha.users.scheduler.id, alpha.groupOne.id),
+      url: groupPath(),
+      headers: await headersFor(alpha().users.scheduler.id, alpha().groupOne.id),
     });
     expect(response.statusCode).toBe(200);
   });
@@ -175,12 +189,12 @@ describe('S-01 — a historical entitlement row must not govern', () => {
     await asAdministratorSql(
       `update entitlements set state = 'suspended'
         where organization_id = $1 and module_key = 'core_scheduling' and effective_to is null`,
-      [alpha.organizationId],
+      [alpha().organizationId],
     );
     const response = await harness.app.inject({
       method: 'POST',
-      url: groupPath,
-      headers: await headersFor(alpha.users.scheduler.id, alpha.groupOne.id),
+      url: groupPath(),
+      headers: await headersFor(alpha().users.scheduler.id, alpha().groupOne.id),
     });
     expect(response.statusCode, 'the live row stopped governing').toBe(404);
   });
@@ -194,13 +208,13 @@ describe('S-01 — a historical entitlement row must not govern', () => {
       `update entitlements set effective_from = '2020-01-01T00:00:00Z',
                                effective_to = '2021-01-01T00:00:00Z'
         where organization_id = $1 and module_key = 'core_scheduling'`,
-      [alpha.organizationId],
+      [alpha().organizationId],
     );
     harness.clearLogs();
     const response = await harness.app.inject({
       method: 'POST',
-      url: groupPath,
-      headers: await headersFor(alpha.users.scheduler.id, alpha.groupOne.id),
+      url: groupPath(),
+      headers: await headersFor(alpha().users.scheduler.id, alpha().groupOne.id),
     });
     expect(response.statusCode).toBe(404);
     const denial = harness.logs.find(
@@ -232,10 +246,10 @@ describe('S-01 — a historical entitlement row must not govern', () => {
       requiresObjectPolicy: false,
     };
     const context = {
-      principalUserId: alpha.users.scheduler.id,
-      expectedOrganizationId: alpha.organizationId,
-      expectedGroupId: alpha.groupOne.id,
-      membershipId: alpha.users.scheduler.membershipId,
+      principalUserId: alpha().users.scheduler.id,
+      expectedOrganizationId: alpha().organizationId,
+      expectedGroupId: alpha().groupOne.id,
+      membershipId: alpha().users.scheduler.membershipId,
     };
 
     try {
@@ -246,29 +260,29 @@ describe('S-01 — a historical entitlement row must not govern', () => {
         await asAdministratorSql(
           `insert into entitlements (id, organization_id, module_key, state, effective_from, effective_to)
            values ($1, $2, $3, 'active', '2020-01-01T00:00:00Z', null)`,
-          [id, alpha.organizationId, moduleKey],
+          [id, alpha().organizationId, moduleKey],
         );
       }
       const availabilityId = randomUUID();
       await asAdministratorSql(
         `insert into group_module_availability (id, organization_id, group_id, module_key, available)
          values ($1, $2, $3, 'hospital_integration', true)`,
-        [availabilityId, alpha.organizationId, alpha.groupOne.id],
+        [availabilityId, alpha().organizationId, alpha().groupOne.id],
       );
       // A grant, because `connectors.manage` is carried by no role.
       const grantId = randomUUID();
       await asAdministratorSql(
         `insert into capability_grants (id, organization_id, group_id, membership_id, capability_key, granted)
          values ($1, $2, $3, $4, 'connectors.manage', true)`,
-        [grantId, alpha.organizationId, alpha.groupOne.id, alpha.users.scheduler.membershipId],
+        [grantId, alpha().organizationId, alpha().groupOne.id, alpha().users.scheduler.membershipId],
       );
 
       const decide = async (): Promise<ReturnType<typeof authorize>> =>
         harness.runtime.runner.run(
           {
-            organizationId: alpha.organizationId,
-            groupId: alpha.groupOne.id,
-            membershipId: alpha.users.scheduler.membershipId,
+            organizationId: alpha().organizationId,
+            groupId: alpha().groupOne.id,
+            membershipId: alpha().users.scheduler.membershipId,
             correlationId: 'l14-selection',
           },
           async ({ query }) =>
@@ -285,7 +299,7 @@ describe('S-01 — a historical entitlement row must not govern', () => {
       await asAdministratorSql(
         `insert into entitlements (id, organization_id, module_key, state, effective_from, effective_to)
          values ($1, $2, 'picklist', 'revoked', '2016-01-01T00:00:00Z', '2017-01-01T00:00:00Z')`,
-        [historical, alpha.organizationId],
+        [historical, alpha().organizationId],
       );
 
       const after = await decide();
@@ -299,7 +313,7 @@ describe('S-01 — a historical entitlement row must not govern', () => {
       await asAdministratorSql(
         `update entitlements set state = 'revoked'
           where organization_id = $1 and module_key = 'picklist' and effective_to is null`,
-        [alpha.organizationId],
+        [alpha().organizationId],
       );
       const revoked = await decide();
       expect(revoked.allowed, 'the LIVE dependency row stopped governing').toBe(false);
@@ -322,9 +336,9 @@ describe('S-08 — the entitlement write must target the row in force', () => {
 
     const response = await harness.app.inject({
       method: 'PATCH',
-      url: `/organizations/${alpha.organizationId}/entitlements/core_scheduling`,
+      url: `/organizations/${alpha().organizationId}/entitlements/core_scheduling`,
       headers: {
-        ...(await headersFor(alpha.users.organizationAdmin.id, null)),
+        ...(await headersFor(alpha().users.organizationAdmin.id, null)),
         'content-type': 'application/json',
       },
       payload: { state: 'suspended' },
@@ -343,7 +357,7 @@ describe('S-08 — the entitlement write must target the row in force', () => {
     const live = await admin.query<{ state: string }>(
       `select state from entitlements
         where organization_id = $1 and module_key = 'core_scheduling' and effective_to is null`,
-      [alpha.organizationId],
+      [alpha().organizationId],
     );
     expect(live.rows[0]?.state, 'the live row was not changed').toBe('suspended');
     log('the entitlement write touches the in-force row only; history is intact');
@@ -354,13 +368,13 @@ describe('S-08 — the entitlement write must target the row in force', () => {
       `update entitlements set effective_from = '2020-01-01T00:00:00Z',
                                effective_to = '2021-01-01T00:00:00Z'
         where organization_id = $1 and module_key = 'core_scheduling'`,
-      [alpha.organizationId],
+      [alpha().organizationId],
     );
     const response = await harness.app.inject({
       method: 'PATCH',
-      url: `/organizations/${alpha.organizationId}/entitlements/core_scheduling`,
+      url: `/organizations/${alpha().organizationId}/entitlements/core_scheduling`,
       headers: {
-        ...(await headersFor(alpha.users.organizationAdmin.id, null)),
+        ...(await headersFor(alpha().users.organizationAdmin.id, null)),
         'content-type': 'application/json',
       },
       payload: { state: 'active' },
@@ -369,7 +383,7 @@ describe('S-08 — the entitlement write must target the row in force', () => {
 
     const rows = await admin.query<{ state: string }>(
       `select state from entitlements where organization_id = $1 and module_key = 'core_scheduling'`,
-      [alpha.organizationId],
+      [alpha().organizationId],
     );
     expect(rows.rows[0]?.state, 'the closed row was rewritten anyway').toBe('active');
   });
@@ -382,9 +396,9 @@ describe('S-08 — the entitlement write must target the row in force', () => {
     for (const state of ['suspended', 'active'] as const) {
       const response = await harness.app.inject({
         method: 'PATCH',
-        url: `/organizations/${alpha.organizationId}/entitlements/core_scheduling`,
+        url: `/organizations/${alpha().organizationId}/entitlements/core_scheduling`,
         headers: {
-          ...(await headersFor(alpha.users.organizationAdmin.id, null)),
+          ...(await headersFor(alpha().users.organizationAdmin.id, null)),
           'content-type': 'application/json',
         },
         payload: { state },
@@ -394,8 +408,8 @@ describe('S-08 — the entitlement write must target the row in force', () => {
 
     const evaluation = await harness.app.inject({
       method: 'POST',
-      url: groupPath,
-      headers: await headersFor(alpha.users.scheduler.id, alpha.groupOne.id),
+      url: groupPath(),
+      headers: await headersFor(alpha().users.scheduler.id, alpha().groupOne.id),
     });
     expect(evaluation.statusCode, 'the historical row governed after a re-window').toBe(200);
 
@@ -484,7 +498,7 @@ describe('S-06 (second half) — HTTP coverage for L1.1', () => {
       `delete from entitlements
         where organization_id = $1 and module_key = 'core_scheduling'
         returning id, state, effective_from, effective_to`,
-      [alpha.organizationId],
+      [alpha().organizationId],
     );
     expect(removed.rows.length, 'nothing was removed — the test would be vacuous').toBeGreaterThan(0);
 
@@ -492,8 +506,8 @@ describe('S-06 (second half) — HTTP coverage for L1.1', () => {
       harness.clearLogs();
       const response = await harness.app.inject({
         method: 'POST',
-        url: groupPath,
-        headers: await headersFor(alpha.users.scheduler.id, alpha.groupOne.id),
+        url: groupPath(),
+        headers: await headersFor(alpha().users.scheduler.id, alpha().groupOne.id),
       });
       // P-5: the existence of an unentitled module is not disclosed.
       expect(response.statusCode).toBe(404);
@@ -508,7 +522,7 @@ describe('S-06 (second half) — HTTP coverage for L1.1', () => {
         await asAdministratorSql(
           `insert into entitlements (id, organization_id, module_key, state, effective_from, effective_to)
            values ($1, $2, 'core_scheduling', $3, $4, $5)`,
-          [row.id, alpha.organizationId, row.state, row.effective_from, row.effective_to],
+          [row.id, alpha().organizationId, row.state, row.effective_from, row.effective_to],
         );
       }
     }

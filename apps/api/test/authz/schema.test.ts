@@ -6,8 +6,21 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { TENANT_TABLES } from '../../src/db/schema.js';
 import { adminClient } from '../support/admin-client.js';
-import { FIXTURE, administratorContext, groupContext, organizationContext } from '../support/fixtures.js';
+import { groupContext, organizationContext } from '../support/fixtures.js';
 import { createRuntime, log, outsideUnitOfWork, type Runtime } from '../support/harness.js';
+import { ownedMulti } from '../support/owned-multi.js';
+
+/**
+ * FAD-15 Layer 2 — this file owns its tenant.
+ *
+ * It used to write to the shared MULTI baseline, which every other file also read.
+ * NR-13 measured what that cost: six order-dependent tests across five files, and
+ * eleven of twenty-four files modifying rows the shared seed created. The fixture
+ * below has the same shape and fresh identifiers, and RLS — not agreement — is what
+ * keeps it out of everybody else's queries.
+ */
+const multi = ownedMulti('authz-schema');
+
 
 /**
  * `migrations/0002_authorization.sql` — the properties, not the DDL.
@@ -210,9 +223,9 @@ describe('the authorization tables are tenant tables in every sense', () => {
     // Now: your own grants, and nothing else, under a group context.
     const visible = await runtime.runner.run(
       groupContext(
-        FIXTURE.alpha.organizationId,
-        FIXTURE.alpha.groupOne.id,
-        FIXTURE.alpha.users.scheduler.membershipId,
+        multi().alpha.organizationId,
+        multi().alpha.groupOne.id,
+        multi().alpha.users.scheduler.membershipId,
       ),
       async ({ query }) =>
         query.selectFrom('capability_grants').select(['id', 'group_id', 'membership_id']).execute(),
@@ -220,27 +233,27 @@ describe('the authorization tables are tenant tables in every sense', () => {
     expect(visible.length, 'the probe is vacuous — the scheduler has no grants').toBeGreaterThan(0);
     for (const row of visible) {
       expect(row.group_id, 'a sibling group\'s grant is visible under a group context').toBe(
-        FIXTURE.alpha.groupOne.id,
+        multi().alpha.groupOne.id,
       );
       expect(
         row.membership_id,
         'another membership\'s grant is visible under a group context — S-05 has regressed',
-      ).toBe(FIXTURE.alpha.users.scheduler.membershipId);
+      ).toBe(multi().alpha.users.scheduler.membershipId);
     }
 
     // The Alpha member has an explicit DENY of `documents.manage` in the same
     // group. It must be invisible to the scheduler, and visible to the member.
     const asMember = await runtime.runner.run(
       groupContext(
-        FIXTURE.alpha.organizationId,
-        FIXTURE.alpha.groupOne.id,
-        FIXTURE.alpha.users.member.membershipId,
+        multi().alpha.organizationId,
+        multi().alpha.groupOne.id,
+        multi().alpha.users.member.membershipId,
       ),
       async ({ query }) => query.selectFrom('capability_grants').select(['membership_id']).execute(),
     );
     expect(asMember.length, 'a principal cannot read their own grants').toBeGreaterThan(0);
     for (const row of asMember) {
-      expect(row.membership_id).toBe(FIXTURE.alpha.users.member.membershipId);
+      expect(row.membership_id).toBe(multi().alpha.users.member.membershipId);
     }
     log('under a group context a principal sees their OWN grants and no others');
   });
@@ -253,7 +266,7 @@ describe('the authorization tables are tenant tables in every sense', () => {
     const observerUser = randomUUID();
     try {
       await runtime.runner.run(
-        administratorContext(FIXTURE.alpha.organizationId, 's05-observer'),
+        multi.administrator(multi().alpha.organizationId, 's05-observer'),
         async ({ query }) => {
           await query
             .insertInto('users')
@@ -267,7 +280,7 @@ describe('the authorization tables are tenant tables in every sense', () => {
             .insertInto('memberships')
             .values({
               id: observerMembership,
-              organization_id: FIXTURE.alpha.organizationId,
+              organization_id: multi().alpha.organizationId,
               group_id: null,
               user_id: observerUser,
               kind: 'organization',
@@ -280,7 +293,7 @@ describe('the authorization tables are tenant tables in every sense', () => {
 
       const visible = await runtime.runner.run(
         {
-          organizationId: FIXTURE.alpha.organizationId,
+          organizationId: multi().alpha.organizationId,
           groupId: null,
           membershipId: observerMembership,
           correlationId: 's05-observer-read',
@@ -294,7 +307,7 @@ describe('the authorization tables are tenant tables in every sense', () => {
 
       // And the administrator still can — the narrowing is not a wall.
       const asAdministrator = await runtime.runner.run(
-        administratorContext(FIXTURE.alpha.organizationId, 's05-admin-read'),
+        multi.administrator(multi().alpha.organizationId, 's05-admin-read'),
         async ({ query }) => query.selectFrom('capability_grants').select(['id']).execute(),
       );
       expect(
@@ -313,7 +326,7 @@ describe('the authorization tables are tenant tables in every sense', () => {
 
 describe('SPEC-06 P-7 / A-12 — overlapping grant windows are rejected by the exclusion constraint', () => {
   const capability = 'vacation.commit';
-  const target = FIXTURE.alpha.users.groupTwoScheduler.membershipId;
+  const target = () => multi().alpha.users.groupTwoScheduler.membershipId;
 
   it('the constraint exists, and is a gist EXCLUDE over the window', async () => {
     const result = await admin.query<{ definition: string }>(
@@ -332,15 +345,15 @@ describe('SPEC-06 P-7 / A-12 — overlapping grant windows are rejected by the e
     const second = randomUUID();
     try {
       await runtime.runner.run(
-        administratorContext(FIXTURE.alpha.organizationId, 'a12-first'),
+        multi.administrator(multi().alpha.organizationId, 'a12-first'),
         async ({ query }) =>
           query
             .insertInto('capability_grants')
             .values({
               id: first,
-              organization_id: FIXTURE.alpha.organizationId,
-              group_id: FIXTURE.alpha.groupTwo.id,
-              membership_id: target,
+              organization_id: multi().alpha.organizationId,
+              group_id: multi().alpha.groupTwo.id,
+              membership_id: target(),
               capability_key: capability,
               granted: true,
               valid_from: new Date('2026-01-01T00:00:00.000Z'),
@@ -351,15 +364,15 @@ describe('SPEC-06 P-7 / A-12 — overlapping grant windows are rejected by the e
 
       await expect(
         runtime.runner.run(
-          administratorContext(FIXTURE.alpha.organizationId, 'a12-overlap'),
+          multi.administrator(multi().alpha.organizationId, 'a12-overlap'),
           async ({ query }) =>
             query
               .insertInto('capability_grants')
               .values({
                 id: second,
-                organization_id: FIXTURE.alpha.organizationId,
-                group_id: FIXTURE.alpha.groupTwo.id,
-                membership_id: target,
+                organization_id: multi().alpha.organizationId,
+                group_id: multi().alpha.groupTwo.id,
+                membership_id: target(),
                 capability_key: capability,
                 // Overlaps the first by six months, and DENIES — which is
                 // exactly the ambiguity P-1 cannot tolerate.
@@ -377,15 +390,15 @@ describe('SPEC-06 P-7 / A-12 — overlapping grant windows are rejected by the e
       // and a closed upper bound would have broken it.
       const adjacent = randomUUID();
       await runtime.runner.run(
-        administratorContext(FIXTURE.alpha.organizationId, 'a12-adjacent'),
+        multi.administrator(multi().alpha.organizationId, 'a12-adjacent'),
         async ({ query }) =>
           query
             .insertInto('capability_grants')
             .values({
               id: adjacent,
-              organization_id: FIXTURE.alpha.organizationId,
-              group_id: FIXTURE.alpha.groupTwo.id,
-              membership_id: target,
+              organization_id: multi().alpha.organizationId,
+              group_id: multi().alpha.groupTwo.id,
+              membership_id: target(),
               capability_key: capability,
               granted: false,
               valid_from: new Date('2027-01-01T00:00:00.000Z'),
@@ -417,13 +430,13 @@ describe('SPEC-06 §4 — the counters an authorization change bumps', () => {
     const read = async (): Promise<number> => {
       const r = await admin.query<{ v: string }>(
         'select organization_version as v from organizations where id = $1',
-        [FIXTURE.alpha.organizationId],
+        [multi().alpha.organizationId],
       );
       return Number(r.rows[0]?.v);
     };
     const before = await read();
     await runtime.runner.run(
-      administratorContext(FIXTURE.alpha.organizationId, 'entitlement-bump'),
+      multi.administrator(multi().alpha.organizationId, 'entitlement-bump'),
       async ({ query }) =>
         query
           .updateTable('entitlements')
@@ -435,7 +448,7 @@ describe('SPEC-06 §4 — the counters an authorization change bumps', () => {
       before + 1,
     );
     await runtime.runner.run(
-      administratorContext(FIXTURE.alpha.organizationId, 'entitlement-restore'),
+      multi.administrator(multi().alpha.organizationId, 'entitlement-restore'),
       async ({ query }) =>
         query
           .updateTable('entitlements')
@@ -450,29 +463,29 @@ describe('SPEC-06 §4 — the counters an authorization change bumps', () => {
     const read = async (): Promise<number> => {
       const r = await admin.query<{ v: string }>(
         'select group_version as v from groups where id = $1',
-        [FIXTURE.alpha.groupTwo.id],
+        [multi().alpha.groupTwo.id],
       );
       return Number(r.rows[0]?.v);
     };
     const before = await read();
     await runtime.runner.run(
-      administratorContext(FIXTURE.alpha.organizationId, 'availability-bump'),
+      multi.administrator(multi().alpha.organizationId, 'availability-bump'),
       async ({ query }) =>
         query
           .updateTable('group_module_availability')
           .set({ available: false })
-          .where('group_id', '=', FIXTURE.alpha.groupTwo.id)
+          .where('group_id', '=', multi().alpha.groupTwo.id)
           .where('module_key', '=', 'core_scheduling')
           .execute(),
     );
     expect(await read()).toBe(before + 1);
     await runtime.runner.run(
-      administratorContext(FIXTURE.alpha.organizationId, 'availability-restore'),
+      multi.administrator(multi().alpha.organizationId, 'availability-restore'),
       async ({ query }) =>
         query
           .updateTable('group_module_availability')
           .set({ available: true })
-          .where('group_id', '=', FIXTURE.alpha.groupTwo.id)
+          .where('group_id', '=', multi().alpha.groupTwo.id)
           .where('module_key', '=', 'core_scheduling')
           .execute(),
     );
@@ -480,7 +493,7 @@ describe('SPEC-06 §4 — the counters an authorization change bumps', () => {
   });
 
   it('a grant change advances the GRANTEE\'s membership_set_version', async () => {
-    const userId = FIXTURE.alpha.users.groupTwoScheduler.id;
+    const userId = multi().alpha.users.groupTwoScheduler.id;
     const read = async (): Promise<number> => {
       const r = await admin.query<{ v: string }>(
         'select membership_set_version as v from users where id = $1',
@@ -492,15 +505,15 @@ describe('SPEC-06 §4 — the counters an authorization change bumps', () => {
     const before = await read();
     try {
       await runtime.runner.run(
-        administratorContext(FIXTURE.alpha.organizationId, 'grant-bump'),
+        multi.administrator(multi().alpha.organizationId, 'grant-bump'),
         async ({ query }) =>
           query
             .insertInto('capability_grants')
             .values({
               id: grantId,
-              organization_id: FIXTURE.alpha.organizationId,
-              group_id: FIXTURE.alpha.groupTwo.id,
-              membership_id: FIXTURE.alpha.users.groupTwoScheduler.membershipId,
+              organization_id: multi().alpha.organizationId,
+              group_id: multi().alpha.groupTwo.id,
+              membership_id: multi().alpha.users.groupTwoScheduler.membershipId,
               capability_key: 'picklist.administer',
               granted: true,
             })
@@ -518,7 +531,7 @@ describe('SPEC-06 §4 — the counters an authorization change bumps', () => {
 describe('the seeded role capabilities match the catalogue', () => {
   it('every seeded (role, capability) pair is catalogued at the role\'s own scope (P-10)', async () => {
     const rows = await runtime.runner.run(
-      organizationContext(FIXTURE.alpha.organizationId),
+      organizationContext(multi().alpha.organizationId),
       async ({ query }) =>
         query
           .selectFrom('role_capabilities')
@@ -563,9 +576,9 @@ describe('S-22 — infinite window bounds are rejected, on every effective-dated
            values ($1, $2, $3, $4, 'group', 'member', ${value})`,
           [
             randomUUID(),
-            FIXTURE.alpha.organizationId,
-            FIXTURE.alpha.groupOne.id,
-            FIXTURE.alpha.users.member.id,
+            multi().alpha.organizationId,
+            multi().alpha.groupOne.id,
+            multi().alpha.users.member.id,
           ],
         ] as const,
     },
@@ -578,9 +591,9 @@ describe('S-22 — infinite window bounds are rejected, on every effective-dated
            values ($1, $2, $3, $4, 'vacation.commit', true, ${value})`,
           [
             randomUUID(),
-            FIXTURE.alpha.organizationId,
-            FIXTURE.alpha.groupOne.id,
-            FIXTURE.alpha.users.member.membershipId,
+            multi().alpha.organizationId,
+            multi().alpha.groupOne.id,
+            multi().alpha.users.member.membershipId,
           ],
         ] as const,
     },
@@ -591,7 +604,7 @@ describe('S-22 — infinite window bounds are rejected, on every effective-dated
         [
           `insert into entitlements (id, organization_id, module_key, state, effective_to)
            values ($1, $2, 'marketplace', 'active', ${value})`,
-          [randomUUID(), FIXTURE.alpha.organizationId],
+          [randomUUID(), multi().alpha.organizationId],
         ] as const,
     },
   ] as const;
@@ -608,11 +621,11 @@ describe('S-22 — infinite window bounds are rejected, on every effective-dated
     await admin.query('BEGIN');
     try {
       await admin.query(`select set_config('app.organization_id', $1, true)`, [
-        FIXTURE.alpha.organizationId,
+        multi().alpha.organizationId,
       ]);
       await admin.query(`select set_config('app.group_id', '', true)`);
       await admin.query(`select set_config('app.membership_id', $1, true)`, [
-        FIXTURE.alpha.users.organizationAdmin.membershipId,
+        multi().alpha.users.organizationAdmin.membershipId,
       ]);
       await admin.query(text, [...values]);
     } finally {
@@ -642,9 +655,9 @@ describe('S-22 — infinite window bounds are rejected, on every effective-dated
          values ($1, $2, $3, $4, 'group', 'member', '-infinity'::timestamptz)`,
         [
           randomUUID(),
-          FIXTURE.alpha.organizationId,
-          FIXTURE.alpha.groupOne.id,
-          FIXTURE.alpha.users.member.id,
+          multi().alpha.organizationId,
+          multi().alpha.groupOne.id,
+          multi().alpha.users.member.id,
         ],
       ),
     ).rejects.toMatchObject({ code: '23514' });
@@ -654,15 +667,15 @@ describe('S-22 — infinite window bounds are rejected, on every effective-dated
     const id = randomUUID();
     try {
       await runtime.runner.run(
-        administratorContext(FIXTURE.alpha.organizationId, 's22-finite'),
+        multi.administrator(multi().alpha.organizationId, 's22-finite'),
         async ({ query }) =>
           query
             .insertInto('capability_grants')
             .values({
               id,
-              organization_id: FIXTURE.alpha.organizationId,
-              group_id: FIXTURE.alpha.groupOne.id,
-              membership_id: FIXTURE.alpha.users.member.membershipId,
+              organization_id: multi().alpha.organizationId,
+              group_id: multi().alpha.groupOne.id,
+              membership_id: multi().alpha.users.member.membershipId,
               capability_key: 'vacation.commit',
               granted: true,
               valid_to: new Date('2030-01-01T00:00:00.000Z'),

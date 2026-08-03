@@ -1,0 +1,249 @@
+OPUS-M2-001 — SBX harness run (seed 65339 fix)
+captured: 2026-08-03T18:00:23Z
+
+$ node scripts/sbx/run-sbx.mjs
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m2-001
+
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m2-001/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-841764149e96aaa54d)] INFO: Completed task 1 (outbox.dispatch, 7.42ms) with success
+[worker(worker-841764149e96aaa54d)] INFO: Completed task 2 (outbox.dispatch, 2.61ms) with success
+[worker(worker-841764149e96aaa54d)] INFO: Completed task 3 (outbox.dispatch, 2.47ms) with success
+[worker(worker-841764149e96aaa54d)] INFO: Completed task 4 (outbox.dispatch, 2.48ms) with success
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > every declared scenario carries all nine fields and a falsifiability probe
+      · 5 scenario(s), every contract complete
+
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > RED: a scenario missing a field is NOT RUNNABLE, and the validator says which
+      · a blank contract field makes a scenario NOT_RUNNABLE, naming the field
+
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > RED: a scenario whose probe cannot fail is reported VACUOUS, not PASS
+      · the vacuity detector catches a scenario whose probe cannot fail
+
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > RED: EVIDENCE_BLOCKED is never a pass and never a silent skip
+      · a fully blocked scenario reports EVIDENCE_BLOCKED with its dependency named
+
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > RED: a reading refused with anything but 42501 is a HARNESS DEFECT
+      · only 42501 counts as a refusal; 08006, 25P02 and 57P01 are harness defects
+
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > RED: a probe that throws a TypeError is PROBE_ERROR, not FALSIFIABLE
+      · a probe throwing TypeError is PROBE_ERROR and fails the run
+
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > RED: a probe repointed at an ABSENT subject is never FALSIFIABLE
+      · a probe repointed at an absent subject is VACUOUS, never FALSIFIABLE
+
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > RED: a probe that throws a SQL error is PROBE_ERROR, not FALSIFIABLE
+      · a probe throwing a SQL error is PROBE_ERROR and fails the run
+
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > RED: EVIDENCE_BLOCKED on a GATE-REQUIRED scenario makes the run exit non-zero
+      · EVIDENCE_BLOCKED is tolerated when no gate claims it and FAILS the run when one does — the same scenario, both ways
+
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > RED: a blocked scenario with an UNNAMED dependency is NOT RUNNABLE
+      · SPEC-16 §6: a dependency must be named, not absorbed
+
+stdout | test/sbx/sbx.test.ts > red case — SBX-004 fails when an RLS control is removed > RED: with FORCE RLS off inside a rolled-back transaction, the sweep sees foreign rows
+      · RED: FORCE RLS off -> 15 foreign membership rows became visible to the owner; SBX-004 would fail, as it must
+
+stdout | test/sbx/sbx.test.ts > red case — SBX-004 fails when an RLS control is removed > RED: with FORCE RLS off inside a rolled-back transaction, the sweep sees foreign rows
+      · the rollback restored FORCE RLS — verified from a fresh connection
+
+stdout | test/sbx/sbx.test.ts > the G-ARCH tenancy subset > runs every scenario under its contract
+      · SBX-001 PASS             probe=FALSIFIABLE 142ms
+      · SBX-002 PASS             probe=FALSIFIABLE 55ms
+      · SBX-004 PASS             probe=FALSIFIABLE 73ms
+      · SBX-005 PASS             probe=FALSIFIABLE 2ms
+      · SBX-006 EVIDENCE_BLOCKED probe=NOT_APPLICABLE 0ms
+
+stdout | test/sbx/sbx.test.ts > the G-ARCH tenancy subset > the audit chain verifies clean after the run (the 0 / N / 0 shape)
+      · audit chain after the SBX run — a11aafa1: 0 / 1 / 0
+
+stdout | test/sbx/sbx.test.ts > the G-ARCH tenancy subset > the audit chain verifies clean after the run (the 0 / N / 0 shape)
+      · audit chain after the SBX run — d7bd251d: 0 / 1 / 0
+
+stdout | test/sbx/sbx.test.ts > the G-ARCH tenancy subset > the audit chain verifies clean after the run (the 0 / N / 0 shape)
+      · audit chain after the SBX run — f5676844: 0 / 1 / 0
+
+stdout | test/sbx/sbx.test.ts > the G-ARCH tenancy subset > writes the evidence bundle, including EVERY declared retained artifact
+      · scenario report + 5 per-scenario artifact(s) written
+
+stdout | test/sbx/sbx.test.ts > the G-ARCH tenancy subset > SPEC-16 §7 meta-test: every DECLARED artifact exists and is non-empty
+      · 5 declared artifact(s), each produced by this run and non-empty
+
+stdout | test/sbx/sbx.test.ts > the G-ARCH tenancy subset > RED: a scenario declaring a PHANTOM artifact is caught
+      · a declared-but-never-written artifact is detected by the meta-test
+
+ ✓ |api| test/sbx/sbx.test.ts (17 tests) 400ms
+
+ Test Files  1 passed (1)
+      Tests  17 passed (17)
+   Start at  14:00:24
+   Duration  1.73s (transform 141ms, setup 62ms, collect 104ms, tests 400ms, environment 0ms, prepare 35ms)
+
+
+OPUS-M2-001 — SBX evidence harness, G-ARCH tenancy subset
+generated: 2026-08-03T18:00:25.757Z
+
+G-ARCH IS NOT CLOSED BY THIS RUN. It also needs SBX-011, 013, 014b, 022, 023
+and 028 at later milestones. This subset clears the tenancy part.
+
+scenarios required 5 · executed 4 · passed 4 · failed 0 · blocked 1 · vacuous 0 · probe-error 0 · not-runnable 0
+
+==============================================================================
+SBX-001 — Role x registered-surface matrix — every route an explicit allow or a clean deny
+STATE: PASS   falsifiability probe: FALSIFIABLE   gate-required: YES   142 ms
+
+  SPEC-16 §1 contract
+    owner                    OPUS-M2-001 (implementer) / Fable (acceptance)
+    fixtureProvenance        MULTI `full` profile — every SPEC-06 role has a membership in it.
+    deterministicSetup       The registered route table is read from the server itself, not from a list kept in the test; the matrix is therefore generated rather than transcribed.
+    externalDependency       None.
+    faultControls            None injected.
+    objectiveOracle          Every registered route declares a policy (deny-by-default, I-02), and every (role, route) cell resolves to a declared allow or a declared deny. A route with no policy is a failure, not an omission.
+    retainedArtifact         docs/evidence/EV-M2-SBX/sbx-001-matrix.txt
+    environment              MULTI
+    earliestExecutionPoint   E1
+  tables exercised: memberships
+  policies exercised: SPEC-01 §2.4 byte-identical 404 (FAD-11 revoked membership) | SPEC-06 evaluator over the HTTP surface, every role | route policy declaration (I-02 deny-by-default)
+  EVIDENCE_BLOCKED sub-scenarios (never a pass, never a silent skip):
+    - navigation-tree capture and per-role screenshots  ->  EVIDENCE_BLOCKED(UI milestone (no web surface for these routes exists yet — OPUS-M2-002))
+    - sign in as each role in turn  ->  EVIDENCE_BLOCKED(authn milestone (no authentication subsystem exists; no M1 packet contained it))
+  registered routes: POST /organizations/:organizationId/memberships -> capability | POST /organizations/:organizationId/memberships/:membershipId/grants -> capability | PATCH /organizations/:organizationId/entitlements/:moduleKey -> capability | POST /organizations/:organizationId/groups/:groupId/context-probe/touch -> capability | POST /organizations/:organizationId/context-probe/touch -> capability | POST /organizations/:organizationId/context-probe/group-scoped-touch -> capability | POST /organizations/:organizationId/groups/:groupId/context-probe/targets/:targetMembershipId -> capability | POST /organizations/:organizationId/groups/:groupId/context-probe/enqueue -> capability | GET /health -> public
+  roles present: group_admin, member, org_admin, org_observer, scheduler, telecom, viewer
+  role x route matrix: 13 principals x 8 routes = 104 cells; 8 allow, 84 clean deny (403/404), 12 context refusal (409), 0 unclassified
+    scheduler(G1+G2)   POST :organizationId/memberships=404  POST :membershipId/grants=404  PATCH entitlements/:moduleKey=404  POST context-probe/touch=200  POST context-probe/touch=404  POST context-probe/group-scoped-touch=404  POST targets/:targetMembershipId=409  POST context-probe/enqueue=200
+    member(G1)         POST :organizationId/memberships=404  POST :membershipId/grants=404  PATCH entitlements/:moduleKey=404  POST context-probe/touch=403  POST context-probe/touch=404  POST context-probe/group-scoped-touch=404  POST targets/:targetMembershipId=404  POST context-probe/enqueue=403
+    scheduler(G2)      POST :organizationId/memberships=404  POST :membershipId/grants=404  PATCH entitlements/:moduleKey=404  POST context-probe/touch=404  POST context-probe/touch=404  POST context-probe/group-scoped-touch=404  POST targets/:targetMembershipId=404  POST context-probe/enqueue=404
+    org_admin          POST :organizationId/memberships=409  POST :membershipId/grants=409  PATCH entitlements/:moduleKey=409  POST context-probe/touch=404  POST context-probe/touch=409  POST context-probe/group-scoped-touch=404  POST targets/:targetMembershipId=404  POST context-probe/enqueue=404
+    group-only         POST :organizationId/memberships=404  POST :membershipId/grants=404  PATCH entitlements/:moduleKey=404  POST context-probe/touch=200  POST context-probe/touch=404  POST context-probe/group-scoped-touch=404  POST targets/:targetMembershipId=409  POST context-probe/enqueue=200
+    departed(ended)    POST :organizationId/memberships=404  POST :membershipId/grants=404  PATCH entitlements/:moduleKey=404  POST context-probe/touch=404  POST context-probe/touch=404  POST context-probe/group-scoped-touch=404  POST targets/:targetMembershipId=404  POST context-probe/enqueue=404
+    viewer(G1)         POST :organizationId/memberships=404  POST :membershipId/grants=404  PATCH entitlements/:moduleKey=404  POST context-probe/touch=403  POST context-probe/touch=404  POST context-probe/group-scoped-touch=404  POST targets/:targetMembershipId=404  POST context-probe/enqueue=403
+    telecom(G1)        POST :organizationId/memberships=404  POST :membershipId/grants=404  PATCH entitlements/:moduleKey=404  POST context-probe/touch=403  POST context-probe/touch=404  POST context-probe/group-scoped-touch=404  POST targets/:targetMembershipId=404  POST context-probe/enqueue=403
+    group_admin(G1)    POST :organizationId/memberships=404  POST :membershipId/grants=404  PATCH entitlements/:moduleKey=404  POST context-probe/touch=200  POST context-probe/touch=404  POST context-probe/group-scoped-touch=404  POST targets/:targetMembershipId=409  POST context-probe/enqueue=200
+    org_observer       POST :organizationId/memberships=409  POST :membershipId/grants=409  PATCH entitlements/:moduleKey=409  POST context-probe/touch=404  POST context-probe/touch=409  POST context-probe/group-scoped-touch=404  POST targets/:targetMembershipId=404  POST context-probe/enqueue=404
+    suspended(G2)      POST :organizationId/memberships=404  POST :membershipId/grants=404  PATCH entitlements/:moduleKey=404  POST context-probe/touch=404  POST context-probe/touch=404  POST context-probe/group-scoped-touch=404  POST targets/:targetMembershipId=404  POST context-probe/enqueue=404
+    invited(G2)        POST :organizationId/memberships=404  POST :membershipId/grants=404  PATCH entitlements/:moduleKey=404  POST context-probe/touch=404  POST context-probe/touch=404  POST context-probe/group-scoped-touch=404  POST targets/:targetMembershipId=404  POST context-probe/enqueue=404
+    dual-role(G1+G2)   POST :organizationId/memberships=404  POST :membershipId/grants=404  PATCH entitlements/:moduleKey=404  POST context-probe/touch=200  POST context-probe/touch=404  POST context-probe/group-scoped-touch=404  POST targets/:targetMembershipId=409  POST context-probe/enqueue=200
+  byte-identity: a revoked (ended) membership and a forged group id are both 404 with an identical body: {"error":{"code":"NOT_FOUND","message":"Not found.","correlationId":"sbx001disclosure"}}
+
+==============================================================================
+SBX-002 — Capability mapping (CAP-006 / CAP-057): the grant x entitlement x role truth table, proven server-side
+STATE: PASS   falsifiability probe: FALSIFIABLE   gate-required: YES   55 ms
+
+  SPEC-16 §1 contract
+    owner                    OPUS-M2-001 (implementer) / Fable (acceptance)
+    fixtureProvenance        MULTI `full` profile: Alpha is entitled to core_scheduling, Gamma deliberately is not, and Alpha carries an explicit ALLOW grant and an explicit DENY grant.
+    deterministicSetup       The truth table is evaluated through the shipped SPEC-06 evaluator against seeded rows; no clock, no concurrency, no ordering dependence.
+    externalDependency       None.
+    faultControls            None injected.
+    objectiveOracle          TWELVE of the fifteen SPEC-06 truth-table rows are exercised server-side over the real HTTP surface, in 15 concrete non-vacuous cases — each preceded by an ALLOW control on the same actor and route, so a denial cannot pass merely because the actor was never allowed. Twelve rows execute; L1.4, L6.1 and L6.2 have no surface and are EVIDENCE_BLOCKED with their dependency named. COMPANION EVIDENCE, exhaustive rather than sampled: packages/domain/test/authz/cross-product.test.ts evaluates all 39,285,000 cases against an independent oracle with 0 disagreements. The sampling relationship is deliberate and is the whole design — the EVALUATOR is proved exhaustively at the domain level, and this scenario proves the SERVER reaches that evaluator on every row. Neither substitutes for the other: an exhaustive evaluator wired to nothing would still pass its own test.
+    retainedArtifact         docs/evidence/EV-M2-SBX/sbx-002-truth-table.txt
+    environment              MULTI
+    earliestExecutionPoint   E1
+  tables exercised: capability_grants, entitlements, group_module_availability, groups, memberships, organizations
+  policies exercised: SPEC-06 L1.1 NOT_ENTITLED | SPEC-06 P-1 explicit deny precedence | SPEC-06 fifteen-row truth table over the HTTP surface
+  EVIDENCE_BLOCKED sub-scenarios (never a pass, never a silent skip):
+    - L1.4 MODULE_DEPENDENCY_UNSATISFIED  ->  EVIDENCE_BLOCKED(module-with-dependencies milestone — no registered route declares an action in a module that HAS a dependency. Per MODULE_DEPENDENCIES only requests_vacation, marketplace, communications, reporting_documents, picklist and hospital_integration have any, and none of them has a route yet)
+    - L6.1 PROXY_INVALID / PROXY_SCOPE / PROXY_GRANTOR_DENIED  ->  EVIDENCE_BLOCKED(proxy milestone (no proxy surface exists))
+    - L6.2 IMPERSONATION_EXPIRED / IMPERSONATION_FORBIDDEN_SURFACE  ->  EVIDENCE_BLOCKED(impersonation milestone (no impersonation surface exists))
+    - the picklist-specific arm (group-level Pick List Access x per-user Picklist Admin)  ->  EVIDENCE_BLOCKED(picklist milestone (SPEC-02; no picklist surface exists). Recorded per the packet: this arm re-executes at the picklist milestone, and the reinterpretation is stated here)
+  truth table dimensions: entitlement ON (Alpha: core_scheduling, entitlements, organization_administration) x OFF (Gamma: entitlements, organization_administration) x grant ALLOW(2) / DENY(1) x 7 roles
+  fifteen rows, server-side: 12 of the 15 SPEC-06 rows execute, in 15 concrete cases over the real HTTP surface (some rows carry more than one case; L1.4, L6.1 and L6.2 have no surface and are EVIDENCE_BLOCKED below):
+    context refused by SPEC-01 §2.3 before the evaluator: 200 -> 404 [aimed at L0.1]  (ORG_INACTIVE)
+    context refused by SPEC-01 §2.3 before the evaluator: 200 -> 404 [aimed at L0.2]  (GROUP_INACTIVE)
+    L1.2 ENTITLEMENT_REVOKED: 200 -> 404  (ENTITLEMENT_REVOKED)
+    L1.2 ENTITLEMENT_SUSPENDED: 200 -> 404  (ENTITLEMENT_SUSPENDED)
+    L1.3 ENTITLEMENT_EXPIRED: 200 -> 404  (ENTITLEMENT_EXPIRED)
+    L2.1 MODULE_UNAVAILABLE_IN_GROUP: 200 -> 404  (MODULE_UNAVAILABLE_IN_GROUP)
+    L1.1 NOT_ENTITLED: 404 (entitlement-OFF organization)
+    context refused by SPEC-01 §2.3 before the evaluator: 404  (organization membership only)
+    context refused by SPEC-01 §2.3 before the evaluator: 404  (aimed at MEMBERSHIP_ENDED)
+    context refused by SPEC-01 §2.3 before the evaluator: 404  (aimed at MEMBERSHIP_SUSPENDED)
+    context refused by SPEC-01 §2.3 before the evaluator: 404  (aimed at MEMBERSHIP_INVITED)
+    context refused by SPEC-01 §2.3 before the evaluator: 200 -> 404 [aimed at L3.3]  (MEMBERSHIP_EXPIRED)
+    L4.1 EXPLICIT_DENY: 200 -> 403  (EXPLICIT_DENY)
+    L4.2 NO_CAPABILITY: 403  (role viewer)
+    L5.1 OBJECT_POLICY: 404  (in-scope target the actor does not own)
+  WHICH LAYER ANSWERED — stated, because the count alone would mislead: 8 of 15 cases were refused by the SPEC-06 EVALUATOR and report their own layer. The other 7 were refused EARLIER, by SPEC-01 §2.3 context resolution, which answers the same 404 — an inactive organization or group, and a membership that is absent, ended, suspended, invited or out of window, are all resolved before the evaluator is reached. That is the architecture working as SPEC-01 specifies, not a gap: both layers deny, both disclose identically, and http-authorization.test.ts already records the same split with its `deniedBy: 'context'` cases. What this scenario adds is that TWELVE of the fifteen rows have a concrete server-side case (L1.4, L6.1 and L6.2 have no surface and are EVIDENCE_BLOCKED), and what it does NOT claim is that every executed row is demonstrated at the evaluator layer. The exhaustive evaluator-level evidence is the 39,285,000-case cross-product cited in the objective oracle.
+  rows with no surface, named: L1.4 MODULE_DEPENDENCY_UNSATISFIED -> EVIDENCE_BLOCKED(module-with-dependencies milestone: no registered route declares an action in a module that has one) | L6.1 PROXY_* -> EVIDENCE_BLOCKED(proxy milestone) | L6.2 IMPERSONATION_* -> EVIDENCE_BLOCKED(impersonation milestone)
+  note: the picklist-specific arm is EVIDENCE_BLOCKED(picklist milestone) and re-executes there
+
+==============================================================================
+SBX-004 — Cross-tenant isolation sweep — every resource type, both boundaries, every role
+STATE: PASS   falsifiability probe: FALSIFIABLE   gate-required: YES   73 ms
+
+  SPEC-16 §1 contract
+    owner                    OPUS-M2-001 (implementer) / Fable (acceptance)
+    fixtureProvenance        MULTI `full` profile, provisioned by apps/api/test/support/multi.ts from a slug — the single fixture owner. Synthetic throughout; every address at example.invalid. Reproducible from the slug alone (proved in apps/api/test/fixture/multi.test.ts).
+    deterministicSetup       One embedded PostgreSQL cluster per run, initialised from empty; migrations up -> down -> up; the fixture seeded through the unit of work. No wall-clock dependence and no concurrency: each read arm issues one statement PER TABLE (13) inside a single unit of work per (role, context), and each write attempt is one statement in its own always-rolled-back transaction. Nothing runs in parallel, so no result depends on interleaving.
+    externalDependency       None. Nothing outside this process and its local cluster.
+    faultControls            None injected. This scenario measures the steady state; SPEC-01 T-07..T-15 inject the faults and are asserted separately in apps/api/test/tenancy/unit-of-work.test.ts.
+    objectiveOracle          wrong-tenant row count == 0 on EVERY (role, context, table) reading, AND every tenant table observed with at least one VISIBLE row in at least one reading — a probe over a table it cannot see reports 0 wrong for the boring reason.
+    retainedArtifact         docs/evidence/EV-M2-SBX/sbx-004-sweep.txt
+    environment              MULTI
+    earliestExecutionPoint   E0
+  tables exercised: audit_checkpoints, audit_events, capability_grants, entitlements, group_module_availability, groups, memberships, organizations, outbox_effects, outbox_events, role_capabilities, roles, users
+  policies exercised: FAD-14 maintenance-plane read (app_migrator, SELECT-only) | HTTP surface cross-organization denial (SPEC-01 §2.4 byte-identity) | RLS row-level policies on every tenant table | app_breakglass BYPASSRLS — the declared SPEC-01 §4.4 exception | cross-tenant DML refusal (grants + RLS) | users_readable_through_membership
+  declared exception (FAD-14), pinned: app_migrator reads 2 foreign audit_checkpoints rows belonging to THIS fixture's other organizations (scoped, so the number does not depend on what else shares the run) — the sanctioned maintenance-plane path, SELECT-only, no tenant content beyond organization ids. Excluded from the leak check by the exact (role, table) pair only; every OTHER pair, including app_migrator on all twelve remaining tables, must read 0.
+  API-surface arm: 8/8 organization-scoped routes denied a foreign organization id to an authenticated BETA principal, byte-identically to a non-existent id: POST /organizations/:organizationId/memberships -> 404 | POST /organizations/:organizationId/memberships/:membershipId/grants -> 404 | PATCH /organizations/:organizationId/entitlements/:moduleKey -> 404 | POST /organizations/:organizationId/groups/:groupId/context-probe/touch -> 404 | POST /organizations/:organizationId/context-probe/touch -> 404 | POST /organizations/:organizationId/context-probe/group-scoped-touch -> 404 | POST /organizations/:organizationId/groups/:groupId/context-probe/targets/:targetMembershipId -> 404 | POST /organizations/:organizationId/groups/:groupId/context-probe/enqueue -> 404
+  API-surface coverage gap, stated: 3 of 12 tenant tables have a registered route today (memberships, capability_grants, entitlements). The remaining 9 are covered by the SQL arm ONLY, because no route reaches them yet: organizations, groups, roles, role_capabilities, group_module_availability, audit_events, audit_checkpoints, outbox_events, outbox_effects. They gain an API arm as their surfaces land.
+  declared exception (SPEC-01 §4.4, pinned by A-08): app_breakglass holds BYPASSRLS and sees 3 organizations with no context. That is the ONE sanctioned cross-tenant read path for application roles, it is asserted here rather than omitted, and the four RLS-bound roles above read 0 foreign rows on every table. FAD-14 separately sanctions app_migrator's SELECT-only maintenance read of audit_checkpoints.
+  write arm (R-04): 24 cross-tenant DML attempts (3 roles x 4 tables x UPDATE/DELETE), each declaring Alpha and targeting Beta, each inside a rolled-back transaction. 0 landed. 4 reached the RLS mechanism (statement accepted, 0 rows matched); the rest were refused at the GRANT layer, which is a different control and is labelled as such per cell. Per attempt: app_runtime/memberships/update: RLS no-op, 0 rows affected | app_runtime/memberships/delete: grant refusal 42501 | app_runtime/groups/update: RLS no-op, 0 rows affected | app_runtime/groups/delete: grant refusal 42501 | app_runtime/capability_grants/update: grant refusal 42501 | app_runtime/capability_grants/delete: grant refusal 42501 | app_runtime/audit_events/update: grant refusal 42501 | app_runtime/audit_events/delete: grant refusal 42501 | app_worker/memberships/update: RLS no-op, 0 rows affected | app_worker/memberships/delete: grant refusal 42501 | app_worker/groups/update: RLS no-op, 0 rows affected | app_worker/groups/delete: grant refusal 42501 | app_worker/capability_grants/update: grant refusal 42501 | app_worker/capability_grants/delete: grant refusal 42501 | app_worker/audit_events/update: grant refusal 42501 | app_worker/audit_events/delete: grant refusal 42501 | app_readonly_support/memberships/update: grant refusal 42501 | app_readonly_support/memberships/delete: grant refusal 42501 | app_readonly_support/groups/update: grant refusal 42501 | app_readonly_support/groups/delete: grant refusal 42501 | app_readonly_support/capability_grants/update: grant refusal 42501 | app_readonly_support/capability_grants/delete: grant refusal 42501 | app_readonly_support/audit_events/update: grant refusal 42501 | app_readonly_support/audit_events/delete: grant refusal 42501
+  readings: 84 (role, context, table) readings across 7 contexts; 0 wrong-tenant rows; 12 of 12 tables observed with visible rows
+  reads REFUSED outright (stronger than zero rows, recorded distinctly): 1 (role, table) reads raised an error instead of returning rows — the role holds no EXECUTE on a helper the table's RLS policy calls, so it cannot read the table at all: app_readonly_support/capability_grants=42501
+  per-table visibility: organizations: max 1 visible (app_runtime/runtime/organization) | groups: max 2 visible (app_runtime/runtime/organization) | memberships: max 15 visible (app_runtime/runtime/organization) | roles: max 7 visible (app_runtime/runtime/organization) | role_capabilities: max 9 visible (app_runtime/runtime/organization) | capability_grants: max 4 visible (app_runtime/runtime/organization) | entitlements: max 3 visible (app_runtime/runtime/organization) | group_module_availability: max 6 visible (app_runtime/runtime/organization) | audit_events: max 15 visible (app_runtime/runtime/organization) | audit_checkpoints: max 7 visible (app_migrator/app_migrator/organization) [RUN-SCOPED: the FAD-14 maintenance read spans every fixture in the process] | outbox_events: max 2 visible (app_runtime/runtime/organization) | outbox_effects: max 2 visible (app_runtime/runtime/organization)
+
+==============================================================================
+SBX-005 — User invitation, activation, deactivation, impersonation
+STATE: PASS   falsifiability probe: FALSIFIABLE   gate-required: no   2 ms
+
+  SPEC-16 §1 contract
+    owner                    OPUS-M2-001 (implementer) / Fable (acceptance)
+    fixtureProvenance        MULTI `full` profile — carries suspended, invited and ended memberships.
+    deterministicSetup       Membership state transitions are database writes; no clock dependence.
+    externalDependency       A controlled mailbox for the invitation half (report 18 §4). None is provisioned, and per SPEC-16 §5 a test whose destination cannot be proven controlled does not run.
+    faultControls            None injected.
+    objectiveOracle          Each transition behaves as STM-017/STM-018 specify, and history is retained after deactivation rather than deleted.
+    retainedArtifact         docs/evidence/EV-M2-SBX/sbx-005-lifecycle.txt
+    environment              MULTI
+    earliestExecutionPoint   E2
+  tables exercised: memberships
+  policies exercised: membership status retention (STM-017/STM-018 partial)
+  EVIDENCE_BLOCKED sub-scenarios (never a pass, never a silent skip):
+    - invite / token single-use / token replay / activate  ->  EVIDENCE_BLOCKED(authn milestone)
+    - suspend and confirm live sessions die immediately  ->  EVIDENCE_BLOCKED(authn milestone (no session subsystem))
+    - impersonation banner, audit entry, blocked credential screens  ->  EVIDENCE_BLOCKED(authn milestone (no impersonation subsystem))
+    - invitation email to a controlled mailbox  ->  EVIDENCE_BLOCKED(controlled notification endpoint (report 18 §4))
+  membership statuses retained: active=12, ended=1, invited=1, suspended=1
+  blocked: invitation, activation, session death on suspend and impersonation all require the authn subsystem, which does not exist — reported EVIDENCE_BLOCKED, never skipped
+
+==============================================================================
+SBX-006 — Session timeout and persistence
+STATE: EVIDENCE_BLOCKED   falsifiability probe: NOT_APPLICABLE   gate-required: no   0 ms
+
+  SPEC-16 §1 contract
+    owner                    OPUS-M2-001 (implementer) / Fable (acceptance)
+    fixtureProvenance        MULTI — no fixture beyond a signed-in principal is needed.
+    deterministicSetup       Would require the SPEC-16 §4 controllable virtual clock; wall-clock sampling is not evidence because it is unrepeatable.
+    externalDependency       None, once a session subsystem exists.
+    faultControls            Forced disconnection and idle simulation, once there is a session to idle.
+    objectiveOracle          Measured idle and absolute lifetimes, bounded and consistent across devices — a number, not an impression.
+    retainedArtifact         docs/evidence/EV-M2-SBX/sbx-006-session.txt
+    environment              MULTI
+    earliestExecutionPoint   E2
+  EVIDENCE_BLOCKED sub-scenarios (never a pass, never a silent skip):
+    - idle session lifetime, with and without "stay signed in"  ->  EVIDENCE_BLOCKED(authn milestone (no session subsystem))
+    - absolute session lifetime  ->  EVIDENCE_BLOCKED(authn milestone (no session subsystem))
+    - concurrent-device behaviour  ->  EVIDENCE_BLOCKED(authn milestone (no session subsystem))
+
+==============================================================================
+vacuous assertions detected: 0
+
+AUDIT CHAIN AFTER THIS RUN — chain problems / checkpoints signed / checkpoint problems
+(clean is 0 / N>=1 / 0; the middle number is reported rather than pinned, because
+ the periodic sweep may legitimately have signed more than one)
+  a11aafa1: 0 / 1 / 0  (15 entries, head 15)
+  d7bd251d: 0 / 1 / 0  (3 entries, head 3)
+  f5676844: 0 / 1 / 0  (2 entries, head 2)
+
+evidence path: docs/evidence/EV-M2-SBX/scenario-report.txt
+EXIT=0

@@ -1,0 +1,50 @@
+NR-13 structural census — which api test files CANNOT sit inside one test-level transaction
+captured: 2026-08-03T13:51:06Z
+commit:   16f6d0270d44530061ead67d7d2ba9e25fcd5c56
+
+Experiments E2/E3 in rollback-feasibility.txt show that anything running on a
+SECOND backend cannot see a test-level transaction and commits independently of
+it. This counts how many files do that. A file is disqualified from per-test
+rollback if it does ANY of:
+  R  createRuntime(...)      — a second pool, therefore a second backend
+  O  outsideUnitOfWork(...)  — a deliberate out-of-wrapper probe
+  P  assertPoolIsClean(...)  — grabs every connection in the pool
+  A  adminClient(...)        — the superuser observation client (E3)
+  S  spawn* / fork(          — a child process with its own connections
+  W  graphile-worker         — a real worker with its own pool
+
+FILE                                                           R  O  P  A  S  W   DISQUALIFIED
+-------------------------------------------------------------- ------------------  ------------
+architecture/embedded-postgres-isolation.test.ts               0  0  0  0  1  0   YES
+architecture/no-tenant-access-outside-unit-of-work.test.ts     0  0  0  0  0  0   no
+audit/architecture.test.ts                                     0  0  0  0  0  0   no
+audit/chain.test.ts                                            4  0  0  2  0  0   YES
+audit/crash-restart.test.ts                                    3  0  0  2  2  3   YES
+audit/emission-coverage.test.ts                                5  0  0  2  0  0   YES
+audit/outbox-dispatch.test.ts                                  3  0  0  2  0  3   YES
+audit/payload-closedness.test.ts                               2  0  0  2  0  0   YES
+audit/periodic.test.ts                                         3  0  0  2  0  3   YES
+authz/entitlement-in-force.test.ts                             0  0  0  2  0  0   YES
+authz/fail-closed-guard.test.ts                                2  0  0  2  0  0   YES
+authz/http-authorization.test.ts                               0  0  0  2  0  0   YES
+authz/loader-cross-checks.test.ts                              2  0  0  2  0  0   YES
+authz/no-explanation-leaks.test.ts                             0  0  0  2  0  0   YES
+authz/provisioning.test.ts                                     2  0  0  2  0  0   YES
+authz/schema.test.ts                                           2  2  0  2  0  0   YES
+http/context-surface.test.ts                                   0  0  0  2  0  0   YES
+http/route-declarations.test.ts                                0  0  0  0  0  0   no
+jobs/job-context.test.ts                                       2  0  0  2  0  0   YES
+red-cases/gates-fail-on-violations.test.ts                     0  0  0  0  4  0   YES
+red-cases/probe-is-not-vacuous.test.ts                         2  0  0  2  0  0   YES
+server.test.ts                                                 0  0  0  0  0  0   no
+tenancy/roles-and-schema.test.ts                               10 6  0  2  0  0   YES
+tenancy/unit-of-work.test.ts                                   8  7  6  2  0  0   YES
+
+  disqualified: 20 of 24 api test files
+  remaining candidates: 4
+
+  Reading: per-test transactional rollback could apply to at most 4 of 24 files.
+  E1 (NESTED_TENANT_CHANGE) then removes any of those whose assertions span both
+  fixture organizations, which is what a cross-tenant probe is.
+
+DONE

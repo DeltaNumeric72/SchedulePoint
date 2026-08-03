@@ -1,0 +1,27 @@
+NR-13 cost model — OPUS-M2-001 phase A
+captured: 2026-08-03T13:45:01Z
+commit:   959ee03aaf8e2b2ef28f154a539320ba3bea1c76
+host:     Mac16,8, 12 cores; node v24.18.0; macOS 26.5.2
+command:  SP_TEST_PG_PORT=55439 SP_NR13_REPS=10 corepack pnpm exec tsx apps/api/test/nr13/cost-model.ts
+
+
+MEASUREMENT                                                          n    min ms  median ms  max ms  total ms
+-------------------------------------------------------------------  ---  ------  ---------  ------  --------
+fixed: startClusterDaemon (initdb + start, fresh data directory)     1    496.3   496.3      496.3   496.3
+fixed: bootstrapCluster (5 roles + database)                         1    102.7   102.7      102.7   102.7
+fixed: migrateCycle up -> down -> up                                 1    107.1   107.1      107.1   107.1
+fixed: installQueueSchema (graphile-worker)                          1    32.6    32.6       32.6    32.6
+fixed: seedFixture (MULTI: 2 organizations)                          1    22.5    22.5       22.5    22.5
+fixed: seedAuditAndOutbox (4 groups + 2 checkpoints)                 1    22.6    22.6       22.6    22.6
+unit: provision ONE more organization (2 groups, 1 admin)            10   2.4     2.7        3.0     26.8
+unit: empty unit of work (BEGIN + 4 set_config + readback + COMMIT)  200  0.2     0.3        1.1     61.1
+unit: CREATE DATABASE ... TEMPLATE (per-file database clone)         5    40.1    41.5       45.6    210.5
+unit: DROP DATABASE (the clone's other half)                         5    14.6    14.7       251.5   310.4
+
+TRUNCATE feasibility (superuser, inside a transaction that is then rolled back):
+  memberships: TRUNCATE REFUSED — SQLSTATE 23001: audit records are append-only: TRUNCATE on audit_events is refused (ADR-0019, non-bypass rule 6)
+  audit_events: TRUNCATE REFUSED — SQLSTATE 23001: audit records are append-only: TRUNCATE on audit_events is refused (ADR-0019, non-bypass rule 6)
+  audit_checkpoints: TRUNCATE REFUSED — SQLSTATE 23001: audit records are append-only: TRUNCATE on audit_checkpoints is refused (ADR-0019, non-bypass rule 6)
+  outbox_events: TRUNCATE accepted (as superuser, rolled back)
+
+EXIT=0

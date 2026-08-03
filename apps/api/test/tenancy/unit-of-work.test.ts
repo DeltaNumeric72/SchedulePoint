@@ -15,8 +15,9 @@ import { assertTransactionAffinity, PoolerModeAssertionError } from '../../src/d
 import { TENANT_TABLES } from '../../src/db/schema.js';
 import { PgUnitOfWorkRunner } from '../../src/db/unit-of-work.js';
 import { adminClient } from '../support/admin-client.js';
-import { FIXTURE, groupContext, organizationContext } from '../support/fixtures.js';
+import { groupContext, organizationContext } from '../support/fixtures.js';
 import {
+  actualOrganizations,
   actualPartitions,
   assertPoolIsClean,
   createRuntime,
@@ -30,6 +31,19 @@ import {
   type Runtime,
 } from '../support/harness.js';
 import { withSimulatedPoolerFault } from '../support/pooler-simulator.js';
+import { ownedMulti } from '../support/owned-multi.js';
+
+/**
+ * FAD-15 Layer 2 — this file owns its tenant.
+ *
+ * It used to write to the shared MULTI baseline, which every other file also read.
+ * NR-13 measured what that cost: six order-dependent tests across five files, and
+ * eleven of twenty-four files modifying rows the shared seed created. The fixture
+ * below has the same shape and fresh identifiers, and RLS — not agreement — is what
+ * keeps it out of everybody else's queries.
+ */
+const multi = ownedMulti('tenancy-unit-of-work');
+
 
 /**
  * **SPEC-01 §7.2 — pooled-connection and failure-path isolation (CAR-002),
@@ -59,27 +73,27 @@ let worker: Runtime;
 
 const alphaGroupOne = (): TenantContext =>
   groupContext(
-    FIXTURE.alpha.organizationId,
-    FIXTURE.alpha.groupOne.id,
-    FIXTURE.alpha.users.scheduler.membershipId,
+    multi().alpha.organizationId,
+    multi().alpha.groupOne.id,
+    multi().alpha.users.scheduler.membershipId,
     randomUUID(),
   );
 const alphaGroupTwo = (): TenantContext =>
   groupContext(
-    FIXTURE.alpha.organizationId,
-    FIXTURE.alpha.groupTwo.id,
-    FIXTURE.alpha.users.groupTwoScheduler.membershipId,
+    multi().alpha.organizationId,
+    multi().alpha.groupTwo.id,
+    multi().alpha.users.groupTwoScheduler.membershipId,
     randomUUID(),
   );
 const betaGroupOne = (): TenantContext =>
   groupContext(
-    FIXTURE.beta.organizationId,
-    FIXTURE.beta.groupOne.id,
-    FIXTURE.beta.users.scheduler.membershipId,
+    multi().beta.organizationId,
+    multi().beta.groupOne.id,
+    multi().beta.users.scheduler.membershipId,
     randomUUID(),
   );
 const alphaOrganization = (): TenantContext =>
-  organizationContext(FIXTURE.alpha.organizationId, randomUUID());
+  organizationContext(multi().alpha.organizationId, randomUUID());
 
 /** The write marker: a group row whose name nothing else uses. */
 function marker(prefix: string): string {
@@ -176,10 +190,10 @@ describe('the wrapper establishes and confines context', () => {
 
       expect(alpha.backendPid).toBe(beta.backendPid);
       expect(
-        alpha.organizations.every((row) => row.organization_id === FIXTURE.alpha.organizationId),
+        alpha.organizations.every((row) => row.organization_id === multi().alpha.organizationId),
       ).toBe(true);
       expect(
-        beta.organizations.every((row) => row.organization_id === FIXTURE.beta.organizationId),
+        beta.organizations.every((row) => row.organization_id === multi().beta.organizationId),
       ).toBe(true);
       log(
         `backend ${String(alpha.backendPid)} served Alpha (${String(alpha.organizations.length)} rows) then Beta (${String(beta.organizations.length)} rows), no bleed`,
@@ -198,7 +212,7 @@ describe('SPEC-01 §7.2 — injected faults', () => {
     await expect(
       runtime.runner.run(alphaOrganization(), async ({ query, backendPid }) => {
         backend = backendPid;
-        await insertMarkerGroup(query, FIXTURE.alpha.organizationId, name);
+        await insertMarkerGroup(query, multi().alpha.organizationId, name);
         throw new Error('deliberate mid-transaction failure');
       }),
     ).rejects.toThrow(/deliberate mid-transaction failure/);
@@ -214,7 +228,7 @@ describe('SPEC-01 §7.2 — injected faults', () => {
 
     await expect(
       runtime.runner.run(alphaOrganization(), async ({ query, backendPid }) => {
-        await insertMarkerGroup(query, FIXTURE.alpha.organizationId, name);
+        await insertMarkerGroup(query, multi().alpha.organizationId, name);
         cancelIssued = new Promise((resolve) => {
           setTimeout(
             () => resolve(admin.query('select pg_cancel_backend($1)', [backendPid])),
@@ -240,7 +254,7 @@ describe('SPEC-01 §7.2 — injected faults', () => {
     try {
       await expect(
         rt.runner.run(alphaOrganization(), async ({ query }) => {
-          await insertMarkerGroup(query, FIXTURE.alpha.organizationId, name);
+          await insertMarkerGroup(query, multi().alpha.organizationId, name);
           await sql`select pg_sleep(10)`.execute(query);
         }),
       ).rejects.toSatisfy((error: unknown) => {
@@ -265,7 +279,7 @@ describe('SPEC-01 §7.2 — injected faults', () => {
 
     await expect(
       runtime.runner.run(alphaOrganization(), async ({ query }) => {
-        await insertMarkerGroup(query, FIXTURE.alpha.organizationId, name);
+        await insertMarkerGroup(query, multi().alpha.organizationId, name);
         // `set_config(..., true)` rather than `SET LOCAL`, for the same reason
         // the tenant settings use it: the parameterisable form is the only one
         // that never invites interpolation.
@@ -295,7 +309,7 @@ describe('SPEC-01 §7.2 — injected faults', () => {
     await expect(
       runtime.runner.run(alphaOrganization(), async ({ query, backendPid }) => {
         killedPid = backendPid;
-        await insertMarkerGroup(query, FIXTURE.alpha.organizationId, name);
+        await insertMarkerGroup(query, multi().alpha.organizationId, name);
         killIssued = new Promise((resolve) => {
           setTimeout(
             () =>
@@ -345,14 +359,14 @@ describe('SPEC-01 §7.2 — injected faults', () => {
 
     const pids = await runtime.runner.run(alphaOrganization(), async ({ query, backendPid, depth }) => {
       expect(depth).toBe(0);
-      await insertMarkerGroup(query, FIXTURE.alpha.organizationId, outerName);
+      await insertMarkerGroup(query, multi().alpha.organizationId, outerName);
 
       let innerPid = 0;
       await expect(
         runtime.runner.run(alphaOrganization(), async (inner) => {
           innerPid = inner.backendPid;
           expect(inner.depth, 'a nested unit of work should report depth 1').toBe(1);
-          await insertMarkerGroup(inner.query, FIXTURE.alpha.organizationId, innerName);
+          await insertMarkerGroup(inner.query, multi().alpha.organizationId, innerName);
           throw new Error('inner failure');
         }),
       ).rejects.toThrow(/inner failure/);
@@ -381,7 +395,7 @@ describe('SPEC-01 §7.2 — injected faults', () => {
       await query
         .updateTable('memberships')
         .set({ last_active_at: new Date() })
-        .where('id', '=', FIXTURE.alpha.users.scheduler.membershipId)
+        .where('id', '=', multi().alpha.users.scheduler.membershipId)
         .execute();
 
       // A different ORGANIZATION.
@@ -406,8 +420,8 @@ describe('SPEC-01 §7.2 — injected faults', () => {
       expect(
         rows.every(
           (row) =>
-            row.organization_id === FIXTURE.alpha.organizationId &&
-            row.group_id === FIXTURE.alpha.groupOne.id,
+            row.organization_id === multi().alpha.organizationId &&
+            row.group_id === multi().alpha.groupOne.id,
         ),
       ).toBe(true);
       log(
@@ -418,7 +432,7 @@ describe('SPEC-01 §7.2 — injected faults', () => {
     // And a same-tenant nested unit of work still commits afterwards, so the
     // refusal did not poison anything.
     await runtime.runner.run(alphaOrganization(), async ({ query }) => {
-      await insertMarkerGroup(query, FIXTURE.alpha.organizationId, name);
+      await insertMarkerGroup(query, multi().alpha.organizationId, name);
     });
     expect(await countGroupsNamed(name)).toBe(1);
   });
@@ -447,7 +461,7 @@ describe('SPEC-01 §7.2 — injected faults', () => {
         outsideUnitOfWork(
           rt,
           `insert into groups (id, organization_id, name) values (gen_random_uuid(), $1, $2)`,
-          [FIXTURE.alpha.organizationId, marker('outside-write')],
+          [multi().alpha.organizationId, marker('outside-write')],
         ),
       ).rejects.toMatchObject({ code: '42501' });
 
@@ -465,13 +479,13 @@ describe('SPEC-01 §7.2 — injected faults', () => {
   });
 
   it('T-13b Group One context cannot see or write Group Two, in the SAME organization', async () => {
-    const targetId = FIXTURE.alpha.users.groupTwoScheduler.membershipId;
+    const targetId = multi().alpha.users.groupTwoScheduler.membershipId;
 
     await runtime.runner.run(alphaGroupOne(), async ({ query }) => {
       const seen = await query.selectFrom('memberships').select(['group_id']).execute();
       expect(seen.length).toBeGreaterThan(0);
       expect(
-        seen.every((row) => row.group_id === FIXTURE.alpha.groupOne.id),
+        seen.every((row) => row.group_id === multi().alpha.groupOne.id),
         'a Group Two membership was visible under a Group One context',
       ).toBe(true);
 
@@ -495,9 +509,9 @@ describe('SPEC-01 §7.2 — injected faults', () => {
           .insertInto('memberships')
           .values({
             id: randomUUID(),
-            organization_id: FIXTURE.alpha.organizationId,
-            group_id: FIXTURE.alpha.groupTwo.id,
-            user_id: FIXTURE.alpha.users.member.id,
+            organization_id: multi().alpha.organizationId,
+            group_id: multi().alpha.groupTwo.id,
+            user_id: multi().alpha.users.member.id,
             kind: 'group',
             group_role: 'member',
             organization_role: null,
@@ -543,7 +557,7 @@ describe('SPEC-01 §7.2 T-14 — the prohibited pooling mode is detected', () =>
       await expect(
         runner.run(alphaOrganization(), async ({ query }) => {
           bodyRan = true;
-          await insertMarkerGroup(query, FIXTURE.alpha.organizationId, name);
+          await insertMarkerGroup(query, multi().alpha.organizationId, name);
         }),
       ).rejects.toBeInstanceOf(ContextReadbackMismatchError);
 
@@ -583,7 +597,7 @@ describe('SPEC-01 §7.2 T-14 — the prohibited pooling mode is detected', () =>
     /* control: with the pooler behaving, the identical unit of work succeeds */
     const controlName = marker('t14-control');
     await runtime.runner.run(alphaOrganization(), async ({ query }) => {
-      await insertMarkerGroup(query, FIXTURE.alpha.organizationId, controlName);
+      await insertMarkerGroup(query, multi().alpha.organizationId, controlName);
     });
     expect(await countGroupsNamed(controlName)).toBe(1);
     log('control: the identical unit of work succeeds once the pooler preserves set_config');
@@ -617,7 +631,7 @@ describe('SPEC-01 §7.2 T-14 — the prohibited pooling mode is detected', () =>
         // would never have looked at.
         expect(mismatches, `expected exactly one mismatch, got ${String(mismatches.length)}`).toHaveLength(1);
         expect(mismatches[0]?.setting).toBe('app.group_id');
-        expect(mismatches[0]?.expected).toBe(FIXTURE.alpha.groupOne.id);
+        expect(mismatches[0]?.expected).toBe(multi().alpha.groupOne.id);
         // On a pristine backend the never-set GUC reads back as NULL; on a
         // reused one it reads back as ''. Both mean "the setting did not land",
         // and which one appears depends on whether this checkout has carried
@@ -697,8 +711,8 @@ describe('SPEC-01 §7.2 T-15 — two-organization concurrency storm', () => {
       betaGroupOne,
       () =>
         groupContext(
-          FIXTURE.beta.organizationId,
-          FIXTURE.beta.groupTwo.id,
+          multi().beta.organizationId,
+          multi().beta.groupTwo.id,
           'bc000002-2222-4222-8222-000000000002',
           randomUUID(),
         ),
@@ -714,15 +728,15 @@ describe('SPEC-01 §7.2 T-15 — two-organization concurrency storm', () => {
      */
     const organizationProbeContexts: readonly (() => TenantContext)[] = [
       () => ({
-        organizationId: FIXTURE.alpha.organizationId,
+        organizationId: multi().alpha.organizationId,
         groupId: null,
-        membershipId: FIXTURE.alpha.users.organizationAdmin.membershipId,
+        membershipId: multi().alpha.users.organizationAdmin.membershipId,
         correlationId: randomUUID(),
       }),
       () => ({
-        organizationId: FIXTURE.beta.organizationId,
+        organizationId: multi().beta.organizationId,
         groupId: null,
-        membershipId: FIXTURE.beta.users.organizationAdmin.membershipId,
+        membershipId: multi().beta.users.organizationAdmin.membershipId,
         correlationId: randomUUID(),
       }),
     ];
@@ -869,8 +883,9 @@ describe('SPEC-01 §7.2 T-15 — two-organization concurrency storm', () => {
       ).toEqual(TENANT_TABLES.map((t) => t.name).sort());
 
       const partitions = await actualPartitions(admin);
+      const organizations = await actualOrganizations(admin);
       const census = await tenantRowCensus(admin);
-      const impossible = impossibleCensusRows(census, partitions);
+      const impossible = impossibleCensusRows(census, partitions, organizations);
       expect(impossible, JSON.stringify(impossible)).toEqual([]);
 
       log(
@@ -916,12 +931,12 @@ describe('R-15 — a nested unit of work may not change the acting membership', 
       await query
         .updateTable('memberships')
         .set({ last_active_at: new Date() })
-        .where('id', '=', FIXTURE.alpha.users.scheduler.membershipId)
+        .where('id', '=', multi().alpha.users.scheduler.membershipId)
         .execute();
 
       await expect(
         runtime.runner.run(
-          { ...outer, membershipId: FIXTURE.alpha.users.member.membershipId },
+          { ...outer, membershipId: multi().alpha.users.member.membershipId },
           async () => {
             throw new Error('this callback must never run');
           },
@@ -942,7 +957,7 @@ describe('R-15 — a nested unit of work may not change the acting membership', 
 
     // The outer transaction was untouched by the refusal and still commits.
     await runtime.runner.run(alphaOrganization(), async ({ query }) => {
-      await insertMarkerGroup(query, FIXTURE.alpha.organizationId, name);
+      await insertMarkerGroup(query, multi().alpha.organizationId, name);
     });
     expect(await countGroupsNamed(name)).toBe(1);
     log('nested actor change refused before any statement; outer transaction unaffected');

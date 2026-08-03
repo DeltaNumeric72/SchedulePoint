@@ -5,9 +5,22 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { provisionAuthorization } from '../../src/authz/provisioning.js';
 import { adminClient } from '../support/admin-client.js';
-import { FIXTURE, organizationContext } from '../support/fixtures.js';
+import { organizationContext } from '../support/fixtures.js';
 import { createRuntime, log, type Runtime } from '../support/harness.js';
 import { buildHttpHarness, contextHeaders, type HttpHarness } from '../support/http.js';
+import { ownedMulti } from '../support/owned-multi.js';
+
+/**
+ * FAD-15 Layer 2 — this file owns its tenant.
+ *
+ * It used to write to the shared MULTI baseline, which every other file also read.
+ * NR-13 measured what that cost: six order-dependent tests across five files, and
+ * eleven of twenty-four files modifying rows the shared seed created. The fixture
+ * below has the same shape and fresh identifiers, and RLS — not agreement — is what
+ * keeps it out of everybody else's queries.
+ */
+const multi = ownedMulti('authz-provisioning');
+
 
 /**
  * The provisioning door, and the fact that it shuts.
@@ -143,7 +156,7 @@ describe('and then it is shut', () => {
             id: randomUUID(),
             organization_id: organizationId,
             group_id: null,
-            user_id: FIXTURE.alpha.users.member.id,
+            user_id: multi().alpha.users.member.id,
             kind: 'organization',
             organization_role: 'org_admin',
             group_role: null,
@@ -205,7 +218,7 @@ describe('and then it is shut', () => {
               id: randomUUID(),
               organization_id: organizationId,
               group_id: groupId,
-              user_id: FIXTURE.alpha.users.member.id,
+              user_id: multi().alpha.users.member.id,
               kind: 'group',
               group_role: 'member',
               organization_role: null,
@@ -365,7 +378,7 @@ describe('the bootstrap door is unreachable over HTTP — residual 7, revisited'
       method: 'POST',
       url: `/organizations/${organizationId}/memberships`,
       headers: {
-        ...contextHeaders(FIXTURE.alpha.users.organizationAdmin.id, {
+        ...contextHeaders(multi().alpha.users.organizationAdmin.id, {
           organizationVersion: 1,
           groupVersion: null,
           membershipSetVersion: 1,
@@ -374,7 +387,7 @@ describe('the bootstrap door is unreachable over HTTP — residual 7, revisited'
         'content-type': 'application/json',
       },
       payload: {
-        userId: FIXTURE.beta.users.scheduler.id,
+        userId: multi().beta.users.scheduler.id,
         groupId: null,
         role: 'org_admin',
       },
@@ -400,7 +413,7 @@ describe('the bootstrap door is unreachable over HTTP — residual 7, revisited'
     // The consequence residual 1 called irreversible, checked directly.
     const organizationId = randomUUID();
     created.push(organizationId);
-    const victim = FIXTURE.beta.users.scheduler.id;
+    const victim = multi().beta.users.scheduler.id;
 
     const before = await admin.query<{ v: string }>(
       'select membership_set_version as v from users where id = $1',
@@ -418,7 +431,7 @@ describe('the bootstrap door is unreachable over HTTP — residual 7, revisited'
       method: 'POST',
       url: `/organizations/${organizationId}/memberships`,
       headers: {
-        ...contextHeaders(FIXTURE.alpha.users.organizationAdmin.id, {
+        ...contextHeaders(multi().alpha.users.organizationAdmin.id, {
           organizationVersion: 1,
           groupVersion: null,
           membershipSetVersion: 1,

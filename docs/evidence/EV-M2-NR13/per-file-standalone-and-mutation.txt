@@ -1,0 +1,176 @@
+NR-13 per-file standalone sweep: wall clock AND shared-fixture mutation footprint
+captured: 2026-08-03T13:40:34Z
+commit:   9bc9e800a1ba217d7931f382b54944a431a3c29d
+
+Each file is run ALONE, against its own freshly-initialised cluster, under
+apps/api/vitest.nr13.config.ts — identical to the production api config except
+that globalSetup is wrapped by test/nr13/mutation-census.ts, which digests every
+row of every table immediately after the seed and again after the file finishes.
+The census runs outside the measured test interval, so the timings are comparable
+with the ordinary standalone timings.
+
+FILE                                                             WALL s     RESULT                
+---------------------------------------------------------------- ---------- ----------------------
+architecture/embedded-postgres-isolation.test.ts                 1.58       exit=0 5 passed (5)   
+architecture/no-tenant-access-outside-unit-of-work.test.ts       1.57       exit=0 10 passed (10) 
+audit/architecture.test.ts                                       1.55       exit=0 5 passed (5)   
+audit/chain.test.ts                                              1.66       exit=0 27 passed (27) 
+audit/crash-restart.test.ts                                      2.70       exit=0 4 passed (4)   
+audit/emission-coverage.test.ts                                  1.72       exit=0 12 passed (12) 
+audit/outbox-dispatch.test.ts                                    1.66       exit=0 12 passed (12) 
+audit/payload-closedness.test.ts                                 1.58       exit=0 5 passed (5)   
+audit/periodic.test.ts                                           4.78       exit=0 6 passed (6)   
+authz/entitlement-in-force.test.ts                               1.74       exit=0 15 passed (15) 
+authz/fail-closed-guard.test.ts                                  1.66       exit=0 4 passed (4)   
+authz/http-authorization.test.ts                                 1.89       exit=0 42 passed (42) 
+authz/loader-cross-checks.test.ts                                1.67       exit=0 8 passed (8)   
+authz/no-explanation-leaks.test.ts                               1.73       exit=0 5 passed (5)   
+authz/provisioning.test.ts                                       1.82       exit=0 17 passed (17) 
+authz/schema.test.ts                                             1.71       exit=0 26 passed (26) 
+http/context-surface.test.ts                                     1.81       exit=0 24 passed (24) 
+http/route-declarations.test.ts                                  1.66       exit=0 15 passed (15) 
+jobs/job-context.test.ts                                         1.74       exit=0 18 passed (18) 
+red-cases/gates-fail-on-violations.test.ts                       5.33       exit=0 12 passed (12) 
+red-cases/probe-is-not-vacuous.test.ts                           1.61       exit=0 5 passed (5)   
+server.test.ts                                                   1.66       exit=0 8 passed (8)   
+tenancy/roles-and-schema.test.ts                                 1.69       exit=0 37 passed (37) 
+tenancy/unit-of-work.test.ts                                     4.92       exit=0 17 passed (17) 
+
+TOTAL standalone wall clock for all files, run one at a time: 51.44 s
+
+########## SHARED-FIXTURE MUTATION FOOTPRINT, per file ##########
+
+'+n' rows appeared that the seed did not create; '-n' rows the seed created
+that are gone OR were modified in place (a modified row is one of each — from
+the point of view of a later test that memorised the old row, an UPDATE and a
+delete/insert pair are the same event).
+
+FILE architecture/embedded-postgres-isolation.test.ts
+  tables changed: 0  rows appeared: 0  rows vanished-or-modified: 0
+    (fixture byte-identical)
+FILE architecture/no-tenant-access-outside-unit-of-work.test.ts
+  tables changed: 0  rows appeared: 0  rows vanished-or-modified: 0
+    (fixture byte-identical)
+FILE audit/architecture.test.ts
+  tables changed: 0  rows appeared: 0  rows vanished-or-modified: 0
+    (fixture byte-identical)
+FILE audit/chain.test.ts
+  tables changed: 3  rows appeared: 25  rows vanished-or-modified: 2
+    public.audit_chain_heads: +2 -2 (2 -> 2 rows)
+    public.audit_checkpoints: +4 -0 (2 -> 6 rows)
+    public.audit_events: +19 -0 (6 -> 25 rows)
+FILE audit/crash-restart.test.ts
+  tables changed: 7  rows appeared: 49  rows vanished-or-modified: 11
+    graphile_worker._private_jobs: +0 -4 (4 -> 0 rows)
+    public.audit_chain_heads: +2 -2 (2 -> 2 rows)
+    public.audit_events: +33 -0 (6 -> 39 rows)
+    public.memberships: +1 -1 (10 -> 10 rows)
+    public.outbox_effects: +5 -0 (4 -> 9 rows)
+    public.outbox_events: +5 -4 (4 -> 5 rows)
+    public.queue_pools: +3 -0 (0 -> 3 rows)
+FILE audit/emission-coverage.test.ts
+  tables changed: 3  rows appeared: 5  rows vanished-or-modified: 2
+    public.audit_chain_heads: +1 -1 (2 -> 2 rows)
+    public.audit_events: +3 -0 (6 -> 9 rows)
+    public.memberships: +1 -1 (10 -> 10 rows)
+FILE audit/outbox-dispatch.test.ts
+  tables changed: 6  rows appeared: 33  rows vanished-or-modified: 2
+    graphile_worker._private_jobs: +7 -0 (4 -> 11 rows)
+    public.audit_chain_heads: +1 -1 (2 -> 2 rows)
+    public.audit_events: +13 -0 (6 -> 19 rows)
+    public.memberships: +1 -1 (10 -> 10 rows)
+    public.outbox_effects: +4 -0 (4 -> 8 rows)
+    public.outbox_events: +7 -0 (4 -> 11 rows)
+FILE audit/payload-closedness.test.ts
+  tables changed: 0  rows appeared: 0  rows vanished-or-modified: 0
+    (fixture byte-identical)
+FILE audit/periodic.test.ts
+  tables changed: 9  rows appeared: 30  rows vanished-or-modified: 10
+    graphile_worker._private_jobs: +0 -4 (4 -> 0 rows)
+    graphile_worker._private_known_crontabs: +2 -0 (0 -> 2 rows)
+    graphile_worker._private_tasks: +2 -0 (1 -> 3 rows)
+    public.audit_chain_heads: +2 -2 (2 -> 2 rows)
+    public.audit_checkpoints: +3 -0 (2 -> 5 rows)
+    public.audit_events: +11 -0 (6 -> 17 rows)
+    public.outbox_effects: +4 -0 (4 -> 8 rows)
+    public.outbox_events: +4 -4 (4 -> 4 rows)
+    public.queue_pools: +2 -0 (0 -> 2 rows)
+FILE authz/entitlement-in-force.test.ts
+  tables changed: 9  rows appeared: 19  rows vanished-or-modified: 6
+    graphile_worker._private_jobs: +3 -0 (4 -> 7 rows)
+    public.audit_chain_heads: +1 -1 (2 -> 2 rows)
+    public.audit_events: +7 -0 (6 -> 13 rows)
+    public.entitlements: +1 -1 (6 -> 6 rows)
+    public.groups: +1 -1 (4 -> 4 rows)
+    public.memberships: +1 -1 (10 -> 10 rows)
+    public.organizations: +1 -1 (2 -> 2 rows)
+    public.outbox_events: +3 -0 (4 -> 7 rows)
+    public.users: +1 -1 (8 -> 8 rows)
+FILE authz/fail-closed-guard.test.ts
+  tables changed: 0  rows appeared: 0  rows vanished-or-modified: 0
+    (fixture byte-identical)
+FILE authz/http-authorization.test.ts
+  tables changed: 10  rows appeared: 56  rows vanished-or-modified: 14
+    graphile_worker._private_jobs: +5 -0 (4 -> 9 rows)
+    public.audit_chain_heads: +1 -1 (2 -> 2 rows)
+    public.audit_events: +27 -0 (6 -> 33 rows)
+    public.capability_grants: +3 -0 (5 -> 8 rows)
+    public.entitlements: +1 -1 (6 -> 6 rows)
+    public.groups: +1 -1 (4 -> 4 rows)
+    public.memberships: +4 -3 (10 -> 11 rows)
+    public.organizations: +1 -1 (2 -> 2 rows)
+    public.outbox_events: +5 -0 (4 -> 9 rows)
+    public.users: +8 -7 (8 -> 9 rows)
+FILE authz/loader-cross-checks.test.ts
+  tables changed: 0  rows appeared: 0  rows vanished-or-modified: 0
+    (fixture byte-identical)
+FILE authz/no-explanation-leaks.test.ts
+  tables changed: 2  rows appeared: 2  rows vanished-or-modified: 2
+    public.organizations: +1 -1 (2 -> 2 rows)
+    public.users: +1 -1 (8 -> 8 rows)
+FILE authz/provisioning.test.ts
+  tables changed: 1  rows appeared: 15  rows vanished-or-modified: 0
+    public.users: +15 -0 (8 -> 23 rows)
+FILE authz/schema.test.ts
+  tables changed: 3  rows appeared: 4  rows vanished-or-modified: 4
+    public.groups: +1 -1 (4 -> 4 rows)
+    public.organizations: +1 -1 (2 -> 2 rows)
+    public.users: +2 -2 (8 -> 8 rows)
+FILE http/context-surface.test.ts
+  tables changed: 5  rows appeared: 11  rows vanished-or-modified: 7
+    public.audit_chain_heads: +1 -1 (2 -> 2 rows)
+    public.audit_events: +4 -0 (6 -> 10 rows)
+    public.memberships: +3 -3 (10 -> 10 rows)
+    public.organizations: +1 -1 (2 -> 2 rows)
+    public.users: +2 -2 (8 -> 8 rows)
+FILE http/route-declarations.test.ts
+  tables changed: 0  rows appeared: 0  rows vanished-or-modified: 0
+    (fixture byte-identical)
+FILE jobs/job-context.test.ts
+  tables changed: 7  rows appeared: 7  rows vanished-or-modified: 5
+    public.audit_chain_heads: +1 -1 (2 -> 2 rows)
+    public.audit_events: +1 -0 (6 -> 7 rows)
+    public.capability_grants: +1 -0 (5 -> 6 rows)
+    public.groups: +1 -1 (4 -> 4 rows)
+    public.memberships: +1 -1 (10 -> 10 rows)
+    public.organizations: +1 -1 (2 -> 2 rows)
+    public.users: +1 -1 (8 -> 8 rows)
+FILE red-cases/gates-fail-on-violations.test.ts
+  tables changed: 0  rows appeared: 0  rows vanished-or-modified: 0
+    (fixture byte-identical)
+FILE red-cases/probe-is-not-vacuous.test.ts
+  tables changed: 0  rows appeared: 0  rows vanished-or-modified: 0
+    (fixture byte-identical)
+FILE server.test.ts
+  tables changed: 0  rows appeared: 0  rows vanished-or-modified: 0
+    (fixture byte-identical)
+FILE tenancy/roles-and-schema.test.ts
+  tables changed: 3  rows appeared: 4  rows vanished-or-modified: 4
+    public.memberships: +1 -1 (10 -> 10 rows)
+    public.organizations: +1 -1 (2 -> 2 rows)
+    public.users: +2 -2 (8 -> 8 rows)
+FILE tenancy/unit-of-work.test.ts
+  tables changed: 2  rows appeared: 12  rows vanished-or-modified: 8
+    public.groups: +4 -0 (4 -> 8 rows)
+    public.memberships: +8 -8 (10 -> 10 rows)
+DONE 2026-08-03T13:41:27Z

@@ -8,8 +8,21 @@ import { sql } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { adminClient } from '../support/admin-client.js';
-import { FIXTURE, organizationContext } from '../support/fixtures.js';
+import { organizationContext } from '../support/fixtures.js';
 import { createRuntime, log } from '../support/harness.js';
+import { ownedMulti } from '../support/owned-multi.js';
+
+/**
+ * FAD-15 Layer 2 — this file owns its tenant.
+ *
+ * It used to write to the shared MULTI baseline, which every other file also read.
+ * NR-13 measured what that cost: six order-dependent tests across five files, and
+ * eleven of twenty-four files modifying rows the shared seed created. The fixture
+ * below has the same shape and fresh identifiers, and RLS — not agreement — is what
+ * keeps it out of everybody else's queries.
+ */
+const multi = ownedMulti('audit-payload-closedness');
+
 
 /**
  * I-07 — the audit payload is closed, in TWO places, and they agree.
@@ -155,12 +168,12 @@ describe('I-07 — the audit payload schema is closed', () => {
     try {
       await expect(
         runtime.runner.run(
-          organizationContext(FIXTURE.alpha.organizationId, 'payload-bypass'),
+          organizationContext(multi().alpha.organizationId, 'payload-bypass'),
           async ({ query }) => {
             await sql`
               insert into audit_events (organization_id, id, event_name, actor_kind,
                                         subject_type, subject_id, correlation_id, payload)
-              values (${FIXTURE.alpha.organizationId}::uuid, gen_random_uuid(),
+              values (${multi().alpha.organizationId}::uuid, gen_random_uuid(),
                       'membership.activity_touched', 'system', 'membership',
                       gen_random_uuid(), 'probe',
                       ${JSON.stringify({ note: 'free text here' })}::jsonb)

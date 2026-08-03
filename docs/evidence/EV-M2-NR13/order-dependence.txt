@@ -1,0 +1,111 @@
+NR-13 order-dependence measurements — OPUS-M2-001 phase A
+captured: 2026-08-03T13:35:13Z
+commit:   2d76ddadce736304845a3c1b89bdf3ebd12e66ee
+
+PURPOSE. Two questions the shuffle runs in baseline-and-shuffle.txt leave open:
+  (1) did --sequence.shuffle.files actually reorder anything? If a 'shuffled
+      run passed' result came from a run in the ORIGINAL order it proves
+      nothing. An unfalsifiable proof is not a proof.
+  (2) exactly what fails under --sequence.shuffle.tests, and is it stable?
+
+########## 1. EXECUTION ORDER, captured per run ##########
+--- default: exit 0, 24 files, Tests  339 passed (339)
+--- seed20260803: exit 0, 24 files, Tests  339 passed (339)
+--- seed424242: exit 0, 24 files, Tests  339 passed (339)
+--- seed7: exit 0, 24 files, Tests  339 passed (339)
+
+  Execution order, default vs each shuffled seed:
+  #   DEFAULT                                                        seed 20260803                                                 
+  1   test/audit/periodic.test.ts                                    test/red-cases/probe-is-not-vacuous.test.ts                   
+  2   test/audit/crash-restart.test.ts                               test/authz/provisioning.test.ts                               
+  3   test/audit/outbox-dispatch.test.ts                             test/audit/architecture.test.ts                               
+  4   test/red-cases/gates-fail-on-violations.test.ts                test/audit/outbox-dispatch.test.ts                            
+  5   test/tenancy/unit-of-work.test.ts                              test/jobs/job-context.test.ts                                 
+  6   test/authz/http-authorization.test.ts                          test/http/context-surface.test.ts                             
+  7   test/audit/chain.test.ts                                       test/http/route-declarations.test.ts                          
+  8   test/tenancy/roles-and-schema.test.ts                          test/authz/loader-cross-checks.test.ts                        
+  9   test/authz/provisioning.test.ts                                test/authz/http-authorization.test.ts                         
+  10  test/http/context-surface.test.ts                              test/architecture/embedded-postgres-isolation.test.ts         
+  11  test/authz/entitlement-in-force.test.ts                        test/authz/schema.test.ts                                     
+  12  test/jobs/job-context.test.ts                                  test/tenancy/unit-of-work.test.ts                             
+  13  test/audit/emission-coverage.test.ts                           test/audit/periodic.test.ts                                   
+  14  test/authz/schema.test.ts                                      test/audit/emission-coverage.test.ts                          
+  15  test/authz/no-explanation-leaks.test.ts                        test/tenancy/roles-and-schema.test.ts                         
+  16  test/red-cases/probe-is-not-vacuous.test.ts                    test/audit/crash-restart.test.ts                              
+  17  test/authz/loader-cross-checks.test.ts                         test/audit/payload-closedness.test.ts                         
+  18  test/architecture/no-tenant-access-outside-unit-of-work.test.ts test/authz/no-explanation-leaks.test.ts                       
+  19  test/authz/fail-closed-guard.test.ts                           test/authz/entitlement-in-force.test.ts                       
+  20  test/architecture/embedded-postgres-isolation.test.ts          test/audit/chain.test.ts                                      
+  21  test/audit/payload-closedness.test.ts                          test/red-cases/gates-fail-on-violations.test.ts               
+  22  test/audit/architecture.test.ts                                test/authz/fail-closed-guard.test.ts                          
+  23  test/http/route-declarations.test.ts                           test/architecture/no-tenant-access-outside-unit-of-work.test.ts
+  24  test/server.test.ts                                            test/server.test.ts                                           
+
+########## 2. IS THE SHUFFLE REAL? (non-vacuity of section 1's passes) ##########
+  seed20260803: 23 of 24 positions hold a different file — genuinely reordered
+  seed424242: 23 of 24 positions hold a different file — genuinely reordered
+  seed7: 23 of 24 positions hold a different file — genuinely reordered
+
+  Reading: file-order shuffling really does reorder the suite, and the suite
+  still passes. The residual order-dependence is INSIDE files, not between
+  them — which section 3 shows directly.
+
+########## 3. THE INTRA-FILE SHUFFLE FAILURES (seed 20260803) ##########
+  exit: 1   Tests  3 failed | 336 passed (339)
+
+   FAIL  |api| test/audit/crash-restart.test.ts > B — lease recovery on restart (SP-D condition C-2, no clock manipulation) > the effect was applied EXACTLY ONCE despite the crash and the re-execution
+   ❯ test/audit/crash-restart.test.ts:400:28
+   FAIL  |api| test/audit/outbox-dispatch.test.ts > I-11 — a delivery failure NEVER rolls back the domain change > the recorded failure is a CODE and cannot be an exception message
+   ❯ test/audit/outbox-dispatch.test.ts:329:5
+   FAIL  |api| test/audit/periodic.test.ts > SPEC-11 §2 — the periodic checkpoint sweep > is idempotent: a second sweep with nothing new writes nothing
+   ❯ test/audit/periodic.test.ts:156:85
+
+  The three assertions, in the same order (extracted from the same run log;
+  failure 2's full diff dumps node-postgres' entire OID table and is omitted):
+
+    1. crash-restart.test.ts:400   AssertionError: expected undefined to be 'dispatched'
+    2. outbox-dispatch.test.ts:329 AssertionError: promise resolved "Result{ command: 'UPDATE', ...(9) }" instead of rejecting
+    3. periodic.test.ts:156        AssertionError: expected [ { ...(2) } ] to deeply equal []
+
+  Diagnosed by reading each one, not inferred from the message:
+
+    1. crash-restart.test.ts:394-400 — this `it` asserts over
+       `outbox_events where idempotency_key = 'crash-lease-key'`, a row the
+       PRECEDING `it` in the same describe block publishes and dispatches. Run
+       first, the row does not exist and `rows[0]?.state` is `undefined`.
+
+    2. outbox-dispatch.test.ts:320-331 — this `it` UPDATEs
+       `outbox_events ... where idempotency_key = 'outbox-i11-key'` and expects
+       the column CHECK to raise 23514. That row is created by the preceding
+       `it`. Run first, the UPDATE matches ZERO rows and therefore SUCCEEDS, so
+       the `.rejects` assertion fails. Note the asymmetry, which is worth
+       recording on its own: with no row present this assertion cannot fail for
+       the right reason — a control test whose subject a sibling test creates is
+       one ordering away from being vacuous rather than merely red.
+
+    3. periodic.test.ts:147-158 — "a second sweep writes nothing" depends on the
+       preceding `it` having performed the FIRST sweep, which checkpoints the
+       head. Run first, the head is uncheckpointed, the sweep legitimately
+       writes one, and the expected `[]` is `[{...}]`.
+
+  All three are the same species: a test that did not own its state, reading a
+  state a sibling test established. None is a defect in the system under test.
+  That is exactly NR-13, and it is INSIDE files — which is why the between-file
+  shuffle in section 2 does not surface it.
+
+########## 4. REPEATABILITY of those failures ##########
+  repeat 1: exit=1  Tests  4 failed | 335 passed (339)
+      FAIL  |api| test/audit/chain.test.ts > second-review findings — the holes the first submission left > R-04: a checkpoint CANNOT be signed over a hash the chain never had
+      FAIL  |api| test/audit/crash-restart.test.ts > B — lease recovery on restart (SP-D condition C-2, no clock manipulation) > the effect was applied EXACTLY ONCE despite the crash and the re-execution
+      FAIL  |api| test/audit/outbox-dispatch.test.ts > I-11 — a delivery failure NEVER rolls back the domain change > the recorded failure is a CODE and cannot be an exception message
+      FAIL  |api| test/audit/periodic.test.ts > SPEC-11 §2 — the periodic checkpoint sweep > is idempotent: a second sweep with nothing new writes nothing
+  repeat 2: exit=1  Tests  3 failed | 336 passed (339)
+      FAIL  |api| test/audit/crash-restart.test.ts > B — lease recovery on restart (SP-D condition C-2, no clock manipulation) > the effect was applied EXACTLY ONCE despite the crash and the re-execution
+      FAIL  |api| test/audit/outbox-dispatch.test.ts > I-11 — a delivery failure NEVER rolls back the domain change > the recorded failure is a CODE and cannot be an exception message
+      FAIL  |api| test/audit/periodic.test.ts > SPEC-11 §2 — the periodic checkpoint sweep > is idempotent: a second sweep with nothing new writes nothing
+  repeat 3: exit=1  Tests  3 failed | 336 passed (339)
+      FAIL  |api| test/audit/crash-restart.test.ts > B — lease recovery on restart (SP-D condition C-2, no clock manipulation) > the effect was applied EXACTLY ONCE despite the crash and the re-execution
+      FAIL  |api| test/audit/outbox-dispatch.test.ts > I-11 — a delivery failure NEVER rolls back the domain change > the recorded failure is a CODE and cannot be an exception message
+      FAIL  |api| test/audit/periodic.test.ts > SPEC-11 §2 — the periodic checkpoint sweep > is idempotent: a second sweep with nothing new writes nothing
+
+DONE 2026-08-03T13:37:08Z

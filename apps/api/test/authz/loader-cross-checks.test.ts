@@ -6,8 +6,21 @@ import { actionInputOf } from '../../src/authz/authorize-request.js';
 import { loadPolicyInput } from '../../src/authz/load-policy-input.js';
 import { GROUP_SCOPED_CONFIG, ORGANIZATION_SCOPED_CONFIG } from '../../src/http/routes/context-probe.route.js';
 import { adminClient } from '../support/admin-client.js';
-import { FIXTURE, groupContext, organizationContext } from '../support/fixtures.js';
+import { groupContext, organizationContext } from '../support/fixtures.js';
 import { createRuntime, log, type Runtime } from '../support/harness.js';
+import { ownedMulti } from '../support/owned-multi.js';
+
+/**
+ * FAD-15 Layer 2 — this file owns its tenant.
+ *
+ * It used to write to the shared MULTI baseline, which every other file also read.
+ * NR-13 measured what that cost: six order-dependent tests across five files, and
+ * eleven of twenty-four files modifying rows the shared seed created. The fixture
+ * below has the same shape and fresh identifiers, and RLS — not agreement — is what
+ * keeps it out of everybody else's queries.
+ */
+const multi = ownedMulti('authz-loader-cross-checks');
+
 
 /**
  * **S-04 — the loader's snapshot cross-checks, each one made necessary.**
@@ -29,8 +42,10 @@ import { createRuntime, log, type Runtime } from '../support/harness.js';
 
 let admin: pg.Client;
 let runtime: Runtime;
-const alpha = FIXTURE.alpha;
-const beta = FIXTURE.beta;
+/** Lazy: the owned fixture does not exist until `beforeAll` has run. */
+const alpha = () => multi().alpha;
+/** Lazy: the owned fixture does not exist until `beforeAll` has run. */
+const beta = () => multi().beta;
 
 beforeAll(async () => {
   admin = adminClient();
@@ -48,10 +63,10 @@ const organizationAction = actionInputOf(ORGANIZATION_SCOPED_CONFIG);
 
 function contextOf(overrides: Partial<EvaluationContext>): EvaluationContext {
   return {
-    principalUserId: alpha.users.scheduler.id,
-    expectedOrganizationId: alpha.organizationId,
-    expectedGroupId: alpha.groupOne.id,
-    membershipId: alpha.users.scheduler.membershipId,
+    principalUserId: alpha().users.scheduler.id,
+    expectedOrganizationId: alpha().organizationId,
+    expectedGroupId: alpha().groupOne.id,
+    membershipId: alpha().users.scheduler.membershipId,
     ...overrides,
   };
 }
@@ -59,7 +74,7 @@ function contextOf(overrides: Partial<EvaluationContext>): EvaluationContext {
 describe('the honest baseline', () => {
   it('a context that agrees with the row resolves the membership and ALLOWS', async () => {
     const input = await runtime.runner.run(
-      groupContext(alpha.organizationId, alpha.groupOne.id, alpha.users.scheduler.membershipId),
+      groupContext(alpha().organizationId, alpha().groupOne.id, alpha().users.scheduler.membershipId),
       async ({ query }) =>
         loadPolicyInput(query, { context: contextOf({}), action: groupAction, now: new Date() }),
     );
@@ -74,13 +89,13 @@ describe('S-04 — each cross-check, individually necessary', () => {
     // visible (EX-2's organization-wide read), so the row IS fetched. The kind
     // clause is the only thing that rejects it.
     const input = await runtime.runner.run(
-      organizationContext(alpha.organizationId),
+      organizationContext(alpha().organizationId),
       async ({ query }) =>
         loadPolicyInput(query, {
           // An organization-scoped action pointed at a GROUP membership.
           context: contextOf({
             expectedGroupId: null,
-            membershipId: alpha.users.scheduler.membershipId,
+            membershipId: alpha().users.scheduler.membershipId,
           }),
           action: organizationAction,
           now: new Date(),
@@ -97,15 +112,15 @@ describe('S-04 — each cross-check, individually necessary', () => {
 
   it('KIND, the other direction: a GROUP membership does not satisfy an organization-scoped action', async () => {
     const input = await runtime.runner.run(
-      organizationContext(alpha.organizationId),
+      organizationContext(alpha().organizationId),
       async ({ query }) =>
         loadPolicyInput(query, {
           context: contextOf({
-            principalUserId: alpha.users.organizationAdmin.id,
+            principalUserId: alpha().users.organizationAdmin.id,
             expectedGroupId: null,
             // The organization admin's ORGANIZATION membership, evaluated as if
             // the action were group-scoped.
-            membershipId: alpha.users.organizationAdmin.membershipId,
+            membershipId: alpha().users.organizationAdmin.membershipId,
           }),
           action: groupAction,
           now: new Date(),
@@ -119,10 +134,10 @@ describe('S-04 — each cross-check, individually necessary', () => {
     // acting. Without this clause, holding another member's membership id would
     // be enough to act as them.
     const input = await runtime.runner.run(
-      groupContext(alpha.organizationId, alpha.groupOne.id, alpha.users.scheduler.membershipId),
+      groupContext(alpha().organizationId, alpha().groupOne.id, alpha().users.scheduler.membershipId),
       async ({ query }) =>
         loadPolicyInput(query, {
-          context: contextOf({ principalUserId: alpha.users.member.id }),
+          context: contextOf({ principalUserId: alpha().users.member.id }),
           action: groupAction,
           now: new Date(),
         }),
@@ -142,10 +157,10 @@ describe('S-04 — each cross-check, individually necessary', () => {
     // The clause is defence in depth against a resolver bug, and defence in
     // depth that is never executed is a comment.
     const input = await runtime.runner.run(
-      groupContext(alpha.organizationId, alpha.groupOne.id, alpha.users.scheduler.membershipId),
+      groupContext(alpha().organizationId, alpha().groupOne.id, alpha().users.scheduler.membershipId),
       async ({ query }) =>
         loadPolicyInput(query, {
-          context: contextOf({ expectedOrganizationId: beta.organizationId }),
+          context: contextOf({ expectedOrganizationId: beta().organizationId }),
           action: groupAction,
           now: new Date(),
         }),
@@ -162,10 +177,10 @@ describe('S-04 — each cross-check, individually necessary', () => {
     // Group Two on the strength of a Group One membership — the CAR-001 defect
     // class, one layer below the middleware that also prevents it.
     const input = await runtime.runner.run(
-      groupContext(alpha.organizationId, alpha.groupOne.id, alpha.users.scheduler.membershipId),
+      groupContext(alpha().organizationId, alpha().groupOne.id, alpha().users.scheduler.membershipId),
       async ({ query }) =>
         loadPolicyInput(query, {
-          context: contextOf({ expectedGroupId: alpha.groupTwo.id }),
+          context: contextOf({ expectedGroupId: alpha().groupTwo.id }),
           action: groupAction,
           now: new Date(),
         }),
@@ -179,7 +194,7 @@ describe('S-04 — each cross-check, individually necessary', () => {
 
   it('a membership id that resolves to nothing is null too — the trivial case still holds', async () => {
     const input = await runtime.runner.run(
-      groupContext(alpha.organizationId, alpha.groupOne.id, alpha.users.scheduler.membershipId),
+      groupContext(alpha().organizationId, alpha().groupOne.id, alpha().users.scheduler.membershipId),
       async ({ query }) =>
         loadPolicyInput(query, {
           context: contextOf({ membershipId: '00000000-0000-4000-8000-0000000000ee' }),
@@ -195,10 +210,10 @@ describe('S-04 — each cross-check, individually necessary', () => {
     // rejected membership still populated them, L4.2 would read a capability set
     // for a membership L3.1 refused.
     const input = await runtime.runner.run(
-      groupContext(alpha.organizationId, alpha.groupOne.id, alpha.users.scheduler.membershipId),
+      groupContext(alpha().organizationId, alpha().groupOne.id, alpha().users.scheduler.membershipId),
       async ({ query }) =>
         loadPolicyInput(query, {
-          context: contextOf({ principalUserId: alpha.users.member.id }),
+          context: contextOf({ principalUserId: alpha().users.member.id }),
           action: groupAction,
           now: new Date(),
         }),

@@ -5,7 +5,7 @@ import type pg from 'pg';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { adminClient } from '../support/admin-client.js';
-import { FIXTURE, NONEXISTENT_ID, administratorContext } from '../support/fixtures.js';
+import { NONEXISTENT_ID } from '../support/fixtures.js';
 import { log } from '../support/harness.js';
 import {
   buildHttpHarness,
@@ -16,6 +16,19 @@ import {
   type DeclaredCounters,
   type HttpHarness,
 } from '../support/http.js';
+import { ownedMulti } from '../support/owned-multi.js';
+
+/**
+ * FAD-15 Layer 2 — this file owns its tenant.
+ *
+ * It used to write to the shared MULTI baseline, which every other file also read.
+ * NR-13 measured what that cost: six order-dependent tests across five files, and
+ * eleven of twenty-four files modifying rows the shared seed created. The fixture
+ * below has the same shape and fresh identifiers, and RLS — not agreement — is what
+ * keeps it out of everybody else's queries.
+ */
+const multi = ownedMulti('http-context-surface');
+
 
 /**
  * **SPEC-01 §7.1 — cross-tab and stale context (CAR-001), over HTTP.**
@@ -56,16 +69,18 @@ import {
 let harness: HttpHarness;
 let admin: pg.Client;
 
-const alpha = FIXTURE.alpha;
-const beta = FIXTURE.beta;
+/** Lazy: the owned fixture does not exist until `beforeAll` has run. */
+const alpha = () => multi().alpha;
+/** Lazy: the owned fixture does not exist until `beforeAll` has run. */
+const beta = () => multi().beta;
 
-const groupOnePath = `/organizations/${alpha.organizationId}/groups/${alpha.groupOne.id}/context-probe/touch`;
-const groupTwoPath = `/organizations/${alpha.organizationId}/groups/${alpha.groupTwo.id}/context-probe/touch`;
-const organizationPath = `/organizations/${alpha.organizationId}/context-probe/touch`;
-const groupScopedWithoutGroupPath = `/organizations/${alpha.organizationId}/context-probe/group-scoped-touch`;
+const groupOnePath = () => `/organizations/${alpha().organizationId}/groups/${alpha().groupOne.id}/context-probe/touch`;
+const groupTwoPath = () => `/organizations/${alpha().organizationId}/groups/${alpha().groupTwo.id}/context-probe/touch`;
+const organizationPath = () => `/organizations/${alpha().organizationId}/context-probe/touch`;
+const groupScopedWithoutGroupPath = () => `/organizations/${alpha().organizationId}/context-probe/group-scoped-touch`;
 
 function targetPath(groupId: string, targetMembershipId: string): string {
-  return `/organizations/${alpha.organizationId}/groups/${groupId}/context-probe/targets/${targetMembershipId}`;
+  return `/organizations/${alpha().organizationId}/groups/${groupId}/context-probe/targets/${targetMembershipId}`;
 }
 
 beforeAll(async () => {
@@ -102,7 +117,7 @@ afterEach(() => {
 async function countersFor(
   userId: string,
   groupId: string | null,
-  organizationId = alpha.organizationId,
+  organizationId = alpha().organizationId,
 ): Promise<DeclaredCounters> {
   return currentCounters(admin, { organizationId, groupId, userId });
 }
@@ -111,7 +126,7 @@ describe('the middleware cannot be skipped', () => {
   it('denies every capability route without a session (401)', async () => {
     const response = await harness.app.inject({
       method: 'POST',
-      url: groupOnePath,
+      url: groupOnePath(),
       headers: {
         [CONTEXT_HEADER]: JSON.stringify({
           contextVersion: { organizationVersion: 1, groupVersion: 1, membershipSetVersion: 1 },
@@ -128,8 +143,8 @@ describe('the middleware cannot be skipped', () => {
     // identifies the tenant but not the freshness. Both are required."
     const response = await harness.app.inject({
       method: 'POST',
-      url: groupOnePath,
-      headers: { [TEST_PRINCIPAL_HEADER]: JSON.stringify({ userId: alpha.users.scheduler.id, sessionEpoch: 1 }) },
+      url: groupOnePath(),
+      headers: { [TEST_PRINCIPAL_HEADER]: JSON.stringify({ userId: alpha().users.scheduler.id, sessionEpoch: 1 }) },
     });
     expect(response.statusCode).toBe(400);
     expect(response.json<{ error: { code: string } }>().error.code).toBe('CONTEXT_MALFORMED');
@@ -148,7 +163,7 @@ describe('SPEC-01 §7.1 — declared context is honoured, never substituted', ()
   it('T-01 ONE principal, two tabs: A\'s declared group is honoured, no write against B', async () => {
     // ── The CAR-001 scenario, with the fixture that can actually detect it ──
     //
-    // ONE principal (`alpha.users.scheduler`) holds a group membership in BOTH
+    // ONE principal (`alpha().users.scheduler`) holds a group membership in BOTH
     // Alpha groups. Tab B switches to Group Two and acts there; Tab A then
     // submits a long-open form that still declares Group One.
     //
@@ -159,18 +174,18 @@ describe('SPEC-01 §7.1 — declared context is honoured, never substituted', ()
     // implementation MUST get one of them wrong — either Tab A's write lands on
     // Group Two's membership, or Tab A's response reports Group Two. Both are
     // asserted below, so either failure mode turns this test red.
-    const groupOneMembership = alpha.users.scheduler.membershipId;
-    const groupTwoMembership = alpha.users.scheduler.groupTwoMembershipId;
+    const groupOneMembership = alpha().users.scheduler.membershipId;
+    const groupTwoMembership = alpha().users.scheduler.groupTwoMembershipId;
 
     const groupOneBefore = await lastActiveAt(admin, groupOneMembership);
 
     // Tab B: the user switches to Group Two and acts there.
     const tabB = await harness.app.inject({
       method: 'POST',
-      url: groupTwoPath,
+      url: groupTwoPath(),
       headers: contextHeaders(
-        alpha.users.scheduler.id,
-        await countersFor(alpha.users.scheduler.id, alpha.groupTwo.id),
+        alpha().users.scheduler.id,
+        await countersFor(alpha().users.scheduler.id, alpha().groupTwo.id),
       ),
     });
     expect(tabB.statusCode).toBe(200);
@@ -184,10 +199,10 @@ describe('SPEC-01 §7.1 — declared context is honoured, never substituted', ()
     // Tab A: the long-open form, still declaring Group One, same session.
     const tabA = await harness.app.inject({
       method: 'POST',
-      url: groupOnePath,
+      url: groupOnePath(),
       headers: contextHeaders(
-        alpha.users.scheduler.id,
-        await countersFor(alpha.users.scheduler.id, alpha.groupOne.id),
+        alpha().users.scheduler.id,
+        await countersFor(alpha().users.scheduler.id, alpha().groupOne.id),
       ),
     });
     expect(tabA.statusCode).toBe(200);
@@ -195,12 +210,12 @@ describe('SPEC-01 §7.1 — declared context is honoured, never substituted', ()
     // (1) The RESPONSE reports the declared group and the Group One membership.
     //     A session-global implementation would report Group Two here.
     const body = tabA.json<{ groupId: string; membershipId: string; organizationId: string }>();
-    expect(body.groupId, 'the declared group was substituted').toBe(alpha.groupOne.id);
+    expect(body.groupId, 'the declared group was substituted').toBe(alpha().groupOne.id);
     expect(
       body.membershipId,
       'membership_id resolved against the session\'s last-selected group, not the declared one',
     ).toBe(groupOneMembership);
-    expect(body.organizationId).toBe(alpha.organizationId);
+    expect(body.organizationId).toBe(alpha().organizationId);
 
     // (2) GROUND TRUTH: the row that moved is the one in the DECLARED group, and
     //     Group Two is exactly where Tab B left it.
@@ -227,8 +242,8 @@ describe('SPEC-01 §7.1 — declared context is honoured, never substituted', ()
     // organization by this dual-member principal, and it is still a 404.
     const response = await harness.app.inject({
       method: 'POST',
-      url: `/organizations/${alpha.organizationId}/groups/${beta.groupOne.id}/context-probe/touch`,
-      headers: contextHeaders(alpha.users.scheduler.id, {
+      url: `/organizations/${alpha().organizationId}/groups/${beta().groupOne.id}/context-probe/touch`,
+      headers: contextHeaders(alpha().users.scheduler.id, {
         organizationVersion: 1,
         groupVersion: 1,
         membershipSetVersion: 1,
@@ -239,12 +254,12 @@ describe('SPEC-01 §7.1 — declared context is honoured, never substituted', ()
   });
 
   it('T-02 a revoked membership: no write, no event — and 404, not a stale-context hint', async () => {
-    const before = await lastActiveAt(admin, alpha.users.departed.membershipId);
+    const before = await lastActiveAt(admin, alpha().users.departed.membershipId);
 
     const response = await harness.app.inject({
       method: 'POST',
-      url: groupOnePath,
-      headers: contextHeaders(alpha.users.departed.id, {
+      url: groupOnePath(),
+      headers: contextHeaders(alpha().users.departed.id, {
         organizationVersion: 1,
         groupVersion: 1,
         membershipSetVersion: 1,
@@ -253,7 +268,7 @@ describe('SPEC-01 §7.1 — declared context is honoured, never substituted', ()
     });
 
     // The substantive requirement, common to both readings of T-02.
-    const after = await lastActiveAt(admin, alpha.users.departed.membershipId);
+    const after = await lastActiveAt(admin, alpha().users.departed.membershipId);
     expect(after?.getTime() ?? null, 'a revoked member wrote a row').toBe(before?.getTime() ?? null);
     expect(harness.jobQueue.jobs, 'a revoked member enqueued a job').toHaveLength(0);
 
@@ -269,17 +284,17 @@ describe('SPEC-01 §7.1 — declared context is honoured, never substituted', ()
     // The unambiguous half of T-02, and the mechanism SPEC-01 §3's worked
     // example describes: a privilege change bumps `membership_set_version`, the
     // long-open tab submits the version it read earlier, and step 4 rejects it.
-    const stale = await countersFor(alpha.users.scheduler.id, alpha.groupOne.id);
-    const before = await lastActiveAt(admin, alpha.users.scheduler.membershipId);
+    const stale = await countersFor(alpha().users.scheduler.id, alpha().groupOne.id);
+    const before = await lastActiveAt(admin, alpha().users.scheduler.membershipId);
 
     await admin.query('update users set membership_set_version = membership_set_version + 1 where id = $1', [
-      alpha.users.scheduler.id,
+      alpha().users.scheduler.id,
     ]);
 
     const response = await harness.app.inject({
       method: 'POST',
-      url: groupOnePath,
-      headers: contextHeaders(alpha.users.scheduler.id, stale),
+      url: groupOnePath(),
+      headers: contextHeaders(alpha().users.scheduler.id, stale),
     });
 
     expect(response.statusCode).toBe(409);
@@ -287,21 +302,21 @@ describe('SPEC-01 §7.1 — declared context is honoured, never substituted', ()
     expect(body.error.code).toBe('CONTEXT_STALE');
     expect(body.error.recover).toBe('refetch-context');
 
-    const after = await lastActiveAt(admin, alpha.users.scheduler.membershipId);
+    const after = await lastActiveAt(admin, alpha().users.scheduler.membershipId);
     expect(after?.getTime() ?? null).toBe(before?.getTime() ?? null);
     log('membership_set_version advanced: 409 CONTEXT_STALE with a re-fetch directive, no write');
   });
 
   it('SESSION_STALE is distinct from CONTEXT_STALE', async () => {
-    const counters = await countersFor(alpha.users.scheduler.id, alpha.groupOne.id);
+    const counters = await countersFor(alpha().users.scheduler.id, alpha().groupOne.id);
     await admin.query('update users set session_epoch = session_epoch + 1 where id = $1', [
-      alpha.users.scheduler.id,
+      alpha().users.scheduler.id,
     ]);
 
     const response = await harness.app.inject({
       method: 'POST',
-      url: groupOnePath,
-      headers: contextHeaders(alpha.users.scheduler.id, counters),
+      url: groupOnePath(),
+      headers: contextHeaders(alpha().users.scheduler.id, counters),
     });
 
     expect(response.statusCode).toBe(409);
@@ -327,15 +342,15 @@ describe('SPEC-01 §7.1 — declared context is honoured, never substituted', ()
     // Beta's group, declared under Alpha's organization, by an Alpha member.
     const forged = await harness.app.inject({
       method: 'POST',
-      url: `/organizations/${alpha.organizationId}/groups/${beta.groupOne.id}/context-probe/touch`,
-      headers: contextHeaders(alpha.users.member.id, counters, correlationId),
+      url: `/organizations/${alpha().organizationId}/groups/${beta().groupOne.id}/context-probe/touch`,
+      headers: contextHeaders(alpha().users.member.id, counters, correlationId),
     });
 
     // The same declaration, against a group that exists nowhere at all.
     const absent = await harness.app.inject({
       method: 'POST',
-      url: `/organizations/${alpha.organizationId}/groups/${NONEXISTENT_ID}/context-probe/touch`,
-      headers: contextHeaders(alpha.users.member.id, counters, correlationId),
+      url: `/organizations/${alpha().organizationId}/groups/${NONEXISTENT_ID}/context-probe/touch`,
+      headers: contextHeaders(alpha().users.member.id, counters, correlationId),
     });
 
     // (1) BYTE-IDENTICAL, the same comparison T-05b makes. A forged group and a
@@ -367,14 +382,14 @@ describe('SPEC-01 §7.1 — declared context is honoured, never substituted', ()
     expect(event.securityEvent).toBe(true);
     expect(event.code).toBe('NOT_FOUND');
     expect(event.correlationId).toBe(correlationId);
-    expect(event.declaredGroupId).toBe(beta.groupOne.id);
+    expect(event.declaredGroupId).toBe(beta().groupOne.id);
     expect(event.step, 'a forged group should be caught at step 2 or 3').toBeGreaterThanOrEqual(2);
 
     // (3) And the diagnostic that makes it useful to an operator is the one
     //     thing that must NEVER reach the client (§2.4).
     expect(event.reason.length).toBeGreaterThan(0);
     expect(forged.body).not.toContain(event.reason);
-    expect(forged.body).not.toContain(beta.groupOne.id);
+    expect(forged.body).not.toContain(beta().groupOne.id);
 
     log(
       `forged and non-existent group ids are byte-identical (${forged.body}); security event logged at step ${String(event.step)}`,
@@ -384,8 +399,8 @@ describe('SPEC-01 §7.1 — declared context is honoured, never substituted', ()
   it('a forged ORGANIZATION id answers 404 and reveals nothing about the other tenant', async () => {
     const response = await harness.app.inject({
       method: 'POST',
-      url: `/organizations/${beta.organizationId}/groups/${beta.groupOne.id}/context-probe/touch`,
-      headers: contextHeaders(alpha.users.scheduler.id, {
+      url: `/organizations/${beta().organizationId}/groups/${beta().groupOne.id}/context-probe/touch`,
+      headers: contextHeaders(alpha().users.scheduler.id, {
         organizationVersion: 1,
         groupVersion: 1,
         membershipSetVersion: 1,
@@ -398,15 +413,15 @@ describe('SPEC-01 §7.1 — declared context is honoured, never substituted', ()
 
 describe('SPEC-01 §7.1 T-05 / T-05b — target aggregate binding and its disclosure rule', () => {
   it('T-05 authorized actor, target in a sibling group: 409 CONTEXT_TARGET_MISMATCH, before any write', async () => {
-    const targetMembershipId = alpha.users.groupTwoScheduler.membershipId;
+    const targetMembershipId = alpha().users.groupTwoScheduler.membershipId;
     const before = await lastActiveAt(admin, targetMembershipId);
 
     const response = await harness.app.inject({
       method: 'POST',
-      url: targetPath(alpha.groupOne.id, targetMembershipId),
+      url: targetPath(alpha().groupOne.id, targetMembershipId),
       headers: contextHeaders(
-        alpha.users.scheduler.id,
-        await countersFor(alpha.users.scheduler.id, alpha.groupOne.id),
+        alpha().users.scheduler.id,
+        await countersFor(alpha().users.scheduler.id, alpha().groupOne.id),
       ),
     });
 
@@ -427,18 +442,18 @@ describe('SPEC-01 §7.1 T-05 / T-05b — target aggregate binding and its disclo
     // are comparable byte for byte — the correlation id is the only field that
     // legitimately varies between two responses, and it is client-supplied here.
     const correlationId = 'redcase12345678';
-    const counters = await countersFor(alpha.users.member.id, alpha.groupOne.id);
+    const counters = await countersFor(alpha().users.member.id, alpha().groupOne.id);
 
     const crossTenant = await harness.app.inject({
       method: 'POST',
-      url: targetPath(alpha.groupOne.id, alpha.users.groupTwoScheduler.membershipId),
-      headers: contextHeaders(alpha.users.member.id, counters, correlationId),
+      url: targetPath(alpha().groupOne.id, alpha().users.groupTwoScheduler.membershipId),
+      headers: contextHeaders(alpha().users.member.id, counters, correlationId),
     });
 
     const nonExistent = await harness.app.inject({
       method: 'POST',
-      url: targetPath(alpha.groupOne.id, NONEXISTENT_ID),
-      headers: contextHeaders(alpha.users.member.id, counters, correlationId),
+      url: targetPath(alpha().groupOne.id, NONEXISTENT_ID),
+      headers: contextHeaders(alpha().users.member.id, counters, correlationId),
     });
 
     expect(crossTenant.statusCode).toBe(404);
@@ -463,10 +478,10 @@ describe('SPEC-01 §7.1 T-05 / T-05b — target aggregate binding and its disclo
     // Own membership → bound AND owned → 200.
     const own = await harness.app.inject({
       method: 'POST',
-      url: targetPath(alpha.groupOne.id, alpha.users.scheduler.membershipId),
+      url: targetPath(alpha().groupOne.id, alpha().users.scheduler.membershipId),
       headers: contextHeaders(
-        alpha.users.scheduler.id,
-        await countersFor(alpha.users.scheduler.id, alpha.groupOne.id),
+        alpha().users.scheduler.id,
+        await countersFor(alpha().users.scheduler.id, alpha().groupOne.id),
       ),
     });
     expect(own.statusCode, own.body).toBe(200);
@@ -475,10 +490,10 @@ describe('SPEC-01 §7.1 T-05 / T-05b — target aggregate binding and its disclo
     // holds no override → 404 at L5.1. Tenant binding alone would have said yes.
     const other = await harness.app.inject({
       method: 'POST',
-      url: targetPath(alpha.groupOne.id, alpha.users.member.membershipId),
+      url: targetPath(alpha().groupOne.id, alpha().users.member.membershipId),
       headers: contextHeaders(
-        alpha.users.scheduler.id,
-        await countersFor(alpha.users.scheduler.id, alpha.groupOne.id),
+        alpha().users.scheduler.id,
+        await countersFor(alpha().users.scheduler.id, alpha().groupOne.id),
       ),
     });
     expect(
@@ -498,10 +513,10 @@ describe('SPEC-01 §7.1 T-05 / T-05b — target aggregate binding and its disclo
     // membership, and `documents.manage` is not in `scheduler`'s role set.
     const withoutOverride = await harness.app.inject({
       method: 'POST',
-      url: targetPath(alpha.groupOne.id, alpha.users.scheduler.membershipId),
+      url: targetPath(alpha().groupOne.id, alpha().users.scheduler.membershipId),
       headers: contextHeaders(
-        alpha.users.groupOnly.id,
-        await countersFor(alpha.users.groupOnly.id, alpha.groupOne.id),
+        alpha().users.groupOnly.id,
+        await countersFor(alpha().users.groupOnly.id, alpha().groupOne.id),
       ),
     });
     expect(withoutOverride.statusCode).toBe(404);
@@ -512,15 +527,15 @@ describe('SPEC-01 §7.1 T-05 / T-05b — target aggregate binding and its disclo
     const grantId = randomUUID();
     try {
       await harness.runtime.runner.run(
-        administratorContext(alpha.organizationId, 't05-override'),
+        multi.administrator(alpha().organizationId, 't05-override'),
         async ({ query }) => {
           await query
             .insertInto('capability_grants')
             .values({
               id: grantId,
-              organization_id: alpha.organizationId,
-              group_id: alpha.groupOne.id,
-              membership_id: alpha.users.groupOnly.membershipId,
+              organization_id: alpha().organizationId,
+              group_id: alpha().groupOne.id,
+              membership_id: alpha().users.groupOnly.membershipId,
               capability_key: 'documents.manage',
               granted: true,
             })
@@ -530,10 +545,10 @@ describe('SPEC-01 §7.1 T-05 / T-05b — target aggregate binding and its disclo
 
       const withOverride = await harness.app.inject({
         method: 'POST',
-        url: targetPath(alpha.groupOne.id, alpha.users.scheduler.membershipId),
+        url: targetPath(alpha().groupOne.id, alpha().users.scheduler.membershipId),
         headers: contextHeaders(
-          alpha.users.groupOnly.id,
-          await countersFor(alpha.users.groupOnly.id, alpha.groupOne.id),
+          alpha().users.groupOnly.id,
+          await countersFor(alpha().users.groupOnly.id, alpha().groupOne.id),
         ),
       });
       expect(
@@ -552,10 +567,10 @@ describe('SPEC-01 §7.1 T-05 / T-05b — target aggregate binding and its disclo
     // indistinguishable from an id that does not exist.
     const response = await harness.app.inject({
       method: 'POST',
-      url: targetPath(alpha.groupOne.id, beta.users.scheduler.membershipId),
+      url: targetPath(alpha().groupOne.id, beta().users.scheduler.membershipId),
       headers: contextHeaders(
-        alpha.users.scheduler.id,
-        await countersFor(alpha.users.scheduler.id, alpha.groupOne.id),
+        alpha().users.scheduler.id,
+        await countersFor(alpha().users.scheduler.id, alpha().groupOne.id),
       ),
     });
     expect(response.statusCode).toBe(404);
@@ -574,24 +589,24 @@ describe('SPEC-01 §7.1 T-06 — entitlement-class change, and the scope branche
     // context-freshness input and that the long-open submission fails closed
     // with no partial effect. The entitlement-LAYER denial is asserted in
     // OPUS-M1-002 against the same route.
-    const stale = await countersFor(alpha.users.scheduler.id, alpha.groupOne.id);
-    const before = await lastActiveAt(admin, alpha.users.scheduler.membershipId);
+    const stale = await countersFor(alpha().users.scheduler.id, alpha().groupOne.id);
+    const before = await lastActiveAt(admin, alpha().users.scheduler.membershipId);
 
     await admin.query(
       'update organizations set organization_version = organization_version + 1 where id = $1',
-      [alpha.organizationId],
+      [alpha().organizationId],
     );
 
     const response = await harness.app.inject({
       method: 'POST',
-      url: groupOnePath,
-      headers: contextHeaders(alpha.users.scheduler.id, stale),
+      url: groupOnePath(),
+      headers: contextHeaders(alpha().users.scheduler.id, stale),
     });
 
     expect(response.statusCode).toBe(409);
     expect(response.json<{ error: { code: string } }>().error.code).toBe('CONTEXT_STALE');
 
-    const after = await lastActiveAt(admin, alpha.users.scheduler.membershipId);
+    const after = await lastActiveAt(admin, alpha().users.scheduler.membershipId);
     expect(after?.getTime() ?? null, 'a partial effect landed').toBe(before?.getTime() ?? null);
     log('organization_version advanced: 409 CONTEXT_STALE, no partial effect');
   });
@@ -599,10 +614,10 @@ describe('SPEC-01 §7.1 T-06 — entitlement-class change, and the scope branche
   it('T-06b organization-scoped action with an active organization membership and role: accepted', async () => {
     const response = await harness.app.inject({
       method: 'POST',
-      url: organizationPath,
+      url: organizationPath(),
       headers: contextHeaders(
-        alpha.users.organizationAdmin.id,
-        await countersFor(alpha.users.organizationAdmin.id, null),
+        alpha().users.organizationAdmin.id,
+        await countersFor(alpha().users.organizationAdmin.id, null),
       ),
     });
 
@@ -613,7 +628,7 @@ describe('SPEC-01 §7.1 T-06 — entitlement-class change, and the scope branche
     expect(
       body.membershipId,
       'membership_id must resolve to the ORGANIZATION membership',
-    ).toBe(alpha.users.organizationAdmin.membershipId);
+    ).toBe(alpha().users.organizationAdmin.membershipId);
     log('organization-scoped action accepted; membership_id resolved to the organization membership');
   });
 
@@ -622,8 +637,8 @@ describe('SPEC-01 §7.1 T-06 — entitlement-class change, and the scope branche
     // The two capability namespaces are disjoint, deliberately.
     const response = await harness.app.inject({
       method: 'POST',
-      url: organizationPath,
-      headers: contextHeaders(alpha.users.groupOnly.id, {
+      url: organizationPath(),
+      headers: contextHeaders(alpha().users.groupOnly.id, {
         organizationVersion: 1,
         groupVersion: null,
         membershipSetVersion: 1,
@@ -641,10 +656,10 @@ describe('SPEC-01 §7.1 T-06 — entitlement-class change, and the scope branche
     // fail closed rather than quietly becoming an organization-scoped action.
     const response = await harness.app.inject({
       method: 'POST',
-      url: groupScopedWithoutGroupPath,
+      url: groupScopedWithoutGroupPath(),
       headers: contextHeaders(
-        alpha.users.organizationAdmin.id,
-        await countersFor(alpha.users.organizationAdmin.id, null),
+        alpha().users.organizationAdmin.id,
+        await countersFor(alpha().users.organizationAdmin.id, null),
       ),
     });
     expect(response.statusCode).toBe(404);
@@ -652,8 +667,8 @@ describe('SPEC-01 §7.1 T-06 — entitlement-class change, and the scope branche
     // And the same route is equally closed to a group member with a group role.
     const asGroupMember = await harness.app.inject({
       method: 'POST',
-      url: groupScopedWithoutGroupPath,
-      headers: contextHeaders(alpha.users.scheduler.id, {
+      url: groupScopedWithoutGroupPath(),
+      headers: contextHeaders(alpha().users.scheduler.id, {
         organizationVersion: 1,
         groupVersion: 1,
         membershipSetVersion: 1,
@@ -667,19 +682,19 @@ describe('SPEC-01 §7.1 T-06 — entitlement-class change, and the scope branche
 
 describe('deny-by-default holds for the provisional policies', () => {
   it('an actor whose role is not listed is denied 403, and writes nothing', async () => {
-    const before = await lastActiveAt(admin, alpha.users.member.membershipId);
+    const before = await lastActiveAt(admin, alpha().users.member.membershipId);
     const response = await harness.app.inject({
       method: 'POST',
-      url: groupOnePath,
+      url: groupOnePath(),
       headers: contextHeaders(
-        alpha.users.member.id,
-        await countersFor(alpha.users.member.id, alpha.groupOne.id),
+        alpha().users.member.id,
+        await countersFor(alpha().users.member.id, alpha().groupOne.id),
       ),
     });
 
     expect(response.statusCode).toBe(403);
     expect(response.json<{ error: { code: string } }>().error.code).toBe('FORBIDDEN');
-    const after = await lastActiveAt(admin, alpha.users.member.membershipId);
+    const after = await lastActiveAt(admin, alpha().users.member.membershipId);
     expect(after?.getTime() ?? null).toBe(before?.getTime() ?? null);
     log('role `member` is not in the provisional allow-list: 403, no write');
   });
@@ -689,8 +704,8 @@ describe('deny-by-default holds for the provisional policies', () => {
     // step 2 — the earlier and stricter of the two possible refusals.
     const response = await harness.app.inject({
       method: 'POST',
-      url: groupOnePath,
-      headers: contextHeaders(alpha.users.organizationAdmin.id, {
+      url: groupOnePath(),
+      headers: contextHeaders(alpha().users.organizationAdmin.id, {
         organizationVersion: 1,
         groupVersion: 1,
         membershipSetVersion: 1,
@@ -723,7 +738,7 @@ describe('FAD-12 — authorization and mutation share one unit of work', () => {
     // revocation this test performs has to be a real administrative change
     // rather than a context-free UPDATE.
     await harness.runtime.runner.run(
-      administratorContext(alpha.organizationId, 'fad-12-role-change'),
+      multi.administrator(alpha().organizationId, 'fad-12-role-change'),
       async ({ query }) => {
         await query
           .updateTable('memberships')
@@ -742,10 +757,10 @@ describe('FAD-12 — authorization and mutation share one unit of work', () => {
 
     const response = await harness.app.inject({
       method: 'POST',
-      url: groupOnePath,
+      url: groupOnePath(),
       headers: contextHeaders(
-        alpha.users.scheduler.id,
-        await countersFor(alpha.users.scheduler.id, alpha.groupOne.id),
+        alpha().users.scheduler.id,
+        await countersFor(alpha().users.scheduler.id, alpha().groupOne.id),
       ),
     });
 
@@ -766,8 +781,8 @@ describe('FAD-12 — authorization and mutation share one unit of work', () => {
     // was already stale. The handler re-reads inside its own transaction, so it
     // denies — and because that read and the write share the transaction, there
     // is no remaining window between them either.
-    const membershipId = alpha.users.scheduler.membershipId;
-    const counters = await countersFor(alpha.users.scheduler.id, alpha.groupOne.id);
+    const membershipId = alpha().users.scheduler.membershipId;
+    const counters = await countersFor(alpha().users.scheduler.id, alpha().groupOne.id);
     const before = await lastActiveAt(admin, membershipId);
 
     let demoted = false;
@@ -784,8 +799,8 @@ describe('FAD-12 — authorization and mutation share one unit of work', () => {
     try {
       const response = await harness.app.inject({
         method: 'POST',
-        url: groupOnePath,
-        headers: contextHeaders(alpha.users.scheduler.id, counters),
+        url: groupOnePath(),
+        headers: contextHeaders(alpha().users.scheduler.id, counters),
       });
 
       expect(demoted, 'the interleaving never fired — the test proved nothing').toBe(true);
@@ -803,8 +818,8 @@ describe('FAD-12 — authorization and mutation share one unit of work', () => {
   });
 
   it('the same holds for the job-enqueue surface: no enqueue on a revoked role', async () => {
-    const membershipId = alpha.users.scheduler.membershipId;
-    const counters = await countersFor(alpha.users.scheduler.id, alpha.groupOne.id);
+    const membershipId = alpha().users.scheduler.membershipId;
+    const counters = await countersFor(alpha().users.scheduler.id, alpha().groupOne.id);
     harness.jobQueue.clear();
 
     let demoted = false;
@@ -819,8 +834,8 @@ describe('FAD-12 — authorization and mutation share one unit of work', () => {
     try {
       const response = await harness.app.inject({
         method: 'POST',
-        url: `/organizations/${alpha.organizationId}/groups/${alpha.groupOne.id}/context-probe/enqueue`,
-        headers: contextHeaders(alpha.users.scheduler.id, counters),
+        url: `/organizations/${alpha().organizationId}/groups/${alpha().groupOne.id}/context-probe/enqueue`,
+        headers: contextHeaders(alpha().users.scheduler.id, counters),
       });
       expect(demoted).toBe(true);
       expect(response.statusCode).toBe(403);

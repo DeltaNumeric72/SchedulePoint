@@ -3,9 +3,22 @@ import type pg from 'pg';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { adminClient } from '../support/admin-client.js';
-import { FIXTURE, administratorContext } from '../support/fixtures.js';
+
 import { log } from '../support/harness.js';
 import { buildHttpHarness, contextHeaders, currentCounters, type HttpHarness } from '../support/http.js';
+import { ownedMulti } from '../support/owned-multi.js';
+
+/**
+ * FAD-15 Layer 2 — this file owns its tenant.
+ *
+ * It used to write to the shared MULTI baseline, which every other file also read.
+ * NR-13 measured what that cost: six order-dependent tests across five files, and
+ * eleven of twenty-four files modifying rows the shared seed created. The fixture
+ * below has the same shape and fresh identifiers, and RLS — not agreement — is what
+ * keeps it out of everybody else's queries.
+ */
+const multi = ownedMulti('authz-no-explanation-leaks');
+
 
 /**
  * **A denial explanation must never reach a client.**
@@ -25,8 +38,9 @@ import { buildHttpHarness, contextHeaders, currentCounters, type HttpHarness } f
 
 let harness: HttpHarness;
 let admin: pg.Client;
-const alpha = FIXTURE.alpha;
-const groupPath = `/organizations/${alpha.organizationId}/groups/${alpha.groupOne.id}/context-probe/touch`;
+/** Lazy: the owned fixture does not exist until `beforeAll` has run. */
+const alpha = () => multi().alpha;
+const groupPath = () => `/organizations/${alpha().organizationId}/groups/${alpha().groupOne.id}/context-probe/touch`;
 
 beforeAll(async () => {
   admin = adminClient();
@@ -46,7 +60,7 @@ afterEach(() => {
 async function headersFor(userId: string, groupId: string | null): Promise<Record<string, string>> {
   return contextHeaders(
     userId,
-    await currentCounters(admin, { organizationId: alpha.organizationId, groupId, userId }),
+    await currentCounters(admin, { organizationId: alpha().organizationId, groupId, userId }),
   );
 }
 
@@ -145,8 +159,8 @@ describe('no denial explanation, reason code, step or capability key reaches the
   it('L4.2 — a role without the capability', async () => {
     const response = await harness.app.inject({
       method: 'POST',
-      url: groupPath,
-      headers: await headersFor(alpha.users.member.id, alpha.groupOne.id),
+      url: groupPath(),
+      headers: await headersFor(alpha().users.member.id, alpha().groupOne.id),
     });
     expect(response.statusCode).toBe(403);
     await assertClean(response, 'L4.2');
@@ -163,15 +177,15 @@ describe('no denial explanation, reason code, step or capability key reaches the
     const grantId = '8e000001-1111-4111-8111-000000000001';
     try {
       await harness.runtime.runner.run(
-        administratorContext(alpha.organizationId, 'leak-check-deny'),
+        multi.administrator(alpha().organizationId, 'leak-check-deny'),
         async ({ query }) => {
           await query
             .insertInto('capability_grants')
             .values({
               id: grantId,
-              organization_id: alpha.organizationId,
-              group_id: alpha.groupOne.id,
-              membership_id: alpha.users.scheduler.membershipId,
+              organization_id: alpha().organizationId,
+              group_id: alpha().groupOne.id,
+              membership_id: alpha().users.scheduler.membershipId,
               capability_key: 'membership.touch_self',
               granted: false,
             })
@@ -180,8 +194,8 @@ describe('no denial explanation, reason code, step or capability key reaches the
       );
       const response = await harness.app.inject({
         method: 'POST',
-        url: groupPath,
-        headers: await headersFor(alpha.users.scheduler.id, alpha.groupOne.id),
+        url: groupPath(),
+        headers: await headersFor(alpha().users.scheduler.id, alpha().groupOne.id),
       });
       expect(response.statusCode).toBe(403);
       await assertClean(response, 'L4.1');
@@ -193,7 +207,7 @@ describe('no denial explanation, reason code, step or capability key reaches the
   it('L1.2 — a suspended entitlement (P-3: the module shape is not disclosed)', async () => {
     try {
       await harness.runtime.runner.run(
-        administratorContext(alpha.organizationId, 'leak-check-entitlement'),
+        multi.administrator(alpha().organizationId, 'leak-check-entitlement'),
         async ({ query }) => {
           await query
             .updateTable('entitlements')
@@ -204,14 +218,14 @@ describe('no denial explanation, reason code, step or capability key reaches the
       );
       const response = await harness.app.inject({
         method: 'POST',
-        url: groupPath,
-        headers: await headersFor(alpha.users.scheduler.id, alpha.groupOne.id),
+        url: groupPath(),
+        headers: await headersFor(alpha().users.scheduler.id, alpha().groupOne.id),
       });
       expect(response.statusCode).toBe(404);
       await assertClean(response, 'L1.2');
     } finally {
       await harness.runtime.runner.run(
-        administratorContext(alpha.organizationId, 'leak-check-restore'),
+        multi.administrator(alpha().organizationId, 'leak-check-restore'),
         async ({ query }) => {
           await query
             .updateTable('entitlements')
@@ -229,13 +243,13 @@ describe('no denial explanation, reason code, step or capability key reaches the
     // envelope rather than the request id.
     const noCapability = await harness.app.inject({
       method: 'POST',
-      url: groupPath,
+      url: groupPath(),
       headers: contextHeaders(
-        alpha.users.member.id,
+        alpha().users.member.id,
         await currentCounters(admin, {
-          organizationId: alpha.organizationId,
-          groupId: alpha.groupOne.id,
-          userId: alpha.users.member.id,
+          organizationId: alpha().organizationId,
+          groupId: alpha().groupOne.id,
+          userId: alpha().users.member.id,
         }),
         'fixed-body-check',
       ),
@@ -245,15 +259,15 @@ describe('no denial explanation, reason code, step or capability key reaches the
     let explicitDenyBody = '';
     try {
       await harness.runtime.runner.run(
-        administratorContext(alpha.organizationId, 'leak-check-deny-2'),
+        multi.administrator(alpha().organizationId, 'leak-check-deny-2'),
         async ({ query }) => {
           await query
             .insertInto('capability_grants')
             .values({
               id: grantId,
-              organization_id: alpha.organizationId,
-              group_id: alpha.groupOne.id,
-              membership_id: alpha.users.scheduler.membershipId,
+              organization_id: alpha().organizationId,
+              group_id: alpha().groupOne.id,
+              membership_id: alpha().users.scheduler.membershipId,
               capability_key: 'membership.touch_self',
               granted: false,
             })
@@ -262,13 +276,13 @@ describe('no denial explanation, reason code, step or capability key reaches the
       );
       const explicitDeny = await harness.app.inject({
         method: 'POST',
-        url: groupPath,
+        url: groupPath(),
         headers: contextHeaders(
-          alpha.users.scheduler.id,
+          alpha().users.scheduler.id,
           await currentCounters(admin, {
-            organizationId: alpha.organizationId,
-            groupId: alpha.groupOne.id,
-            userId: alpha.users.scheduler.id,
+            organizationId: alpha().organizationId,
+            groupId: alpha().groupOne.id,
+            userId: alpha().users.scheduler.id,
           }),
           'fixed-body-check',
         ),

@@ -1,0 +1,174 @@
+NR-13 baseline measurements — OPUS-M2-001 phase A
+captured: 2026-08-03T13:27:23Z
+commit:   29d90b7f6a2e8c67019cfae6cb8ded3122c6356b
+host:     Mac16,8, 12 cores, 24 GiB
+node:     v24.18.0   macOS 26.5.2
+
+########## A. FULL WORKSPACE SUITE (current strategy), 3 repetitions ##########
+─────────────────────────────────────────────────────────────
+RUN: A1 full workspace: vitest run
+CMD: corepack pnpm exec vitest run
+EXIT: 0
+WALL: 34.67 s
+   Test Files  36 passed (36)
+        Tests  551 passed (551)
+     Duration  34.08s (transform 680ms, setup 19ms, collect 19.96s, tests 13.32s, environment 279ms, prepare 656ms)
+        · FAIL  migration-rls-pairing (I-15) — 1 violation(s)
+        · FAIL  route-policy-check (I-02) — 1 violation(s)
+  stdout | test/authz/http-authorization.test.ts > OPUS-M1-004 — every OPUS-M1-002 mutation emits its audit event > a mutation that FAILS after its audit call leaves neither (FAD-12)
+  stdout | test/audit/emission-coverage.test.ts > every existing mutation emits an audit event > a mutation that FAILS emits nothing — the audit write is in the same transaction (FAD-12)
+
+─────────────────────────────────────────────────────────────
+RUN: A2 full workspace: vitest run
+CMD: corepack pnpm exec vitest run
+EXIT: 0
+WALL: 34.17 s
+   Test Files  36 passed (36)
+        Tests  551 passed (551)
+     Duration  33.64s (transform 659ms, setup 16ms, collect 20.02s, tests 13.02s, environment 291ms, prepare 632ms)
+        · FAIL  migration-rls-pairing (I-15) — 1 violation(s)
+        · FAIL  route-policy-check (I-02) — 1 violation(s)
+  stdout | test/authz/http-authorization.test.ts > OPUS-M1-004 — every OPUS-M1-002 mutation emits its audit event > a mutation that FAILS after its audit call leaves neither (FAD-12)
+  stdout | test/audit/emission-coverage.test.ts > every existing mutation emits an audit event > a mutation that FAILS emits nothing — the audit write is in the same transaction (FAD-12)
+
+─────────────────────────────────────────────────────────────
+RUN: A3 full workspace: vitest run
+CMD: corepack pnpm exec vitest run
+EXIT: 0
+WALL: 35.07 s
+   Test Files  36 passed (36)
+        Tests  551 passed (551)
+     Duration  34.52s (transform 564ms, setup 16ms, collect 20.59s, tests 13.31s, environment 167ms, prepare 640ms)
+        · FAIL  migration-rls-pairing (I-15) — 1 violation(s)
+        · FAIL  route-policy-check (I-02) — 1 violation(s)
+  stdout | test/authz/http-authorization.test.ts > OPUS-M1-004 — every OPUS-M1-002 mutation emits its audit event > a mutation that FAILS after its audit call leaves neither (FAD-12)
+  stdout | test/audit/emission-coverage.test.ts > every existing mutation emits an audit event > a mutation that FAILS emits nothing — the audit write is in the same transaction (FAD-12)
+
+########## B. api PROJECT ONLY, 3 repetitions ##########
+─────────────────────────────────────────────────────────────
+RUN: B1 api project: vitest run --project api
+CMD: corepack pnpm exec vitest run --project api
+EXIT: 0
+WALL: 14.40 s
+   Test Files  24 passed (24)
+        Tests  339 passed (339)
+     Duration  13.88s (transform 241ms, setup 16ms, collect 452ms, tests 12.33s, environment 0ms, prepare 34ms)
+        · FAIL  migration-rls-pairing (I-15) — 1 violation(s)
+        · FAIL  route-policy-check (I-02) — 1 violation(s)
+  stdout | test/authz/http-authorization.test.ts > OPUS-M1-004 — every OPUS-M1-002 mutation emits its audit event > a mutation that FAILS after its audit call leaves neither (FAD-12)
+  stdout | test/audit/emission-coverage.test.ts > every existing mutation emits an audit event > a mutation that FAILS emits nothing — the audit write is in the same transaction (FAD-12)
+
+─────────────────────────────────────────────────────────────
+RUN: B2 api project: vitest run --project api
+CMD: corepack pnpm exec vitest run --project api
+EXIT: 0
+WALL: 14.56 s
+   Test Files  24 passed (24)
+        Tests  339 passed (339)
+     Duration  14.03s (transform 244ms, setup 19ms, collect 472ms, tests 12.43s, environment 0ms, prepare 28ms)
+        · FAIL  migration-rls-pairing (I-15) — 1 violation(s)
+        · FAIL  route-policy-check (I-02) — 1 violation(s)
+  stdout | test/authz/http-authorization.test.ts > OPUS-M1-004 — every OPUS-M1-002 mutation emits its audit event > a mutation that FAILS after its audit call leaves neither (FAD-12)
+  stdout | test/audit/emission-coverage.test.ts > every existing mutation emits an audit event > a mutation that FAILS emits nothing — the audit write is in the same transaction (FAD-12)
+
+─────────────────────────────────────────────────────────────
+RUN: B3 api project: vitest run --project api
+CMD: corepack pnpm exec vitest run --project api
+EXIT: 0
+WALL: 14.73 s
+   Test Files  24 passed (24)
+        Tests  339 passed (339)
+     Duration  14.18s (transform 244ms, setup 17ms, collect 460ms, tests 12.57s, environment 0ms, prepare 34ms)
+        · FAIL  migration-rls-pairing (I-15) — 1 violation(s)
+        · FAIL  route-policy-check (I-02) — 1 violation(s)
+  stdout | test/authz/http-authorization.test.ts > OPUS-M1-004 — every OPUS-M1-002 mutation emits its audit event > a mutation that FAILS after its audit call leaves neither (FAD-12)
+  stdout | test/audit/emission-coverage.test.ts > every existing mutation emits an audit event > a mutation that FAILS emits nothing — the audit write is in the same transaction (FAD-12)
+
+########## C. FILE-ORDER SHUFFLE (api project), 3 seeds ##########
+─────────────────────────────────────────────────────────────
+RUN: C seed=20260803 file shuffle
+CMD: corepack pnpm exec vitest run --project api --sequence.shuffle.files --sequence.seed=20260803
+EXIT: 0
+WALL: 14.55 s
+   Test Files  24 passed (24)
+        Tests  339 passed (339)
+     Duration  14.02s (transform 244ms, setup 19ms, collect 462ms, tests 12.46s, environment 0ms, prepare 31ms)
+  stdout | test/authz/http-authorization.test.ts > OPUS-M1-004 — every OPUS-M1-002 mutation emits its audit event > a mutation that FAILS after its audit call leaves neither (FAD-12)
+  stdout | test/audit/emission-coverage.test.ts > every existing mutation emits an audit event > a mutation that FAILS emits nothing — the audit write is in the same transaction (FAD-12)
+        · FAIL  migration-rls-pairing (I-15) — 1 violation(s)
+        · FAIL  route-policy-check (I-02) — 1 violation(s)
+
+─────────────────────────────────────────────────────────────
+RUN: C seed=424242 file shuffle
+CMD: corepack pnpm exec vitest run --project api --sequence.shuffle.files --sequence.seed=424242
+EXIT: 0
+WALL: 14.42 s
+   Test Files  24 passed (24)
+        Tests  339 passed (339)
+     Duration  13.89s (transform 236ms, setup 16ms, collect 460ms, tests 12.32s, environment 0ms, prepare 33ms)
+  stdout | test/audit/emission-coverage.test.ts > every existing mutation emits an audit event > a mutation that FAILS emits nothing — the audit write is in the same transaction (FAD-12)
+  stdout | test/authz/http-authorization.test.ts > OPUS-M1-004 — every OPUS-M1-002 mutation emits its audit event > a mutation that FAILS after its audit call leaves neither (FAD-12)
+        · FAIL  migration-rls-pairing (I-15) — 1 violation(s)
+        · FAIL  route-policy-check (I-02) — 1 violation(s)
+
+─────────────────────────────────────────────────────────────
+RUN: C seed=7 file shuffle
+CMD: corepack pnpm exec vitest run --project api --sequence.shuffle.files --sequence.seed=7
+EXIT: 0
+WALL: 14.46 s
+   Test Files  24 passed (24)
+        Tests  339 passed (339)
+     Duration  13.94s (transform 245ms, setup 17ms, collect 460ms, tests 12.38s, environment 0ms, prepare 34ms)
+        · FAIL  migration-rls-pairing (I-15) — 1 violation(s)
+        · FAIL  route-policy-check (I-02) — 1 violation(s)
+  stdout | test/authz/http-authorization.test.ts > OPUS-M1-004 — every OPUS-M1-002 mutation emits its audit event > a mutation that FAILS after its audit call leaves neither (FAD-12)
+  stdout | test/audit/emission-coverage.test.ts > every existing mutation emits an audit event > a mutation that FAILS emits nothing — the audit write is in the same transaction (FAD-12)
+
+########## D. TEST-ORDER SHUFFLE WITHIN FILES (api project), 2 seeds ##########
+─────────────────────────────────────────────────────────────
+RUN: D seed=20260803 test shuffle
+CMD: corepack pnpm exec vitest run --project api --sequence.shuffle.tests --sequence.seed=20260803
+EXIT: 1
+WALL: 14.61 s
+   Test Files  3 failed | 21 passed (24)
+        Tests  3 failed | 336 passed (339)
+     Duration  14.10s (transform 235ms, setup 17ms, collect 434ms, tests 12.44s, environment 0ms, prepare 29ms)
+        · FAIL  route-policy-check (I-02) — 1 violation(s)
+        · FAIL  migration-rls-pairing (I-15) — 1 violation(s)
+  stdout | test/authz/http-authorization.test.ts > OPUS-M1-004 — every OPUS-M1-002 mutation emits its audit event > a mutation that FAILS after its audit call leaves neither (FAD-12)
+  stdout | test/audit/emission-coverage.test.ts > every existing mutation emits an audit event > a mutation that FAILS emits nothing — the audit write is in the same transaction (FAD-12)
+   FAIL  |api| test/audit/crash-restart.test.ts > B — lease recovery on restart (SP-D condition C-2, no clock manipulation) > the effect was applied EXACTLY ONCE despite the crash and the re-execution
+   FAIL  |api| test/audit/outbox-dispatch.test.ts > I-11 — a delivery failure NEVER rolls back the domain change > the recorded failure is a CODE and cannot be an exception message
+   FAIL  |api| test/audit/periodic.test.ts > SPEC-11 §2 — the periodic checkpoint sweep > is idempotent: a second sweep with nothing new writes nothing
+
+─────────────────────────────────────────────────────────────
+RUN: D seed=424242 test shuffle
+CMD: corepack pnpm exec vitest run --project api --sequence.shuffle.tests --sequence.seed=424242
+EXIT: 0
+WALL: 14.42 s
+   Test Files  24 passed (24)
+        Tests  339 passed (339)
+     Duration  13.87s (transform 239ms, setup 17ms, collect 456ms, tests 12.31s, environment 0ms, prepare 32ms)
+        · FAIL  route-policy-check (I-02) — 1 violation(s)
+        · FAIL  migration-rls-pairing (I-15) — 1 violation(s)
+  stdout | test/authz/http-authorization.test.ts > OPUS-M1-004 — every OPUS-M1-002 mutation emits its audit event > a mutation that FAILS after its audit call leaves neither (FAD-12)
+  stdout | test/audit/emission-coverage.test.ts > every existing mutation emits an audit event > a mutation that FAILS emits nothing — the audit write is in the same transaction (FAD-12)
+
+########## E. BOTH SHUFFLES (api project), 1 seed ##########
+─────────────────────────────────────────────────────────────
+RUN: E seed=20260803 file+test shuffle
+CMD: corepack pnpm exec vitest run --project api --sequence.shuffle.files --sequence.shuffle.tests --sequence.seed=20260803
+EXIT: 1
+WALL: 14.84 s
+   Test Files  3 failed | 21 passed (24)
+        Tests  3 failed | 336 passed (339)
+     Duration  14.25s (transform 236ms, setup 18ms, collect 458ms, tests 12.63s, environment 0ms, prepare 30ms)
+  stdout | test/authz/http-authorization.test.ts > OPUS-M1-004 — every OPUS-M1-002 mutation emits its audit event > a mutation that FAILS after its audit call leaves neither (FAD-12)
+  stdout | test/audit/emission-coverage.test.ts > every existing mutation emits an audit event > a mutation that FAILS emits nothing — the audit write is in the same transaction (FAD-12)
+        · FAIL  route-policy-check (I-02) — 1 violation(s)
+        · FAIL  migration-rls-pairing (I-15) — 1 violation(s)
+   FAIL  |api| test/audit/crash-restart.test.ts > B — lease recovery on restart (SP-D condition C-2, no clock manipulation) > the effect was applied EXACTLY ONCE despite the crash and the re-execution
+   FAIL  |api| test/audit/outbox-dispatch.test.ts > I-11 — a delivery failure NEVER rolls back the domain change > the recorded failure is a CODE and cannot be an exception message
+   FAIL  |api| test/audit/periodic.test.ts > SPEC-11 §2 — the periodic checkpoint sweep > is idempotent: a second sweep with nothing new writes nothing
+
+DONE 2026-08-03T13:31:19Z

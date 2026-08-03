@@ -12,8 +12,21 @@ import {
   verifyCheckpoints,
 } from '../../src/audit/verification.js';
 import { adminClient } from '../support/admin-client.js';
-import { FIXTURE, groupContext, organizationContext } from '../support/fixtures.js';
+import { groupContext, organizationContext } from '../support/fixtures.js';
 import { createRuntime, log, type Runtime } from '../support/harness.js';
+import { ownedMulti } from '../support/owned-multi.js';
+
+/**
+ * FAD-15 Layer 2 — this file owns its tenant.
+ *
+ * It used to write to the shared MULTI baseline, which every other file also read.
+ * NR-13 measured what that cost: six order-dependent tests across five files, and
+ * eleven of twenty-four files modifying rows the shared seed created. The fixture
+ * below has the same shape and fresh identifiers, and RLS — not agreement — is what
+ * keeps it out of everybody else's queries.
+ */
+const multi = ownedMulti('audit-chain');
+
 
 /**
  * SPEC-11 §2 and §10 — the chain, the checkpoints, and append-only.
@@ -43,9 +56,11 @@ import { createRuntime, log, type Runtime } from '../support/harness.js';
  * that does not restore is a test that decides the result of every test after it.
  */
 
-const ALPHA = FIXTURE.alpha;
+/** Lazy: the owned fixture does not exist until `beforeAll` has run. */
+const ALPHA = () => multi().alpha;
 /** Beta carries the X-02 rewrite, so Alpha's chain stays clean for everyone else. */
-const BETA = FIXTURE.beta;
+/** Lazy: the owned fixture does not exist until `beforeAll` has run. */
+const BETA = () => multi().beta;
 
 const admin = adminClient();
 let runtime: Runtime;
@@ -90,18 +105,18 @@ async function appendEvents(
 
 const appendAlpha = (n: number, correlationId: string) =>
   appendEvents(
-    ALPHA.organizationId,
-    ALPHA.groupOne.id,
-    ALPHA.users.scheduler.membershipId,
+    ALPHA().organizationId,
+    ALPHA().groupOne.id,
+    ALPHA().users.scheduler.membershipId,
     n,
     correlationId,
   );
 
 const appendBeta = (n: number, correlationId: string) =>
   appendEvents(
-    BETA.organizationId,
-    BETA.groupOne.id,
-    BETA.users.scheduler.membershipId,
+    BETA().organizationId,
+    BETA().groupOne.id,
+    BETA().users.scheduler.membershipId,
     n,
     correlationId,
   );
@@ -156,7 +171,7 @@ describe('SPEC-11 §2 — the hash chain', () => {
                 e.correlation_id, e.payload)), 'hex') as h
          from audit_events e
         where e.organization_id = $1::uuid and e.sequence = $2::bigint`,
-      [ALPHA.organizationId, second?.sequence],
+      [ALPHA().organizationId, second?.sequence],
     );
     expect(reproduced.rows[0]?.h, 'the stored hash is reproducible from the row').toBe(
       second?.entryHash,
@@ -169,7 +184,7 @@ describe('SPEC-11 §2 — the hash chain', () => {
                 e.subject_id, e.correlation_id, e.payload)), 'hex') as h
          from audit_events e
         where e.organization_id = $1::uuid and e.sequence = $2::bigint`,
-      [ALPHA.organizationId, second?.sequence, first?.prevHash],
+      [ALPHA().organizationId, second?.sequence, first?.prevHash],
     );
     expect(
       withOtherPrev.rows[0]?.h,
@@ -181,12 +196,12 @@ describe('SPEC-11 §2 — the hash chain', () => {
   it('the application CANNOT name a chain column: the grant does not include it', async () => {
     await expect(
       runtime.runner.run(
-        organizationContext(ALPHA.organizationId, 'chain-forge'),
+        organizationContext(ALPHA().organizationId, 'chain-forge'),
         async ({ query }) => {
           await sql`
             insert into audit_events (organization_id, id, event_name, actor_kind, subject_type,
                                       subject_id, correlation_id, sequence, prev_hash, entry_hash)
-            values (${ALPHA.organizationId}::uuid, ${randomUUID()}::uuid,
+            values (${ALPHA().organizationId}::uuid, ${randomUUID()}::uuid,
                     'membership.activity_touched', 'system', 'membership',
                     ${randomUUID()}::uuid, 'forge', 1, sha256(''::bytea), sha256(''::bytea))
           `.execute(query);
@@ -204,14 +219,14 @@ describe('SPEC-11 §2 — the hash chain', () => {
       );
       return String(r.rows[0]?.h);
     };
-    const alphaGenesis = await genesis(ALPHA.organizationId);
-    const betaGenesis = await genesis(BETA.organizationId);
+    const alphaGenesis = await genesis(ALPHA().organizationId);
+    const betaGenesis = await genesis(BETA().organizationId);
     expect(alphaGenesis, 'two organizations cannot be spliced').not.toBe(betaGenesis);
 
     const firstBeta = await admin.query<{ prev: string; sequence: string }>(
       `select encode(prev_hash, 'hex') as prev, sequence::text as sequence
          from audit_events where organization_id = $1::uuid order by sequence limit 1`,
-      [BETA.organizationId],
+      [BETA().organizationId],
     );
     if (firstBeta.rows[0] === undefined) {
       const recorded = await appendBeta(1, 'chain-beta-genesis');
@@ -226,7 +241,7 @@ describe('SPEC-11 §2 — the hash chain', () => {
 
   it('verification reports an intact chain', async () => {
     const result = await runtime.runner.run(
-      organizationContext(ALPHA.organizationId, 'chain-verify'),
+      organizationContext(ALPHA().organizationId, 'chain-verify'),
       (uow) => verifyAuditChain(uow),
     );
     expect(result.intact, JSON.stringify(result.problems)).toBe(true);
@@ -237,7 +252,7 @@ describe('SPEC-11 §2 — the hash chain', () => {
   it('verification REFUSES a group-scoped context rather than returning a wrong answer', async () => {
     await expect(
       runtime.runner.run(
-        groupContext(ALPHA.organizationId, ALPHA.groupOne.id, null, 'chain-wrong-scope'),
+        groupContext(ALPHA().organizationId, ALPHA().groupOne.id, null, 'chain-wrong-scope'),
         (uow) => verifyAuditChain(uow),
       ),
     ).rejects.toBeInstanceOf(GroupScopedChainVerificationError);
@@ -249,7 +264,7 @@ describe('SPEC-11 §2 — the hash chain', () => {
 describe('SPEC-11 §10 X-01 — an edited audit row is detected', () => {
   it('a privileged UPDATE that defeats the trigger is caught by chain verification', async () => {
     const before = await runtime.runner.run(
-      organizationContext(ALPHA.organizationId, 'x01-before'),
+      organizationContext(ALPHA().organizationId, 'x01-before'),
       (uow) => verifyAuditChain(uow),
     );
     expect(before.intact, JSON.stringify(before.problems)).toBe(true);
@@ -260,7 +275,7 @@ describe('SPEC-11 §10 X-01 — an edited audit row is detected', () => {
     const target = await admin.query<{ sequence: string }>(
       `select sequence::text as sequence from audit_events
         where organization_id = $1::uuid order by sequence limit 1 offset 1`,
-      [ALPHA.organizationId],
+      [ALPHA().organizationId],
     );
     const sequence = target.rows[0]?.sequence;
     expect(sequence).toBeDefined();
@@ -270,14 +285,14 @@ describe('SPEC-11 §10 X-01 — an edited audit row is detected', () => {
       await admin.query(
         `update audit_events set payload = payload || '{"tampered": true}'::jsonb
           where organization_id = $1::uuid and sequence = $2::bigint`,
-        [ALPHA.organizationId, sequence],
+        [ALPHA().organizationId, sequence],
       );
     } finally {
       await admin.query('alter table audit_events enable always trigger audit_events_refuse_update');
     }
 
     const after = await runtime.runner.run(
-      organizationContext(ALPHA.organizationId, 'x01-after'),
+      organizationContext(ALPHA().organizationId, 'x01-after'),
       (uow) => verifyAuditChain(uow),
     );
     expect(after.intact).toBe(false);
@@ -298,13 +313,13 @@ describe('SPEC-11 §10 X-01 — an edited audit row is detected', () => {
       await admin.query(
         `update audit_events set payload = payload - 'tampered'
           where organization_id = $1::uuid and sequence = $2::bigint`,
-        [ALPHA.organizationId, sequence],
+        [ALPHA().organizationId, sequence],
       );
     } finally {
       await admin.query('alter table audit_events enable always trigger audit_events_refuse_update');
     }
     const restored = await runtime.runner.run(
-      organizationContext(ALPHA.organizationId, 'x01-restored'),
+      organizationContext(ALPHA().organizationId, 'x01-restored'),
       (uow) => verifyAuditChain(uow),
     );
     expect(restored.intact, JSON.stringify(restored.problems)).toBe(true);
@@ -327,7 +342,7 @@ describe('SPEC-11 §10 X-03 — a deleted row leaves a gap that is recorded expl
     await admin.query(
       `create temp table x03_saved as
          select * from audit_events where organization_id = $1::uuid and sequence = $2::bigint`,
-      [ALPHA.organizationId, middle],
+      [ALPHA().organizationId, middle],
     );
     const captured = await admin.query<{ n: string }>('select count(*)::text as n from x03_saved');
     expect(Number(captured.rows[0]?.n), 'the row to be deleted must exist').toBe(1);
@@ -336,14 +351,14 @@ describe('SPEC-11 §10 X-03 — a deleted row leaves a gap that is recorded expl
     try {
       await admin.query(
         'delete from audit_events where organization_id = $1::uuid and sequence = $2::bigint',
-        [ALPHA.organizationId, middle],
+        [ALPHA().organizationId, middle],
       );
     } finally {
       await admin.query('alter table audit_events enable always trigger audit_events_refuse_delete');
     }
 
     const after = await runtime.runner.run(
-      organizationContext(ALPHA.organizationId, 'x03-after'),
+      organizationContext(ALPHA().organizationId, 'x03-after'),
       (uow) => verifyAuditChain(uow),
     );
     expect(after.intact).toBe(false);
@@ -372,7 +387,7 @@ describe('SPEC-11 §10 X-03 — a deleted row leaves a gap that is recorded expl
     }
 
     const restored = await runtime.runner.run(
-      organizationContext(ALPHA.organizationId, 'x03-restored'),
+      organizationContext(ALPHA().organizationId, 'x03-restored'),
       (uow) => verifyAuditChain(uow),
     );
     expect(
@@ -387,7 +402,7 @@ describe('SPEC-11 §10 X-03 — a deleted row leaves a gap that is recorded expl
 describe('SPEC-11 §10 X-02 — a consistently rewritten segment is caught by the SIGNATURE', () => {
   it('the chain verifies against itself after a competent rewrite, and the checkpoint does not', async () => {
     const signer = new LocalCheckpointSigner({ keyId: 'x02-test-key' });
-    const orgContext = organizationContext(BETA.organizationId, 'x02-checkpoint');
+    const orgContext = organizationContext(BETA().organizationId, 'x02-checkpoint');
 
     await appendBeta(2, 'x02-seed');
 
@@ -413,7 +428,7 @@ describe('SPEC-11 §10 X-02 — a consistently rewritten segment is caught by th
         admin.query(
           `update audit_events set entry_hash = sha256('rewritten'::bytea)
             where organization_id = $1::uuid and sequence = $2::bigint`,
-          [BETA.organizationId, checkpoint?.sequence],
+          [BETA().organizationId, checkpoint?.sequence],
         ),
       ).rejects.toMatchObject({ code: '23503' });
     } finally {
@@ -432,7 +447,7 @@ describe('SPEC-11 §10 X-02 — a consistently rewritten segment is caught by th
     // detection to do, and the point of X-02 is what happens when it is.
     await admin.query(
       'create temp table x02_saved as select * from audit_events where organization_id = $1::uuid',
-      [BETA.organizationId],
+      [BETA().organizationId],
     );
     await admin.query('alter table audit_events disable trigger audit_events_refuse_update');
     await admin.query(
@@ -442,7 +457,7 @@ describe('SPEC-11 §10 X-02 — a consistently rewritten segment is caught by th
       const changed = await admin.query(
         `update audit_events set payload = payload || '{"rewritten": true}'::jsonb
           where organization_id = $1::uuid and sequence = 1`,
-        [BETA.organizationId],
+        [BETA().organizationId],
       );
       expect(changed.rowCount, 'the tampering UPDATE must have hit exactly one row').toBe(1);
 
@@ -451,9 +466,9 @@ describe('SPEC-11 §10 X-02 — a consistently rewritten segment is caught by th
         `do $x02$
          declare r record; v_prev bytea;
          begin
-           v_prev := sha256(convert_to('sp.audit.genesis.v1:' || '${BETA.organizationId}', 'UTF8'));
+           v_prev := sha256(convert_to('sp.audit.genesis.v1:' || '${BETA().organizationId}', 'UTF8'));
            for r in select * from audit_events
-                     where organization_id = '${BETA.organizationId}'::uuid order by sequence loop
+                     where organization_id = '${BETA().organizationId}'::uuid order by sequence loop
              update audit_events
                 set prev_hash = v_prev,
                     entry_hash = sha256(app_audit_canonical_bytes(
@@ -472,7 +487,7 @@ describe('SPEC-11 §10 X-02 — a consistently rewritten segment is caught by th
     const headAfter = await admin.query<{ h: string }>(
       `select encode(entry_hash, 'hex') as h from audit_events
         where organization_id = $1::uuid order by sequence desc limit 1`,
-      [BETA.organizationId],
+      [BETA().organizationId],
     );
     expect(
       headAfter.rows[0]?.h,
@@ -518,7 +533,7 @@ describe('SPEC-11 §10 X-02 — a consistently rewritten segment is caught by th
     //
     // Restored by UPDATE rather than by delete-and-reinsert. OPUS-M1-004 seeds
     // `outbox_events` in both fixture organizations, and `outbox_events_audit_fk`
-    // references the chain — so deleting BETA's audit rows now violates it, even
+    // references the chain — so deleting BETA()'s audit rows now violates it, even
     // though the identical rows were about to be put back. Updating the three
     // columns the rewrite touched restores exactly the same state without ever
     // removing a row, and it needs one trigger disabled instead of three.
@@ -564,7 +579,7 @@ describe('SPEC-11 §10 X-02 — a consistently rewritten segment is caught by th
     // wave through, and the reason `verify` checks the signature and not the id.
     const impostor = new LocalCheckpointSigner({ keyId: 'x02-test-key' });
     const results = await worker.runner.run(
-      organizationContext(BETA.organizationId, 'x02-wrong-key'),
+      organizationContext(BETA().organizationId, 'x02-wrong-key'),
       (uow) => verifyCheckpoints(uow, (m, s) => impostor.verify(m, s)),
     );
     expect(results.length).toBeGreaterThan(0);
@@ -626,11 +641,11 @@ describe('non-bypass rule 6 — append-only, per role', () => {
     const migrator = createRuntime('app_migrator');
     try {
       const affected = await migrator.runner.run(
-        organizationContext(ALPHA.organizationId, 'append-only-owner'),
+        organizationContext(ALPHA().organizationId, 'append-only-owner'),
         async ({ query }) => {
           const r = await sql`
             update audit_events set correlation_id = 'owner-tampered'
-             where organization_id = ${ALPHA.organizationId}::uuid
+             where organization_id = ${ALPHA().organizationId}::uuid
           `.execute(query);
           return Number(r.numAffectedRows ?? 0n);
         },
@@ -686,7 +701,7 @@ describe('non-bypass rule 6 — append-only, per role', () => {
     // never fires, and an assertion that passes because there was nothing to
     // update is not an assertion.
     await worker.runner.run(
-      organizationContext(ALPHA.organizationId, 'checkpoint-append-only'),
+      organizationContext(ALPHA().organizationId, 'checkpoint-append-only'),
       (uow) => writeCheckpoint(uow, new LocalCheckpointSigner({ keyId: 'append-only-test-key' })),
     );
     const present = await admin.query<{ n: string }>(
@@ -750,9 +765,9 @@ describe('tenant isolation of the audit tables', () => {
     // is the partition, so the assertion counts a partition.
     const marker = 'isolation-marker-run';
     const written = await appendEvents(
-      ALPHA.organizationId,
-      ALPHA.groupOne.id,
-      ALPHA.users.scheduler.membershipId,
+      ALPHA().organizationId,
+      ALPHA().groupOne.id,
+      ALPHA().users.scheduler.membershipId,
       1,
       marker,
     );
@@ -760,24 +775,24 @@ describe('tenant isolation of the audit tables', () => {
 
     expect(
       await countVisible(
-        groupContext(ALPHA.organizationId, ALPHA.groupOne.id, null, 'isolation-probe'),
+        groupContext(ALPHA().organizationId, ALPHA().groupOne.id, null, 'isolation-probe'),
         marker,
       ),
       'visible in its own group',
     ).toBe(1);
     expect(
       await countVisible(
-        groupContext(ALPHA.organizationId, ALPHA.groupTwo.id, null, 'isolation-probe'),
+        groupContext(ALPHA().organizationId, ALPHA().groupTwo.id, null, 'isolation-probe'),
         marker,
       ),
       'invisible from the sibling group',
     ).toBe(0);
     expect(
-      await countVisible(organizationContext(ALPHA.organizationId, 'isolation-probe-org'), marker),
+      await countVisible(organizationContext(ALPHA().organizationId, 'isolation-probe-org'), marker),
       'visible organization-wide — the EX-2 shape: confined, not hidden',
     ).toBe(1);
     expect(
-      await countVisible(organizationContext(BETA.organizationId, 'isolation-probe-beta'), marker),
+      await countVisible(organizationContext(BETA().organizationId, 'isolation-probe-beta'), marker),
       'invisible from the other organization',
     ).toBe(0);
     log('group scoping: 1 in its own group, 0 from the sibling, 1 org-wide, 0 cross-tenant');
@@ -787,17 +802,17 @@ describe('tenant isolation of the audit tables', () => {
     await expect(
       runtime.runner.run(
         groupContext(
-          ALPHA.organizationId,
-          ALPHA.groupOne.id,
-          ALPHA.users.scheduler.membershipId,
+          ALPHA().organizationId,
+          ALPHA().groupOne.id,
+          ALPHA().users.scheduler.membershipId,
           'isolation-cross-group',
         ),
         async ({ query }) => {
           await sql`
             insert into audit_events (organization_id, id, event_name, actor_kind, group_id,
                                       subject_type, subject_id, correlation_id)
-            values (${ALPHA.organizationId}::uuid, ${randomUUID()}::uuid,
-                    'membership.activity_touched', 'system', ${ALPHA.groupTwo.id}::uuid,
+            values (${ALPHA().organizationId}::uuid, ${randomUUID()}::uuid,
+                    'membership.activity_touched', 'system', ${ALPHA().groupTwo.id}::uuid,
                     'membership', ${randomUUID()}::uuid, 'cross')
           `.execute(query);
         },
@@ -819,7 +834,7 @@ describe('tenant isolation of the audit tables', () => {
                                      subject_id, correlation_id)
            values ($1::uuid, gen_random_uuid(), 'membership.activity_touched', 'system',
                    'membership', gen_random_uuid(), 'outside')`,
-          [ALPHA.organizationId],
+          [ALPHA().organizationId],
         ),
       ).rejects.toMatchObject({ code: '42501' });
     } finally {
@@ -838,7 +853,7 @@ describe('second-review findings — the holes the first submission left', () =>
     // every checkpoint still verifies AND matches, because the checkpointed row
     // was never touched. The first submission reported `intact = true` here.
     const signer = new LocalCheckpointSigner({ keyId: 'r01-test-key' });
-    const orgContext = organizationContext(ALPHA.organizationId, 'r01-truncation');
+    const orgContext = organizationContext(ALPHA().organizationId, 'r01-truncation');
 
     await appendAlpha(2, 'r01-before-checkpoint');
     const checkpoint = await worker.runner.run(orgContext, (uow) => writeCheckpoint(uow, signer));
@@ -854,13 +869,13 @@ describe('second-review findings — the holes the first submission left', () =>
       `create temp table r01_saved as
          select * from audit_events
           where organization_id = $1::uuid and sequence > $2::bigint`,
-      [ALPHA.organizationId, checkpointSequence],
+      [ALPHA().organizationId, checkpointSequence],
     );
     await admin.query('alter table audit_events disable trigger audit_events_refuse_delete');
     try {
       const deleted = await admin.query(
         'delete from audit_events where organization_id = $1::uuid and sequence > $2::bigint',
-        [ALPHA.organizationId, checkpointSequence],
+        [ALPHA().organizationId, checkpointSequence],
       );
       expect(deleted.rowCount, 'the tail is really gone').toBe(4);
     } finally {
@@ -885,7 +900,7 @@ describe('second-review findings — the holes the first submission left', () =>
 
     /* ── and the head comparison catches it ────────────────────────────────── */
     const verification = await runtime.runner.run(
-      organizationContext(ALPHA.organizationId, 'r01-verify'),
+      organizationContext(ALPHA().organizationId, 'r01-verify'),
       (uow) => verifyAuditChain(uow),
     );
     expect(verification.intact, 'a truncated tail is NOT an intact chain').toBe(false);
@@ -909,7 +924,7 @@ describe('second-review findings — the holes the first submission left', () =>
       await admin.query('drop table r01_saved');
     }
     const restored = await runtime.runner.run(
-      organizationContext(ALPHA.organizationId, 'r01-restored'),
+      organizationContext(ALPHA().organizationId, 'r01-restored'),
       (uow) => verifyAuditChain(uow),
     );
     expect(restored.intact, JSON.stringify(restored.problems)).toBe(true);
@@ -920,12 +935,12 @@ describe('second-review findings — the holes the first submission left', () =>
     // check above would have no input left to compare against.
     await expect(
       admin.query('delete from audit_chain_heads where organization_id = $1::uuid', [
-        ALPHA.organizationId,
+        ALPHA().organizationId,
       ]),
     ).rejects.toMatchObject({ code: '23001' });
     await expect(
       admin.query('update audit_chain_heads set sequence = 1 where organization_id = $1::uuid', [
-        ALPHA.organizationId,
+        ALPHA().organizationId,
       ]),
     ).rejects.toMatchObject({ code: '23001' });
     await expect(admin.query('truncate audit_chain_heads cascade')).rejects.toMatchObject({
@@ -942,9 +957,9 @@ describe('second-review findings — the holes the first submission left', () =>
     // break-glass operator during an incident that is the worst possible lie.
     await expect(
       runtime.runner.run(
-        organizationContext(ALPHA.organizationId, 'r05-confinement'),
+        organizationContext(ALPHA().organizationId, 'r05-confinement'),
         async ({ query }) => {
-          await sql`select * from app_verify_audit_chain(${BETA.organizationId}::uuid)`.execute(
+          await sql`select * from app_verify_audit_chain(${BETA().organizationId}::uuid)`.execute(
             query,
           );
         },
@@ -955,7 +970,7 @@ describe('second-review findings — the holes the first submission left', () =>
     const client = await runtime.pool.connect();
     try {
       await expect(
-        client.query('select * from app_verify_audit_chain($1::uuid)', [ALPHA.organizationId]),
+        client.query('select * from app_verify_audit_chain($1::uuid)', [ALPHA().organizationId]),
       ).rejects.toMatchObject({ code: '23001' });
     } finally {
       client.release();
@@ -968,22 +983,39 @@ describe('second-review findings — the holes the first submission left', () =>
     // append-only — so a checkpoint with a wrong `entry_hash` would be permanent
     // and would report `matchesChain = false` forever, poisoning the one signal
     // that catches a competent rewrite.
+    // FAD-15 Layer 4 — this test establishes its own subject. It used to poison
+    // whatever the current head happened to be; if a sibling test had already
+    // checkpointed that sequence, the UNIQUE key fired first (23505) and the
+    // composite foreign key this test is about was never reached. Appending an
+    // event first guarantees a head sequence that no checkpoint can already name.
+    await appendAlpha(1, 'r04-fresh-head');
+
     const real = await admin.query<{ sequence: string }>(
       `select sequence::text as sequence from audit_events
         where organization_id = $1::uuid order by sequence desc limit 1`,
-      [ALPHA.organizationId],
+      [ALPHA().organizationId],
     );
     const sequence = real.rows[0]?.sequence;
     expect(sequence).toBeDefined();
 
+    const alreadyCheckpointed = await admin.query<{ n: string }>(
+      `select count(*)::text as n from audit_checkpoints
+        where organization_id = $1::uuid and sequence = $2::bigint`,
+      [ALPHA().organizationId, sequence],
+    );
+    expect(
+      alreadyCheckpointed.rows[0]?.n,
+      'a checkpoint already names this sequence, so the UNIQUE key would mask the foreign key',
+    ).toBe('0');
+
     await expect(
       worker.runner.run(
-        organizationContext(ALPHA.organizationId, 'r04-poison'),
+        organizationContext(ALPHA().organizationId, 'r04-poison'),
         async ({ query }) => {
           await sql`
             insert into audit_checkpoints (organization_id, sequence, entry_hash, key_id,
                                            algorithm, signature)
-            values (${ALPHA.organizationId}::uuid, ${sequence}::bigint,
+            values (${ALPHA().organizationId}::uuid, ${sequence}::bigint,
                     sha256('not-the-real-hash'::bytea), 'poison', 'ed25519',
                     sha256('signature'::bytea))
           `.execute(query);
@@ -1000,7 +1032,7 @@ describe('second-review findings — the holes the first submission left', () =>
     // predicate let a group-scoped context read every checkpoint in the
     // organization. Of the two readings the stricter one was the stated intent.
     await worker.runner.run(
-      organizationContext(ALPHA.organizationId, 'r06-seed-checkpoint'),
+      organizationContext(ALPHA().organizationId, 'r06-seed-checkpoint'),
       (uow) => writeCheckpoint(uow, new LocalCheckpointSigner({ keyId: 'r06-test-key' })),
     );
 
@@ -1015,11 +1047,11 @@ describe('second-review findings — the holes the first submission left', () =>
       });
 
     const orgWide = await countCheckpoints(
-      organizationContext(ALPHA.organizationId, 'r06-org'),
+      organizationContext(ALPHA().organizationId, 'r06-org'),
     );
     expect(orgWide).toBeGreaterThan(0);
     const groupScoped = await countCheckpoints(
-      groupContext(ALPHA.organizationId, ALPHA.groupOne.id, null, 'r06-group'),
+      groupContext(ALPHA().organizationId, ALPHA().groupOne.id, null, 'r06-group'),
     );
     expect(groupScoped).toBe(0);
     log(`R-06: organization-scoped sees ${String(orgWide)} checkpoint(s), group-scoped sees 0`);
@@ -1078,7 +1110,7 @@ describe('second-review findings — the holes the first submission left', () =>
     // And the request path cannot call it at all.
     await expect(
       runtime.runner.run(
-        organizationContext(ALPHA.organizationId, 'maintenance-probe'),
+        organizationContext(ALPHA().organizationId, 'maintenance-probe'),
         async ({ query }) => {
           await sql`
             select * from app_audit_organizations_due(0::bigint, '0 seconds'::interval)

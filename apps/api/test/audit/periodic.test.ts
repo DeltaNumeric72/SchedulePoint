@@ -11,8 +11,21 @@ import { recordAuditEvent } from '../../src/audit/recorder.js';
 import { startOutboxRunner } from '../../src/outbox/runner.js';
 import { DatabaseOutboxSink } from '../../src/outbox/sink.js';
 import { adminClient } from '../support/admin-client.js';
-import { FIXTURE, groupContext, organizationContext } from '../support/fixtures.js';
+import { groupContext, organizationContext } from '../support/fixtures.js';
 import { createRuntime, log, type Runtime } from '../support/harness.js';
+import { ownedMulti } from '../support/owned-multi.js';
+
+/**
+ * FAD-15 Layer 2 — this file owns its tenant.
+ *
+ * It used to write to the shared MULTI baseline, which every other file also read.
+ * NR-13 measured what that cost: six order-dependent tests across five files, and
+ * eleven of twenty-four files modifying rows the shared seed created. The fixture
+ * below has the same shape and fresh identifiers, and RLS — not agreement — is what
+ * keeps it out of everybody else's queries.
+ */
+const multi = ownedMulti('audit-periodic');
+
 
 /**
  * **SPEC-11 §2's periodic jobs — the always-on layer (review finding R-03).**
@@ -34,7 +47,8 @@ import { createRuntime, log, type Runtime } from '../support/harness.js';
  *     nothing about whether anything ever calls them.
  */
 
-const ALPHA = FIXTURE.alpha;
+/** Lazy: the owned fixture does not exist until `beforeAll` has run. */
+const ALPHA = () => multi().alpha;
 const admin = adminClient();
 
 /**
@@ -86,16 +100,16 @@ afterAll(async () => {
 async function appendOne(correlationId: string): Promise<string> {
   const recorded = await runtime.runner.run(
     groupContext(
-      ALPHA.organizationId,
-      ALPHA.groupOne.id,
-      ALPHA.users.scheduler.membershipId,
+      ALPHA().organizationId,
+      ALPHA().groupOne.id,
+      ALPHA().users.scheduler.membershipId,
       correlationId,
     ),
     (uow) =>
       recordAuditEvent(uow, {
         eventName: 'membership.activity_touched',
         subjectType: 'membership',
-        subjectId: ALPHA.users.scheduler.membershipId,
+        subjectId: ALPHA().users.scheduler.membershipId,
       }),
   );
   return recorded.sequence;
@@ -113,7 +127,7 @@ describe('the enumeration that lets a tenant-less job find its work', () => {
   it('lists every organization that has a chain, and nothing about what is in it', async () => {
     await appendOne('periodic-seed');
     const organizations = await allAuditedOrganizations(worker.runner);
-    expect(organizations).toContain(ALPHA.organizationId);
+    expect(organizations).toContain(ALPHA().organizationId);
     // It returns ids and counters. The assertion that it returns no tenant
     // CONTENT is structural — the function's return type has four columns and
     // three of them are numbers — and is re-stated in chain.test.ts, where the
@@ -124,7 +138,7 @@ describe('the enumeration that lets a tenant-less job find its work', () => {
 
 describe('SPEC-11 §2 — the periodic checkpoint sweep', () => {
   it('checkpoints an organization whose chain has advanced', async () => {
-    const before = await checkpointCount(ALPHA.organizationId);
+    const before = await checkpointCount(ALPHA().organizationId);
     await appendOne('periodic-advance');
 
     // `entryInterval: 1` and a zero max age make "due" mean "has advanced at
@@ -137,7 +151,7 @@ describe('SPEC-11 §2 — the periodic checkpoint sweep', () => {
 
     expect(result.considered).toBeGreaterThan(0);
     expect(result.failed, JSON.stringify(result.failed)).toEqual([]);
-    expect(await checkpointCount(ALPHA.organizationId)).toBe(before + 1);
+    expect(await checkpointCount(ALPHA().organizationId)).toBe(before + 1);
     log(
       `checkpoint sweep: ${String(result.considered)} organization(s) due, ` +
         `${String(result.written.length)} checkpoint(s) written, 0 failures`,
@@ -145,7 +159,17 @@ describe('SPEC-11 §2 — the periodic checkpoint sweep', () => {
   });
 
   it('is idempotent: a second sweep with nothing new writes nothing', async () => {
-    const before = await checkpointCount(ALPHA.organizationId);
+    // FAD-15 Layer 4 — this test establishes its own precondition. It used to
+    // rely on the PRECEDING test having performed the first sweep; run first, the
+    // head was uncheckpointed, the sweep legitimately wrote one, and "writes
+    // nothing" failed for the right behaviour. The precondition is "the head is
+    // already checkpointed", so the test creates it rather than inheriting it.
+    await runCheckpointSweep(worker.runner, signer, {
+      entryInterval: 1n,
+      maxAge: '0 seconds',
+    });
+
+    const before = await checkpointCount(ALPHA().organizationId);
     const result = await runCheckpointSweep(worker.runner, signer, {
       entryInterval: 1n,
       maxAge: '0 seconds',
@@ -153,8 +177,8 @@ describe('SPEC-11 §2 — the periodic checkpoint sweep', () => {
     // The head is already checkpointed, so `writeCheckpoint` returns null rather
     // than writing a duplicate. A periodic job that wrote a checkpoint every run
     // regardless would fill the table with signatures over an unchanged head.
-    expect(result.written.filter((w) => w.organizationId === ALPHA.organizationId)).toEqual([]);
-    expect(await checkpointCount(ALPHA.organizationId)).toBe(before);
+    expect(result.written.filter((w) => w.organizationId === ALPHA().organizationId)).toEqual([]);
+    expect(await checkpointCount(ALPHA().organizationId)).toBe(before);
     log('checkpoint sweep is idempotent: an unchanged head is not re-checkpointed');
   });
 });
@@ -165,7 +189,7 @@ describe('SPEC-11 §2 — the verification sweep ALERTS', () => {
 
     /* ── intact first: a sweep that pages on a healthy chain is useless ────── */
     const clean = await runVerificationSweep(worker.runner, signer, worker.alerts, [
-      ALPHA.organizationId,
+      ALPHA().organizationId,
     ]);
     expect(chainProblems(clean.broken), JSON.stringify(clean.broken)).toEqual([]);
     const noiseBefore = worker.alerts.byCode('AUDIT_CHAIN_BROKEN').length;
@@ -174,7 +198,7 @@ describe('SPEC-11 §2 — the verification sweep ALERTS', () => {
     const target = await admin.query<{ sequence: string }>(
       `select sequence::text as sequence from audit_events
         where organization_id = $1::uuid order by sequence limit 1 offset 1`,
-      [ALPHA.organizationId],
+      [ALPHA().organizationId],
     );
     const sequence = target.rows[0]?.sequence;
     await admin.query('alter table audit_events disable trigger audit_events_refuse_update');
@@ -182,14 +206,14 @@ describe('SPEC-11 §2 — the verification sweep ALERTS', () => {
       await admin.query(
         `update audit_events set payload = payload || '{"tampered": true}'::jsonb
           where organization_id = $1::uuid and sequence = $2::bigint`,
-        [ALPHA.organizationId, sequence],
+        [ALPHA().organizationId, sequence],
       );
     } finally {
       await admin.query('alter table audit_events enable always trigger audit_events_refuse_update');
     }
 
     const broken = await runVerificationSweep(worker.runner, signer, worker.alerts, [
-      ALPHA.organizationId,
+      ALPHA().organizationId,
     ]);
     expect(chainProblems(broken.broken)).toContain('entry_hash_mismatch');
 
@@ -200,7 +224,7 @@ describe('SPEC-11 §2 — the verification sweep ALERTS', () => {
     ).toBe(noiseBefore + 1);
     const page = pages.at(-1);
     expect(page?.severity).toBe('page');
-    expect(page?.detail['organizationId']).toBe(ALPHA.organizationId);
+    expect(page?.detail['organizationId']).toBe(ALPHA().organizationId);
     expect(page?.detail['problems']).toContain('entry_hash_mismatch');
     expect(page?.detail['firstProblemSequence']).toBe(sequence);
     // The operator has to be told that the signature half of the verdict was
@@ -212,7 +236,7 @@ describe('SPEC-11 §2 — the verification sweep ALERTS', () => {
     const recorded = await admin.query<{ n: string }>(
       `select count(*)::text as n from audit_events
         where organization_id = $1::uuid and event_name = 'audit.chain_broken'`,
-      [ALPHA.organizationId],
+      [ALPHA().organizationId],
     );
     expect(Number(recorded.rows[0]?.n)).toBeGreaterThan(0);
 
@@ -229,14 +253,14 @@ describe('SPEC-11 §2 — the verification sweep ALERTS', () => {
       await admin.query(
         `update audit_events set payload = payload - 'tampered'
           where organization_id = $1::uuid and sequence = $2::bigint`,
-        [ALPHA.organizationId, sequence],
+        [ALPHA().organizationId, sequence],
       );
     } finally {
       await admin.query('alter table audit_events enable always trigger audit_events_refuse_update');
     }
     worker.alerts.clear();
     const after = await runVerificationSweep(worker.runner, signer, worker.alerts, [
-      ALPHA.organizationId,
+      ALPHA().organizationId,
     ]);
     expect(chainProblems(after.broken), JSON.stringify(after.broken)).toEqual([]);
   });
@@ -268,12 +292,12 @@ describe('R-03 — the jobs are REGISTERED, not merely written', () => {
     });
 
     try {
-      const before = await checkpointCount(ALPHA.organizationId);
+      const before = await checkpointCount(ALPHA().organizationId);
       const newSequence = await appendOne('periodic-registered');
       expect(newSequence).toMatch(/^\d+$/);
 
       await runtime.runner.run(
-        organizationContext(ALPHA.organizationId, 'periodic-enqueue'),
+        organizationContext(ALPHA().organizationId, 'periodic-enqueue'),
         async ({ query }) => {
           await sql`select app_enqueue_job('audit.checkpoint', '{}'::json)`.execute(query);
         },
@@ -283,7 +307,7 @@ describe('R-03 — the jobs are REGISTERED, not merely written', () => {
       let after = before;
       while (after === before && Date.now() < deadline) {
         await new Promise((r) => setTimeout(r, 100));
-        after = await checkpointCount(ALPHA.organizationId);
+        after = await checkpointCount(ALPHA().organizationId);
       }
       expect(after, 'the registered task ran and checkpointed the advanced chain').toBe(before + 1);
       log(
@@ -316,17 +340,17 @@ describe('R-03 — the jobs are REGISTERED, not merely written', () => {
       // The task identifiers may exist from the previous test's enqueue; what
       // matters is that THIS runner did not claim them. Asserted by the absence
       // of execution: enqueue one and show nothing happens within the window.
-      const before = await checkpointCount(ALPHA.organizationId);
+      const before = await checkpointCount(ALPHA().organizationId);
       await appendOne('no-signer-advance');
       await runtime.runner.run(
-        organizationContext(ALPHA.organizationId, 'no-signer-enqueue'),
+        organizationContext(ALPHA().organizationId, 'no-signer-enqueue'),
         async ({ query }) => {
           await sql`select app_enqueue_job('audit.checkpoint', '{}'::json)`.execute(query);
         },
       );
       await new Promise((r) => setTimeout(r, 3_000));
       expect(
-        await checkpointCount(ALPHA.organizationId),
+        await checkpointCount(ALPHA().organizationId),
         'a runner with no signer must not silently pretend to checkpoint',
       ).toBe(before);
       log(

@@ -12,8 +12,21 @@ import { startOutboxRunner } from '../../src/outbox/runner.js';
 import { DatabaseOutboxSink } from '../../src/outbox/sink.js';
 import { adminClient } from '../support/admin-client.js';
 import { API_ROOT } from '../support/env.js';
-import { FIXTURE, groupContext, organizationContext } from '../support/fixtures.js';
+import { groupContext, organizationContext } from '../support/fixtures.js';
 import { createRuntime, log, type Runtime } from '../support/harness.js';
+import { ownedMulti } from '../support/owned-multi.js';
+
+/**
+ * FAD-15 Layer 2 — this file owns its tenant.
+ *
+ * It used to write to the shared MULTI baseline, which every other file also read.
+ * NR-13 measured what that cost: six order-dependent tests across five files, and
+ * eleven of twenty-four files modifying rows the shared seed created. The fixture
+ * below has the same shape and fresh identifiers, and RLS — not agreement — is what
+ * keeps it out of everybody else's queries.
+ */
+const multi = ownedMulti('audit-crash-restart');
+
 
 /**
  * **Chain integrity and lease recovery across a real crash.**
@@ -40,7 +53,8 @@ import { createRuntime, log, type Runtime } from '../support/harness.js';
  * recovers it in seconds by way of `queue_pools`.
  */
 
-const alpha = FIXTURE.alpha;
+/** Lazy: the owned fixture does not exist until `beforeAll` has run. */
+const alpha = () => multi().alpha;
 const CHILD = resolve(API_ROOT, 'test/support/audit-crash-child.ts');
 
 let runtime: Runtime;
@@ -140,9 +154,9 @@ describe('A — the chain survives a process killed mid-batch', () => {
   it('is intact and gapless up to the last commit the dying process reported', async () => {
     const correlationId = 'crash-append';
     const child = startChild('append', {
-      SPIKE_ORGANIZATION_ID: alpha.organizationId,
-      SPIKE_GROUP_ID: alpha.groupOne.id,
-      SPIKE_MEMBERSHIP_ID: alpha.users.scheduler.membershipId,
+      SPIKE_ORGANIZATION_ID: alpha().organizationId,
+      SPIKE_GROUP_ID: alpha().groupOne.id,
+      SPIKE_MEMBERSHIP_ID: alpha().users.scheduler.membershipId,
       SPIKE_CORRELATION_ID: correlationId,
     });
 
@@ -155,7 +169,7 @@ describe('A — the chain survives a process killed mid-batch', () => {
     expect(Number.isFinite(lastReported)).toBe(true);
 
     const verification = await runtime.runner.run(
-      organizationContext(alpha.organizationId, 'crash-verify-a'),
+      organizationContext(alpha().organizationId, 'crash-verify-a'),
       (uow) => verifyAuditChain(uow),
     );
     expect(verification.intact, JSON.stringify(verification.problems)).toBe(true);
@@ -172,7 +186,7 @@ describe('A — the chain survives a process killed mid-batch', () => {
       `select count(*)::text as n, count(distinct sequence)::text as distinct,
               max(sequence)::text as max, min(sequence)::text as min
          from audit_events where organization_id = $1::uuid`,
-      [alpha.organizationId],
+      [alpha().organizationId],
     );
     const row = rows.rows[0];
     expect(row?.n, 'no duplicate sequence').toBe(row?.distinct);
@@ -198,7 +212,7 @@ describe('A — the chain survives a process killed mid-batch', () => {
               (select max(sequence)::text from audit_events e
                 where e.organization_id = h.organization_id) as top
          from audit_chain_heads h where h.organization_id = $1::uuid`,
-      [alpha.organizationId],
+      [alpha().organizationId],
     );
     expect(rows[0]?.head).toBe(rows[0]?.top);
     log(`audit_chain_heads tip (${String(rows[0]?.head)}) equals the highest chain row`);
@@ -276,7 +290,18 @@ async function drainQueue(label: string, timeoutMs = 45_000): Promise<number> {
 }
 
 describe('B — lease recovery on restart (SP-D condition C-2, no clock manipulation)', () => {
-  it('a replacement worker reclaims a dead pool\'s job and completes it in seconds', async () => {
+  /**
+   * The crash-and-recover episode, performed ONCE however the tests are ordered.
+   *
+   * FAD-15 Layer 4. The second test asserts on the OUTCOME of this episode and
+   * used to depend on the first test having produced it — run first, its subject
+   * row did not exist and `state` was `undefined`. Re-performing a worker kill
+   * and a reclaim inside each test would double a slow, real-time scenario, and
+   * duplicating it would prove nothing extra. Memoising it is the honest shape:
+   * the precondition belongs to the describe block, not to a sibling test.
+   */
+  let episode: Promise<void> | undefined;
+  const leaseRecoveryEpisode = async (): Promise<void> => {
     /* ── the precondition, established rather than assumed ────────────────── */
     const drained = await drainQueue('crash-lease-drain');
     expect(
@@ -291,20 +316,20 @@ describe('B — lease recovery on restart (SP-D condition C-2, no clock manipula
     /* ── publish something for the dead worker to pick up ─────────────────── */
     const published = await runtime.runner.run(
       groupContext(
-        alpha.organizationId,
-        alpha.groupOne.id,
-        alpha.users.scheduler.membershipId,
+        alpha().organizationId,
+        alpha().groupOne.id,
+        alpha().users.scheduler.membershipId,
         'crash-lease',
       ),
       async (uow) => {
         await sql`
           update memberships set last_active_at = now()
-           where id = ${alpha.users.scheduler.membershipId}::uuid
+           where id = ${alpha().users.scheduler.membershipId}::uuid
         `.execute(uow.query);
         const audit = await recordAuditEvent(uow, {
           eventName: 'membership.activity_touched',
           subjectType: 'membership',
-          subjectId: alpha.users.scheduler.membershipId,
+          subjectId: alpha().users.scheduler.membershipId,
         });
         return publishOutboxEvent(uow, audit, {
           kind: 'membership.activity_touched',
@@ -379,7 +404,7 @@ describe('B — lease recovery on restart (SP-D condition C-2, no clock manipula
 
       /* ── and the chain is still intact across the whole episode ─────────── */
       const verification = await worker.runner.run(
-        organizationContext(alpha.organizationId, 'crash-verify-b'),
+        organizationContext(alpha().organizationId, 'crash-verify-b'),
         (uow) => verifyAuditChain(uow),
       );
       expect(verification.intact, JSON.stringify(verification.problems)).toBe(true);
@@ -390,9 +415,16 @@ describe('B — lease recovery on restart (SP-D condition C-2, no clock manipula
     } finally {
       await replacement.stop();
     }
+  };
+  const ensureEpisode = (): Promise<void> => (episode ??= leaseRecoveryEpisode());
+
+  it('a replacement worker reclaims a dead pool\'s job and completes it in seconds', async () => {
+    await ensureEpisode();
   });
 
   it('the effect was applied EXACTLY ONCE despite the crash and the re-execution', async () => {
+    await ensureEpisode();
+
     const { rows } = await admin.query<{ state: string; attempts: number }>(
       'select state, attempts from outbox_events where idempotency_key = $1',
       ['crash-lease-key'],

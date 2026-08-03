@@ -15,8 +15,21 @@ import {
   type OutboxSink,
 } from '../../src/outbox/sink.js';
 import { adminClient } from '../support/admin-client.js';
-import { FIXTURE, groupContext } from '../support/fixtures.js';
+import { groupContext } from '../support/fixtures.js';
 import { createRuntime, log, type Runtime } from '../support/harness.js';
+import { ownedMulti } from '../support/owned-multi.js';
+
+/**
+ * FAD-15 Layer 2 — this file owns its tenant.
+ *
+ * It used to write to the shared MULTI baseline, which every other file also read.
+ * NR-13 measured what that cost: six order-dependent tests across five files, and
+ * eleven of twenty-four files modifying rows the shared seed created. The fixture
+ * below has the same shape and fresh identifiers, and RLS — not agreement — is what
+ * keeps it out of everybody else's queries.
+ */
+const multi = ownedMulti('audit-outbox-dispatch');
+
 
 /**
  * The outbox: atomic with the domain change, at-least-once out of it, and
@@ -45,7 +58,8 @@ import { createRuntime, log, type Runtime } from '../support/harness.js';
  * consulted by `deliver`.
  */
 
-const alpha = FIXTURE.alpha;
+/** Lazy: the owned fixture does not exist until `beforeAll` has run. */
+const alpha = () => multi().alpha;
 let runtime: Runtime;
 let worker: Runtime;
 let admin: pg.Client;
@@ -65,9 +79,9 @@ afterAll(async () => {
 
 function context(correlationId: string) {
   return groupContext(
-    alpha.organizationId,
-    alpha.groupOne.id,
-    alpha.users.scheduler.membershipId,
+    alpha().organizationId,
+    alpha().groupOne.id,
+    alpha().users.scheduler.membershipId,
     correlationId,
   );
 }
@@ -77,12 +91,12 @@ async function mutateAndPublish(correlationId: string, idempotencyKey: string) {
   return runtime.runner.run(context(correlationId), async (uow) => {
     await sql`
       update memberships set last_active_at = now()
-       where id = ${alpha.users.scheduler.membershipId}::uuid
+       where id = ${alpha().users.scheduler.membershipId}::uuid
     `.execute(uow.query);
     const audit = await recordAuditEvent(uow, {
       eventName: 'membership.activity_touched',
       subjectType: 'membership',
-      subjectId: alpha.users.scheduler.membershipId,
+      subjectId: alpha().users.scheduler.membershipId,
     });
     return publishOutboxEvent(uow, audit, {
       kind: 'membership.activity_touched',
@@ -140,7 +154,7 @@ describe('the outbox write is atomic with the domain change', () => {
         const audit = await recordAuditEvent(uow, {
           eventName: 'membership.activity_touched',
           subjectType: 'membership',
-          subjectId: alpha.users.scheduler.membershipId,
+          subjectId: alpha().users.scheduler.membershipId,
         });
         const published = await publishOutboxEvent(uow, audit, {
           kind: 'membership.activity_touched',
@@ -190,7 +204,7 @@ describe('dispatch', () => {
     const published = await mutateAndPublish('outbox-dispatch-1', 'outbox-dispatch-key-1');
 
     const outcome = await dispatchOutboxEvent(worker.runner, sink, {
-      organizationId: alpha.organizationId,
+      organizationId: alpha().organizationId,
       outboxEventId: published.id,
     });
     expect(outcome.status).toBe('delivered');
@@ -214,7 +228,7 @@ describe('dispatch', () => {
     const sink = new DatabaseOutboxSink(worker.runner);
     const published = await mutateAndPublish('outbox-dispatch-2', 'outbox-dispatch-key-2');
     const job = {
-      organizationId: alpha.organizationId,
+      organizationId: alpha().organizationId,
       outboxEventId: published.id,
     };
 
@@ -233,8 +247,8 @@ describe('dispatch', () => {
     // state entirely. The DURABLE primary key must refuse it — the short-circuit
     // above is only as good as the transaction that wrote the state.
     const accepted = await sink.deliver({
-      organizationId: alpha.organizationId,
-      groupId: alpha.groupOne.id,
+      organizationId: alpha().organizationId,
+      groupId: alpha().groupOne.id,
       outboxEventId: published.id,
       kind: 'membership.activity_touched',
       idempotencyKey: 'outbox-dispatch-key-2',
@@ -258,7 +272,7 @@ describe('dispatch', () => {
   it('a job for an outbox row that does not exist delivers nothing', async () => {
     const sink = new DatabaseOutboxSink(worker.runner);
     const outcome = await dispatchOutboxEvent(worker.runner, sink, {
-      organizationId: alpha.organizationId,
+      organizationId: alpha().organizationId,
       outboxEventId: '00000000-0000-4000-8000-000000000000',
     });
     expect(outcome.status).toBe('missing');
@@ -274,13 +288,13 @@ describe('I-11 — a delivery failure NEVER rolls back the domain change', () =>
 
     const beforeTouch = await admin.query<{ last_active_at: Date | null }>(
       'select last_active_at from memberships where id = $1::uuid',
-      [alpha.users.scheduler.membershipId],
+      [alpha().users.scheduler.membershipId],
     );
     const committedTouch = beforeTouch.rows[0]?.last_active_at;
     expect(committedTouch, 'the domain change committed').not.toBeNull();
 
     const outcome = await dispatchOutboxEvent(worker.runner, sink, {
-      organizationId: alpha.organizationId,
+      organizationId: alpha().organizationId,
       outboxEventId: published.id,
     });
     expect(outcome.status).toBe('failed');
@@ -289,7 +303,7 @@ describe('I-11 — a delivery failure NEVER rolls back the domain change', () =>
     /* ── the domain change is untouched ─────────────────────────────────────── */
     const afterTouch = await admin.query<{ last_active_at: Date | null }>(
       'select last_active_at from memberships where id = $1::uuid',
-      [alpha.users.scheduler.membershipId],
+      [alpha().users.scheduler.membershipId],
     );
     expect(afterTouch.rows[0]?.last_active_at?.toISOString()).toBe(
       committedTouch?.toISOString(),
@@ -321,13 +335,34 @@ describe('I-11 — a delivery failure NEVER rolls back the domain change', () =>
     // The column CHECK is the control, not the discipline of whoever writes the
     // next dispatcher. Rule 9: an exception message is the commonest way a
     // payload body or a recipient address reaches a database column.
+    //
+    // FAD-15 Layer 4 — this test owns its subject, and the reason is sharper than
+    // order-independence. It used to UPDATE the row the PRECEDING test published.
+    // Run first, that UPDATE matched ZERO rows and therefore SUCCEEDED, so the
+    // `.rejects` assertion failed for a reason unrelated to the CHECK — and in the
+    // mirror case an absent row would have made it unable to fail at all. This is
+    // the reference instance of the vacuity class (EV-M2-NR13).
+    const key = 'outbox-i11-code-check-key';
+    await mutateAndPublish('outbox-i11-code-check', key);
+
+    // The positive control comes FIRST and asserts the row exists. Without it the
+    // rejection below is indistinguishable from an UPDATE that matched nothing.
+    const accepted = await admin.query(
+      'update outbox_events set last_error_code = $1 where idempotency_key = $2',
+      ['sink_unavailable', key],
+    );
+    expect(
+      accepted.rowCount,
+      'the subject row does not exist, so the CHECK is never reached and this test is vacuous',
+    ).toBe(1);
+
     await expect(
       admin.query(
         `update outbox_events set last_error_code = $1 where idempotency_key = $2`,
-        ['Error: connect ECONNREFUSED 10.0.0.1:587', 'outbox-i11-key'],
+        ['Error: connect ECONNREFUSED 10.0.0.1:587', key],
       ),
     ).rejects.toMatchObject({ code: '23514' });
-    log('last_error_code rejects an exception message (SQLSTATE 23514)');
+    log('last_error_code accepts a code and rejects an exception message (SQLSTATE 23514)');
   });
 });
 
@@ -369,7 +404,7 @@ describe('R-02 — the two windows in which the same event was delivered twice',
     const sinkA = new DatabaseOutboxSink(worker.runner);
     const sinkB = new DatabaseOutboxSink(worker.runner);
     const published = await mutateAndPublish('outbox-race', 'outbox-race-key');
-    const job = { organizationId: alpha.organizationId, outboxEventId: published.id };
+    const job = { organizationId: alpha().organizationId, outboxEventId: published.id };
 
     const [a, b] = await Promise.all([
       dispatchOutboxEvent(worker.runner, sinkA, job),
@@ -412,7 +447,7 @@ describe('R-02 — the two windows in which the same event was delivered twice',
     // retry, and nothing in the outbox state says the effect already happened.
     // The in-process Map could not survive this; the primary key does.
     const published = await mutateAndPublish('outbox-crash-after', 'outbox-crash-after-key');
-    const job = { organizationId: alpha.organizationId, outboxEventId: published.id };
+    const job = { organizationId: alpha().organizationId, outboxEventId: published.id };
 
     // A sink that applies the real effect and then throws, standing in for a
     // process that dies at exactly that point. The effect is committed in the
@@ -469,15 +504,37 @@ describe('R-02 — the two windows in which the same event was delivered twice',
 
   it('the effect row itself is append-only — a suppressed duplicate cannot overwrite it', async () => {
     // The suppression is only as good as the row's permanence.
+    //
+    // FAD-15 Layer 4 — this test owns its subject. It used to target the effect
+    // row the PRECEDING test produced; run first, both statements matched zero
+    // rows and SUCCEEDED, so the `.rejects` assertions failed for a reason that
+    // had nothing to do with the append-only rule.
+    const key = 'outbox-append-only-key';
+    const published = await mutateAndPublish('outbox-append-only', key);
+    const outcome = await dispatchOutboxEvent(worker.runner, new DatabaseOutboxSink(worker.runner), {
+      organizationId: alpha().organizationId,
+      outboxEventId: published.id,
+    });
+    expect(outcome.status, 'the effect was never applied, so there is nothing to protect').toBe(
+      'delivered',
+    );
+
+    const present = await admin.query<{ n: string }>(
+      'select count(*)::text as n from outbox_effects where idempotency_key = $1',
+      [key],
+    );
+    expect(
+      present.rows[0]?.n,
+      'no effect row exists, so UPDATE and DELETE would match nothing and pass vacuously',
+    ).toBe('1');
+
     await expect(
       admin.query('update outbox_effects set attempt = attempt + 1 where idempotency_key = $1', [
-        'outbox-crash-after-key',
+        key,
       ]),
     ).rejects.toMatchObject({ code: '23001' });
     await expect(
-      admin.query('delete from outbox_effects where idempotency_key = $1', [
-        'outbox-crash-after-key',
-      ]),
+      admin.query('delete from outbox_effects where idempotency_key = $1', [key]),
     ).rejects.toMatchObject({ code: '23001' });
     log('outbox_effects: UPDATE and DELETE both refused (23001)');
   });

@@ -22,6 +22,8 @@
     "gate:request-budget": "node scripts/gates/request-budget.mjs",
     "check": "node scripts/check.mjs",
     "red-cases": "node scripts/red-cases/run.mjs",
+    "fixture-regression": "node scripts/sbx/fixture-regression.mjs",
+    "sbx": "node scripts/sbx/run-sbx.mjs",
     "seed:dev": "node scripts/seed-dev-data.mjs",
     "e2e:install": "node scripts/run-in-workspace.mjs apps/web playwright install chromium",
     "format": "prettier --write .",

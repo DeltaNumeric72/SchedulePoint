@@ -11,7 +11,7 @@ import type pg from 'pg';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { adminClient } from '../support/admin-client.js';
-import { FIXTURE, administratorContext } from '../support/fixtures.js';
+
 import { log } from '../support/harness.js';
 import {
   buildHttpHarness,
@@ -20,6 +20,19 @@ import {
   lastActiveAt,
   type HttpHarness,
 } from '../support/http.js';
+import { ownedMulti } from '../support/owned-multi.js';
+
+/**
+ * FAD-15 Layer 2 — this file owns its tenant.
+ *
+ * It used to write to the shared MULTI baseline, which every other file also read.
+ * NR-13 measured what that cost: six order-dependent tests across five files, and
+ * eleven of twenty-four files modifying rows the shared seed created. The fixture
+ * below has the same shape and fresh identifiers, and RLS — not agreement — is what
+ * keeps it out of everybody else's queries.
+ */
+const multi = ownedMulti('authz-http-authorization');
+
 
 /**
  * SPEC-06 over HTTP — the sampled subset, and the properties only a real request
@@ -47,9 +60,10 @@ import {
 let harness: HttpHarness;
 let admin: pg.Client;
 
-const alpha = FIXTURE.alpha;
-const groupPath = `/organizations/${alpha.organizationId}/groups/${alpha.groupOne.id}/context-probe/touch`;
-const organizationPath = `/organizations/${alpha.organizationId}/context-probe/touch`;
+/** Lazy: the owned fixture does not exist until `beforeAll` has run. */
+const alpha = () => multi().alpha;
+const groupPath = () => `/organizations/${alpha().organizationId}/groups/${alpha().groupOne.id}/context-probe/touch`;
+const organizationPath = () => `/organizations/${alpha().organizationId}/context-probe/touch`;
 
 beforeAll(async () => {
   admin = adminClient();
@@ -69,7 +83,7 @@ afterEach(() => {
 async function headersFor(userId: string, groupId: string | null): Promise<Record<string, string>> {
   return contextHeaders(
     userId,
-    await currentCounters(admin, { organizationId: alpha.organizationId, groupId, userId }),
+    await currentCounters(admin, { organizationId: alpha().organizationId, groupId, userId }),
   );
 }
 
@@ -78,7 +92,7 @@ async function asAdministrator<T>(
   fn: (query: Parameters<Parameters<HttpHarness['runtime']['runner']['run']>[1]>[0]['query']) => Promise<T>,
 ): Promise<T> {
   return harness.runtime.runner.run(
-    administratorContext(alpha.organizationId, 'http-authz-admin'),
+    multi.administrator(alpha().organizationId, 'http-authz-admin'),
     async ({ query }) => fn(query),
   );
 }
@@ -99,7 +113,7 @@ async function headersForCorrelated(
 ): Promise<Record<string, string>> {
   const headers = contextHeaders(
     userId,
-    await currentCounters(admin, { organizationId: alpha.organizationId, groupId, userId }),
+    await currentCounters(admin, { organizationId: alpha().organizationId, groupId, userId }),
     correlationId,
   );
   return options.json === false ? headers : { ...headers, 'content-type': 'application/json' };
@@ -179,14 +193,14 @@ async function createSyntheticUser(): Promise<string> {
 
 describe('SPEC-06 §8.1 — the HTTP half agrees with the pure evaluator', () => {
   it('the baseline ALLOWS, so every denial below is caused by the dimension it moves', async () => {
-    const before = await lastActiveAt(admin, alpha.users.scheduler.membershipId);
+    const before = await lastActiveAt(admin, alpha().users.scheduler.membershipId);
     const response = await harness.app.inject({
       method: 'POST',
-      url: groupPath,
-      headers: await headersFor(alpha.users.scheduler.id, alpha.groupOne.id),
+      url: groupPath(),
+      headers: await headersFor(alpha().users.scheduler.id, alpha().groupOne.id),
     });
     expect(response.statusCode).toBe(200);
-    const after = await lastActiveAt(admin, alpha.users.scheduler.membershipId);
+    const after = await lastActiveAt(admin, alpha().users.scheduler.membershipId);
     expect(after?.getTime() ?? null).not.toBe(before?.getTime() ?? null);
   });
 
@@ -221,7 +235,7 @@ describe('SPEC-06 §8.1 — the HTTP half agrees with the pure evaluator', () =>
     readonly deniedBy: 'context' | 'authorization';
     readonly arrange: () => Promise<void>;
     readonly restore: () => Promise<void>;
-    readonly userId?: string;
+    readonly userId?: () => string;
   }
 
   const cases: readonly HttpCase[] = [
@@ -235,7 +249,7 @@ describe('SPEC-06 §8.1 — the HTTP half agrees with the pure evaluator', () =>
           await query
             .updateTable('organizations')
             .set({ status: 'inactive' })
-            .where('id', '=', alpha.organizationId)
+            .where('id', '=', alpha().organizationId)
             .execute();
         });
       },
@@ -244,7 +258,7 @@ describe('SPEC-06 §8.1 — the HTTP half agrees with the pure evaluator', () =>
           await query
             .updateTable('organizations')
             .set({ status: 'active' })
-            .where('id', '=', alpha.organizationId)
+            .where('id', '=', alpha().organizationId)
             .execute();
         });
       },
@@ -310,7 +324,7 @@ describe('SPEC-06 §8.1 — the HTTP half agrees with the pure evaluator', () =>
           await query
             .updateTable('group_module_availability')
             .set({ available: false })
-            .where('group_id', '=', alpha.groupOne.id)
+            .where('group_id', '=', alpha().groupOne.id)
             .where('module_key', '=', 'core_scheduling')
             .execute();
         });
@@ -320,7 +334,7 @@ describe('SPEC-06 §8.1 — the HTTP half agrees with the pure evaluator', () =>
           await query
             .updateTable('group_module_availability')
             .set({ available: true })
-            .where('group_id', '=', alpha.groupOne.id)
+            .where('group_id', '=', alpha().groupOne.id)
             .where('module_key', '=', 'core_scheduling')
             .execute();
         });
@@ -336,7 +350,7 @@ describe('SPEC-06 §8.1 — the HTTP half agrees with the pure evaluator', () =>
           await query
             .updateTable('memberships')
             .set({ status: 'suspended' })
-            .where('id', '=', alpha.users.scheduler.membershipId)
+            .where('id', '=', alpha().users.scheduler.membershipId)
             .execute();
         });
       },
@@ -345,7 +359,7 @@ describe('SPEC-06 §8.1 — the HTTP half agrees with the pure evaluator', () =>
           await query
             .updateTable('memberships')
             .set({ status: 'active' })
-            .where('id', '=', alpha.users.scheduler.membershipId)
+            .where('id', '=', alpha().users.scheduler.membershipId)
             .execute();
         });
       },
@@ -363,7 +377,7 @@ describe('SPEC-06 §8.1 — the HTTP half agrees with the pure evaluator', () =>
               valid_from: new Date('2020-01-01T00:00:00.000Z'),
               valid_to: new Date('2021-01-01T00:00:00.000Z'),
             })
-            .where('id', '=', alpha.users.scheduler.membershipId)
+            .where('id', '=', alpha().users.scheduler.membershipId)
             .execute();
         });
       },
@@ -372,7 +386,7 @@ describe('SPEC-06 §8.1 — the HTTP half agrees with the pure evaluator', () =>
           await query
             .updateTable('memberships')
             .set({ valid_from: new Date('2020-01-01T00:00:00.000Z'), valid_to: null })
-            .where('id', '=', alpha.users.scheduler.membershipId)
+            .where('id', '=', alpha().users.scheduler.membershipId)
             .execute();
         });
       },
@@ -388,9 +402,9 @@ describe('SPEC-06 §8.1 — the HTTP half agrees with the pure evaluator', () =>
             .insertInto('capability_grants')
             .values({
               id: DENY_GRANT_ID,
-              organization_id: alpha.organizationId,
-              group_id: alpha.groupOne.id,
-              membership_id: alpha.users.scheduler.membershipId,
+              organization_id: alpha().organizationId,
+              group_id: alpha().groupOne.id,
+              membership_id: alpha().users.scheduler.membershipId,
               capability_key: 'membership.touch_self',
               granted: false,
             })
@@ -406,7 +420,7 @@ describe('SPEC-06 §8.1 — the HTTP half agrees with the pure evaluator', () =>
       layer: 'L4.2',
       deniedBy: 'authorization',
       expectedReason: 'NO_CAPABILITY',
-      userId: alpha.users.member.id,
+      userId: () => alpha().users.member.id,
       arrange: () => Promise.resolve(),
       restore: () => Promise.resolve(),
     },
@@ -416,20 +430,20 @@ describe('SPEC-06 §8.1 — the HTTP half agrees with the pure evaluator', () =>
 
   for (const testCase of cases) {
     it(`${testCase.label} → ${testCase.expectedReason} (${denialDisclosure(testCase.expectedReason) === 'forbidden' ? '403' : '404'})`, async () => {
-      const userId = testCase.userId ?? alpha.users.scheduler.id;
+      const userId = testCase.userId?.() ?? alpha().users.scheduler.id;
       const membershipId =
-        userId === alpha.users.member.id
-          ? alpha.users.member.membershipId
-          : alpha.users.scheduler.membershipId;
+        userId === alpha().users.member.id
+          ? alpha().users.member.membershipId
+          : alpha().users.scheduler.membershipId;
 
       await testCase.arrange();
       try {
         // Counters are read AFTER the arrangement, so the request is fresh and
         // the denial is the authorization layer's rather than step 4's.
-        const headers = await headersFor(userId, alpha.groupOne.id);
+        const headers = await headersFor(userId, alpha().groupOne.id);
         const before = await lastActiveAt(admin, membershipId);
 
-        const response = await harness.app.inject({ method: 'POST', url: groupPath, headers });
+        const response = await harness.app.inject({ method: 'POST', url: groupPath(), headers });
 
         const expectedStatus =
           denialDisclosure(testCase.expectedReason) === 'forbidden' ? 403 : 404;
@@ -489,19 +503,19 @@ describe('A-05 and A-09 — entitlement revocation mid-session, and data intact 
     // The T-06 analogue at the ENTITLEMENT layer rather than the context layer.
     // OPUS-M1-001's T-06 proved the long-open submission failed closed at step 4
     // because `organization_version` had moved; this proves the L1 denial itself.
-    const userId = alpha.users.scheduler.id;
+    const userId = alpha().users.scheduler.id;
     const ok = await harness.app.inject({
       method: 'POST',
-      url: groupPath,
-      headers: await headersFor(userId, alpha.groupOne.id),
+      url: groupPath(),
+      headers: await headersFor(userId, alpha().groupOne.id),
     });
     expect(ok.statusCode).toBe(200);
 
     const revoke = await harness.app.inject({
       method: 'PATCH',
-      url: `/organizations/${alpha.organizationId}/entitlements/core_scheduling`,
+      url: `/organizations/${alpha().organizationId}/entitlements/core_scheduling`,
       headers: {
-        ...(await headersFor(alpha.users.organizationAdmin.id, null)),
+        ...(await headersFor(alpha().users.organizationAdmin.id, null)),
         'content-type': 'application/json',
       },
       payload: { state: 'revoked' },
@@ -511,8 +525,8 @@ describe('A-05 and A-09 — entitlement revocation mid-session, and data intact 
     try {
       const denied = await harness.app.inject({
         method: 'POST',
-        url: groupPath,
-        headers: await headersFor(userId, alpha.groupOne.id),
+        url: groupPath(),
+        headers: await headersFor(userId, alpha().groupOne.id),
       });
       // P-5: an unentitled module's existence is not disclosed.
       expect(denied.statusCode).toBe(404);
@@ -520,9 +534,9 @@ describe('A-05 and A-09 — entitlement revocation mid-session, and data intact 
     } finally {
       const restore = await harness.app.inject({
         method: 'PATCH',
-        url: `/organizations/${alpha.organizationId}/entitlements/core_scheduling`,
+        url: `/organizations/${alpha().organizationId}/entitlements/core_scheduling`,
         headers: {
-          ...(await headersFor(alpha.users.organizationAdmin.id, null)),
+          ...(await headersFor(alpha().users.organizationAdmin.id, null)),
           'content-type': 'application/json',
         },
         payload: { state: 'active' },
@@ -535,7 +549,7 @@ describe('A-05 and A-09 — entitlement revocation mid-session, and data intact 
     const countRows = async (): Promise<string> => {
       const r = await admin.query<{ n: string }>(
         'select count(*)::text as n from memberships where organization_id = $1',
-        [alpha.organizationId],
+        [alpha().organizationId],
       );
       return r.rows[0]?.n ?? '0';
     };
@@ -543,9 +557,9 @@ describe('A-05 and A-09 — entitlement revocation mid-session, and data intact 
 
     await harness.app.inject({
       method: 'PATCH',
-      url: `/organizations/${alpha.organizationId}/entitlements/core_scheduling`,
+      url: `/organizations/${alpha().organizationId}/entitlements/core_scheduling`,
       headers: {
-        ...(await headersFor(alpha.users.organizationAdmin.id, null)),
+        ...(await headersFor(alpha().users.organizationAdmin.id, null)),
         'content-type': 'application/json',
       },
       payload: { state: 'suspended' },
@@ -554,9 +568,9 @@ describe('A-05 and A-09 — entitlement revocation mid-session, and data intact 
 
     await harness.app.inject({
       method: 'PATCH',
-      url: `/organizations/${alpha.organizationId}/entitlements/core_scheduling`,
+      url: `/organizations/${alpha().organizationId}/entitlements/core_scheduling`,
       headers: {
-        ...(await headersFor(alpha.users.organizationAdmin.id, null)),
+        ...(await headersFor(alpha().users.organizationAdmin.id, null)),
         'content-type': 'application/json',
       },
       payload: { state: 'active' },
@@ -564,8 +578,8 @@ describe('A-05 and A-09 — entitlement revocation mid-session, and data intact 
 
     const restored = await harness.app.inject({
       method: 'POST',
-      url: groupPath,
-      headers: await headersFor(alpha.users.scheduler.id, alpha.groupOne.id),
+      url: groupPath(),
+      headers: await headersFor(alpha().users.scheduler.id, alpha().groupOne.id),
     });
     expect(restored.statusCode, 'access was not restored on re-enable').toBe(200);
     expect(await countRows()).toBe(before);
@@ -581,12 +595,12 @@ describe('deny paths and allow paths for every GRANT type', () => {
   // The server chooses the grant id (a caller-chosen primary key would be an
   // X-11 existence oracle), so the cleanup is by membership rather than by an id
   // the test could have predicted.
-  const grantee = FIXTURE.alpha.users.member.membershipId;
+  const grantee = () => multi().alpha.users.member.membershipId;
 
   afterEach(async () => {
     await admin.query(
       `delete from capability_grants where membership_id = $1 and capability_key <> 'documents.manage'`,
-      [grantee],
+      [grantee()],
     );
   });
 
@@ -595,20 +609,20 @@ describe('deny paths and allow paths for every GRANT type', () => {
     // that can change that — and it is L4.2's other half.
     const denied = await harness.app.inject({
       method: 'POST',
-      url: groupPath,
-      headers: await headersFor(alpha.users.member.id, alpha.groupOne.id),
+      url: groupPath(),
+      headers: await headersFor(alpha().users.member.id, alpha().groupOne.id),
     });
     expect(denied.statusCode).toBe(403);
 
     const write = await harness.app.inject({
       method: 'POST',
-      url: `/organizations/${alpha.organizationId}/memberships/${alpha.users.member.membershipId}/grants`,
+      url: `/organizations/${alpha().organizationId}/memberships/${alpha().users.member.membershipId}/grants`,
       headers: {
-        ...(await headersFor(alpha.users.organizationAdmin.id, null)),
+        ...(await headersFor(alpha().users.organizationAdmin.id, null)),
         'content-type': 'application/json',
       },
       payload: {
-        membershipId: alpha.users.member.membershipId,
+        membershipId: alpha().users.member.membershipId,
         capabilityKey: 'membership.touch_self',
         granted: true,
       },
@@ -617,8 +631,8 @@ describe('deny paths and allow paths for every GRANT type', () => {
 
     const allowed = await harness.app.inject({
       method: 'POST',
-      url: groupPath,
-      headers: await headersFor(alpha.users.member.id, alpha.groupOne.id),
+      url: groupPath(),
+      headers: await headersFor(alpha().users.member.id, alpha().groupOne.id),
     });
     expect(allowed.statusCode, 'an explicit allow grant did not take effect').toBe(200);
     log('member: 403 without a grant, 200 with one — L4.2 both ways');
@@ -631,13 +645,13 @@ describe('deny paths and allow paths for every GRANT type', () => {
     // passing either way.
     const write = await harness.app.inject({
       method: 'POST',
-      url: `/organizations/${alpha.organizationId}/memberships/${alpha.users.member.membershipId}/grants`,
+      url: `/organizations/${alpha().organizationId}/memberships/${alpha().users.member.membershipId}/grants`,
       headers: {
-        ...(await headersFor(alpha.users.organizationAdmin.id, null)),
+        ...(await headersFor(alpha().users.organizationAdmin.id, null)),
         'content-type': 'application/json',
       },
       payload: {
-        membershipId: alpha.users.member.membershipId,
+        membershipId: alpha().users.member.membershipId,
         capabilityKey: 'membership.touch_self',
         granted: true,
         validFrom: '2020-01-01T00:00:00.000Z',
@@ -645,17 +659,36 @@ describe('deny paths and allow paths for every GRANT type', () => {
       },
     });
     expect(write.statusCode, `the expired grant was never written: ${write.body}`).toBe(200);
+    // FAD-15 Layer 4 — count THIS test's own row, identified by the window it
+    // wrote, not every `membership.touch_self` grant on the membership.
+    //
+    // Found by the regression gate's rotating seed 65339. A sibling in this
+    // describe block ("an explicit ALLOW grant lets a role through") writes an
+    // OPEN-window grant of the same capability to the same membership and leaves
+    // it in place. In declared order this test ran first and saw 1; whenever the
+    // shuffle put the sibling first it saw 2 and failed. The assertion's purpose
+    // is "the row I just wrote landed, so what follows is not vacuous" — scoping
+    // it to that row states exactly that and stops asserting anything about what
+    // other tests did. Nothing is weakened: it still demands exactly one row, and
+    // still fails if the write silently did nothing.
     const landed = await admin.query<{ n: string }>(
       `select count(*)::text as n from capability_grants
-        where membership_id = $1 and capability_key = 'membership.touch_self'`,
-      [alpha.users.member.membershipId],
+        where membership_id = $1 and capability_key = 'membership.touch_self'
+          and valid_from = $2::timestamptz and valid_to = $3::timestamptz`,
+      [
+        alpha().users.member.membershipId,
+        '2020-01-01T00:00:00.000Z',
+        '2021-01-01T00:00:00.000Z',
+      ],
     );
-    expect(landed.rows[0]?.n, 'no grant row exists — the test is vacuous').toBe('1');
+    expect(landed.rows[0]?.n, 'the expired grant row does not exist — the test is vacuous').toBe(
+      '1',
+    );
 
     const response = await harness.app.inject({
       method: 'POST',
-      url: groupPath,
-      headers: await headersFor(alpha.users.member.id, alpha.groupOne.id),
+      url: groupPath(),
+      headers: await headersFor(alpha().users.member.id, alpha().groupOne.id),
     });
     expect(response.statusCode, 'an out-of-window grant authorized a request').toBe(403);
   });
@@ -663,13 +696,13 @@ describe('deny paths and allow paths for every GRANT type', () => {
   it('a grant for a DIFFERENT capability does not authorize this action', async () => {
     const write = await harness.app.inject({
       method: 'POST',
-      url: `/organizations/${alpha.organizationId}/memberships/${alpha.users.member.membershipId}/grants`,
+      url: `/organizations/${alpha().organizationId}/memberships/${alpha().users.member.membershipId}/grants`,
       headers: {
-        ...(await headersFor(alpha.users.organizationAdmin.id, null)),
+        ...(await headersFor(alpha().users.organizationAdmin.id, null)),
         'content-type': 'application/json',
       },
       payload: {
-        membershipId: alpha.users.member.membershipId,
+        membershipId: alpha().users.member.membershipId,
         capabilityKey: 'schedule.publish',
         granted: true,
       },
@@ -678,22 +711,30 @@ describe('deny paths and allow paths for every GRANT type', () => {
 
     const response = await harness.app.inject({
       method: 'POST',
-      url: groupPath,
-      headers: await headersFor(alpha.users.member.id, alpha.groupOne.id),
+      url: groupPath(),
+      headers: await headersFor(alpha().users.member.id, alpha().groupOne.id),
     });
     expect(response.statusCode).toBe(403);
   });
 
   it('A-12 over HTTP: an overlapping grant window is a 409, and the first grant is untouched', async () => {
+    // FAD-15 Layer 4 — this test owns its subject.
+    //
+    // It used to write `membership.touch_self` for the MEMBER membership, which
+    // five sibling tests in this file also grant. Whenever the shuffle put one of
+    // them first, the EXCLUDE constraint made THIS test's FIRST insert the 409 and
+    // its second a different failure — the assertion was about ordering, not about
+    // the constraint. `groupOnly` is granted by nothing else in this file, so the
+    // overlap the test is about is the only overlap in play.
     const first = await harness.app.inject({
       method: 'POST',
-      url: `/organizations/${alpha.organizationId}/memberships/${alpha.users.member.membershipId}/grants`,
+      url: `/organizations/${alpha().organizationId}/memberships/${alpha().users.groupOnly.membershipId}/grants`,
       headers: {
-        ...(await headersFor(alpha.users.organizationAdmin.id, null)),
+        ...(await headersFor(alpha().users.organizationAdmin.id, null)),
         'content-type': 'application/json',
       },
       payload: {
-        membershipId: alpha.users.member.membershipId,
+        membershipId: alpha().users.groupOnly.membershipId,
         capabilityKey: 'membership.touch_self',
         granted: true,
       },
@@ -702,13 +743,13 @@ describe('deny paths and allow paths for every GRANT type', () => {
 
     const second = await harness.app.inject({
       method: 'POST',
-      url: `/organizations/${alpha.organizationId}/memberships/${alpha.users.member.membershipId}/grants`,
+      url: `/organizations/${alpha().organizationId}/memberships/${alpha().users.groupOnly.membershipId}/grants`,
       headers: {
-        ...(await headersFor(alpha.users.organizationAdmin.id, null)),
+        ...(await headersFor(alpha().users.organizationAdmin.id, null)),
         'content-type': 'application/json',
       },
       payload: {
-        membershipId: alpha.users.member.membershipId,
+        membershipId: alpha().users.groupOnly.membershipId,
         capabilityKey: 'membership.touch_self',
         granted: false,
       },
@@ -719,7 +760,7 @@ describe('deny paths and allow paths for every GRANT type', () => {
     const rows = await admin.query<{ n: string }>(
       `select count(*)::text as n from capability_grants
         where membership_id = $1 and capability_key = 'membership.touch_self'`,
-      [alpha.users.member.membershipId],
+      [alpha().users.groupOnly.membershipId],
     );
     expect(rows.rows[0]?.n, 'the overlapping grant landed').toBe('1');
   });
@@ -727,13 +768,13 @@ describe('deny paths and allow paths for every GRANT type', () => {
   it('an unknown capability key is refused before any row is written', async () => {
     const response = await harness.app.inject({
       method: 'POST',
-      url: `/organizations/${alpha.organizationId}/memberships/${alpha.users.member.membershipId}/grants`,
+      url: `/organizations/${alpha().organizationId}/memberships/${alpha().users.member.membershipId}/grants`,
       headers: {
-        ...(await headersFor(alpha.users.organizationAdmin.id, null)),
+        ...(await headersFor(alpha().users.organizationAdmin.id, null)),
         'content-type': 'application/json',
       },
       payload: {
-        membershipId: alpha.users.member.membershipId,
+        membershipId: alpha().users.member.membershipId,
         capabilityKey: 'invented.capability',
         granted: true,
       },
@@ -742,7 +783,7 @@ describe('deny paths and allow paths for every GRANT type', () => {
     const rows = await admin.query<{ n: string }>(
       `select count(*)::text as n from capability_grants
         where membership_id = $1 and capability_key = 'invented.capability'`,
-      [alpha.users.member.membershipId],
+      [alpha().users.member.membershipId],
     );
     expect(rows.rows[0]?.n).toBe('0');
   });
@@ -755,21 +796,21 @@ describe('deny paths and allow paths for every GRANT type', () => {
 describe('the membership-creation route — EV-M1-TENANCY residuals 1 and 2', () => {
   // Ids created here are the SERVER's, so the cleanup targets the users these
   // tests attach rather than an id the test chose.
-  const attachedUsers = [
-    FIXTURE.beta.users.scheduler.id,
+  const attachedUsers = () => [
+    multi().beta.users.scheduler.id,
     '00000000-0000-4000-8000-0000000000ff',
-    FIXTURE.alpha.users.groupOnly.id,
+    multi().alpha.users.groupOnly.id,
   ];
 
   afterEach(async () => {
     await admin.query(
       `delete from memberships
         where organization_id = $1 and user_id = any($2::uuid[]) and group_id is not distinct from $3`,
-      [alpha.organizationId, attachedUsers, null],
+      [alpha().organizationId, attachedUsers(), null],
     );
     await admin.query(
       `delete from memberships where organization_id = $1 and group_id = $2 and user_id = any($3::uuid[])`,
-      [alpha.organizationId, alpha.groupTwo.id, attachedUsers],
+      [alpha().organizationId, alpha().groupTwo.id, attachedUsers()],
     );
   });
 
@@ -780,13 +821,13 @@ describe('the membership-creation route — EV-M1-TENANCY residuals 1 and 2', ()
     // the route never issues a statement.
     const response = await harness.app.inject({
       method: 'POST',
-      url: `/organizations/${alpha.organizationId}/memberships`,
+      url: `/organizations/${alpha().organizationId}/memberships`,
       headers: {
-        ...(await headersFor(alpha.users.member.id, null)),
+        ...(await headersFor(alpha().users.member.id, null)),
         'content-type': 'application/json',
       },
       payload: {
-        userId: FIXTURE.beta.users.scheduler.id,
+        userId: multi().beta.users.scheduler.id,
         groupId: null,
         role: 'org_admin',
       },
@@ -795,7 +836,7 @@ describe('the membership-creation route — EV-M1-TENANCY residuals 1 and 2', ()
     const rows = await admin.query<{ n: string }>(
       `select count(*)::text as n from memberships
         where organization_id = $1 and user_id = $2`,
-      [alpha.organizationId, FIXTURE.beta.users.scheduler.id],
+      [alpha().organizationId, multi().beta.users.scheduler.id],
     );
     expect(rows.rows[0]?.n).toBe('0');
   });
@@ -810,11 +851,11 @@ describe('the membership-creation route — EV-M1-TENANCY residuals 1 and 2', ()
     // measure the wrong thing.
     const headers = {
       ...contextHeaders(
-        alpha.users.member.id,
+        alpha().users.member.id,
         await currentCounters(admin, {
-          organizationId: alpha.organizationId,
+          organizationId: alpha().organizationId,
           groupId: null,
-          userId: alpha.users.member.id,
+          userId: alpha().users.member.id,
         }),
         'residual-2-byte-identical',
       ),
@@ -822,7 +863,7 @@ describe('the membership-creation route — EV-M1-TENANCY residuals 1 and 2', ()
     };
     const nonExistent = await harness.app.inject({
       method: 'POST',
-      url: `/organizations/${alpha.organizationId}/memberships`,
+      url: `/organizations/${alpha().organizationId}/memberships`,
       headers,
       payload: {
         userId: '00000000-0000-4000-8000-0000000000ff',
@@ -832,10 +873,10 @@ describe('the membership-creation route — EV-M1-TENANCY residuals 1 and 2', ()
     });
     const foreign = await harness.app.inject({
       method: 'POST',
-      url: `/organizations/${alpha.organizationId}/memberships`,
+      url: `/organizations/${alpha().organizationId}/memberships`,
       headers,
       payload: {
-        userId: FIXTURE.beta.users.scheduler.id,
+        userId: multi().beta.users.scheduler.id,
         groupId: null,
         role: 'org_admin',
       },
@@ -869,7 +910,7 @@ describe('the membership-creation route — EV-M1-TENANCY residuals 1 and 2', ()
     // irreversible cross-tenant availability effect residual 1 named, still
     // live, reachable only by an actor who already administers the organization.
     // When the provisioning design closes it, this test flips.
-    const victim = FIXTURE.beta.users.scheduler.id;
+    const victim = multi().beta.users.scheduler.id;
     const before = await admin.query<{ v: string }>(
       'select membership_set_version as v from users where id = $1',
       [victim],
@@ -877,9 +918,9 @@ describe('the membership-creation route — EV-M1-TENANCY residuals 1 and 2', ()
 
     const response = await harness.app.inject({
       method: 'POST',
-      url: `/organizations/${alpha.organizationId}/memberships`,
+      url: `/organizations/${alpha().organizationId}/memberships`,
       headers: {
-        ...(await headersFor(alpha.users.organizationAdmin.id, null)),
+        ...(await headersFor(alpha().users.organizationAdmin.id, null)),
         'content-type': 'application/json',
       },
       payload: { userId: victim, groupId: null, role: 'org_admin' },
@@ -914,15 +955,15 @@ describe('the membership-creation route — EV-M1-TENANCY residuals 1 and 2', ()
     // server quietly ignores; a permissive schema here would have re-opened it.
     const response = await harness.app.inject({
       method: 'POST',
-      url: `/organizations/${alpha.organizationId}/memberships`,
+      url: `/organizations/${alpha().organizationId}/memberships`,
       headers: {
-        ...(await headersFor(alpha.users.organizationAdmin.id, null)),
+        ...(await headersFor(alpha().users.organizationAdmin.id, null)),
         'content-type': 'application/json',
       },
       payload: {
-        membershipId: FIXTURE.beta.users.scheduler.membershipId,
-        userId: alpha.users.groupOnly.id,
-        groupId: alpha.groupTwo.id,
+        membershipId: multi().beta.users.scheduler.membershipId,
+        userId: alpha().users.groupOnly.id,
+        groupId: alpha().groupTwo.id,
         role: 'viewer',
       },
     });
@@ -936,14 +977,14 @@ describe('the membership-creation route — EV-M1-TENANCY residuals 1 and 2', ()
   it('an authorized administrator CAN create a membership for a user of its own organization', async () => {
     const response = await harness.app.inject({
       method: 'POST',
-      url: `/organizations/${alpha.organizationId}/memberships`,
+      url: `/organizations/${alpha().organizationId}/memberships`,
       headers: {
-        ...(await headersFor(alpha.users.organizationAdmin.id, null)),
+        ...(await headersFor(alpha().users.organizationAdmin.id, null)),
         'content-type': 'application/json',
       },
       payload: {
-        userId: alpha.users.groupOnly.id,
-        groupId: alpha.groupTwo.id,
+        userId: alpha().users.groupOnly.id,
+        groupId: alpha().groupTwo.id,
         role: 'viewer',
       },
     });
@@ -972,8 +1013,8 @@ describe('FAD-12 — the evaluation and the mutation share ONE unit of work', ()
     harness.runner.resetCalls();
     const response = await harness.app.inject({
       method: 'POST',
-      url: groupPath,
-      headers: await headersFor(alpha.users.scheduler.id, alpha.groupOne.id),
+      url: groupPath(),
+      headers: await headersFor(alpha().users.scheduler.id, alpha().groupOne.id),
     });
     expect(response.statusCode).toBe(200);
     expect(
@@ -1002,18 +1043,18 @@ describe('FAD-12 — the evaluation and the mutation share ONE unit of work', ()
       }
     };
 
-    const before = await lastActiveAt(admin, alpha.users.scheduler.membershipId);
+    const before = await lastActiveAt(admin, alpha().users.scheduler.membershipId);
     try {
       const response = await harness.app.inject({
         method: 'POST',
-        url: groupPath,
-        headers: await headersFor(alpha.users.scheduler.id, alpha.groupOne.id),
+        url: groupPath(),
+        headers: await headersFor(alpha().users.scheduler.id, alpha().groupOne.id),
       });
       expect(revoked, 'the interleaving never fired — the test proved nothing').toBe(true);
       expect(response.statusCode, 'a revoked entitlement was authorized by a stale snapshot').toBe(
         404,
       );
-      const after = await lastActiveAt(admin, alpha.users.scheduler.membershipId);
+      const after = await lastActiveAt(admin, alpha().users.scheduler.membershipId);
       expect(after?.getTime() ?? null).toBe(before?.getTime() ?? null);
       log('entitlement revoked between snapshot and command: 404, no write');
     } finally {
@@ -1037,8 +1078,8 @@ describe('P-8 and P-9 over HTTP — the namespaces stay disjoint', () => {
   it('the organization administrator is allowed at organization scope', async () => {
     const response = await harness.app.inject({
       method: 'POST',
-      url: organizationPath,
-      headers: await headersFor(alpha.users.organizationAdmin.id, null),
+      url: organizationPath(),
+      headers: await headersFor(alpha().users.organizationAdmin.id, null),
     });
     expect(response.statusCode).toBe(200);
   });
@@ -1049,8 +1090,8 @@ describe('P-8 and P-9 over HTTP — the namespaces stay disjoint', () => {
     // the evaluator, and equally binding.
     const response = await harness.app.inject({
       method: 'POST',
-      url: groupPath,
-      headers: await headersFor(alpha.users.organizationAdmin.id, alpha.groupOne.id),
+      url: groupPath(),
+      headers: await headersFor(alpha().users.organizationAdmin.id, alpha().groupOne.id),
     });
     expect(response.statusCode).toBe(404);
   });
@@ -1058,8 +1099,8 @@ describe('P-8 and P-9 over HTTP — the namespaces stay disjoint', () => {
   it('P-9: a group-only principal is refused an organization-scoped action', async () => {
     const response = await harness.app.inject({
       method: 'POST',
-      url: organizationPath,
-      headers: await headersFor(alpha.users.groupOnly.id, null),
+      url: organizationPath(),
+      headers: await headersFor(alpha().users.groupOnly.id, null),
     });
     expect(response.statusCode).toBe(404);
   });
@@ -1103,13 +1144,13 @@ describe('OPUS-M1-004 — every OPUS-M1-002 mutation emits its audit event', () 
     const userId = await createSyntheticUser();
     const response = await harness.app.inject({
       method: 'POST',
-      url: `/organizations/${alpha.organizationId}/memberships`,
-      headers: await headersForCorrelated(alpha.users.organizationAdmin.id, null, correlationId),
+      url: `/organizations/${alpha().organizationId}/memberships`,
+      headers: await headersForCorrelated(alpha().users.organizationAdmin.id, null, correlationId),
       // A GROUP membership, like the success case above. An extra ORGANIZATION
       // membership in Alpha would break `roles-and-schema.test.ts`'s X-07, which
       // asserts the fixture has exactly one — correctly, since a second one
       // changes what an organization-scoped read is supposed to see.
-      payload: { userId, groupId: alpha.groupTwo.id, role: 'viewer' },
+      payload: { userId, groupId: alpha().groupTwo.id, role: 'viewer' },
     });
     expect(response.statusCode, response.body).toBe(200);
     const created = response.json<{ membershipId: string }>();
@@ -1122,7 +1163,7 @@ describe('OPUS-M1-004 — every OPUS-M1-002 mutation emits its audit event', () 
       created.membershipId,
     );
     expect(rows[0]?.actor_kind).toBe('membership');
-    expect(rows[0]?.actor_membership_id).toBe(alpha.users.organizationAdmin.membershipId);
+    expect(rows[0]?.actor_membership_id).toBe(alpha().users.organizationAdmin.membershipId);
     // An organization-scoped mutation files against no group — `audit_events`'s
     // organization INSERT policy requires `group_id IS NULL`, so this is the
     // database agreeing as well as the assertion.
@@ -1137,13 +1178,13 @@ describe('OPUS-M1-004 — every OPUS-M1-002 mutation emits its audit event', () 
     // `membership.touch_self` to an actor another test expects to be denied
     // makes that test fail for a reason nobody can see from its own source. The
     // window is closed in `finally` regardless.
-    const target = alpha.users.departed.membershipId;
+    const target = alpha().users.departed.membershipId;
     let grantId: string | undefined;
     try {
       const response = await harness.app.inject({
         method: 'POST',
-        url: `/organizations/${alpha.organizationId}/memberships/${target}/grants`,
-        headers: await headersForCorrelated(alpha.users.organizationAdmin.id, null, correlationId),
+        url: `/organizations/${alpha().organizationId}/memberships/${target}/grants`,
+        headers: await headersForCorrelated(alpha().users.organizationAdmin.id, null, correlationId),
         payload: { membershipId: target, capabilityKey: 'messaging.bulk_send', granted: true },
       });
       expect(response.statusCode, response.body).toBe(200);
@@ -1168,8 +1209,8 @@ describe('OPUS-M1-004 — every OPUS-M1-002 mutation emits its audit event', () 
         // `core_scheduling`, because it is the module the fixture actually
         // entitles. Suspend-and-restore is the same shape the A-09 case above
         // uses, and the restore is in a `finally` for the same reason.
-        url: `/organizations/${alpha.organizationId}/entitlements/core_scheduling`,
-        headers: await headersForCorrelated(alpha.users.organizationAdmin.id, null, correlationId),
+        url: `/organizations/${alpha().organizationId}/entitlements/core_scheduling`,
+        headers: await headersForCorrelated(alpha().users.organizationAdmin.id, null, correlationId),
         payload: { state: 'suspended' },
       });
       expect(response.statusCode, response.body).toBe(200);
@@ -1203,7 +1244,7 @@ describe('OPUS-M1-004 — every OPUS-M1-002 mutation emits its audit event', () 
         await query
           .updateTable('entitlements')
           .set({ state: 'active' })
-          .where('organization_id', '=', alpha.organizationId)
+          .where('organization_id', '=', alpha().organizationId)
           .where('module_key', '=', 'core_scheduling')
           .execute();
       });
@@ -1213,7 +1254,7 @@ describe('OPUS-M1-004 — every OPUS-M1-002 mutation emits its audit event', () 
   it('a mutation DENIED BY THE EVALUATOR writes neither the change nor an audit row', async () => {
     /* ── T-02: this test denied one layer too early, and proved nothing ───────
      *
-     * It used to drive `alpha.users.groupOnly` at the organization-scoped
+     * It used to drive `alpha().users.groupOnly` at the organization-scoped
      * membership-creation route. That principal holds NO organization
      * membership, so SPEC-01 §2.3 step 2 refuses in the middleware and the
      * handler never runs at all — which means the test passed identically
@@ -1222,7 +1263,7 @@ describe('OPUS-M1-004 — every OPUS-M1-002 mutation emits its audit event', () 
      * property.
      *
      * The actor is now one who **passes** §2.3 and is denied INSIDE the handler's
-     * open transaction: `alpha.users.member` holds an active group membership in
+     * open transaction: `alpha().users.member` holds an active group membership in
      * Group One, so step 2 resolves it, and the group role `member` does not
      * carry `membership.touch_self`, so SPEC-06 denies at L4.2.
      *
@@ -1240,14 +1281,14 @@ describe('OPUS-M1-004 — every OPUS-M1-002 mutation emits its audit event', () 
      * Then: no mutation, and no audit row. Together those say the handler
      * evaluated first and returned before writing either. */
     const correlationId = `authz-emit-d-${randomUUID().slice(0, 8)}`;
-    const membershipId = alpha.users.member.membershipId;
+    const membershipId = alpha().users.member.membershipId;
     const before = await lastActiveAt(admin, membershipId);
     harness.clearLogs();
 
     const response = await harness.app.inject({
       method: 'POST',
-      url: groupPath,
-      headers: await headersForCorrelated(alpha.users.member.id, alpha.groupOne.id, correlationId, {
+      url: groupPath(),
+      headers: await headersForCorrelated(alpha().users.member.id, alpha().groupOne.id, correlationId, {
         json: false,
       }),
     });
@@ -1288,14 +1329,14 @@ describe('OPUS-M1-004 — every OPUS-M1-002 mutation emits its audit event', () 
     // An explicit ALLOW grant (SPEC-06 L4.1) turns exactly one dimension around
     // and the mutation and its audit row both appear.
     const correlationId = `authz-emit-a-${randomUUID().slice(0, 8)}`;
-    const membershipId = alpha.users.member.membershipId;
+    const membershipId = alpha().users.member.membershipId;
     const before = await lastActiveAt(admin, membershipId);
     let grantId: string | undefined;
     try {
       const write = await harness.app.inject({
         method: 'POST',
-        url: `/organizations/${alpha.organizationId}/memberships/${membershipId}/grants`,
-        headers: await headersForCorrelated(alpha.users.organizationAdmin.id, null, `${correlationId}-g`),
+        url: `/organizations/${alpha().organizationId}/memberships/${membershipId}/grants`,
+        headers: await headersForCorrelated(alpha().users.organizationAdmin.id, null, `${correlationId}-g`),
         payload: { membershipId, capabilityKey: 'membership.touch_self', granted: true },
       });
       expect(write.statusCode, write.body).toBe(200);
@@ -1303,10 +1344,10 @@ describe('OPUS-M1-004 — every OPUS-M1-002 mutation emits its audit event', () 
 
       const response = await harness.app.inject({
         method: 'POST',
-        url: groupPath,
+        url: groupPath(),
         headers: await headersForCorrelated(
-          alpha.users.member.id,
-          alpha.groupOne.id,
+          alpha().users.member.id,
+          alpha().groupOne.id,
           correlationId,
           { json: false },
         ),
@@ -1333,14 +1374,14 @@ describe('OPUS-M1-004 — every OPUS-M1-002 mutation emits its audit event', () 
     // with the failed insert.
     const first = `authz-emit-x1-${randomUUID().slice(0, 8)}`;
     const second = `authz-emit-x2-${randomUUID().slice(0, 8)}`;
-    const target = alpha.users.departed.membershipId;
+    const target = alpha().users.departed.membershipId;
     let grantId: string | undefined;
 
     try {
       const ok = await harness.app.inject({
         method: 'POST',
-        url: `/organizations/${alpha.organizationId}/memberships/${target}/grants`,
-        headers: await headersForCorrelated(alpha.users.organizationAdmin.id, null, first),
+        url: `/organizations/${alpha().organizationId}/memberships/${target}/grants`,
+        headers: await headersForCorrelated(alpha().users.organizationAdmin.id, null, first),
         payload: { membershipId: target, capabilityKey: 'documents.manage', granted: true },
       });
       expect(ok.statusCode, ok.body).toBe(200);
@@ -1349,8 +1390,8 @@ describe('OPUS-M1-004 — every OPUS-M1-002 mutation emits its audit event', () 
 
       const clash = await harness.app.inject({
         method: 'POST',
-        url: `/organizations/${alpha.organizationId}/memberships/${target}/grants`,
-        headers: await headersForCorrelated(alpha.users.organizationAdmin.id, null, second),
+        url: `/organizations/${alpha().organizationId}/memberships/${target}/grants`,
+        headers: await headersForCorrelated(alpha().users.organizationAdmin.id, null, second),
         payload: { membershipId: target, capabilityKey: 'documents.manage', granted: false },
       });
       expect(clash.statusCode, 'the overlapping window was accepted (A-12)').toBe(409);
@@ -1397,8 +1438,8 @@ describe('the surfaces agree on the SAME case, not merely on the same status', (
     harness.clearLogs();
     const response = await harness.app.inject({
       method: 'POST',
-      url: groupPath,
-      headers: await headersFor(alpha.users.member.id, alpha.groupOne.id),
+      url: groupPath(),
+      headers: await headersFor(alpha().users.member.id, alpha().groupOne.id),
     });
 
     const denial = harness.logs.find(
@@ -1442,7 +1483,7 @@ describe('a principal cannot grant themselves a capability through a SECOND memb
    * `context.principalUserId`, and the database trigger compares the two
    * memberships' `user_id`s.
    */
-  const adminUser = FIXTURE.alpha.users.organizationAdmin;
+  const adminUser = () => multi().alpha.users.organizationAdmin;
   let selfGroupMembershipId: string | undefined;
 
   afterEach(async () => {
@@ -1458,12 +1499,12 @@ describe('a principal cannot grant themselves a capability through a SECOND memb
   it('hop 1 succeeds — an administrator may legitimately give themselves a group membership', async () => {
     const response = await harness.app.inject({
       method: 'POST',
-      url: `/organizations/${alpha.organizationId}/memberships`,
+      url: `/organizations/${alpha().organizationId}/memberships`,
       headers: {
-        ...(await headersFor(adminUser.id, null)),
+        ...(await headersFor(adminUser().id, null)),
         'content-type': 'application/json',
       },
-      payload: { userId: adminUser.id, groupId: alpha.groupTwo.id, role: 'member' },
+      payload: { userId: adminUser().id, groupId: alpha().groupTwo.id, role: 'member' },
     });
     expect(response.statusCode, response.body).toBe(200);
     selfGroupMembershipId = response.json<{ membershipId: string }>().membershipId;
@@ -1472,21 +1513,21 @@ describe('a principal cannot grant themselves a capability through a SECOND memb
   it('hop 2 is REFUSED: the grant names a membership of the acting principal', async () => {
     const created = await harness.app.inject({
       method: 'POST',
-      url: `/organizations/${alpha.organizationId}/memberships`,
+      url: `/organizations/${alpha().organizationId}/memberships`,
       headers: {
-        ...(await headersFor(adminUser.id, null)),
+        ...(await headersFor(adminUser().id, null)),
         'content-type': 'application/json',
       },
-      payload: { userId: adminUser.id, groupId: alpha.groupTwo.id, role: 'member' },
+      payload: { userId: adminUser().id, groupId: alpha().groupTwo.id, role: 'member' },
     });
     expect(created.statusCode, created.body).toBe(200);
     selfGroupMembershipId = created.json<{ membershipId: string }>().membershipId;
 
     const grant = await harness.app.inject({
       method: 'POST',
-      url: `/organizations/${alpha.organizationId}/memberships/${selfGroupMembershipId}/grants`,
+      url: `/organizations/${alpha().organizationId}/memberships/${selfGroupMembershipId}/grants`,
       headers: {
-        ...(await headersFor(adminUser.id, null)),
+        ...(await headersFor(adminUser().id, null)),
         'content-type': 'application/json',
       },
       payload: {
@@ -1519,12 +1560,12 @@ describe('a principal cannot grant themselves a capability through a SECOND memb
     // the route half exactly.
     const created = await harness.app.inject({
       method: 'POST',
-      url: `/organizations/${alpha.organizationId}/memberships`,
+      url: `/organizations/${alpha().organizationId}/memberships`,
       headers: {
-        ...(await headersFor(adminUser.id, null)),
+        ...(await headersFor(adminUser().id, null)),
         'content-type': 'application/json',
       },
-      payload: { userId: adminUser.id, groupId: alpha.groupTwo.id, role: 'member' },
+      payload: { userId: adminUser().id, groupId: alpha().groupTwo.id, role: 'member' },
     });
     expect(created.statusCode, created.body).toBe(200);
     selfGroupMembershipId = created.json<{ membershipId: string }>().membershipId;
@@ -1532,9 +1573,9 @@ describe('a principal cannot grant themselves a capability through a SECOND memb
     harness.clearLogs();
     const grant = await harness.app.inject({
       method: 'POST',
-      url: `/organizations/${alpha.organizationId}/memberships/${selfGroupMembershipId}/grants`,
+      url: `/organizations/${alpha().organizationId}/memberships/${selfGroupMembershipId}/grants`,
       headers: {
-        ...(await headersFor(adminUser.id, null)),
+        ...(await headersFor(adminUser().id, null)),
         'content-type': 'application/json',
       },
       payload: {
@@ -1560,12 +1601,12 @@ describe('a principal cannot grant themselves a capability through a SECOND memb
   it('and the DATABASE refuses it too, with the route bypassed entirely', async () => {
     const created = await harness.app.inject({
       method: 'POST',
-      url: `/organizations/${alpha.organizationId}/memberships`,
+      url: `/organizations/${alpha().organizationId}/memberships`,
       headers: {
-        ...(await headersFor(adminUser.id, null)),
+        ...(await headersFor(adminUser().id, null)),
         'content-type': 'application/json',
       },
-      payload: { userId: adminUser.id, groupId: alpha.groupTwo.id, role: 'member' },
+      payload: { userId: adminUser().id, groupId: alpha().groupTwo.id, role: 'member' },
     });
     expect(created.statusCode, created.body).toBe(200);
     selfGroupMembershipId = created.json<{ membershipId: string }>().membershipId;
@@ -1577,8 +1618,8 @@ describe('a principal cannot grant themselves a capability through a SECOND memb
           .insertInto('capability_grants')
           .values({
             id: randomUUID(),
-            organization_id: alpha.organizationId,
-            group_id: alpha.groupTwo.id,
+            organization_id: alpha().organizationId,
+            group_id: alpha().groupTwo.id,
             membership_id: targetId,
             capability_key: 'schedule.publish',
             granted: true,
@@ -1590,20 +1631,20 @@ describe('a principal cannot grant themselves a capability through a SECOND memb
   });
 
   it('granting ANOTHER principal the same capability still works — the gate is not a wall', async () => {
-    const grantee = FIXTURE.alpha.users.groupTwoScheduler.membershipId;
+    const otherGrantee = multi().alpha.users.groupTwoScheduler.membershipId;
     const response = await harness.app.inject({
       method: 'POST',
-      url: `/organizations/${alpha.organizationId}/memberships/${grantee}/grants`,
+      url: `/organizations/${alpha().organizationId}/memberships/${otherGrantee}/grants`,
       headers: {
-        ...(await headersFor(adminUser.id, null)),
+        ...(await headersFor(adminUser().id, null)),
         'content-type': 'application/json',
       },
-      payload: { membershipId: grantee, capabilityKey: 'vacation.commit', granted: true },
+      payload: { membershipId: otherGrantee, capabilityKey: 'vacation.commit', granted: true },
     });
     expect(response.statusCode, response.body).toBe(200);
     await admin.query(
       `delete from capability_grants where membership_id = $1 and capability_key = 'vacation.commit'`,
-      [grantee],
+      [otherGrantee],
     );
   });
 });
@@ -1619,10 +1660,10 @@ describe('a capability grant must carry its membership\'s group', () => {
           .insertInto('capability_grants')
           .values({
             id: randomUUID(),
-            organization_id: alpha.organizationId,
+            organization_id: alpha().organizationId,
             // The membership is in Group One; the grant claims Group Two.
-            group_id: alpha.groupTwo.id,
-            membership_id: alpha.users.member.membershipId,
+            group_id: alpha().groupTwo.id,
+            membership_id: alpha().users.member.membershipId,
             capability_key: 'vacation.commit',
             granted: true,
           })
@@ -1640,7 +1681,7 @@ describe('a capability grant must carry its membership\'s group', () => {
         query
           .updateTable('roles')
           .set({ status: 'deprecated' })
-          .where('organization_id', '=', alpha.organizationId)
+          .where('organization_id', '=', alpha().organizationId)
           .where('key', '=', 'org_admin')
           .execute(),
       ),

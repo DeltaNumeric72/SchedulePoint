@@ -4,10 +4,11 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { TENANT_TABLES } from '../../src/db/schema.js';
 import { adminClient } from '../support/admin-client.js';
-import { FIXTURE, administratorContext, groupContext } from '../support/fixtures.js';
+import { groupContext } from '../support/fixtures.js';
 import {
   createRuntime,
   expectedVisibleUserIds,
+  actualOrganizations,
   impossibleCensusRows,
   log,
   tenantRowCensus,
@@ -15,6 +16,19 @@ import {
   type ProbeResult,
   type Runtime,
 } from '../support/harness.js';
+import { ownedMulti } from '../support/owned-multi.js';
+
+/**
+ * FAD-15 Layer 2 — this file owns its tenant.
+ *
+ * It used to write to the shared MULTI baseline, which every other file also read.
+ * NR-13 measured what that cost: six order-dependent tests across five files, and
+ * eleven of twenty-four files modifying rows the shared seed created. The fixture
+ * below has the same shape and fresh identifiers, and RLS — not agreement — is what
+ * keeps it out of everybody else's queries.
+ */
+const multi = ownedMulti('red-cases-probe-is-not-vacuous');
+
 
 /**
  * **Red case: the wrong-tenant probe must be able to fail.**
@@ -69,14 +83,14 @@ describe('the wrong-tenant probe reports a violation when one is expected', () =
     // coordinates. Every visible row is now "wrong", and the probe must say so
     // on every table that carries a group.
     const realContext = groupContext(
-      FIXTURE.alpha.organizationId,
-      FIXTURE.alpha.groupOne.id,
-      FIXTURE.alpha.users.scheduler.membershipId,
+      multi().alpha.organizationId,
+      multi().alpha.groupOne.id,
+      multi().alpha.users.scheduler.membershipId,
     );
     const misdeclared = groupContext(
-      FIXTURE.alpha.organizationId,
-      FIXTURE.alpha.groupTwo.id,
-      FIXTURE.alpha.users.scheduler.membershipId,
+      multi().alpha.organizationId,
+      multi().alpha.groupTwo.id,
+      multi().alpha.users.scheduler.membershipId,
     );
     const wrongUserExpectation = await expectedVisibleUserIds(admin, misdeclared);
 
@@ -107,14 +121,14 @@ describe('the wrong-tenant probe reports a violation when one is expected', () =
 
   it('RED: probing Alpha\'s rows against Beta\'s expectation reports wrong > 0 on every table', async () => {
     const realContext = groupContext(
-      FIXTURE.alpha.organizationId,
-      FIXTURE.alpha.groupOne.id,
-      FIXTURE.alpha.users.scheduler.membershipId,
+      multi().alpha.organizationId,
+      multi().alpha.groupOne.id,
+      multi().alpha.users.scheduler.membershipId,
     );
     const otherOrganization = groupContext(
-      FIXTURE.beta.organizationId,
-      FIXTURE.beta.groupOne.id,
-      FIXTURE.beta.users.scheduler.membershipId,
+      multi().beta.organizationId,
+      multi().beta.groupOne.id,
+      multi().beta.users.scheduler.membershipId,
     );
     const wrongUserExpectation = await expectedVisibleUserIds(admin, otherOrganization);
 
@@ -140,7 +154,7 @@ describe('the wrong-tenant probe reports a violation when one is expected', () =
       assertReportsWrong(query, GROUP_PROBABLE),
     );
     await runtime.runner.run(
-      administratorContext(FIXTURE.alpha.organizationId, 'probe-red-organization'),
+      multi.administrator(multi().alpha.organizationId, 'probe-red-organization'),
       ({ query }) => assertReportsWrong(query, ORGANIZATION_CONTEXT_ONLY),
     );
 
@@ -174,16 +188,16 @@ describe('the wrong-tenant probe reports a violation when one is expected', () =
     };
 
     const group = groupContext(
-      FIXTURE.alpha.organizationId,
-      FIXTURE.alpha.groupOne.id,
-      FIXTURE.alpha.users.scheduler.membershipId,
+      multi().alpha.organizationId,
+      multi().alpha.groupOne.id,
+      multi().alpha.users.scheduler.membershipId,
     );
     await runtime.runner.run(group, ({ query, context }) =>
       assertCleanAndNonVacuous(query, context, GROUP_PROBABLE),
     );
 
-    const organization = administratorContext(
-      FIXTURE.alpha.organizationId,
+    const organization = multi.administrator(
+      multi().alpha.organizationId,
       'probe-green-organization',
     );
     await runtime.runner.run(organization, ({ query, context }) =>
@@ -194,9 +208,10 @@ describe('the wrong-tenant probe reports a violation when one is expected', () =
 
 describe('the ground-truth census reports a violation when one is planted', () => {
   it('RED: a row in a partition that does not exist is flagged', async () => {
-    const partitions = await actualPartitionsWithout(FIXTURE.alpha.groupOne.id);
+    const partitions = await actualPartitionsWithout(multi().alpha.groupOne.id);
+    const organizations = await actualOrganizations(admin);
     const census = await tenantRowCensus(admin);
-    const impossible = impossibleCensusRows(census, partitions);
+    const impossible = impossibleCensusRows(census, partitions, organizations);
     expect(
       impossible.length,
       'the census did not flag memberships whose partition was removed from the expectation',
@@ -207,8 +222,9 @@ describe('the ground-truth census reports a violation when one is planted', () =
   it('GREEN: with the real partitions, the census is clean', async () => {
     const { actualPartitions } = await import('../support/harness.js');
     const partitions = await actualPartitions(admin);
+    const organizations = await actualOrganizations(admin);
     const census = await tenantRowCensus(admin);
-    expect(impossibleCensusRows(census, partitions)).toEqual([]);
+    expect(impossibleCensusRows(census, partitions, organizations)).toEqual([]);
   });
 });
 

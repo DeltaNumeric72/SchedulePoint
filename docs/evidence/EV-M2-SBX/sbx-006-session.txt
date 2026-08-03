@@ -1,0 +1,23 @@
+SBX-006 — Session timeout and persistence
+generated: 2026-08-03T18:04:52.012Z
+
+STATE: EVIDENCE_BLOCKED   falsifiability probe: NOT_APPLICABLE   gate-required: no
+
+SPEC-16 §1 contract
+  owner                    OPUS-M2-001 (implementer) / Fable (acceptance)
+  fixtureProvenance        MULTI — no fixture beyond a signed-in principal is needed.
+  deterministicSetup       Would require the SPEC-16 §4 controllable virtual clock; wall-clock sampling is not evidence because it is unrepeatable.
+  externalDependency       None, once a session subsystem exists.
+  faultControls            Forced disconnection and idle simulation, once there is a session to idle.
+  objectiveOracle          Measured idle and absolute lifetimes, bounded and consistent across devices — a number, not an impression.
+  retainedArtifact         docs/evidence/EV-M2-SBX/sbx-006-session.txt
+  environment              MULTI
+  earliestExecutionPoint   E2
+
+EVIDENCE_BLOCKED sub-scenarios (never a pass, never a silent skip):
+  - idle session lifetime, with and without "stay signed in"
+      EVIDENCE_BLOCKED(authn milestone (no session subsystem))
+  - absolute session lifetime
+      EVIDENCE_BLOCKED(authn milestone (no session subsystem))
+  - concurrent-device behaviour
+      EVIDENCE_BLOCKED(authn milestone (no session subsystem))

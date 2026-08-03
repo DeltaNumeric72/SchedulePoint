@@ -8,7 +8,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { defaultJobHandlers, contextProbeTouchHandler, CONTEXT_PROBE_TOUCH_JOB } from '../../src/jobs/handlers.js';
 import { executeJob } from '../../src/jobs/worker.js';
 import { adminClient } from '../support/admin-client.js';
-import { FIXTURE, administratorContext } from '../support/fixtures.js';
+
 import { createRuntime, log, type Runtime } from '../support/harness.js';
 import {
   buildHttpHarness,
@@ -17,6 +17,19 @@ import {
   lastActiveAt,
   type HttpHarness,
 } from '../support/http.js';
+import { ownedMulti } from '../support/owned-multi.js';
+
+/**
+ * FAD-15 Layer 2 — this file owns its tenant.
+ *
+ * It used to write to the shared MULTI baseline, which every other file also read.
+ * NR-13 measured what that cost: six order-dependent tests across five files, and
+ * eleven of twenty-four files modifying rows the shared seed created. The fixture
+ * below has the same shape and fresh identifiers, and RLS — not agreement — is what
+ * keeps it out of everybody else's queries.
+ */
+const multi = ownedMulti('jobs-job-context');
+
 
 /**
  * **SPEC-01 §7.1 T-03 — the job-enqueue surface**, and **SPEC-01 §6 / SPEC-06 §5**
@@ -44,8 +57,9 @@ let harness: HttpHarness;
 let worker: Runtime;
 let admin: pg.Client;
 
-const alpha = FIXTURE.alpha;
-const enqueuePath = `/organizations/${alpha.organizationId}/groups/${alpha.groupOne.id}/context-probe/enqueue`;
+/** Lazy: the owned fixture does not exist until `beforeAll` has run. */
+const alpha = () => multi().alpha;
+const enqueuePath = () => `/organizations/${alpha().organizationId}/groups/${alpha().groupOne.id}/context-probe/enqueue`;
 
 beforeAll(async () => {
   admin = adminClient();
@@ -83,7 +97,7 @@ async function setMembershipField(
   // membership change with no acting membership is refused at the database
   // (EV-M1-TENANCY residual 4's control).
   await harness.runtime.runner.run(
-    administratorContext(alpha.organizationId, 'job-context-role-change'),
+    multi.administrator(alpha().organizationId, 'job-context-role-change'),
     async ({ query }) => {
       await query
         .updateTable('memberships')
@@ -106,7 +120,7 @@ async function asAdministrator<T>(
   fn: (query: Parameters<Parameters<HttpHarness['runtime']['runner']['run']>[1]>[0]['query']) => Promise<T>,
 ): Promise<T> {
   return harness.runtime.runner.run(
-    administratorContext(alpha.organizationId, 'job-context-admin'),
+    multi.administrator(alpha().organizationId, 'job-context-admin'),
     async ({ query }) => fn(query),
   );
 }
@@ -119,7 +133,7 @@ async function setEntitlementState(
     await query
       .updateTable('entitlements')
       .set({ state })
-      .where('organization_id', '=', alpha.organizationId)
+      .where('organization_id', '=', alpha().organizationId)
       .where('module_key', '=', moduleKey)
       .execute();
   });
@@ -134,7 +148,7 @@ async function setModuleAvailability(
     await query
       .updateTable('group_module_availability')
       .set({ available })
-      .where('organization_id', '=', alpha.organizationId)
+      .where('organization_id', '=', alpha().organizationId)
       .where('group_id', '=', groupId)
       .where('module_key', '=', moduleKey)
       .execute();
@@ -153,12 +167,12 @@ async function writeDenyGrant(
       .insertInto('capability_grants')
       .values({
         id,
-        organization_id: alpha.organizationId,
+        organization_id: alpha().organizationId,
         group_id: groupId,
         membership_id: membershipId,
         capability_key: capabilityKey,
         granted: false,
-        granted_by_membership_id: alpha.users.organizationAdmin.membershipId,
+        granted_by_membership_id: alpha().users.organizationAdmin.membershipId,
       })
       .execute();
   });
@@ -187,10 +201,10 @@ async function removeGrant(id: string): Promise<void> {
 function frozenContext(overrides: Partial<FrozenJobContext> = {}): FrozenJobContext {
   return {
     actionScope: 'group',
-    expectedOrganizationId: alpha.organizationId,
-    expectedGroupId: alpha.groupOne.id,
-    membershipId: alpha.users.scheduler.membershipId,
-    principalUserId: alpha.users.scheduler.id,
+    expectedOrganizationId: alpha().organizationId,
+    expectedGroupId: alpha().groupOne.id,
+    membershipId: alpha().users.scheduler.membershipId,
+    principalUserId: alpha().users.scheduler.id,
     systemActor: false,
     correlationId: 'job-context-test',
     authorizationVersionAtEnqueue: 'av1:1.1.1.1',
@@ -212,13 +226,13 @@ describe('SPEC-01 §6 — enqueue freezes the context', () => {
   it('T-03 (job surface) an enqueue carries the verified context, frozen', async () => {
     const response = await harness.app.inject({
       method: 'POST',
-      url: enqueuePath,
+      url: enqueuePath(),
       headers: contextHeaders(
-        alpha.users.scheduler.id,
+        alpha().users.scheduler.id,
         await currentCounters(admin, {
-          organizationId: alpha.organizationId,
-          groupId: alpha.groupOne.id,
-          userId: alpha.users.scheduler.id,
+          organizationId: alpha().organizationId,
+          groupId: alpha().groupOne.id,
+          userId: alpha().users.scheduler.id,
         }),
       ),
     });
@@ -237,9 +251,9 @@ describe('SPEC-01 §6 — enqueue freezes the context', () => {
     }>();
 
     expect(body.kind).toBe(CONTEXT_PROBE_TOUCH_JOB);
-    expect(body.frozen.organizationId).toBe(alpha.organizationId);
-    expect(body.frozen.groupId).toBe(alpha.groupOne.id);
-    expect(body.frozen.membershipId).toBe(alpha.users.scheduler.membershipId);
+    expect(body.frozen.organizationId).toBe(alpha().organizationId);
+    expect(body.frozen.groupId).toBe(alpha().groupOne.id);
+    expect(body.frozen.membershipId).toBe(alpha().users.scheduler.membershipId);
     expect(body.frozen.actionScope).toBe('group');
     expect(body.frozen.authorizationVersionAtEnqueue).toMatch(/^av1:/);
     expect(harness.jobQueue.jobs).toHaveLength(1);
@@ -249,13 +263,13 @@ describe('SPEC-01 §6 — enqueue freezes the context', () => {
   it('an unauthorized actor enqueues nothing at all', async () => {
     const response = await harness.app.inject({
       method: 'POST',
-      url: enqueuePath,
+      url: enqueuePath(),
       headers: contextHeaders(
-        alpha.users.member.id,
+        alpha().users.member.id,
         await currentCounters(admin, {
-          organizationId: alpha.organizationId,
-          groupId: alpha.groupOne.id,
-          userId: alpha.users.member.id,
+          organizationId: alpha().organizationId,
+          groupId: alpha().groupOne.id,
+          userId: alpha().users.member.id,
         }),
       ),
     });
@@ -266,8 +280,8 @@ describe('SPEC-01 §6 — enqueue freezes the context', () => {
   it('the frozen context is a COPY — mutating the caller\'s object cannot retarget the job', async () => {
     const mutable = { ...frozenContext() };
     const enqueued = await harness.jobQueue.enqueue(CONTEXT_PROBE_TOUCH_JOB, mutable, {});
-    mutable.expectedGroupId = alpha.groupTwo.id;
-    expect(enqueued.context.expectedGroupId).toBe(alpha.groupOne.id);
+    mutable.expectedGroupId = alpha().groupTwo.id;
+    expect(enqueued.context.expectedGroupId).toBe(alpha().groupOne.id);
   });
 });
 
@@ -275,11 +289,11 @@ describe('SPEC-01 §6 / SPEC-06 §5 — execution re-evaluates against current s
   const handlers = defaultJobHandlers();
 
   it('a job whose actor still holds the capability completes, and writes under the frozen tenant', async () => {
-    const before = await lastActiveAt(admin, alpha.users.scheduler.membershipId);
+    const before = await lastActiveAt(admin, alpha().users.scheduler.membershipId);
     const outcome = await executeJob(worker.runner, job(frozenContext()), handlers);
 
     expect(outcome.status).toBe('completed');
-    const after = await lastActiveAt(admin, alpha.users.scheduler.membershipId);
+    const after = await lastActiveAt(admin, alpha().users.scheduler.membershipId);
     expect(after?.getTime() ?? null).not.toBe(before?.getTime() ?? null);
     log('job completed under app_worker and wrote inside the frozen tenant');
   });
@@ -322,7 +336,7 @@ describe('SPEC-01 §6 / SPEC-06 §5 — execution re-evaluates against current s
 
   it('a job whose actor LOST the capability terminates cancelled_unauthorized, writing nothing', async () => {
     // "The enqueue-time decision is evidence of intent, never authority."
-    const membershipId = alpha.users.scheduler.membershipId;
+    const membershipId = alpha().users.scheduler.membershipId;
     const before = await lastActiveAt(admin, membershipId);
 
     await setMembershipField(membershipId, { group_role: 'member' });
@@ -340,7 +354,7 @@ describe('SPEC-01 §6 / SPEC-06 §5 — execution re-evaluates against current s
   });
 
   it('a job whose membership was ENDED terminates cancelled_unauthorized', async () => {
-    const membershipId = alpha.users.scheduler.membershipId;
+    const membershipId = alpha().users.scheduler.membershipId;
     await setMembershipField(membershipId, { status: 'ended' });
     try {
       const outcome = await executeJob(worker.runner, job(frozenContext()), handlers);
@@ -355,7 +369,7 @@ describe('SPEC-01 §6 / SPEC-06 §5 — execution re-evaluates against current s
     // it simply is not visible, and invisible is the same answer as revoked.
     const outcome = await executeJob(
       worker.runner,
-      job(frozenContext({ membershipId: FIXTURE.beta.users.scheduler.membershipId })),
+      job(frozenContext({ membershipId: multi().beta.users.scheduler.membershipId })),
       handlers,
     );
     expect(outcome.status).toBe('cancelled_unauthorized');
@@ -434,14 +448,14 @@ describe('the dimensions the worker could NOT see before OPUS-M1-004 (SPEC-06 A-
    * are the reason FAD-13 called the gap "a real gap, not a cosmetic one".
    */
   it('L1: an entitlement revoked between enqueue and execution cancels the job', async () => {
-    const before = await lastActiveAt(admin, alpha.users.scheduler.membershipId);
+    const before = await lastActiveAt(admin, alpha().users.scheduler.membershipId);
     await setEntitlementState('core_scheduling', 'revoked');
     try {
       const outcome = await executeJob(worker.runner, job(frozenContext()), handlers);
       expect(outcome.status, 'a revoked module still ran its queued job').toBe(
         'cancelled_unauthorized',
       );
-      expect(await lastActiveAt(admin, alpha.users.scheduler.membershipId)).toStrictEqual(before);
+      expect(await lastActiveAt(admin, alpha().users.scheduler.membershipId)).toStrictEqual(before);
       log(`entitlement revoked after enqueue: ${outcome.status}`);
     } finally {
       await setEntitlementState('core_scheduling', 'active');
@@ -449,23 +463,23 @@ describe('the dimensions the worker could NOT see before OPUS-M1-004 (SPEC-06 A-
   });
 
   it('L2: the module made unavailable in the group cancels the job', async () => {
-    const before = await lastActiveAt(admin, alpha.users.scheduler.membershipId);
-    await setModuleAvailability(alpha.groupOne.id, 'core_scheduling', false);
+    const before = await lastActiveAt(admin, alpha().users.scheduler.membershipId);
+    await setModuleAvailability(alpha().groupOne.id, 'core_scheduling', false);
     try {
       const outcome = await executeJob(worker.runner, job(frozenContext()), handlers);
       expect(outcome.status).toBe('cancelled_unauthorized');
-      expect(await lastActiveAt(admin, alpha.users.scheduler.membershipId)).toStrictEqual(before);
+      expect(await lastActiveAt(admin, alpha().users.scheduler.membershipId)).toStrictEqual(before);
       log(`module availability withdrawn after enqueue: ${outcome.status}`);
     } finally {
-      await setModuleAvailability(alpha.groupOne.id, 'core_scheduling', true);
+      await setModuleAvailability(alpha().groupOne.id, 'core_scheduling', true);
     }
   });
 
   it('L4: an explicit DENY grant on the actor cancels the job (P-1)', async () => {
-    const before = await lastActiveAt(admin, alpha.users.scheduler.membershipId);
+    const before = await lastActiveAt(admin, alpha().users.scheduler.membershipId);
     const grantId = await writeDenyGrant(
-      alpha.users.scheduler.membershipId,
-      alpha.groupOne.id,
+      alpha().users.scheduler.membershipId,
+      alpha().groupOne.id,
       'membership.touch_self',
     );
     try {
@@ -473,7 +487,7 @@ describe('the dimensions the worker could NOT see before OPUS-M1-004 (SPEC-06 A-
       expect(outcome.status, 'an explicit deny grant did not reach the job surface').toBe(
         'cancelled_unauthorized',
       );
-      expect(await lastActiveAt(admin, alpha.users.scheduler.membershipId)).toStrictEqual(before);
+      expect(await lastActiveAt(admin, alpha().users.scheduler.membershipId)).toStrictEqual(before);
       log(`explicit deny grant: ${outcome.status}`);
     } finally {
       await removeGrant(grantId);
@@ -485,7 +499,7 @@ describe('the dimensions the worker could NOT see before OPUS-M1-004 (SPEC-06 A-
     // the evaluator's L3 cross-check compares the membership row against.
     const outcome = await executeJob(
       worker.runner,
-      job(frozenContext({ principalUserId: alpha.users.member.id })),
+      job(frozenContext({ principalUserId: alpha().users.member.id })),
       handlers,
     );
     expect(outcome.status).toBe('cancelled_unauthorized');
@@ -519,7 +533,7 @@ describe('the dimensions the worker could NOT see before OPUS-M1-004 (SPEC-06 A-
     // Re-adding the constraint at the end is a second assertion: `ADD CONSTRAINT`
     // validates every existing row, so it fails if the repair did not land or if
     // any other infinite bound leaked out of this test.
-    const membershipId = alpha.users.scheduler.membershipId;
+    const membershipId = alpha().users.scheduler.membershipId;
     await admin.query('alter table memberships drop constraint memberships_finite_window');
     try {
       await asAdministrator(async (query) => {

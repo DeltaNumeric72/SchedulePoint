@@ -8,7 +8,7 @@ import { createPool, type PoolOptions } from '../../src/db/pool.js';
 import { TENANT_TABLES, type TenantTable } from '../../src/db/schema.js';
 import { PgUnitOfWorkRunner } from '../../src/db/unit-of-work.js';
 import type { RoleName } from '../../src/db/roles.js';
-import { VALID_ORGANIZATIONS, VALID_PARTITIONS } from './fixtures.js';
+import { BASELINE_PARTITIONS } from './fixtures.js';
 
 /** A role's pool, runner and alert sink, disposed together. */
 export interface Runtime {
@@ -268,34 +268,50 @@ export async function tenantRowCensus(admin: pg.Client): Promise<CensusRow[]> {
  * The (organization, group) pairs that legitimately exist, read from ground
  * truth rather than hard-coded.
  *
- * The fixture's four pairs are in `VALID_PARTITIONS`, but tests create groups of
- * their own as write markers, and a census that flagged those would be measuring
- * the test rather than the system. Reading the pairs from `groups` keeps the
- * census honest: the question it asks is "does any row sit in a partition that
- * does not exist", and `groups` is what defines which partitions exist.
+ * The baseline's four pairs are in `BASELINE_PARTITIONS`, but tests create groups
+ * of their own as write markers — and since FAD-15 every mutating file
+ * provisions a whole tenant of its own — so a census that flagged those would be
+ * measuring the test rather than the system. Reading the pairs from `groups`
+ * keeps the census honest: the question it asks is "does any row sit in a
+ * partition that does not exist", and `groups` is what defines which partitions
+ * exist.
  */
 export async function actualPartitions(admin: pg.Client): Promise<ReadonlySet<string>> {
   const result = await admin.query<{ id: string; organization_id: string }>(
     'select id, organization_id from groups',
   );
   const pairs = new Set(result.rows.map((row) => `${row.organization_id}|${row.id}`));
-  // The fixture's pairs must always be among them; if a test deleted one, the
+  // The BASELINE's pairs must always be among them; if a test deleted one, the
   // census would silently start passing for the wrong reason.
-  for (const pair of VALID_PARTITIONS) {
-    if (!pairs.has(pair)) throw new Error(`fixture partition ${pair} has disappeared`);
+  for (const pair of BASELINE_PARTITIONS) {
+    if (!pairs.has(pair)) throw new Error(`baseline partition ${pair} has disappeared`);
   }
   return pairs;
+}
+
+/**
+ * The organizations that legitimately exist, read from ground truth.
+ *
+ * Before FAD-15 this was a hard-coded pair, because the suite had exactly one
+ * fixture. Owned fixtures make the set open, so it is read rather than asserted
+ * — the census's question is "does a row sit in an organization that does not
+ * exist", and `organizations` is what defines which do.
+ */
+export async function actualOrganizations(admin: pg.Client): Promise<ReadonlySet<string>> {
+  const result = await admin.query<{ id: string }>('select id from organizations');
+  return new Set(result.rows.map((row) => row.id));
 }
 
 /** Every census row whose (organization, group) partition cannot legitimately exist. */
 export function impossibleCensusRows(
   rows: readonly CensusRow[],
   partitions: ReadonlySet<string>,
+  organizations: ReadonlySet<string>,
 ): CensusRow[] {
   return rows.filter((row) => {
-    // A row's ORGANIZATION must always be one of the two that exist. That is the
-    // tenant boundary, and no test may create a third.
-    if (!VALID_ORGANIZATIONS.has(row.organizationId)) return true;
+    // A row's ORGANIZATION must exist. That is the tenant boundary: a row in an
+    // organization with no `organizations` row is unreachable by any context.
+    if (!organizations.has(row.organizationId)) return true;
     // `organizations` and organization-scoped `memberships` carry no group.
     if (row.groupId === null) return false;
     // `groups` rows are keyed by their own id, which by construction defines a

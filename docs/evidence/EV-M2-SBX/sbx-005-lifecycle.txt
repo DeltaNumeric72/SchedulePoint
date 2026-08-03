@@ -1,0 +1,36 @@
+SBX-005 — User invitation, activation, deactivation, impersonation
+generated: 2026-08-03T18:04:52.012Z
+
+STATE: PASS   falsifiability probe: FALSIFIABLE   gate-required: no
+
+SPEC-16 §1 contract
+  owner                    OPUS-M2-001 (implementer) / Fable (acceptance)
+  fixtureProvenance        MULTI `full` profile — carries suspended, invited and ended memberships.
+  deterministicSetup       Membership state transitions are database writes; no clock dependence.
+  externalDependency       A controlled mailbox for the invitation half (report 18 §4). None is provisioned, and per SPEC-16 §5 a test whose destination cannot be proven controlled does not run.
+  faultControls            None injected.
+  objectiveOracle          Each transition behaves as STM-017/STM-018 specify, and history is retained after deactivation rather than deleted.
+  retainedArtifact         docs/evidence/EV-M2-SBX/sbx-005-lifecycle.txt
+  environment              MULTI
+  earliestExecutionPoint   E2
+
+tables exercised: memberships
+policies exercised: membership status retention (STM-017/STM-018 partial)
+
+EVIDENCE_BLOCKED sub-scenarios (never a pass, never a silent skip):
+  - invite / token single-use / token replay / activate
+      EVIDENCE_BLOCKED(authn milestone)
+  - suspend and confirm live sessions die immediately
+      EVIDENCE_BLOCKED(authn milestone (no session subsystem))
+  - impersonation banner, audit entry, blocked credential screens
+      EVIDENCE_BLOCKED(authn milestone (no impersonation subsystem))
+  - invitation email to a controlled mailbox
+      EVIDENCE_BLOCKED(controlled notification endpoint (report 18 §4))
+
+OBSERVATIONS
+
+  membership statuses retained:
+    active=12, ended=1, invited=1, suspended=1
+
+  blocked:
+    invitation, activation, session death on suspend and impersonation all require the authn subsystem, which does not exist — reported EVIDENCE_BLOCKED, never skipped
