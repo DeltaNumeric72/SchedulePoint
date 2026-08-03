@@ -6,6 +6,8 @@ Protocol: [../17-opus-agent-runbook.md](../17-opus-agent-runbook.md) + [../24-ex
 
 **Standing verification discipline (added 2026-08-03, from OPUS-M1-004):** a suite that passes in the full run may still fail alone. The C-2 lease-recovery proof passed 545/545 in-suite and failed **5 of 5 standalone**. Every task that adds a proof of a named condition must run that file standalone as well as in the battery, and report both.
 
+**Standing acceptance discipline (added 2026-08-03, with FAD-15; the command lands with OPUS-M2-001's merge):** `corepack pnpm fixture-regression` — the fixed seed set + one rotating seed under both file- and test-order shuffle, plus the per-file standalone sweep and the baseline-immutability control — runs at **every task acceptance and every milestone exit**, not on every `pnpm check` (35 suite runs is acceptance-time cost, ruled on an OPUS-M2-001 escalation; the gate runner was deliberately not modified). A rotating-seed failure is a defect to fix, never flake to retry; the exposing seed is recorded and joins the fixed set.
+
 | Task | Slice | Status | Verdict |
 |---|---|---|---|
 | OPUS-M0-001 isolation spike | M0/SP-A | **ACCEPTED & MERGED 2026-08-01** (ea77ac5; evidence EV-M0-SPA). Session-limit interruption recovered: revision found complete-but-uncommitted, independently re-verified (36/36), committed. Second review: APPROVE WITH FOLLOW-UPS, blocking items fixed. Orchestrator applied one-line README count fix during recovery | **ACCEPTED** |
