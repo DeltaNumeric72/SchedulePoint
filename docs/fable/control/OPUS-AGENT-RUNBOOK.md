@@ -2,7 +2,9 @@
 
 Protocol: [../17-opus-agent-runbook.md](../17-opus-agent-runbook.md) + [../24-execution-standards.md](../24-execution-standards.md) §§E–F.
 
-**Standing merge discipline (added 2026-08-02, after recurring twice in OPUS-M1-001):** `scripts/check-output.txt` and `scripts/red-cases/evidence-output.txt` regenerate on every gate/red-case run and live under a glob most packets prohibit. Implementers and the orchestrator alike: never `git add -A`; discard these with `git checkout --` before committing; verbatim captures belong in the task's `docs/evidence/` bundle.
+**Standing merge discipline (added 2026-08-02, after recurring twice in OPUS-M1-001; extended 2026-08-03 after a fifth recurrence in OPUS-M1-004):** `scripts/check-output.txt` and `scripts/red-cases/evidence-output.txt` regenerate on every gate/red-case run and live under a glob most packets prohibit. Implementers and the orchestrator alike: never `git add -A`; discard these with `git checkout --` before committing; verbatim captures belong in the task's `docs/evidence/` bundle. **Finish with the worktree clean AND no background test run still holding a cluster** — the embedded-postgres port is derived per worktree, so a lingering `pnpm check` makes the next person's suite fail to start. That collision has a distinctive signature: whole test *files* fail with tests *skipped* and **zero tests failed** (observed 2026-08-03: 18 files failed, 278 skipped, 0 failed). Read it as contention, then re-run serially before concluding anything about the code.
+
+**Standing verification discipline (added 2026-08-03, from OPUS-M1-004):** a suite that passes in the full run may still fail alone. The C-2 lease-recovery proof passed 545/545 in-suite and failed **5 of 5 standalone**. Every task that adds a proof of a named condition must run that file standalone as well as in the battery, and report both.
 
 | Task | Slice | Status | Verdict |
 |---|---|---|---|
