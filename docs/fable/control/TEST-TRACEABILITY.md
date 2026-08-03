@@ -11,6 +11,11 @@ Execution log (M0):
 
 All three M0 rows re-verified by independent rerun at the acceptance review 2026-08-02 ([../26-m0-acceptance-addendum.md](../26-m0-acceptance-addendum.md) §1): 36/36 · 12/12 + 14/14 · H-0..H-8 0 failed.
 
+Execution log (M2 — authorized 2026-08-03):
+| Harness / gate | Task | Status | Evidence |
+|---|---|---|---|
+| SBX-001/002/004 (G-ARCH tenancy subset) + SBX-005/006 contracts (authn-dependent sub-scenarios EVIDENCE_BLOCKED per SPEC-16 §7) + NR-13 order-independence proof + MULTI determinism | OPUS-M2-001 | **ISSUED — not executed** | (pending) docs/evidence/EV-M2-SBX · EV-M2-NR13 |
+
 Execution log (M1 — authorized 2026-08-02):
 | Harness / gate | Task | Status | Evidence |
 |---|---|---|---|

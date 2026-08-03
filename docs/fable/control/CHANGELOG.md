@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-03 — M2 begun; OPUS-M2-001 issued
+- M2 authorized by the owner against frozen M1 checkpoint b051193. Three packets finalized in runbook format (docs/fable/30-m2-task-packets.md, commit 73cd212); validators green at authoring (plan 36/36, arch 95/95, research PASS).
+- OPUS-M2-001 issued: NR-13 fixture-isolation measured decision first, then MULTI provisioning, then the SPEC-16 SBX harness executing the G-ARCH tenancy subset (SBX-001/002/004/005/006) against the M1 kernel. Branch `opus/m2-001-sbx-harness`.
+- Packet rulings recorded in the packet doc: SBX-002 reinterpreted per its capability mapping (CAP-006/CAP-057), picklist arm re-executes at its milestone; authn-dependent SBX-005/006 sub-scenarios report EVIDENCE_BLOCKED per SPEC-16 §7 (the authn subsystem was a roadmap M1 slice that no issued M1 packet contained — carried, not hidden); shift_type_qualifications pre-assigned to a prepared integration packet; M2-003 API-first (UI follows M2-002's foundation).
+- OPUS-M2-002/003 NOT ISSUED — blocked on M2-001 acceptance, then revalidation.
+
 ## 2026-08-03 — Milestone M1 COMPLETE (4/4 accepted)
 - Tenancy kernel (356ddf5), audit chain + outbox with TDG-04 confirmed (946fc72), authorization evaluator + kernel integration (f547e90). Exit report: docs/fable/29-m1-exit-report.md.
 - A fourth task (OPUS-M1-004, FAD-13) was added mid-milestone: the two parallel packets left the integration surface unowned, and the merge conflicted exactly where audit emission meets real authorization. Composed rather than hand-resolved, with its own review.
