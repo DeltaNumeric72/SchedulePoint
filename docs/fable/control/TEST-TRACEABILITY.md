@@ -14,7 +14,7 @@ All three M0 rows re-verified by independent rerun at the acceptance review 2026
 Execution log (M2 — authorized 2026-08-03):
 | Harness / gate | Task | Status | Evidence |
 |---|---|---|---|
-| SBX-001/002/004 (G-ARCH tenancy subset) + SBX-005/006 contracts (authn-dependent sub-scenarios EVIDENCE_BLOCKED per SPEC-16 §7) + NR-13 order-independence proof + MULTI determinism | OPUS-M2-001 | **ISSUED — not executed** | (pending) docs/evidence/EV-M2-SBX · EV-M2-NR13 |
+| SBX-001 (role×route matrix, 104 cells, three outcome classes) / SBX-002 (12 of 15 SPEC-06 rows server-side in 15 cases + 39.3M-case domain companion) / SBX-004 (five-role sweep, 84 readings, 0 wrong-tenant rows, 12/12 tables non-vacuous, 24-attempt write arm w/ 4 reaching RLS, FAD-14 + breakglass exceptions pinned by exact pair) PASS all FALSIFIABLE · SBX-005 partial (executable sub-scenarios PASS; authn arms EVIDENCE_BLOCKED) · SBX-006 EVIDENCE_BLOCKED(authn) · MULTI double-provision determinism · fixture-regression 39/39 (FAD-15 gate) | OPUS-M2-001 | **PASSED as scoped — re-run by orchestrator on branch and on main post-merge (bc61ee7); G-ARCH NOT closed (needs SBX-011/013/014b/022/023/028)** | docs/evidence/EV-M2-SBX · EV-M2-NR13 |
 
 Execution log (M1 — authorized 2026-08-02):
 | Harness / gate | Task | Status | Evidence |

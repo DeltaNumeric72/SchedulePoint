@@ -3,10 +3,10 @@
 **As of 2026-08-03 (M2 begun).**
 
 - **M2 AUTHORIZED by the owner 2026-08-03** against frozen M1 checkpoint b051193. Packets finalized: [../30-m2-task-packets.md](../30-m2-task-packets.md) (validators green at authoring: plan 36/36, arch 95/95, research PASS).
-- **OPUS-M2-001 ISSUED 2026-08-03** (SBX harness + G-ARCH tenancy subset SBX-001/002/004/005/006 + NR-13 fixture-isolation decision + MULTI provisioning). Branch `opus/m2-001-sbx-harness`, worktree `.worktrees/m2-001`. Independent second review mandatory.
-- **OPUS-M2-002 and OPUS-M2-003: NOT ISSUED — blocked** until M2-001 is accepted and merged, then revalidated against its actual outcome before parallel issuance.
+- **OPUS-M2-001 ACCEPTED & MERGED 2026-08-03** (bc61ee7): FAD-15 fixture isolation implemented (seven couplings closed), fixture-regression acceptance gate 39/39, MULTI factory + canonical fixture, SPEC-16 SBX harness — SBX-001/002/004 PASS all falsifiable, SBX-005 partial, SBX-006 EVIDENCE_BLOCKED(authn). NR-13 structurally addressed (formal retirement at M2 exit risk review). G-ARCH tenancy subset executed and filed; G-ARCH itself remains open by design. Evidence EV-M2-NR13 + EV-M2-SBX. 585 tests, 12 gates, 14 red cases on main.
+- **OPUS-M2-002 and OPUS-M2-003: NOT ISSUED.**
 - **M3 NOT authorized.** M2 ends with a frozen checkpoint and exit report; work stops there.
-- Next action: M2-001 implementation → orchestrator rerun → independent second review → acceptance.
+- Next action: revalidate the M2-002/003 packets against the actual M2-001 outcome, verify disjoint globs and shared-surface ownership, run validators, then issue both in parallel.
 
 - Phase: **implementation — Milestone M0 complete and ACCEPTED** (planning ratified and frozen at 2b64a7b; M0 authorized 2026-08-01 and executed; reconciliation checkpoint dc9fd63; final M0 checkpoint = the commit introducing [../26-m0-acceptance-addendum.md](../26-m0-acceptance-addendum.md) — independent re-verification of all M0 claims, 2026-08-02).
 - Research: COMPLETE, permanently closed against the source.

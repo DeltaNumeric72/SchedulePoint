@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-03 — OPUS-M2-001 accepted and merged
+- OPUS-M2-001 ACCEPTED (bc61ee7) after: phase-A NR-13 measurement with mid-task FAD-15 ratification; a tooling-outage interruption recovered per protocol; an orchestrator diagnosis dissolving a suspected kernel-guard defect (superuser arrangements fire capability triggers — the control working); independent second review REVISE → delta REVISE → APPROVE WITH FOLLOW-UPS across R-01..R-12 / D-01..D-09 / E-01..E-06; and the rotating seed catching a seventh test coupling at acceptance time (FAD-15 ruling 3's first live exercise).
+- Landed: fixture-isolation refactor per FAD-15 (as corrected b9755d1), the fixture-regression acceptance gate, the MULTI factory fixture, the SPEC-16 SBX harness with ProbeFalsified-sentinel vacuity detection and per-scenario retained artifacts, and the G-ARCH tenancy subset evidence (SBX-001/002/004 PASS; 005 partial; 006 blocked on authn — named, not hidden). G-ARCH remains open (six non-tenancy SBX tests at later milestones).
+- Review findings of record: the vacuity detector originally accepted any probe throw as falsifiability; five declared artifacts were unwritten with nothing checking; the five-role sweep's refusal cascade wrote false causes into shipped evidence; two probes reproduced the absence-vacuity shape inside the detector built to kill it. All closed with red cases.
+- M2-002/003 remain NOT ISSUED pending packet revalidation.
+
 ## 2026-08-03 — M2 begun; OPUS-M2-001 issued
 - M2 authorized by the owner against frozen M1 checkpoint b051193. Three packets finalized in runbook format (docs/fable/30-m2-task-packets.md, commit 73cd212); validators green at authoring (plan 36/36, arch 95/95, research PASS).
 - OPUS-M2-001 issued: NR-13 fixture-isolation measured decision first, then MULTI provisioning, then the SPEC-16 SBX harness executing the G-ARCH tenancy subset (SBX-001/002/004/005/006) against the M1 kernel. Branch `opus/m2-001-sbx-harness`.
