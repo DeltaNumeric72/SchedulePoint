@@ -1,0 +1,26 @@
+{
+  "name": "sp-d-worker",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "OPUS-M1-003 micro-spike SP-D: TDG-04 confirmation (graphile-worker transactional enqueue, durable lease behaviour, crash-mid-job recovery)",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test --test-concurrency=1 test/*.test.ts"
+  },
+  "dependencies": {
+    "embedded-postgres": "17.10.0-beta.17",
+    "graphile-worker": "0.17.3",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "@types/pg": "^8.15.5",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2"
+  },
+  "allowScripts": {
+    "@embedded-postgres/darwin-arm64@17.10.0-beta.17": true,
+    "esbuild@0.28.1": true
+  }
+}

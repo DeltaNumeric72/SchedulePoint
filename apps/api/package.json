@@ -17,6 +17,7 @@
     "@schedulepoint/contracts": "workspace:*",
     "@schedulepoint/domain": "workspace:*",
     "fastify": "5.6.1",
+    "graphile-worker": "0.17.3",
     "kysely": "0.28.7",
     "node-pg-migrate": "8.0.4",
     "pg": "8.16.3"

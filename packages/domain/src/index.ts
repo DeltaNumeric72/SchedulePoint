@@ -74,3 +74,42 @@ export {
 } from './context/verification.js';
 
 export { ports, type PortName } from './ports/index.js';
+
+/* ── OPUS-M1-003: the audit chain and outbox ports (SPEC-11, ADR-0019) ────────
+ *
+ * Interfaces and pure functions only, as everything in this package must be.
+ * The chain itself lives in the database (migration 0003) because a chain the
+ * application computes is a chain the application can quietly recompute.
+ */
+export {
+  AUDIT_EVENT_NAMES,
+  AUDIT_SUBJECT_TYPES,
+  isAuditEventName,
+  isAuditSubjectType,
+  type AuditEventName,
+  type AuditSubjectType,
+} from './audit/event-names.js';
+
+export {
+  AUDIT_PAYLOAD_MAX_KEYS,
+  AUDIT_PAYLOAD_MAX_STRING_LENGTH,
+  AuditPayloadNotClosedError,
+  assertClosedAuditPayload,
+  auditPayloadViolations,
+  isClosedAuditPayload,
+  type AuditPayload,
+  type AuditPayloadValue,
+  type AuditPayloadViolation,
+  type AuditPayloadViolationCode,
+} from './audit/payload.js';
+
+export type {
+  AuditEventDraft,
+  AuditRecorder,
+  CheckpointSignature,
+  CheckpointSigner,
+  OutboxPublication,
+  OutboxPublisher,
+  PublishedOutboxEvent,
+  RecordedAuditEvent,
+} from './audit/port.js';

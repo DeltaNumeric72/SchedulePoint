@@ -1,10 +1,14 @@
+import { createCheckpointSigner } from './audit/checkpoint-signer.js';
 import { ProcessAlertSink } from './db/alerts.js';
 import { createPool } from './db/pool.js';
 import { assertTransactionAffinity } from './db/pooler-assertion.js';
+import { installQueueSchema } from './db/queue-schema.js';
 import { PgUnitOfWorkRunner } from './db/unit-of-work.js';
 import { denyAllPrincipalResolver } from './http/context/principal.js';
 import { undeclaredRoutes } from './http/route-table.js';
 import { buildServer } from './http/server.js';
+import { startOutboxRunner, type OutboxRunner } from './outbox/runner.js';
+import { DatabaseOutboxSink } from './outbox/sink.js';
 
 /**
  * Process entry point.
@@ -25,6 +29,34 @@ import { buildServer } from './http/server.js';
  *  3. **The principal resolver is `denyAllPrincipalResolver`.** Authentication
  *     lands in a later packet, and until it does this server serves no
  *     authenticated traffic at all rather than inventing a principal.
+ *
+ * ## The async kernel starts here too (OPUS-M1-003)
+ *
+ * The second review found the audit/outbox kernel wired into the test harness
+ * and nowhere else: a production process would have started happily and then
+ * failed on the first `publishOutboxEvent`, because `app_enqueue_job` would not
+ * exist (R-03). Three things therefore happen before the socket opens:
+ *
+ *  4. **`installQueueSchema()`** — graphile-worker owns its own schema and its
+ *     own migration history, so it cannot live in `apps/api/migrations`. It also
+ *     applies SP-D condition C-1's policies, without which `app_worker` reads
+ *     zero rows from the queue and processes nothing, **silently**.
+ *
+ *  5. **The outbox runner**, which consumes dispatches and carries SPEC-11 §2's
+ *     periodic checkpoint and verification jobs. The verification job **pages**
+ *     on any discrepancy; `src/audit/verify-cli.ts` remains for an operator who
+ *     needs to ask directly during an incident.
+ *
+ *  6. **`SP_DISABLE_WORKER=1`** runs the API without the worker, for a
+ *     deployment that runs workers as separate processes. It is a deliberate
+ *     opt-out with a name that says what it does, not a default — a process that
+ *     quietly declined to run the audit checkpointer would be the worst of both.
+ *
+ * **The signing key is the local stub** (`keyIsIsolated === false`). It is
+ * logged at startup, every time, because a checkpoint signed by a key the
+ * application holds proves the signing path works and nothing about who could
+ * have produced it. SPEC-11 §6 requires a separate trust domain; real KMS is a
+ * deployment condition (TDG-15).
  */
 async function main(): Promise<void> {
   const alerts = new ProcessAlertSink();
@@ -38,6 +70,47 @@ async function main(): Promise<void> {
 
   const runtime = new PgUnitOfWorkRunner({ role: 'app_runtime', pool, alerts });
 
+  /* ── the async kernel ─────────────────────────────────────────────────── */
+  const queueSchema = await installQueueSchema((message) =>
+    process.stdout.write(`${message}\n`),
+  );
+  process.stdout.write(
+    `queue schema ready: ${String(queueSchema.workerMigrations)} graphile-worker ` +
+      `migration(s), ${String(queueSchema.policiesCreated)} RLS table(s) policed for app_worker\n`,
+  );
+
+  let outbox: OutboxRunner | undefined;
+  if (process.env['SP_DISABLE_WORKER'] !== '1') {
+    const workerPool = createPool('app_worker');
+    const workerRunner = new PgUnitOfWorkRunner({ role: 'app_worker', pool: workerPool, alerts });
+    const signer = createCheckpointSigner();
+    if (!signer.keyIsIsolated) {
+      process.stdout.write(
+        'AUDIT SIGNING KEY IS NOT ISOLATED: checkpoints are signed by a key held in this ' +
+          'process (local stub, FAD-7). SPEC-11 §6 requires a separate trust domain; a ' +
+          'checkpoint proves the signing path works and nothing about who produced it.\n',
+      );
+    }
+    outbox = await startOutboxRunner({
+      worker: workerRunner,
+      sink: new DatabaseOutboxSink(workerRunner),
+      signer,
+      alerts,
+      label: 'api',
+    });
+    process.stdout.write(
+      `outbox runner started: pool ${outbox.poolId}, reclaimed ` +
+        `${String(outbox.reclaimedAtStartup.length)} stale pool(s); periodic checkpoint and ` +
+        'chain-verification jobs scheduled (SPEC-11 §2)\n',
+    );
+  } else {
+    process.stdout.write(
+      'SP_DISABLE_WORKER=1: this process serves HTTP only. Another process MUST run the ' +
+        'outbox dispatcher and the SPEC-11 §2 periodic jobs, or outbox events will never ' +
+        'be delivered and the chain will never be checkpointed.\n',
+    );
+  }
+
   const { app, routeTable } = await buildServer({
     logger: true,
     tenancy: { runtime, principals: denyAllPrincipalResolver },
@@ -50,6 +123,15 @@ async function main(): Promise<void> {
     }
     throw new Error(`${String(undeclared.length)} route(s) registered without a policy`);
   }
+
+  // The worker holds a lease on anything it is running; a process that exits
+  // without releasing it costs four hours of recovery (SP-D E-2.3), so the
+  // shutdown path is wired even though nothing sends the signal here yet.
+  const shutdown = async (): Promise<void> => {
+    await outbox?.stop();
+    await app.close();
+  };
+  process.once('SIGTERM', () => void shutdown());
 
   const port = Number.parseInt(process.env['PORT'] ?? '3001', 10);
   const host = process.env['HOST'] ?? '127.0.0.1';

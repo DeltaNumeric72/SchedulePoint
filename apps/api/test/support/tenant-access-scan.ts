@@ -59,6 +59,33 @@ export const CONNECTION_OWNERS: readonly ConnectionOwner[] = [
     reason: 'cluster bootstrap as superuser: roles and the database, before any tenant table exists',
   },
   { file: 'db/migrate.ts', reason: 'runs migrations as app_migrator; never application traffic' },
+
+  /* ── OPUS-M1-003: the queue's own infrastructure ──────────────────────────
+   *
+   * Both own a connection and NEITHER touches a tenant table. They live under
+   * `db/` because this file's own rule says connection ownership belongs there,
+   * and satisfying an architecture rule is the right response to it — adding an
+   * exemption that widened the rule would have been the quiet form of weakening
+   * it (non-bypass rule 10).
+   *
+   * Because an entry here suppresses the tenant-table detectors as well as the
+   * connection ones, each is re-asserted specifically by
+   * `apps/api/test/audit/architecture.test.ts`, which scans both files for any
+   * tenant-table reference and fails if one appears.
+   */
+  {
+    file: 'db/queue-schema.ts',
+    reason:
+      "installs graphile-worker's own schema and SP-D condition C-1's policies, as app_migrator, " +
+      'before any traffic. The same kind of step as db/bootstrap.ts, and it touches no tenant table',
+  },
+  {
+    file: 'db/queue-pools.ts',
+    reason:
+      'SP-D condition C-2: registers this worker pool and force-unlocks dead peers. Touches ' +
+      'queue_pools and graphile_worker only — neither is tenant-scoped, and the reclaim is not ' +
+      'per tenant so it cannot run inside a unit of work',
+  },
 ];
 
 /** Comments discuss connections and tenant tables constantly; the scan is about code. */

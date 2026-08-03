@@ -1,3 +1,4 @@
+import { recordAuditEvent } from '../audit/recorder.js';
 import type { JobHandler } from './worker.js';
 
 /**
@@ -35,6 +36,17 @@ export const contextProbeTouchHandler: JobHandler = {
       .set({ last_active_at: new Date(), updated_at: new Date() })
       .where('id', '=', membership.id)
       .execute();
+
+    // OPUS-M1-003 — the same one line as the HTTP surface, inside the same unit
+    // of work as the mutation and the authorization re-evaluation (FAD-12). The
+    // two surfaces emit the SAME event name against the SAME subject, which is
+    // what lets `apps/api/test/audit/emission-coverage.test.ts` assert that a
+    // mutation is audited identically however it is reached (SPEC-06 §7).
+    await recordAuditEvent(uow, {
+      eventName: 'membership.activity_touched',
+      subjectType: 'membership',
+      subjectId: membership.id,
+    });
   },
 };
 

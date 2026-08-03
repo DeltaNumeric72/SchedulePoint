@@ -5,6 +5,7 @@ import { bootstrapCluster, rolePasswordsFromEnv } from '../../src/db/bootstrap.j
 import { migrateCycle } from '../../src/db/migrate.js';
 import { createPool } from '../../src/db/pool.js';
 import { PgUnitOfWorkRunner } from '../../src/db/unit-of-work.js';
+import { installQueueSchema } from '../../src/db/queue-schema.js';
 import { startClusterDaemon, stopClusterDaemon } from './cluster-process.js';
 import { applyHarnessEnv } from './env.js';
 import { seedFixture } from './fixtures.js';
@@ -51,6 +52,13 @@ export async function setup(): Promise<void> {
       `migration cycle did not apply anything: up=${String(cycle.up1.length)} down=${String(cycle.down.length)} up=${String(cycle.up2.length)}`,
     );
   }
+
+  // OPUS-M1-003: graphile-worker owns its own schema and its own migration
+  // history, so it cannot live in `apps/api/migrations`. This is the same kind
+  // of step as `bootstrapCluster` — infrastructure the domain schema sits on —
+  // and it also applies SP-D condition C-1, without which `app_worker` reads
+  // zero rows from the queue and processes nothing, silently (SP-D E-0.2).
+  await installQueueSchema();
 
   const pool = createPool('app_runtime', { max: 4, allowExitOnIdle: true });
   const runner = new PgUnitOfWorkRunner({

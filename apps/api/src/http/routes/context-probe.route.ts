@@ -8,6 +8,7 @@ import { bindTarget, type FrozenJobContext, type TenantContext } from '@schedule
 import type { Kysely } from 'kysely';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
+import { recordAuditEvent } from '../../audit/recorder.js';
 import type { Database } from '../../db/schema.js';
 import { CONTEXT_PROBE_TOUCH_JOB } from '../../jobs/handlers.js';
 import { requireTenantContext } from '../context/middleware.js';
@@ -156,7 +157,8 @@ async function touchActingMembership(
 
   const outcome = await request.server.tenancy.runtime.run(
     command,
-    async ({ query }): Promise<ProbeOutcome> => {
+    async (uow): Promise<ProbeOutcome> => {
+      const { query } = uow;
       const membership = await readActingMembership(query, context.membershipId);
       // The membership verified at step 2 is no longer visible. Fail closed.
       if (membership === undefined) return { kind: 'not-found' };
@@ -177,6 +179,17 @@ async function touchActingMembership(
 
       const touched = rows[0];
       if (touched === undefined) return { kind: 'not-found' };
+
+      // OPUS-M1-003 — the audit write joins THIS unit of work (FAD-12,
+      // ADR-0019, non-bypass rule 6). One line, and it names nothing
+      // tenant-shaped: the organization, group, actor and correlation id all
+      // come from `uow.context`. See `apps/api/src/audit/recorder.ts`.
+      await recordAuditEvent(uow, {
+        eventName: 'membership.activity_touched',
+        subjectType: 'membership',
+        subjectId: context.membershipId,
+      });
+
       return { kind: 'ok', mutatedAt: touched.updated_at };
     },
   );

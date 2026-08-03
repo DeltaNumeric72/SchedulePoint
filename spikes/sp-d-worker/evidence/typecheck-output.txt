@@ -1,0 +1,5 @@
+# SP-D typecheck — verbatim capture
+# Captured: 2026-08-02T22:01:20Z
+# Command: npx tsc --noEmit
+# ----------------------------------------
+# exit code: 0  (no output above = clean)

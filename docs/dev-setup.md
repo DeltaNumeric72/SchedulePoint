@@ -311,3 +311,110 @@ transaction-local setting survives to the next statement has no basis for any te
 guarantee it would otherwise make. It then serves `/health` and returns `401` from every
 route needing a principal — authentication lands in a later packet, and until it does the
 server fails closed rather than inventing a principal.
+
+---
+
+## The audit chain and the queue (OPUS-M1-003)
+
+### The queue schema is NOT one of our migrations
+
+`graphile-worker` owns its own schema and its own migration history
+(`graphile_worker.migrations`). Reproducing its DDL under `apps/api/migrations` would
+fork it at the first upgrade, so installing it is a **bootstrap step**, alongside
+`bootstrapCluster`:
+
+```ts
+import { installQueueSchema } from './src/db/queue-schema.js';
+await installQueueSchema();          // as app_migrator, idempotent
+```
+
+`test/support/global-setup.ts` calls it before seeding, so every test run has it.
+
+### Two things about it that will otherwise cost you an afternoon
+
+**graphile-worker enables RLS on all four of its tables and defines no policy at all**,
+and its migrations contain no `GRANT`. RLS is not `FORCE`d there, so its owner bypasses it
+and every other role is refused — *regardless of grants*. The dangerous half is silent:
+
+| Role | With full table grants |
+|---|---|
+| `app_worker` | reads **zero rows, silently**. graphile-worker logs `No tasks found; nothing to do!` and idles forever, reporting healthy |
+| `app_runtime` | `add_job` → `42501` |
+
+`installQueueSchema` fixes both — named policies for `app_worker`, and an
+`app_enqueue_job(text, json)` `SECURITY DEFINER` wrapper for `app_runtime`, which holds
+**no direct grant on the queue tables**. It throws at startup if any RLS-enabled table is
+left unpoliced, so the silent-idle mode cannot happen quietly.
+
+**The lease is four hours and is not configurable.** Only the sweep interval is
+(`minResetLockedInterval` / `maxResetLockedInterval`, default 8–10 min). A *graceful*
+shutdown does not release the in-flight job either, so an ordinary rolling deploy would
+strand every in-flight job for four hours. The mitigation is the `queue_pools` registry and
+the startup+periodic reclaim in `outbox/runner.ts` — measured at **565 ms** end to end
+against an unmitigated four hours. All of it is in
+[`spikes/sp-d-worker/SPIKE-REPORT.md`](../spikes/sp-d-worker/SPIKE-REPORT.md).
+
+**Write every job handler to honour `helpers.abortSignal`.** One that does not will not
+exit on the first `SIGTERM` at all (measured, SP-D E-2.4b).
+
+### What starts automatically
+
+`apps/api/src/index.ts` installs the queue schema and starts the outbox runner
+before the socket opens, and the runner carries SPEC-11 §2's two periodic jobs:
+
+| | When |
+|---|---|
+| queue schema + the SP-D C-1 policies | process start |
+| outbox dispatch | continuously |
+| stale worker-pool reclaim | startup, then every 5 s |
+| checkpoint sweep (`audit.checkpoint`) | cron `0 * * * *`, every *N* entries or at least daily |
+| chain verification (`audit.verify`) | cron `30 */6 * * *`, **pages** on any discrepancy |
+
+`SP_DISABLE_WORKER=1` runs the API without the worker, for deployments that run
+workers as separate processes. It is an explicit opt-out and it logs what it
+costs — a process that quietly declined to run the audit checkpointer would be
+the worst of both.
+
+### Verifying the chain
+
+```bash
+corepack pnpm --filter @schedulepoint/api exec tsx src/audit/verify-cli.ts <organization-id>
+# exit 0 = intact · 1 = a problem was found · 2 = could not check
+```
+
+`1` and `2` are deliberately different: "the chain is broken" and "I could not check" must
+never look the same to a monitor. Run it **after every migration and after every restore**
+(SPEC-11 §3). The periodic job above is the always-on layer; the CLI is for when an
+operator needs to ask directly and read an exit code.
+
+It verifies **one organization at a time and only the session's own** — a foreign
+organization id raises `restrict_violation` rather than reading as a clean chain, which is
+what it would otherwise do under RLS.
+
+To see it work end to end on a throwaway cluster, including a deliberate tamper:
+
+```bash
+npx tsx apps/api/test/support/audit-verify-demo.ts
+```
+
+> The local signer holds its key **in the process** (`keyIsIsolated === false`). A
+> checkpoint verified here proves the signing path works and nothing about who could have
+> produced it. SPEC-11 §6 requires a separate trust domain; real KMS is a deployment
+> condition (TDG-15).
+
+### Adding an audit event to a new mutation
+
+One line, inside the same `runtime.run(...)` callback as the write — the organization,
+group, actor and correlation id all come from `uow.context`, never from the call site:
+
+```ts
+await recordAuditEvent(uow, {
+  eventName: 'grant.issued',   // add it to packages/domain/src/audit/event-names.ts first
+  subjectType: 'membership',
+  subjectId: targetMembershipId,
+});
+```
+
+The event-name list **only grows** (rule 13). Payloads carry identifiers and tokens only:
+a string value must be printable ASCII with no space, at most 64 characters, enforced by
+both the domain validator and a CHECK constraint (I-07).

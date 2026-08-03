@@ -15,6 +15,12 @@ export const ports = {
   jobQueue: 'JobQueue',
   /** `./principal.ts` — implemented by `apps/api/src/http/context/principal.ts`. */
   principal: 'PrincipalResolver',
+  /** `../audit/port.ts` — implemented by `apps/api/src/audit/recorder.ts`. */
+  auditRecorder: 'AuditRecorder',
+  /** `../audit/port.ts` — implemented by `apps/api/src/outbox/publisher.ts`. */
+  outboxPublisher: 'OutboxPublisher',
+  /** `../audit/port.ts` — implemented by `apps/api/src/audit/checkpoint-signer.ts`. */
+  checkpointSigner: 'CheckpointSigner',
 } as const;
 
 export type PortName = keyof typeof ports;
