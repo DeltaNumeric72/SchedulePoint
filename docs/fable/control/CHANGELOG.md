@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2026-08-03 — OPUS-M2-002 and OPUS-M2-003 issued in parallel
+- Packets revalidated against the actual M2-001 outcome; binding deltas recorded as 30-m2-task-packets §7 (FAD-15 fixture discipline concretely named, TENANT_TABLES + SBX-004 non-vacuous coverage for every new tenant table, fixture-regression at submission and acceptance, ProbeFalsified vacuity discipline, restore-by-id).
+- FAD-16 recorded and doc 06 §3.2 amended (dated, additive): extended shift_types field set with CHECK-constrained display tokens, shift_type_weekday_demand, monotonic groups.pick_position_count.
+- Disjoint globs re-verified; shared-surface ownership table §5 unchanged; shift_type_qualifications reserved for the integration packet. Branches opus/m2-002-catalogue and opus/m2-003-profiles.
+
 ## 2026-08-03 — OPUS-M2-001 accepted and merged
 - OPUS-M2-001 ACCEPTED (bc61ee7) after: phase-A NR-13 measurement with mid-task FAD-15 ratification; a tooling-outage interruption recovered per protocol; an orchestrator diagnosis dissolving a suspected kernel-guard defect (superuser arrangements fire capability triggers — the control working); independent second review REVISE → delta REVISE → APPROVE WITH FOLLOW-UPS across R-01..R-12 / D-01..D-09 / E-01..E-06; and the rotating seed catching a seventh test coupling at acceptance time (FAD-15 ruling 3's first live exercise).
 - Landed: fixture-isolation refactor per FAD-15 (as corrected b9755d1), the fixture-regression acceptance gate, the MULTI factory fixture, the SPEC-16 SBX harness with ProbeFalsified-sentinel vacuity detection and per-scenario retained artifacts, and the G-ARCH tenancy subset evidence (SBX-001/002/004 PASS; 005 partial; 006 blocked on authn — named, not hidden). G-ARCH remains open (six non-tenancy SBX tests at later milestones).

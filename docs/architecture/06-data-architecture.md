@@ -250,6 +250,12 @@ erDiagram
 | `work_item_labels` **NEW (CAR-004)** | group | `key`, `display_text`, `state`, `approved_by`, `approved_at` | `(group_id, key)` | draft/active/retired | ✓ | `INTERNAL` | **The controlled vocabulary that replaces free text on protected work-item paths. Human-approved before activation; connectors reference but cannot mint** |
 | `group_holidays` **NEW (CAR-011)** | group | `date`, `name`, `observed` | `(group_id, date)` | — | ✓ | `NONE` | **Deadline rolling needs an explicit calendar: "the deadline is Friday" is ambiguous when Friday is a holiday** |
 
+> **AMENDED 2026-08-03 (FAD-16, M2-002 issuance)** — additive field-set extension recording the owner's M2 authorization for the shift catalogue; the observed source concepts (research 01 §ADM-07/08/09, 05 §1) are preserved through this model, never by schema copying:
+> - **`shift_types` gains:** `description` · display metadata as **`display_palette_key`** + **`display_text_style`** (each a CHECK-constrained member of the curated accessible set in the design tokens — never a free colour value; SP-E token discipline applies to user-chosen colours) · `include_in_statistics` · `is_leave_of_absence` · `report_order` · `allow_on_request` · `allow_off_request`. The observed "start day" concept is carried by `start_time`/`end_time`/`crosses_midnight` plus the demand weekday dimension, not a new column; the observed "Request Off Text" remains `shift_groups.request_off_label` per the observed model.
+> - **New table `shift_type_weekday_demand`** (group tenant, versioned, sensitivity `NONE`): `shift_type_id`, `day ∈ {mon..sun, holiday}`, `demand_count ≥ 0`; unique `(group_id, shift_type_id, day)`; composite tenant FK to `shift_types`. Default per-day demand — the M4 engine's demand input authored at the catalogue (owner-mandated in M2-002); build-scoped demand overrides remain M4 scope.
+> - **`groups` (settings) gains `pick_position_count`** (integer ≥ 0, **monotonically increasing only, trigger-enforced** — the observed group-wide constraint, research 05 §ADM-07); `valid_groups.allowed_pick_positions` members must be ≤ it.
+> - `group_holidays` (CAR-011) is unchanged and receives its authoring surface in M2-002 (Δ-2/W-61).
+
 #### 3.2a Site migration boundary (PO-DEC-01)
 
 **PO-DEC-01 remains `pending`. The schema implements its working default and defines — but does not build — the path to the alternative.**
