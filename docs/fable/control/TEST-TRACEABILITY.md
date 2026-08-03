@@ -15,5 +15,6 @@ Execution log (M1 — authorized 2026-08-02):
 | Harness / gate | Task | Status | Evidence |
 |---|---|---|---|
 | SPEC-01 §7.1 T-01/01b/02(404)/02b/04/05/05b/06b-d (+T-03 two of five surfaces) + §7.2 T-07..T-15+T-14b vs production unit-of-work | OPUS-M1-001 | **PASSED — 272/272 total, 12/12 gates, 14/14 red, cycle clean (re-run by orchestrator at 3 rounds)** | docs/evidence/EV-M1-TENANCY |
-| SPEC-06 §8 cross-product + deny-path battery (incl. EV-M1-TENANCY residual gates 1/2/4) | OPUS-M1-002 | ISSUED 2026-08-02 — not yet run | (pending: docs/evidence/EV-M1-AUTHZ) |
+| SPEC-06 §8 cross-product (39,285,000 cases, unsampled, 0 disagreements vs an independent oracle) + deny-path battery + residual gates 1/2/4/5 | OPUS-M1-002 | **PASSED** (re-run by orchestrator each round) | docs/evidence/EV-M1-AUTHZ |
+| M1 kernel integrated: FAD-12 ordering end-to-end, worker on the real evaluator, audit emission, tenant-table registry over 0002+0003, C-2 standalone proof | OPUS-M1-004 | **PASSED — 551/551 tests, 12/12 gates, 14/14 red, cycle clean across 0001+0002+0003, chain 0/1/0, crash-restart 3/3 standalone** (all re-run serially by orchestrator) | docs/evidence/EV-M1-INTEGRATION |
 | TDG-04 micro-spike (18/18, GO) + SPEC-11 X-01..X-03 + I-11 proof + outbox exactly-once + crash/restart chain | OPUS-M1-003 | **PASSED — 336/336 tests (64 audit), 12/12 gates, 14/14 red, cycle clean, chain verification 0/1/0 (re-run by orchestrator at every round)** | docs/evidence/EV-M1-AUDIT · spikes/sp-d-worker |

@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-08-03 — Milestone M1 COMPLETE (4/4 accepted)
+- Tenancy kernel (356ddf5), audit chain + outbox with TDG-04 confirmed (946fc72), authorization evaluator + kernel integration (f547e90). Exit report: docs/fable/29-m1-exit-report.md.
+- A fourth task (OPUS-M1-004, FAD-13) was added mid-milestone: the two parallel packets left the integration surface unowned, and the merge conflicted exactly where audit emission meets real authorization. Composed rather than hand-resolved, with its own review.
+- Three of four tasks returned REVISE from independent second review; every blocking finding came from a reviewer's own database probes (arbitrary-row entitlement read 404'ing an organization; audit chain reporting intact after tail truncation; outbox double-delivering; a flagship isolation test satisfiable by the defect it existed to catch). Orchestrator rerun additionally caught a named-condition proof passing in-suite and failing 5/5 standalone.
+- FAD-11/12/13/14 recorded; SPEC-01 §7.1/§4.3 amended; NR-9 retired, NR-13 (shared-fixture coupling) opened, FA-3 discharged.
+- M1 exit PASSED WITH ONE CARRIED ITEM (G-ARCH SBX tenancy subset — harness does not exist; opens M2-001). M2 NOT authorized.
+
 ## 2026-08-02 — M1 begun; OPUS-M1-001 accepted
 - M1 authorized by the owner against checkpoint b49d3dd. OPUS-M1-001 (tenancy schema + SPEC-01 context middleware + production unit-of-work) ACCEPTED and squash-merged (356ddf5) after a three-round review cycle: independent second review REVISE (3 merge-blocking findings, incl. a falsified security claim in the migration) → full revision → delta re-review APPROVE WITH FOLLOW-UPS → final hardening delta (SECURITY DEFINER pg_temp pin, roles-aware owner-exemption assertion).
 - FAD-11 (three SPEC-01 escalation rulings: revoked membership → 404 with T-02b added; EX-2 org-scoped DML; capability gate above SQL until M1-002) and FAD-12 (authorization + mutation share one unit of work on every surface) recorded; SPEC-01 §7.1/§4.3 amended with dated notes.
