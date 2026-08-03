@@ -42,7 +42,7 @@ These packets supersede the *proposals* in [25-m0-exit-report.md](25-m0-exit-rep
 |---|---|
 | **Task ID** | OPUS-M1-002 |
 | **Milestone / Slice** | M1 / authorization kernel |
-| **Objective** | The SPEC-06 pure evaluator with the fourteen-step truth table (incl. the org-scope branch), the role/capability-grant schema, entitlement records with module gating (CAP-057), and real policies replacing OPUS-M1-001's deny placeholders |
+| **Objective** | The SPEC-06 pure evaluator with the truth table (incl. the org-scope branch) — *"fourteen-step" corrected 2026-08-02 (FAD-13): the amended SPEC-06 table has fifteen rows and the spec governs* — the role/capability-grant schema, entitlement records with module gating (CAP-057), and real policies replacing OPUS-M1-001's deny placeholders |
 | **User outcome** | (foundation for) per-membership roles determining exactly what each user can do, org-wide modules switchable per entitlement |
 | **Engineering outcome** | Deny-by-default becomes *evaluated*, not just declared; the generated cross-product test battery makes authorization regressions build-failing |
 | **Dependencies** | OPUS-M1-001 merged (schema + context middleware + unit of work) |

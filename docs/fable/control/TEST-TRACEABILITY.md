@@ -16,4 +16,4 @@ Execution log (M1 — authorized 2026-08-02):
 |---|---|---|---|
 | SPEC-01 §7.1 T-01/01b/02(404)/02b/04/05/05b/06b-d (+T-03 two of five surfaces) + §7.2 T-07..T-15+T-14b vs production unit-of-work | OPUS-M1-001 | **PASSED — 272/272 total, 12/12 gates, 14/14 red, cycle clean (re-run by orchestrator at 3 rounds)** | docs/evidence/EV-M1-TENANCY |
 | SPEC-06 §8 cross-product + deny-path battery (incl. EV-M1-TENANCY residual gates 1/2/4) | OPUS-M1-002 | ISSUED 2026-08-02 — not yet run | (pending: docs/evidence/EV-M1-AUTHZ) |
-| TDG-04 micro-spike + SPEC-11 X-01..X-03 subset + I-11 proof | OPUS-M1-003 | ISSUED 2026-08-02 — not yet run | (pending: docs/evidence/EV-M1-AUDIT) |
+| TDG-04 micro-spike (18/18, GO) + SPEC-11 X-01..X-03 + I-11 proof + outbox exactly-once + crash/restart chain | OPUS-M1-003 | **PASSED — 336/336 tests (64 audit), 12/12 gates, 14/14 red, cycle clean, chain verification 0/1/0 (re-run by orchestrator at every round)** | docs/evidence/EV-M1-AUDIT · spikes/sp-d-worker |
