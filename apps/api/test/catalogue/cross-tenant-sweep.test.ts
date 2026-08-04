@@ -4,7 +4,6 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { TENANT_TABLES } from '../../src/db/schema.js';
 import { adminClient } from '../support/admin-client.js';
-import { seedCatalogueFixture, type SeededCatalogue } from '../support/catalogue-fixture.js';
 import { groupContext } from '../support/fixtures.js';
 import { createRuntime, log, type Runtime } from '../support/harness.js';
 import { ownedMulti } from '../support/owned-multi.js';
@@ -36,7 +35,8 @@ import { ownedMulti } from '../support/owned-multi.js';
  * defect class exactly — left all six tests in this file **green**.
  *
  * Two things changed. The fixture seeds a SIBLING group in the same organization
- * (`catalogue-fixture.ts`), and the sweep now asserts, before it asserts zero,
+ * (`provisionMulti`, via `seed.catalogue`), and the sweep now asserts, before it
+ * asserts zero,
  * that the cross-group measurement is **capable of being non-zero**: it counts
  * the sibling's rows from outside RLS and requires that count to be positive per
  * table. An assertion that cannot fail when its subject is absent is a
@@ -59,7 +59,11 @@ import { ownedMulti } from '../support/owned-multi.js';
  * on every table. A probe that reports zero there is looking at nothing.
  */
 
-const multi = ownedMulti('catalogue-cross-tenant-sweep');
+// BOTH organizations, so the organization arm has a neighbour to fail to see —
+// and each seeds its SIBLING group too, so the cross-group arm does as well.
+const multi = ownedMulti('catalogue-cross-tenant-sweep', {
+  seed: { catalogue: ['alpha', 'beta'] },
+});
 
 const CATALOGUE_TABLES = TENANT_TABLES.filter((table) =>
   [
@@ -77,8 +81,6 @@ const CATALOGUE_TABLES = TENANT_TABLES.filter((table) =>
 
 let admin: pg.Client;
 let runtime: Runtime;
-let alphaSeed: SeededCatalogue;
-let betaSeed: SeededCatalogue;
 
 const alpha = () => multi().alpha;
 const beta = () => multi().beta;
@@ -149,10 +151,6 @@ beforeAll(async () => {
   admin = adminClient();
   await admin.connect();
   runtime = createRuntime('app_runtime', { max: 3 });
-  // BOTH organizations, so the organization arm has a neighbour to fail to see —
-  // and each seeds its SIBLING group too, so the cross-group arm does as well.
-  alphaSeed = await seedCatalogueFixture(runtime.runner, multi(), 'alpha');
-  betaSeed = await seedCatalogueFixture(runtime.runner, multi(), 'beta');
 }, 180_000);
 
 afterAll(async () => {
@@ -188,8 +186,8 @@ describe('the catalogue is invisible across both boundaries', () => {
      * Asserted PER TABLE rather than in aggregate: one populated table would
      * make the aggregate positive while eight others stayed unfalsifiable. */
     for (const [group, label] of [
-      [alphaSeed.sibling.groupId, 'Alpha'],
-      [betaSeed.sibling.groupId, 'Beta'],
+      [multi.catalogue('alpha').sibling.groupId, 'Alpha'],
+      [multi.catalogue('beta').sibling.groupId, 'Beta'],
     ] as const) {
       const counts = await siblingRowCounts(group);
       for (const table of CATALOGUE_TABLES) {
@@ -230,7 +228,7 @@ describe('the catalogue is invisible across both boundaries', () => {
       'a catalogue table was probed with no visible rows — "0 wrong" there means nothing',
     ).toEqual([]);
 
-    const hidden = await siblingRowCounts(alphaSeed.sibling.groupId);
+    const hidden = await siblingRowCounts(multi.catalogue('alpha').sibling.groupId);
     const hiddenTotal = [...hidden.values()].reduce((sum, n) => sum + n, 0);
     log(
       `Alpha/GroupOne sweep: ${readings

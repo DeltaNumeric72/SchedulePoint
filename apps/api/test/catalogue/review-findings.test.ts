@@ -6,7 +6,6 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import * as catalogue from '../../src/catalogue/service.js';
 import { adminClient } from '../support/admin-client.js';
-import { seedCatalogueFixture } from '../support/catalogue-fixture.js';
 import { groupContext } from '../support/fixtures.js';
 import { createRuntime, log, type Runtime } from '../support/harness.js';
 import { ownedMulti } from '../support/owned-multi.js';
@@ -22,7 +21,10 @@ import { ownedMulti } from '../support/owned-multi.js';
  * thing that should succeed does.
  */
 
-const multi = ownedMulti('catalogue-review-findings', { profile: 'full' });
+const multi = ownedMulti('catalogue-review-findings', {
+  profile: 'full',
+  seed: { catalogue: ['alpha'] },
+});
 
 let admin: pg.Client;
 let runtime: Runtime;
@@ -56,7 +58,6 @@ beforeAll(async () => {
   await admin.connect();
   runtime = createRuntime('app_runtime', { max: 3 });
   runtimeB = createRuntime('app_runtime', { max: 2 });
-  await seedCatalogueFixture(runtime.runner, multi());
 }, 180_000);
 
 afterAll(async () => {

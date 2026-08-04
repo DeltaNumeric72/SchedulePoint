@@ -224,8 +224,14 @@ describe('SPEC-11 §2 — the hash chain', () => {
     expect(alphaGenesis, 'two organizations cannot be spliced').not.toBe(betaGenesis);
 
     const firstBeta = await admin.query<{ prev: string; sequence: string }>(
+      // `order by audit_events.sequence`, QUALIFIED — an unqualified `ORDER BY`
+      // resolves to the `::text` OUTPUT column and would sort the bigint as
+      // text. `'1'` happens to sort first either way, so this site never failed;
+      // that is precisely why it is fixed rather than left to become the next
+      // one that does. Class found by rotating seed 531651 (OPUS-M2-003).
       `select encode(prev_hash, 'hex') as prev, sequence::text as sequence
-         from audit_events where organization_id = $1::uuid order by sequence limit 1`,
+         from audit_events where organization_id = $1::uuid
+        order by audit_events.sequence limit 1`,
       [BETA().organizationId],
     );
     if (firstBeta.rows[0] === undefined) {

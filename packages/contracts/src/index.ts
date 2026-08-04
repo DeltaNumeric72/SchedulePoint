@@ -64,3 +64,10 @@ export * from './profiles/index.js';
  * CAP-012, CAR-011). The first contracts a product screen consumes.
  */
 export * from './catalogue/index.js';
+
+/**
+ * OPUS-M2-004 — identifier shapes, so a path parameter can be rejected on its
+ * SHAPE before any statement runs (review finding V-02). See the module's
+ * docblock for why the api cannot spell this itself.
+ */
+export * from './identifiers.js';

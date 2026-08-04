@@ -33,8 +33,11 @@ import { organizationContext, seedAuditAndOutbox, seedFixture } from '../support
  *   5. TRUNCATE feasibility       — whether a per-file "wipe and reseed" is even
  *                                   available on this schema.
  *
- * Run with `SP_TEST_PG_PORT` set to something other than 55433 so it cannot
- * collide with a test run. It owns its cluster and destroys it at the end.
+ * Run with `SP_TEST_PG_PORT` set to something other than this worktree's derived
+ * port so it cannot collide with a test run. Since OPUS-M2-004 the default is
+ * derived per worktree (`scripts/sbx/test-port.mjs`), not the old fixed 55433;
+ * `docs/dev-setup.md` §Ports, per worktree gives the one-liner that prints it.
+ * This script owns its cluster and destroys it at the end.
  * ──────────────────────────────────────────────────────────────────────────── */
 
 const REPETITIONS = Number.parseInt(process.env['SP_NR13_REPS'] ?? '10', 10);

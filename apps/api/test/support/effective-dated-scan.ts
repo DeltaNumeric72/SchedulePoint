@@ -90,11 +90,29 @@ function codeOnly(source: string): string {
  * next to `selectFrom`; the third is not a read at all by shape, and is a read in
  * every sense that matters.
  *
- * So the rule has two halves, and the allowlist is the half that cannot be
- * evaded. **Naming one of these tables in code at all is a finding unless the
- * module is listed here** — which makes a `const` indirection, a quoted
- * identifier and a spelling nobody has thought of yet all equally caught, because
- * every one of them has to write the table's name down somewhere.
+ * So the rule has two halves, and the allowlist is the half that widens the net:
+ * **naming one of these tables in code at all is a finding unless the module is
+ * listed here** — which catches a `const` indirection, a quoted identifier and
+ * any spelling that still writes the table's name down somewhere.
+ *
+ * ## What this control does NOT do, stated exactly
+ *
+ * It catches the ACCIDENT, not the OBFUSCATION. An earlier version of this
+ * docblock called the allowlist "the half that cannot be evaded", and an
+ * independent review evaded it in one line:
+ *
+ * ```ts
+ * const table = ['qualification', 'holdings'].join('_');
+ * ```
+ *
+ * The name is never written down, so no textual scan can see it. That is not a
+ * gap to be closed by a cleverer pattern — computing an identifier at runtime is
+ * unbounded, and chasing it is an arms race a regex loses by construction. The
+ * honest claim is the narrower one: this stops the second selector somebody
+ * writes **without realising the first exists**, which is what S-01 actually
+ * was — two rules written in good faith at two call sites, neither author aware
+ * of the other. It does not stop somebody who has decided to get around it, and
+ * it is not the control to reach for if that is the threat.
  *
  * The list is short on purpose. Adding to it is a decision a reviewer sees.
  */

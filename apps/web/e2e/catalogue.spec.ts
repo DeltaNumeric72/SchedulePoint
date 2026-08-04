@@ -5,6 +5,8 @@ import { fileURLToPath } from 'node:url';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page, type Route } from '@playwright/test';
 
+import { recordRequests } from './support/request-budget.js';
+
 /**
  * The catalogue surfaces: every state, both viewports, axe on each.
  *
@@ -263,7 +265,7 @@ test.describe('catalogue — shift types', () => {
     await capture(page, 'shift-types-error', info.project.name);
   });
 
-  test('I-13: opening the New form persists NOTHING — zero requests', async ({ page }) => {
+  test('I-13: opening the New form persists NOTHING — zero requests', async ({ page }, info) => {
     await page.route(`${API}/shift-types`, (route) => json(route, 200, POPULATED));
     await page.goto(`${BASE}/shift-types`);
     await expect(catalogueRows(page)).toBeVisible();
@@ -275,10 +277,17 @@ test.describe('catalogue — shift types', () => {
     const requests: string[] = [];
     page.on('request', (request) => requests.push(`${request.method()} ${request.url()}`));
 
-    await page.getByTestId('new-shift-type').click();
-    await expect(page.getByTestId('shift-type-form')).toBeVisible();
-    // Long enough for a stray optimistic write to appear if one existed.
-    await page.waitForTimeout(500);
+    /* The same interaction is also RECORDED for the request-budget ledger
+     * (OPUS-M2-004 deliverable 5). The recorder and the listener above observe
+     * the same requests; the assertion below is unchanged and is still what
+     * fails this test. The recording is what lets the gate enforce the same
+     * number in CI without re-running the browser. */
+    await recordRequests(page, 'catalogue-open-new-shift-type', info.project.name, async () => {
+      await page.getByTestId('new-shift-type').click();
+      await expect(page.getByTestId('shift-type-form')).toBeVisible();
+      // Long enough for a stray optimistic write to appear if one existed.
+      await page.waitForTimeout(500);
+    });
 
     expect(requests, `opening the form issued: ${requests.join(' | ')}`).toEqual([]);
   });
@@ -327,7 +336,7 @@ test.describe('catalogue — shift types', () => {
 
   test('I-10: a SERVER 422 issues exactly one request and renders the same summary', async ({
     page,
-  }) => {
+  }, info) => {
     await page.route(`${API}/shift-types`, async (route) => {
       if (route.request().method() === 'GET') return json(route, 200, POPULATED);
       // Shape-valid, semantically refused — the class of rule only the server
@@ -355,7 +364,19 @@ test.describe('catalogue — shift types', () => {
       if (request.method() === 'POST') posts.push(request.url());
     });
 
-    await page.getByTestId('save-shift-type').click();
+    /* RECORDED for the ledger (OPUS-M2-004 deliverable 5). The recorder counts
+     * EVERY request; the assertion below counts POSTs, and is unchanged. A
+     * refused save must not refetch — there is nothing new to fetch — so this
+     * is the interaction that shows the two-request success budget is about the
+     * success path specifically and not about Save in general. */
+    await recordRequests(page, 'catalogue-save-shift-type-refused', info.project.name, async () => {
+      await page.getByTestId('save-shift-type').click();
+
+      const shown = page.getByTestId('validation-summary-shift-type');
+      await expect(shown).toBeVisible();
+      // Long enough for an amplifying retry or revalidation to appear if one existed.
+      await page.waitForTimeout(500);
+    });
 
     const summary = page.getByTestId('validation-summary-shift-type');
     await expect(summary).toBeVisible();
@@ -367,7 +388,7 @@ test.describe('catalogue — shift types', () => {
     expect(posts).toHaveLength(1);
   });
 
-  test('AC-02: the form is completable by keyboard alone', async ({ page }) => {
+  test('AC-02: the form is completable by keyboard alone', async ({ page }, info) => {
     let posted: Record<string, unknown> | null = null;
     await page.route(`${API}/shift-types`, async (route) => {
       if (route.request().method() === 'GET') return json(route, 200, POPULATED);
@@ -400,7 +421,27 @@ test.describe('catalogue — shift types', () => {
     await page.getByLabel('Full name').focus();
     await page.keyboard.type('Keyboard shift');
     await page.getByTestId('save-shift-type').focus();
-    await page.keyboard.press('Enter');
+
+    /* The SAVE-SUCCESS interaction, recorded for the ledger (OPUS-M2-004
+     * deliverable 5). This is the only successful shift-type save in the spec,
+     * so it is where the measurement has to come from; the keyboard flow above
+     * reaches the same Save control through the same code path.
+     *
+     * The recorded window deliberately extends past the POST: the mutation's
+     * `onSuccess` invalidates the list query, and a window that closed at the
+     * POST would record ONE request and under-report reality. The budget is
+     * TWO, ruled and justified in `scripts/gates/request-budget/budgets.json`.
+     *
+     * Nothing below the wrapper changed — the two assertions are this test's
+     * and are still what fails it. */
+    await recordRequests(page, 'catalogue-save-shift-type', info.project.name, async () => {
+      await page.keyboard.press('Enter');
+      await expect.poll(() => posted).not.toBeNull();
+      // Long enough for the list invalidation's refetch to land, and for any
+      // further amplification to show up if it existed. A budget that stops
+      // counting too early proves nothing.
+      await page.waitForTimeout(500);
+    });
 
     await expect.poll(() => posted).not.toBeNull();
     expect(posted).toMatchObject({ code: 'KBD', name: 'Keyboard shift' });

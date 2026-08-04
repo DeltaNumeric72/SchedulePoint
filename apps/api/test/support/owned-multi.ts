@@ -11,6 +11,9 @@ import {
   registerSlug,
   type MultiFixture,
   type MultiProfile,
+  type MultiSeedOptions,
+  type SeededCatalogue,
+  type SeededStaffingRows,
 } from './multi.js';
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -65,6 +68,17 @@ import {
 export interface OwnedMultiOptions {
   /** `full` adds every SPEC-06 role, the suspended/invited cases and the entitlement-off organization. */
   readonly profile?: MultiProfile;
+  /**
+   * Optional feature rows `provisionMulti` should write into this fixture.
+   *
+   * Since the D-1 ruling the catalogue and staffing seeding lives in `multi.ts`,
+   * the single fixture owner, and a file that needs those rows **declares** them
+   * here instead of calling a seeding function of its own after the fact. The
+   * fixture is therefore complete when `beforeAll` returns, which is what makes
+   * "the provisioning script is the single fixture owner" true rather than
+   * aspirational.
+   */
+  readonly seed?: MultiSeedOptions;
 }
 
 /**
@@ -79,6 +93,17 @@ export interface OwnedMulti {
   (): MultiFixture;
   /** An organization-scoped context acting as THIS fixture's administrator for that organization. */
   administrator(organizationId: string, correlationId?: string): TenantContext;
+  /**
+   * The catalogue rows this fixture was provisioned with.
+   *
+   * Throws — naming the option that was not passed — rather than returning
+   * `undefined` for a file that forgot to declare `seed.catalogue`. An
+   * `undefined` three frames deeper is how a test comes to assert against
+   * nothing.
+   */
+  catalogue(which?: 'alpha' | 'beta'): SeededCatalogue;
+  /** The staffing rows this fixture was provisioned with. Throws if none were asked for. */
+  staffing(): SeededStaffingRows;
 }
 
 /**
@@ -114,8 +139,14 @@ export function ownedMulti(slug: string, options: OwnedMultiOptions = {}): Owned
     const runtime = new PgUnitOfWorkRunner({ role: 'app_runtime', pool: runtimePool, alerts });
     const worker = new PgUnitOfWorkRunner({ role: 'app_worker', pool: workerPool, alerts });
 
-    fixture = await provisionMulti(runtime, worker, effectiveSlug, options.profile ?? 'core');
-  }, 120_000);
+    fixture = await provisionMulti(
+      runtime,
+      worker,
+      effectiveSlug,
+      options.profile ?? 'core',
+      options.seed ?? {},
+    );
+  }, 240_000);
 
   afterAll(async () => {
     for (const dispose of disposers.splice(0)) await dispose();
@@ -134,5 +165,27 @@ export function ownedMulti(slug: string, options: OwnedMultiOptions = {}): Owned
   return Object.assign(accessor, {
     administrator: (organizationId: string, correlationId?: string): TenantContext =>
       administratorContext(organizationId, correlationId ?? 'fixture-administration', accessor()),
+
+    catalogue: (which: 'alpha' | 'beta' = 'alpha'): SeededCatalogue => {
+      const seeded = accessor().catalogue?.[which];
+      if (seeded === undefined) {
+        throw new Error(
+          `owned MULTI fixture "${slug}" holds no catalogue rows for ${which}. ` +
+            `Declare them: ownedMulti('${slug}', { seed: { catalogue: ['${which}'] } }).`,
+        );
+      }
+      return seeded;
+    },
+
+    staffing: (): SeededStaffingRows => {
+      const seeded = accessor().staffing;
+      if (seeded === undefined) {
+        throw new Error(
+          `owned MULTI fixture "${slug}" holds no staffing rows. ` +
+            `Declare them: ownedMulti('${slug}', { seed: { staffing: true } }).`,
+        );
+      }
+      return seeded;
+    },
   });
 }

@@ -1,0 +1,64 @@
+=== 1. a THROWAWAY second worktree on the same branch tip ===
+Preparing worktree (detached HEAD 63d5241)
+HEAD is now at 63d5241 Make the foreign-key proof own its subject (found by the shuffled gate)
+
+=== 2. the two derived ports, from the two worktree paths ===
+  /Users/prabashan/Claude/SchedulePoint/.worktrees/m2-004  -> 55582
+  /Users/prabashan/Claude/SchedulePoint/.worktrees/m2-004-portproof -> 55883
+
+=== 3. dependencies in the throwaway worktree ===
++ vitest 3.2.4
+
+Done in 1.4s using pnpm v11.18.0
+
+=== 4. BOTH batteries, started within a second of each other ===
+     (the throwaway also sets SP_TEST_PREVIEW_PORT, which is E-2:
+      the preview port has no derived default and must be moved by hand)
+     started 02:44:07Z
+     finished 02:45:35Z
+
+=== 5. what each battery reported ===
+--- worktree A (m2-004, derived port, preview 4173) ---
+ Test Files  65 passed (65)
+      Tests  878 passed (878)
+lint                     PASS       1821ms
+typecheck                PASS       3209ms
+unit                     PASS      56917ms
+import-boundary          PASS        684ms
+route-policy             PASS        487ms
+migration-rls            PASS        215ms
+invariant-ids            PASS        213ms
+secret-scan              PASS        326ms
+build                    PASS       1069ms
+network-guard            PASS        214ms
+axe                      PASS      16161ms
+request-budget           PASS        214ms
+12 gate(s): 12 passed, 0 failed
+A_EXIT=0
+
+--- worktree B (m2-004-portproof, derived port, SP_TEST_PREVIEW_PORT=4273) ---
+ Test Files  65 passed (65)
+      Tests  878 passed (878)
+lint                     PASS       2211ms
+typecheck                PASS       3486ms
+unit                     PASS      61640ms
+import-boundary          PASS        963ms
+route-policy             PASS        479ms
+migration-rls            PASS        217ms
+invariant-ids            PASS        228ms
+secret-scan              PASS        335ms
+build                    PASS       1311ms
+network-guard            PASS        219ms
+axe                      PASS      16424ms
+request-budget           PASS        205ms
+12 gate(s): 12 passed, 0 failed
+B_EXIT=0
+
+=== 6. the two clusters really were separate ===
+  data directories that existed during the run:
+/private/tmp/claude-501/-Users-prabashan-Claude-SchedulePoint/f26291d0-897f-49ae-bec2-9fcb9474b2e5/scratchpad/two-worktree-proof.sh:51: no matches found: /Users/prabashan/Claude/SchedulePoint/.worktrees/m2-004/apps/api/.pgdata-test-*
+  (both destroyed at teardown, as designed)
+
+=== 7. the throwaway worktree is removed ===
+/Users/prabashan/Claude/SchedulePoint                    a0426ee [main]
+/Users/prabashan/Claude/SchedulePoint/.worktrees/m2-004  63d5241 [opus/m2-004-integration]

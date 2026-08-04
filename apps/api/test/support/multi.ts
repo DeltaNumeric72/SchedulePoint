@@ -6,6 +6,7 @@ import { LocalCheckpointSigner } from '../../src/audit/checkpoint-signer.js';
 import { writeCheckpoint } from '../../src/audit/checkpoints.js';
 import { recordAuditEvent } from '../../src/audit/recorder.js';
 import { provisionAuthorization } from '../../src/authz/provisioning.js';
+import * as catalogue from '../../src/catalogue/service.js';
 import type { PgUnitOfWorkRunner } from '../../src/db/unit-of-work.js';
 import { publishOutboxEvent } from '../../src/outbox/publisher.js';
 
@@ -139,6 +140,72 @@ export interface MultiOrganization<TUsers> {
   readonly users: TUsers;
 }
 
+/* ────────────────────────────────────────────────────────────────────────────
+ * The OPTIONAL feature rows a fixture can be provisioned with (D-1)
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** What `seed.catalogue` wrote, per organization. Ids, so a caller asserts by id. */
+export interface SeededCatalogue {
+  readonly shiftTypeIds: readonly string[];
+  readonly shiftGroupId: string;
+  readonly staffGroupId: string;
+  readonly validGroupId: string;
+  readonly holidaySeeded: boolean;
+  /** The qualification the requirement edge points at, in THIS group. */
+  readonly qualificationId: string;
+  /** `shift_type_qualifications` rows written here — the join's non-vacuity. */
+  readonly requirementCount: number;
+  /**
+   * The SIBLING group in the same organization, and what was seeded into it.
+   *
+   * This exists because of a blocking review finding. The catalogue used to be
+   * seeded into ONE group, so the cross-tenant sweep's cross-GROUP arm — "Alpha
+   * Group One sees zero rows from Alpha Group Two" — was measuring an empty
+   * table. The reviewer proved it: dropping the `group_id` clause from every
+   * catalogue policy while keeping the `organization_id` clause (the CAR-001
+   * defect class exactly) left all six sweep tests **green**.
+   *
+   * Both groups now hold catalogue rows, so `wrongGroup` is measurable and the
+   * arm can fail. The sweep asserts that measurability directly rather than
+   * trusting this comment.
+   */
+  readonly sibling: {
+    readonly groupId: string;
+    readonly shiftTypeIds: readonly string[];
+    readonly holidaySeeded: boolean;
+    readonly qualificationId: string;
+    readonly requirementCount: number;
+  };
+}
+
+/** What `seed.staffing` wrote. Ids, so a caller asserts by id. */
+export interface SeededStaffingRows {
+  readonly workProfileId: string;
+  readonly qualificationId: string;
+  readonly holdingId: string;
+  readonly grantIds: readonly string[];
+}
+
+/**
+ * Which optional feature rows `provisionMulti` should write.
+ *
+ * ## Why this is a request rather than something every fixture gets
+ *
+ * The D-1 ruling put the catalogue and staffing seeding back inside
+ * `provisionMulti`, so `multi.ts` is the single fixture owner again. It did not
+ * ask for every fixture in the suite to grow nine catalogue tables and four
+ * staffing tables — three files need the catalogue rows and three need the
+ * staffing rows, and silently changing what the other twenty-odd owned fixtures
+ * contain would change what their assertions are asserting about. The
+ * consolidation is about **where the seeding lives**, and it lives here.
+ */
+export interface MultiSeedOptions {
+  /** Organizations to seed a full catalogue into. `[]` or absent seeds none. */
+  readonly catalogue?: readonly ('alpha' | 'beta')[];
+  /** Seed one work profile, its weekday targets, one qualification and one holding. */
+  readonly staffing?: boolean;
+}
+
 export interface MultiFixture {
   readonly slug: string;
   readonly profile: MultiProfile;
@@ -154,6 +221,13 @@ export interface MultiFixture {
   readonly organizationIds: readonly string[];
   /** Every legitimate `organizationId|groupId` partition in this fixture. */
   readonly partitions: readonly string[];
+  /** Present for each organization named in `seed.catalogue`. */
+  readonly catalogue?: {
+    readonly alpha?: SeededCatalogue;
+    readonly beta?: SeededCatalogue;
+  };
+  /** Present when `seed.staffing` was requested. */
+  readonly staffing?: SeededStaffingRows;
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -1011,15 +1085,752 @@ export async function seedMultiAuditAndOutbox(
   }
 }
 
-/** Build, seed and return one complete MULTI fixture. */
+/* ────────────────────────────────────────────────────────────────────────────
+ * The catalogue rows (OPUS-M2-002, consolidated here by the D-1 ruling)
+ *
+ * ## Why this is here and not in a per-file module
+ *
+ * It was in `apps/api/test/support/catalogue-fixture.ts`, and that module said
+ * so in its own docblock: "**This is a disclosed deviation, not a preference.**
+ * The structurally correct home for this is `provisionMulti`." OPUS-M2-002 could
+ * not put it here because packet 30 §5 made the MULTI provisioning script
+ * read-only shared substrate while OPUS-M2-003 ran in parallel with four tenant
+ * tables and the identical problem. Both constraints were real; the tension was
+ * escalated as **D-1** and ruled on for this packet. `multi.ts` is the single
+ * fixture owner again.
+ *
+ * ## Why rows have to exist at all
+ *
+ * Migration 0005 registered nine tenant tables in `TENANT_TABLES`, and three
+ * assertions then apply to them immediately, all three demanding **visible
+ * rows**: the T-15 storm (`test/tenancy/unit-of-work.test.ts`), the vacuity red
+ * case (`test/red-cases/probe-is-not-vacuous.test.ts`), and SBX-004. A probe
+ * over an empty table reports "0 wrong" for the most boring possible reason.
+ *
+ * ## Every row is written by the production path
+ *
+ * `apps/api/src/catalogue/service.ts`, through a real unit of work, under a
+ * group-scoped context whose acting membership holds
+ * `schedule.catalogue.administer` by role. A fixture that hand-wrote these would
+ * seed rows the application could not have produced, and every isolation claim
+ * about them would be a claim about rows nothing writes.
+ *
+ * ## TWO groups, and why that is the whole point
+ *
+ * A catalogue seeded into one group makes the cross-GROUP isolation arm vacuous.
+ * An independent review proved the consequence by mutating every catalogue
+ * policy to drop its `group_id` clause — the CAR-001 defect class — and watching
+ * the sweep stay green. Both groups are seeded, and the sweep asserts that the
+ * cross-group measurement is capable of being non-zero before it asserts that it
+ * is zero.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** Synthetic, and deliberately generic: no organization, site or person name. */
+const SHIFT_TYPES = [
+  {
+    code: 'DAY',
+    name: 'Day shift',
+    startTime: '07:00',
+    endTime: '19:00',
+    palette: 'indigo' as const,
+    onCall: false,
+    dailyPick: true,
+  },
+  {
+    code: 'NIGHT',
+    name: 'Night shift',
+    startTime: '19:00',
+    endTime: '07:00',
+    palette: 'violet' as const,
+    onCall: true,
+    dailyPick: true,
+  },
+];
+
+async function seedCatalogue(
+  runtime: PgUnitOfWorkRunner,
+  fixture: MultiFixture,
+  which: 'alpha' | 'beta',
+): Promise<SeededCatalogue> {
+  // Beta has the same shape for everything this seeder needs — an organization
+  // administrator and a Group One scheduler — which is what lets the isolation
+  // sweep populate BOTH tenants and mean something. A sweep over a tenant whose
+  // neighbour has no catalogue rows proves nothing about catalogue isolation.
+  const target =
+    which === 'alpha'
+      ? fixture.alpha
+      : {
+          organizationId: fixture.beta.organizationId,
+          groupOne: fixture.beta.groupOne,
+          users: {
+            scheduler: fixture.beta.users.scheduler,
+            organizationAdmin: fixture.beta.users.organizationAdmin,
+          },
+        };
+
+  /* The SIBLING group in the same organization, and a membership inside it.
+   *
+   * Alpha's is `groupTwoScheduler`, whose group role already carries the
+   * catalogue key. Beta's Group Two membership holds the `member` role, which
+   * carries nothing — so it is granted the key below, by the organization
+   * administrator, exactly as production would. The administrator and the target
+   * are different USERS, so `app_guard_capability_grant_administration`'s
+   * two-person rule is satisfied rather than worked around. */
+  const sibling =
+    which === 'alpha'
+      ? {
+          groupId: fixture.alpha.groupTwo.id,
+          membershipId: fixture.alpha.users.groupTwoScheduler.membershipId,
+        }
+      : {
+          groupId: fixture.beta.groupTwo.id,
+          membershipId: fixture.beta.users.scheduler.groupTwoMembershipId,
+        };
+
+  // `scheduler` in Group One holds `schedule.catalogue.administer` by role
+  // (doc 08 §6 "Author catalogue & rules"). Every MULTI profile has one.
+  const authorContext = {
+    organizationId: target.organizationId,
+    groupId: target.groupOne.id,
+    membershipId: target.users.scheduler.membershipId,
+    correlationId: `catalogue-fixture-${fixture.slug}`,
+  };
+
+  const shiftTypeIds: string[] = [];
+  let shiftGroupId = '';
+  let staffGroupId = '';
+  let validGroupId = '';
+
+  await runtime.run(authorContext, async (uow) => {
+    for (const definition of SHIFT_TYPES) {
+      const created = await catalogue.createShiftType(uow, {
+        code: definition.code,
+        name: definition.name,
+        description: null,
+        displayPaletteKey: definition.palette,
+        displayTextStyle: 'regular',
+        startTime: definition.startTime,
+        endTime: definition.endTime,
+        isOnCall: definition.onCall,
+        attractsStipend: definition.onCall,
+        isManualOnly: false,
+        isDailyPick: definition.dailyPick,
+        includeInStatistics: true,
+        isLeaveOfAbsence: false,
+        allowOnRequest: true,
+        allowOffRequest: true,
+        reportOrder: shiftTypeIds.length,
+        creditWeight: 1,
+      });
+      if (created.kind !== 'ok') {
+        throw new Error(
+          `catalogue fixture: creating shift type ${definition.code} reported ${created.kind}`,
+        );
+      }
+      shiftTypeIds.push(created.value.shiftTypeId);
+
+      // `shift_type_weekday_demand` needs rows of its own, or the probe over it
+      // is the vacuous one this seeding exists to prevent.
+      const demand = await catalogue.setWeekdayDemand(uow, created.value.shiftTypeId, {
+        demand: [
+          { day: 'mon', demandCount: 2 },
+          { day: 'sat', demandCount: 1 },
+          { day: 'holiday', demandCount: 1 },
+        ],
+      });
+      if (demand.kind !== 'ok') {
+        throw new Error(`catalogue fixture: setting demand reported ${demand.kind}`);
+      }
+    }
+
+    const shiftGroup = await catalogue.createShiftGroup(uow, {
+      name: 'On-call bundle',
+      description: null,
+      scoring: { scoringMode: 'weighted', weight: 1000 },
+      request: { allowRequest: true, requestOffLabel: 'Request off all on-call shifts' },
+      shiftTypeIds,
+    });
+    if (shiftGroup.kind !== 'ok') {
+      throw new Error(`catalogue fixture: creating a shift group reported ${shiftGroup.kind}`);
+    }
+    shiftGroupId = shiftGroup.value.shiftGroupId;
+
+    const staffGroup = await catalogue.createStaffGroup(uow, {
+      name: 'Theatre-eligible pool',
+      description: null,
+      // The acting scheduler's own membership: visible in this group by
+      // construction, so the visibility check has something real to pass.
+      membershipIds: [target.users.scheduler.membershipId],
+    });
+    if (staffGroup.kind !== 'ok') {
+      throw new Error(`catalogue fixture: creating a staff group reported ${staffGroup.kind}`);
+    }
+    staffGroupId = staffGroup.value.staffGroupId;
+  });
+
+  /* ── the two group-SETTINGS keys, reached the way production reaches them ───
+   *
+   * `group.holiday_calendar.administer` and `group.pick_positions.administer`
+   * are group-administrator keys (doc 08 §6 "Group settings"), and the `core`
+   * MULTI profile provisions no group administrator. Rather than seed only on
+   * the `full` profile — which would leave `group_holidays` with no rows and the
+   * non-vacuity assertions failing on every other file — the fixture GRANTS the
+   * two keys to the scheduler's membership through `capability_grants`, which is
+   * the production mechanism for exactly this (SPEC-06 L4.2).
+   *
+   * It is written under an ORGANIZATION-scoped context by the organization
+   * administrator, because `capability_grants_organization_administration`
+   * requires both. The administrator and the scheduler are different USERS, so
+   * `app_guard_capability_grant_administration`'s two-person rule is satisfied
+   * rather than worked around. */
+  /* `staffing.qualification.administer` is grant-only and is needed for one
+   * statement per group: the qualification the requirement edge points at.
+   * Collected separately from the two catalogue-settings keys above because it
+   * is CLOSED again below — for the reason `seedStaffing` closes its own:
+   * SBX-001 sends `{}` to every registered route as every role-bearing
+   * principal, and a principal left holding a staffing key would answer the
+   * profiles routes with a body error rather than the clean deny that matrix's
+   * oracle models. Weakening the oracle to fit the fixture would be weakening a
+   * control to fit new code. */
+  const qualificationGrantIds = [randomUUID(), randomUUID()];
+
+  await runtime.run(
+    {
+      organizationId: target.organizationId,
+      groupId: null,
+      membershipId: target.users.organizationAdmin.membershipId,
+      correlationId: `catalogue-fixture-grant-${fixture.slug}`,
+    },
+    async ({ query }) => {
+      await query
+        .insertInto('capability_grants')
+        .values([
+          {
+            id: qualificationGrantIds[0] as string,
+            organization_id: target.organizationId,
+            group_id: target.groupOne.id,
+            membership_id: target.users.scheduler.membershipId,
+            capability_key: 'staffing.qualification.administer',
+            granted: true,
+            granted_by_membership_id: target.users.organizationAdmin.membershipId,
+          },
+          {
+            id: qualificationGrantIds[1] as string,
+            organization_id: target.organizationId,
+            group_id: sibling.groupId,
+            membership_id: sibling.membershipId,
+            capability_key: 'staffing.qualification.administer',
+            granted: true,
+            granted_by_membership_id: target.users.organizationAdmin.membershipId,
+          },
+          ...['group.holiday_calendar.administer', 'group.pick_positions.administer'].map(
+            (key) => ({
+              id: randomUUID(),
+              organization_id: target.organizationId,
+              group_id: target.groupOne.id,
+              membership_id: target.users.scheduler.membershipId,
+              capability_key: key,
+              granted: true,
+              granted_by_membership_id: target.users.organizationAdmin.membershipId,
+            }),
+          ),
+          // The SIBLING group's author. Granted rather than assumed: Beta's
+          // Group Two membership holds `member`, which carries nothing, and a
+          // fixture that only worked on Alpha would leave Beta's cross-group arm
+          // as vacuous as Alpha's used to be.
+          ...['schedule.catalogue.administer', 'group.holiday_calendar.administer'].map((key) => ({
+            id: randomUUID(),
+            organization_id: target.organizationId,
+            group_id: sibling.groupId,
+            membership_id: sibling.membershipId,
+            capability_key: key,
+            granted: true,
+            granted_by_membership_id: target.users.organizationAdmin.membershipId,
+          })),
+        ])
+        .execute();
+    },
+  );
+
+  let holidaySeeded = false;
+
+  await runtime.run(authorContext, async (uow) => {
+    const raised = await catalogue.setPickPositionCount(uow, 4);
+    if (raised.kind !== 'ok') {
+      throw new Error(`catalogue fixture: raising pick positions reported ${raised.kind}`);
+    }
+
+    const holiday = await catalogue.createGroupHoliday(uow, {
+      // A fixed, obviously synthetic date. No real calendar is implied.
+      holidayDate: '2027-01-01',
+      name: 'Synthetic public holiday',
+      observed: true,
+    });
+    if (holiday.kind !== 'ok') {
+      throw new Error(`catalogue fixture: creating a holiday reported ${holiday.kind}`);
+    }
+    holidaySeeded = true;
+  });
+
+  // `valid_groups` and `valid_group_shift_types` come last: the trigger checks
+  // each position against the group's ceiling, so the ceiling has to be raised
+  // before positions above zero are legal.
+  await runtime.run(authorContext, async (uow) => {
+    const validGroup = await catalogue.createValidGroup(uow, {
+      name: 'Call with picks',
+      shiftTypeIds,
+      allowedPickPositions: [1, 2, 3],
+    });
+    if (validGroup.kind !== 'ok') {
+      throw new Error(`catalogue fixture: creating a valid group reported ${validGroup.kind}`);
+    }
+    validGroupId = validGroup.value.validGroupId;
+  });
+
+  /* ── the requirement edge (`shift_type_qualifications`, migration 0006) ────
+   *
+   * Registered in `TENANT_TABLES`, so every generic probe iterates it and every
+   * one of them requires the table to be observed with a VISIBLE row. Written in
+   * BOTH groups below, so the cross-GROUP arm of the isolation sweep has
+   * something it could see if the group predicate were broken — not only the
+   * cross-organization arm.
+   *
+   * The qualification is inserted directly, the requirement through the
+   * production service: `qualifications` belongs to OPUS-M2-003's slice and its
+   * authoring service takes a different shape, while the requirement edge is
+   * this task's and must be written the way the route writes it. */
+  const qualificationId = randomUUID();
+  let requirementCount = 0;
+
+  await runtime.run(authorContext, async (uow) => {
+    await uow.query
+      .insertInto('qualifications')
+      .values({
+        id: qualificationId,
+        organization_id: target.organizationId,
+        group_id: target.groupOne.id,
+        key: 'catalogue-required-credential',
+        name: 'Catalogue-required credential',
+        requires_expiry: false,
+      })
+      .execute();
+
+    const requirements = await catalogue.setShiftTypeQualifications(uow, shiftTypeIds[0] as string, {
+      qualificationIds: [qualificationId],
+    });
+    if (requirements.kind !== 'ok') {
+      throw new Error(`catalogue fixture: setting requirements reported ${requirements.kind}`);
+    }
+    requirementCount = requirements.value.requirements.length;
+  });
+
+  /* ── the SIBLING group ───────────────────────────────────────────────────
+   *
+   * Enough of a catalogue for the cross-GROUP arm of the isolation sweep to have
+   * something it could see if the group predicate were broken. Every one of the
+   * nine tables gets a row here too, so the arm is non-vacuous per table rather
+   * than only in aggregate. */
+  const siblingContext = {
+    organizationId: target.organizationId,
+    groupId: sibling.groupId,
+    membershipId: sibling.membershipId,
+    correlationId: `catalogue-fixture-sibling-${fixture.slug}`,
+  };
+
+  const siblingShiftTypeIds: string[] = [];
+  let siblingHolidaySeeded = false;
+  const siblingQualificationId = randomUUID();
+  let siblingRequirementCount = 0;
+
+  await runtime.run(siblingContext, async (uow) => {
+    for (const definition of SHIFT_TYPES) {
+      const created = await catalogue.createShiftType(uow, {
+        code: definition.code,
+        name: `${definition.name} (sibling group)`,
+        description: null,
+        displayPaletteKey: definition.palette,
+        displayTextStyle: 'regular',
+        startTime: definition.startTime,
+        endTime: definition.endTime,
+        isOnCall: definition.onCall,
+        attractsStipend: false,
+        isManualOnly: false,
+        isDailyPick: definition.dailyPick,
+        includeInStatistics: true,
+        isLeaveOfAbsence: false,
+        allowOnRequest: false,
+        allowOffRequest: false,
+        reportOrder: siblingShiftTypeIds.length,
+        creditWeight: 1,
+      });
+      if (created.kind !== 'ok') {
+        throw new Error(`catalogue fixture (sibling): shift type reported ${created.kind}`);
+      }
+      siblingShiftTypeIds.push(created.value.shiftTypeId);
+
+      const demand = await catalogue.setWeekdayDemand(uow, created.value.shiftTypeId, {
+        demand: [
+          { day: 'tue', demandCount: 1 },
+          { day: 'holiday', demandCount: 2 },
+        ],
+      });
+      if (demand.kind !== 'ok') {
+        throw new Error(`catalogue fixture (sibling): demand reported ${demand.kind}`);
+      }
+    }
+
+    const siblingShiftGroup = await catalogue.createShiftGroup(uow, {
+      name: 'Sibling-group bundle',
+      description: null,
+      scoring: { scoringMode: 'hard' },
+      request: { allowRequest: false },
+      shiftTypeIds: siblingShiftTypeIds,
+    });
+    if (siblingShiftGroup.kind !== 'ok') {
+      throw new Error(`catalogue fixture (sibling): shift group reported ${siblingShiftGroup.kind}`);
+    }
+
+    const siblingStaffGroup = await catalogue.createStaffGroup(uow, {
+      name: 'Sibling-group pool',
+      description: null,
+      membershipIds: [sibling.membershipId],
+    });
+    if (siblingStaffGroup.kind !== 'ok') {
+      throw new Error(`catalogue fixture (sibling): staff group reported ${siblingStaffGroup.kind}`);
+    }
+
+    // The sibling group's own ceiling is 0, so an empty position set is the only
+    // legal one — which is still a row, which is all the sweep needs.
+    const siblingValidGroup = await catalogue.createValidGroup(uow, {
+      name: 'Sibling-group combination',
+      shiftTypeIds: siblingShiftTypeIds,
+      allowedPickPositions: [],
+    });
+    if (siblingValidGroup.kind !== 'ok') {
+      throw new Error(`catalogue fixture (sibling): valid group reported ${siblingValidGroup.kind}`);
+    }
+
+    const siblingHoliday = await catalogue.createGroupHoliday(uow, {
+      holidayDate: '2027-02-02',
+      name: 'Synthetic sibling-group holiday',
+      observed: false,
+    });
+    if (siblingHoliday.kind !== 'ok') {
+      throw new Error(`catalogue fixture (sibling): holiday reported ${siblingHoliday.kind}`);
+    }
+    siblingHolidaySeeded = true;
+
+    await uow.query
+      .insertInto('qualifications')
+      .values({
+        id: siblingQualificationId,
+        organization_id: target.organizationId,
+        group_id: sibling.groupId,
+        key: 'catalogue-required-credential',
+        name: 'Catalogue-required credential (sibling group)',
+        requires_expiry: false,
+      })
+      .execute();
+
+    const siblingRequirements = await catalogue.setShiftTypeQualifications(
+      uow,
+      siblingShiftTypeIds[0] as string,
+      { qualificationIds: [siblingQualificationId] },
+    );
+    if (siblingRequirements.kind !== 'ok') {
+      throw new Error(
+        `catalogue fixture (sibling): requirements reported ${siblingRequirements.kind}`,
+      );
+    }
+    siblingRequirementCount = siblingRequirements.value.requirements.length;
+  });
+
+  /* The two qualification-vocabulary grants are CLOSED again — see where they
+   * were written for why. No runtime role holds DELETE on `capability_grants`
+   * (a capability is taken away by an auditable `granted = false`), so the
+   * window closes rather than the row disappearing, and it closes BY ROW ID
+   * (FAD-15 as corrected, E-01). */
+  await runtime.run(
+    {
+      organizationId: target.organizationId,
+      groupId: null,
+      membershipId: target.users.organizationAdmin.membershipId,
+      correlationId: `catalogue-fixture-grant-close-${fixture.slug}`,
+    },
+    async ({ query }) => {
+      await query
+        .updateTable('capability_grants')
+        .set({ granted: false })
+        .where('organization_id', '=', target.organizationId)
+        .where('id', 'in', qualificationGrantIds)
+        .execute();
+    },
+  );
+
+  if (shiftGroupId === '' || staffGroupId === '' || validGroupId === '') {
+    throw new Error('catalogue fixture: a seeded id was never assigned');
+  }
+  if (siblingShiftTypeIds.length === 0) {
+    throw new Error(
+      'catalogue fixture: the sibling group received no rows — the cross-group isolation arm ' +
+        'would be vacuous, which is the finding this seeding exists to close',
+    );
+  }
+  if (requirementCount === 0 || siblingRequirementCount === 0) {
+    throw new Error(
+      'catalogue fixture: `shift_type_qualifications` received no rows in one of the two ' +
+        'groups — every probe over it would then report "0 wrong" for the boring reason',
+    );
+  }
+
+  return {
+    shiftTypeIds,
+    shiftGroupId,
+    staffGroupId,
+    validGroupId,
+    holidaySeeded,
+    qualificationId,
+    requirementCount,
+    sibling: {
+      groupId: sibling.groupId,
+      shiftTypeIds: siblingShiftTypeIds,
+      holidaySeeded: siblingHolidaySeeded,
+      qualificationId: siblingQualificationId,
+      requirementCount: siblingRequirementCount,
+    },
+  };
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * The staffing rows (OPUS-M2-003, consolidated here by the D-1 ruling)
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Grants capabilities to a GROUP membership, through the production path.
+ *
+ * The acting context is the organization administrator, because
+ * `app_guard_capability_grant_administration` requires
+ * `organization.role.administer` under an organization-scoped context and refuses
+ * a grant written for any membership belonging to the acting PRINCIPAL. Both
+ * rules are load-bearing and neither is worked around here.
+ *
+ * Kept in `staffing.ts` as the exported helper tests call directly; this is the
+ * copy `provisionMulti` uses, so the seeding has no dependency on a module that
+ * exists for the tests' convenience.
+ */
+async function grantThroughAdministrator(
+  runtime: PgUnitOfWorkRunner,
+  organizationAdminMembershipId: string,
+  options: {
+    readonly organizationId: string;
+    readonly groupId: string;
+    readonly membershipId: string;
+    readonly capabilities: readonly string[];
+    readonly granted?: boolean;
+  },
+): Promise<readonly string[]> {
+  const grantIds: string[] = [];
+  await runtime.run(
+    {
+      organizationId: options.organizationId,
+      groupId: null,
+      membershipId: organizationAdminMembershipId,
+      correlationId: 'staffing-grant',
+    },
+    async ({ query }) => {
+      for (const capabilityKey of options.capabilities) {
+        const id = randomUUID();
+        grantIds.push(id);
+        await query
+          .insertInto('capability_grants')
+          .values({
+            id,
+            organization_id: options.organizationId,
+            group_id: options.groupId,
+            membership_id: options.membershipId,
+            capability_key: capabilityKey,
+            granted: options.granted ?? true,
+          })
+          .execute();
+      }
+    },
+  );
+  return grantIds;
+}
+
+/**
+ * Seeds one work profile, its weekday targets, one qualification and one holding
+ * into Alpha's group one — enough that every staffing tenant table is **observed
+ * with visible rows** by the SBX-004 sweep (packet 30 §7.2).
+ *
+ * The holding is issued to Alpha's `scheduler` membership on purpose: the sweep's
+ * `runtime/group-one` probe acts as that membership, and `qualification_holdings`
+ * has no organization-wide read policy — it is `SENSITIVE-PII` — so a holding
+ * belonging to anybody else would be invisible to every probe context and the
+ * table would report a vacuous zero.
+ */
+async function seedStaffing(
+  runtime: PgUnitOfWorkRunner,
+  fixture: MultiFixture,
+): Promise<SeededStaffingRows> {
+  const alpha = fixture.alpha;
+  const groupId = alpha.groupOne.id;
+  const actor = alpha.users.groupOnly.membershipId;
+  const subject = alpha.users.scheduler.membershipId;
+
+  // The actor is `groupOnly`, whose principal holds no other membership — so the
+  // two-person rule the grant guard enforces is satisfied without contrivance.
+  const grantIds = await grantThroughAdministrator(
+    runtime,
+    alpha.users.organizationAdmin.membershipId,
+    {
+      organizationId: alpha.organizationId,
+      groupId,
+      membershipId: actor,
+      capabilities: [
+        'staffing.work_profile.administer',
+        'staffing.qualification.administer',
+        'staffing.qualification_holding.administer',
+      ],
+    },
+  );
+
+  const workProfileId = randomUUID();
+  const qualificationId = randomUUID();
+  const holdingId = randomUUID();
+
+  await runtime.run(
+    {
+      organizationId: alpha.organizationId,
+      groupId,
+      membershipId: actor,
+      correlationId: 'staffing-seed',
+    },
+    async ({ query }) => {
+      await query
+        .insertInto('membership_work_profiles')
+        .values({
+          id: workProfileId,
+          organization_id: alpha.organizationId,
+          group_id: groupId,
+          membership_id: subject,
+          work_percentage: '80.00',
+          max_assignments_per_week: 4,
+        })
+        .execute();
+
+      await query
+        .insertInto('membership_weekday_fte')
+        .values(
+          (['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun', 'holiday'] as const).map((day) => ({
+            id: randomUUID(),
+            organization_id: alpha.organizationId,
+            group_id: groupId,
+            work_profile_id: workProfileId,
+            day,
+            fte_fraction: day === 'sat' || day === 'sun' || day === 'holiday' ? '0.000' : '0.800',
+          })),
+        )
+        .execute();
+
+      await query
+        .insertInto('qualifications')
+        .values({
+          id: qualificationId,
+          organization_id: alpha.organizationId,
+          group_id: groupId,
+          key: 'advanced-life-support',
+          name: 'Advanced Life Support',
+          requires_expiry: true,
+          issuing_body: 'Synthetic Certifying Body',
+        })
+        .execute();
+
+      await query
+        .insertInto('qualification_holdings')
+        .values({
+          id: holdingId,
+          organization_id: alpha.organizationId,
+          group_id: groupId,
+          membership_id: subject,
+          qualification_id: qualificationId,
+          valid_until: new Date('2030-01-01T00:00:00.000Z'),
+          evidence_ref: 'SYNTH-REF-0001',
+          status: 'valid',
+        })
+        .execute();
+    },
+  );
+
+  /* ── the seeding grants are CLOSED again, deliberately ────────────────────
+   *
+   * SBX-001 attempts every registered route as every role-bearing principal in
+   * MULTI with an empty body, and requires each cell to be an explicit allow, a
+   * clean deny, or a declared context refusal. `groupOnly` is one of those
+   * principals, so leaving it holding `staffing.work_profile.administer` would
+   * make its cell a `400 …_BODY_MALFORMED` — correct behaviour for an authorized
+   * caller who sent nothing, and a state the matrix's oracle does not model.
+   *
+   * Weakening the oracle to accept a fourth class would be weakening a control to
+   * fit new code (non-bypass rule 10). Closing the grants instead leaves the rows
+   * in place for SBX-004's non-vacuity check while every SBX-001 cell on these
+   * routes is a clean deny, which is exactly what the matrix is for. The allow
+   * side is proven in `apps/api/test/profiles/authorization.test.ts`, per
+   * capability, against a body that is not empty.
+   *
+   * No runtime role holds DELETE on `capability_grants` (0002, deliberately: a
+   * capability is taken away by an auditable `granted = false`), so the window is
+   * closed rather than the row removed — and by ROW ID, never by predicate
+   * (FAD-15 as corrected, E-01). */
+  await runtime.run(
+    {
+      organizationId: alpha.organizationId,
+      groupId: null,
+      membershipId: alpha.users.organizationAdmin.membershipId,
+      correlationId: 'staffing-grant-revoke',
+    },
+    async ({ query }) => {
+      await query
+        .updateTable('capability_grants')
+        .set({ granted: false })
+        .where('organization_id', '=', alpha.organizationId)
+        .where('id', 'in', [...grantIds])
+        .execute();
+    },
+  );
+
+  return { workProfileId, qualificationId, holdingId, grantIds };
+}
+
+/**
+ * Build, seed and return one complete MULTI fixture.
+ *
+ * `seed` selects the optional feature rows — see `MultiSeedOptions` for why they
+ * are optional rather than universal. The order is deliberate and matches what
+ * the three files that need both did by hand before the D-1 consolidation:
+ * staffing first, then the catalogue.
+ */
 export async function provisionMulti(
   runtime: PgUnitOfWorkRunner,
   worker: PgUnitOfWorkRunner,
   slug: string,
   profile: MultiProfile = 'core',
+  seed: MultiSeedOptions = {},
 ): Promise<MultiFixture> {
   const fixture = buildMultiFixture(slug, profile);
   await seedMultiTenants(runtime, fixture);
   await seedMultiAuditAndOutbox(runtime, worker, fixture);
-  return fixture;
+
+  const staffing = seed.staffing === true ? await seedStaffing(runtime, fixture) : undefined;
+
+  const catalogueSeeds: { alpha?: SeededCatalogue; beta?: SeededCatalogue } = {};
+  for (const which of seed.catalogue ?? []) {
+    catalogueSeeds[which] = await seedCatalogue(runtime, fixture, which);
+  }
+
+  return {
+    ...fixture,
+    ...(staffing === undefined ? {} : { staffing }),
+    ...(Object.keys(catalogueSeeds).length === 0 ? {} : { catalogue: catalogueSeeds }),
+  };
 }

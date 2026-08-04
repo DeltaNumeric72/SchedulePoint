@@ -93,10 +93,17 @@ async function auditRowsFor(correlationId: string) {
     subject_id: string;
     sequence: string;
   }>(
+    // `order by audit_events.sequence`, QUALIFIED, and that is the whole point:
+    // PostgreSQL resolves an unqualified `ORDER BY` to the OUTPUT column when one
+    // carries that name, so `order by sequence` would have sorted the bigint as
+    // the `::text` alias — `'9'` above `'14'`, correct for the first nine events
+    // of a chain and wrong from the tenth. Found by rotating seed 531651
+    // (OPUS-M2-003; `docs/evidence/EV-M2-PROFILES/INDEX.md` §4.4), fixed as a
+    // class here. A qualified reference cannot resolve to an output column.
     `select event_name, actor_kind, actor_membership_id::text as actor_membership_id,
             group_id::text as group_id, subject_type, subject_id::text as subject_id,
             sequence::text as sequence
-       from audit_events where correlation_id = $1 order by sequence`,
+       from audit_events where correlation_id = $1 order by audit_events.sequence`,
     [correlationId],
   );
   return rows;

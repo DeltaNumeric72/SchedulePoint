@@ -115,13 +115,38 @@ export async function verifyAuditChain(
   const { organizationId, groupId } = uow.context;
   if (groupId !== null) throw new GroupScopedChainVerificationError(groupId);
 
+  /* ── the ORDER BY is QUALIFIED, and that is a correctness fix ─────────────
+   *
+   * This read used to be `select sequence::text as sequence … order by sequence`.
+   * PostgreSQL resolves an **unqualified** `ORDER BY` to the OUTPUT column when
+   * one carries that name, so the bigint was ordered as the `::text` alias:
+   * `'10'` sorted above `'9'`. Correct for the first nine events of a chain and
+   * wrong from the tenth — which is when a chain is long enough for anybody to
+   * be reading this report in anger.
+   *
+   * Nothing was mis-detected: the same problems were found, `intact` was the
+   * same boolean, and the counts were the same. What was wrong is the ORDER of
+   * `problems`, which is what an operator reads first — "where does the damage
+   * start?" is answered by the first row, and the first row was whichever
+   * sequence sorted first lexicographically.
+   *
+   * `p.sequence` names the function's own output column, and a qualified
+   * reference **cannot** resolve to a select-list alias, so the trap cannot come
+   * back by somebody renaming the alias. `problem` needs no alias because no
+   * output column shadows it — it is spelled `p.problem` anyway, so the two
+   * ordering keys are read the same way and neither is a special case.
+   *
+   * The class was found by OPUS-M2-003's rotating seed 531651 in three TEST
+   * sites (`docs/evidence/EV-M2-PROFILES/INDEX.md` §4.4); this is the production
+   * one it also found, fixed here with the rest of the class.
+   * ──────────────────────────────────────────────────────────────────────── */
   const problems = await sql<ProblemRow>`
-    select sequence::text                as sequence,
-           problem                       as problem,
-           encode(expected, 'hex')       as expected,
-           encode(actual,   'hex')       as actual
-      from app_verify_audit_chain(${organizationId}::uuid)
-     order by sequence, problem
+    select p.sequence::text                as sequence,
+           p.problem                       as problem,
+           encode(p.expected, 'hex')       as expected,
+           encode(p.actual,   'hex')       as actual
+      from app_verify_audit_chain(${organizationId}::uuid) p
+     order by p.sequence, p.problem
   `.execute(uow.query);
 
   const head = await sql<HeadRow>`

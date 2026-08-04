@@ -250,6 +250,38 @@ describe('group.holiday_calendar.administer — allow and deny', () => {
     expect(response.statusCode, response.body).toBe(403);
     log('scheduler → POST /holidays → 403 (holds the catalogue key, not the calendar key)');
   });
+
+  /* ── the S-10 / D-10 ruling (OPUS-M2-004) ──────────────────────────────────
+   *
+   * READ is granted to holders of the CATALOGUE-authoring capability as well as
+   * to group administrators; writes stay group-settings-gated. The reason is the
+   * one S-10 recorded: a scheduler authoring per-shift-type `holiday` demand
+   * could not see which dates that demand applied to.
+   *
+   * Three arms, and all three are needed. Without the scheduler ALLOW the ruling
+   * is unimplemented; without the scheduler POST deny (above) the ruling would
+   * have quietly widened writes too; without the member DENY the read would have
+   * become effectively public inside the group. */
+  it('READ is granted to the catalogue-authoring capability — the S-10 / D-10 ruling', async () => {
+    const response = await get(alpha().users.scheduler.id, '/holidays');
+    expect(response.statusCode, response.body).toBe(200);
+    log('scheduler → GET /holidays → 200 (the D-10 ruling: read follows catalogue authoring)');
+  });
+
+  it('READ is still granted to a group administrator', async () => {
+    const groupAdmin = alpha().full?.groupAdmin;
+    if (groupAdmin === undefined) throw new Error('the full profile provisions a group admin');
+    const response = await get(groupAdmin.id, '/holidays');
+    expect(response.statusCode, response.body).toBe(200);
+    log('group_admin → GET /holidays → 200');
+  });
+
+  it('DENY: a member holds neither key and still cannot READ the calendar', async () => {
+    const response = await get(alpha().users.member.id, '/holidays');
+    expect(response.statusCode, response.body).toBe(403);
+    expect(response.body, 'the denial disclosed its reason').not.toContain('capability');
+    log('member → GET /holidays → 403 — the read widened to authors, not to everyone');
+  });
 });
 
 describe('group.pick_positions.administer — allow and deny', () => {

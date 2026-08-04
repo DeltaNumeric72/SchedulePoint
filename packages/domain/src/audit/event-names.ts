@@ -116,6 +116,21 @@ export const AUDIT_EVENT_NAMES = [
   'catalogue.pick_positions.increased',
   /** A date was added to the group's holiday calendar. */
   'catalogue.group_holiday.created',
+
+  /* ── OPUS-M2-004: the shift-type x qualification join (CAP-011 x CAP-058) ───
+   *
+   * ONE name, because the write is one action: an author sends the complete
+   * requirement set and the server works out which rows to add, reactivate and
+   * archive. Three names for those three internal outcomes would be an audit
+   * trail of the implementation rather than of the decision — and the payload
+   * already carries the before/after COUNTS (added, reactivated, archived). It
+   * carries counts rather than the ids: `app_audit_payload_is_closed` admits
+   * only scalar values, so an array of qualification ids cannot be expressed,
+   * and `catalogue/service.ts` records why that is sufficient — requirements are
+   * archived rather than deleted, so the rows themselves are the full history. */
+
+  /** A shift type's qualification requirement set was replaced. */
+  'catalogue.shift_type_qualifications.set',
 ] as const;
 
 export type AuditEventName = (typeof AUDIT_EVENT_NAMES)[number];

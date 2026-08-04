@@ -1,0 +1,21 @@
+=== STANDALONE — each named-condition proof file alone ===
+
+$ vitest run --project api apps/api/test/catalogue/eligibility-read.test.ts
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+
+$ vitest run --project api apps/api/test/audit/problem-ordering.test.ts
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+
+$ vitest run --project api apps/api/test/architecture/derived-test-port.test.ts
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+
+$ vitest run --project api apps/api/test/catalogue/shift-type-qualifications.test.ts
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+
+$ vitest run --project api apps/api/test/catalogue/read-fault-handling.test.ts
+ Test Files  1 passed (1)
+      Tests  2 passed (2)

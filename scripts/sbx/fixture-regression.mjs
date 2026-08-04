@@ -24,15 +24,30 @@ import { join, relative } from 'node:path';
 
 /**
  * Every seed that has ever exposed an order dependence in this suite.
+ *
  * Sources: docs/evidence/EV-M2-NR13/coupled-test-population.txt (7, 20260803,
  * 31337, 123456, 20250101, 8675309); the four that were green there and are kept
- * as controls (1, 42, 424242, 99991); and 65339, drawn by the ROTATING seed at
- * acceptance time and the first to expose coupling number SEVEN — the EXPIRED
- * grant test in http-authorization.test.ts, an M1-authored file outside the six
- * converted at Layer 4. Phase A said six was a lower bound; this is what that
- * meant, and it is why the rotating seed exists.
+ * as controls (1, 42, 424242, 99991); 65339, drawn by the ROTATING seed at
+ * OPUS-M2-001's acceptance and the first to expose coupling number SEVEN — the
+ * EXPIRED grant test in http-authorization.test.ts, an M1-authored file outside
+ * the six converted at Layer 4. Phase A said six was a lower bound; this is what
+ * that meant, and it is why the rotating seed exists.
+ *
+ * **531651** (added by OPUS-M2-004, FAD-15 ruling 3). Drawn by the rotating seed
+ * during OPUS-M2-003 and the first to reach `chain.test.ts`'s R-04 with a chain
+ * ten events or longer — which is where a **`select sequence::text as sequence …
+ * order by sequence`** starts sorting the bigint as text and putting `'10'` above
+ * `'9'`. Three test sites and one PRODUCTION site
+ * (`apps/api/src/audit/verification.ts`, the problems array an operator reads
+ * first) carried that trap; the class is fixed and pinned by
+ * `apps/api/test/audit/problem-ordering.test.ts`. Two of the three test sites had
+ * never failed — they had been silently aiming at whichever row sorted second
+ * lexicographically — which is why the seed is worth keeping rather than
+ * retiring with the defect it found.
  */
-const FIXED_SEEDS = [1, 7, 42, 424242, 20260803, 31337, 99991, 123456, 20250101, 8675309, 65339];
+const FIXED_SEEDS = [
+  1, 7, 42, 424242, 20260803, 31337, 99991, 123456, 20250101, 8675309, 65339, 531651,
+];
 
 const QUICK = process.argv.includes('--quick');
 const results = [];

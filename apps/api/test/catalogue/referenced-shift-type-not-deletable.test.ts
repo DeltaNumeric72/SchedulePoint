@@ -3,7 +3,6 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { TENANT_TABLES } from '../../src/db/schema.js';
 import { adminClient } from '../support/admin-client.js';
-import { seedCatalogueFixture, type SeededCatalogue } from '../support/catalogue-fixture.js';
 import { groupContext } from '../support/fixtures.js';
 import { createRuntime, log, type Runtime } from '../support/harness.js';
 import { ownedMulti } from '../support/owned-multi.js';
@@ -44,11 +43,12 @@ import { ownedMulti } from '../support/owned-multi.js';
  * must actually go — then the referenced one is attempted and must be refused.
  */
 
-const multi = ownedMulti('catalogue-referenced-not-deletable');
+const multi = ownedMulti('catalogue-referenced-not-deletable', {
+  seed: { catalogue: ['alpha'] },
+});
 
 let admin: pg.Client;
 let runtime: Runtime;
-let seeded: SeededCatalogue;
 
 const alpha = () => multi().alpha;
 
@@ -56,7 +56,6 @@ beforeAll(async () => {
   admin = adminClient();
   await admin.connect();
   runtime = createRuntime('app_runtime', { max: 3 });
-  seeded = await seedCatalogueFixture(runtime.runner, multi());
 }, 120_000);
 
 afterAll(async () => {
@@ -119,7 +118,7 @@ describe('archive-not-delete, proven at the database', () => {
   });
 
   it('the OWNER cannot delete a shift type referenced by a shift group, valid group or demand row', async () => {
-    const referenced = seeded.shiftTypeIds[0];
+    const referenced = multi.catalogue().shiftTypeIds[0];
     if (referenced === undefined) throw new Error('the fixture seeded no shift types');
 
     // Every reference is established by the fixture through the production path:
@@ -190,7 +189,7 @@ describe('archive-not-delete, proven at the database', () => {
     // Stronger than "affects zero rows": the statement is refused outright, so a
     // retirement path that tried to hard-delete would fail loudly in development
     // rather than quietly doing nothing.
-    const referenced = seeded.shiftTypeIds[0];
+    const referenced = multi.catalogue().shiftTypeIds[0];
     if (referenced === undefined) throw new Error('the fixture seeded no shift types');
 
     await expect(
@@ -207,7 +206,7 @@ describe('archive-not-delete, proven at the database', () => {
   });
 
   it('RETIREMENT is the path that works, and it keeps every reference resolvable', async () => {
-    const referenced = seeded.shiftTypeIds[1];
+    const referenced = multi.catalogue().shiftTypeIds[1];
     if (referenced === undefined) throw new Error('the fixture seeded fewer than two shift types');
 
     await runtime.runner.run(

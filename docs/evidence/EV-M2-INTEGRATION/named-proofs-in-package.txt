@@ -1,0 +1,25 @@
+=== IN-PACKAGE — the whole api project ===
+$ vitest run --project api
+      · FAIL  migration-rls-pairing (I-15) — 1 violation(s)
+      · FAIL  route-policy-check (I-02) — 1 violation(s)
+      · EVIDENCE_BLOCKED is tolerated when no gate claims it and FAILS the run when one does — the same scenario, both ways
+stdout | test/authz/http-authorization.test.ts > OPUS-M1-004 — every OPUS-M1-002 mutation emits its audit event > a mutation that FAILS after its audit call leaves neither (FAD-12)
+stdout | test/audit/emission-coverage.test.ts > every existing mutation emits an audit event > a mutation that FAILS emits nothing — the audit write is in the same transaction (FAD-12)
+stdout | test/red-cases/fixture-isolation-controls.test.ts > red case — a hidden order dependence is caught by the new fixture strategy > RED: run second-then-first, the coupled pair FAILS
+stdout | test/catalogue/gate-red-cases.test.ts > migration + RLS pairing, against this task's own tables > RED: `shift_types` with its policy removed FAILS the gate, naming the table
+stdout | test/catalogue/gate-red-cases.test.ts > migration + RLS pairing, against this task's own tables > RED: `group_holidays` with FORCE removed FAILS the gate
+stdout | test/catalogue/gate-red-cases.test.ts > route-without-policy, against this task's own routes > RED: the same route with its policy removed FAILS, naming the route
+ Test Files  50 passed (50)
+      Tests  596 passed (596)
+
+=== IN-PACKAGE, second mode — the three proof DIRECTORIES together ===
+$ vitest run --project api apps/api/test/catalogue apps/api/test/audit apps/api/test/architecture
+stdout | test/audit/emission-coverage.test.ts > every existing mutation emits an audit event > a mutation that FAILS emits nothing — the audit write is in the same transaction (FAD-12)
+stdout | test/catalogue/gate-red-cases.test.ts > migration + RLS pairing, against this task's own tables > RED: `shift_types` with its policy removed FAILS the gate, naming the table
+stdout | test/catalogue/gate-red-cases.test.ts > migration + RLS pairing, against this task's own tables > RED: `group_holidays` with FORCE removed FAILS the gate
+stdout | test/catalogue/gate-red-cases.test.ts > route-without-policy, against this task's own routes > RED: the same route with its policy removed FAILS, naming the route
+ Test Files  24 passed (24)
+      Tests  199 passed (199)
+
+=== IN-BATTERY — inside `corepack pnpm check`'s unit gate ===
+see check.txt: 66 test files, 881 tests, 12/12 gates

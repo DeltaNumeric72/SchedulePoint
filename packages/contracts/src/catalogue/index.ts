@@ -69,3 +69,16 @@ export {
   type ValidGroupList,
   type ValidGroupResult,
 } from './groups.js';
+
+export {
+  membershipEligibilitySchema,
+  setShiftTypeQualificationsRequestSchema,
+  shiftTypeEligibilitySchema,
+  shiftTypeQualificationListSchema,
+  shiftTypeQualificationSchema,
+  type MembershipEligibility,
+  type SetShiftTypeQualificationsRequest,
+  type ShiftTypeEligibility,
+  type ShiftTypeQualification,
+  type ShiftTypeQualificationList,
+} from './qualification-requirements.js';

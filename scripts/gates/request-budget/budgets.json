@@ -8,7 +8,11 @@
     "",
     "Recordings are produced by the Playwright run (apps/web/e2e) and compared here.",
     "A budgeted interaction with no recording FAILS: a broken e2e run must not be",
-    "able to satisfy the budget by producing nothing."
+    "able to satisfy the budget by producing nothing.",
+    "",
+    "Every 'maxRequests' below is a MEASURED number, not a target. The measurement",
+    "is the recording in ./recordings/, produced by the real browser against the",
+    "real production bundle at both viewports."
   ],
   "interactions": [
     {
@@ -22,6 +26,24 @@
       "description": "User clicks 'Check again' in the connection panel.",
       "maxRequests": 1,
       "note": "I-10 in its strictest form. One click, one request. Any retry, revalidation, or telemetry beat would break this and is meant to."
+    },
+    {
+      "id": "catalogue-open-new-shift-type",
+      "description": "User clicks 'New shift type' to open the authoring form.",
+      "maxRequests": 0,
+      "note": "I-13, and the reason the invariant exists: a control labelled New must persist nothing before a completed form and an explicit Save. ZERO is the only correct number here — this budget can never be raised without the invariant changing first. Measured 0 at both viewports."
+    },
+    {
+      "id": "catalogue-save-shift-type-refused",
+      "description": "User clicks Save and the server refuses the shift type with a 422.",
+      "maxRequests": 1,
+      "note": "One Save, one request. A refused save does NOT refetch, because nothing changed and there is nothing new to fetch — which is what makes the two-request success budget below a property of the success path rather than of Save in general. Measured 1 at both viewports."
+    },
+    {
+      "id": "catalogue-save-shift-type",
+      "description": "User clicks Save and the server accepts the shift type (200).",
+      "maxRequests": 2,
+      "note": "TWO, ruled and justified — not an I-10 exception. The POST plus the server-authoritative list refetch is the PO-DEC-18 display posture: after a mutation the client re-reads what the SERVER says the list is, rather than patching its own cache from the response and rendering a view no server ever produced. The second request is therefore the invariant's intent (one action, one authoritative round trip to re-establish truth) rather than amplification of it — amplification is N requests for one action's WORK, and this is one write plus one read-back. A one-request alternative exists (POST returns the row; the client updates the list from it) and is recorded as a later-packet option; it is deliberately NOT implemented, because it moves the rendered list's authority to the client. Ruled by Fable on the OPUS-M2-004 escalation (packet 30 §6a as amended). Measured 2 at both viewports: POST .../catalogue/shift-types, then GET .../catalogue/shift-types."
     }
   ]
 }

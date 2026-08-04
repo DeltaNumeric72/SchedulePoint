@@ -1,5 +1,5 @@
 SBX-005 — User invitation, activation, deactivation, impersonation
-generated: 2026-08-04T01:16:21.140Z
+generated: 2026-08-04T04:10:03.086Z
 
 STATE: PASS   falsifiability probe: FALSIFIABLE   gate-required: no
 

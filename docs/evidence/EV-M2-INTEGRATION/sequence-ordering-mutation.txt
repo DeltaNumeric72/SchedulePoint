@@ -1,0 +1,24 @@
+=== MUTATION PROOF — the ORDER BY fix, reverted ===
+
+1. GREEN: the shipped code
+$ vitest run --project api apps/api/test/audit/problem-ordering.test.ts
+      · problem ordering: 11 problems over sequences 2..13; text order would have started at 10
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+
+2. the mutation: qualify -> unqualified, exactly as the defect was
+   -     order by p.sequence, p.problem
+   +     order by sequence, p.problem
+149:     order by sequence, p.problem
+
+3. RED: the same test against the mutated code
+$ vitest run --project api apps/api/test/audit/problem-ordering.test.ts
+     → expected [ 10, 11, 12, 13, 2, 3, 5, 6, 7, 8, 9 ] to deeply equal [ 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13 ]
+AssertionError: expected [ 10, 11, 12, 13, 2, 3, 5, 6, 7, 8, 9 ] to deeply equal [ 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13 ]
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+
+4. restored
+$ vitest run --project api apps/api/test/audit/problem-ordering.test.ts
+ Test Files  1 passed (1)
+      Tests  1 passed (1)

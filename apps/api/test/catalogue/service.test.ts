@@ -9,7 +9,6 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import * as catalogue from '../../src/catalogue/service.js';
 import { adminClient } from '../support/admin-client.js';
-import { seedCatalogueFixture } from '../support/catalogue-fixture.js';
 import { groupContext } from '../support/fixtures.js';
 import { createRuntime, log, type Runtime } from '../support/harness.js';
 import { ownedMulti } from '../support/owned-multi.js';
@@ -25,7 +24,14 @@ import { ownedMulti } from '../support/owned-multi.js';
  * sibling created, and no restore by predicate.
  */
 
-const multi = ownedMulti('catalogue-service');
+/* The holiday tests need `group.holiday_calendar.administer`, which the catalogue
+ * seeding grants to this scheduler. It used to be seeded by the FIRST holiday
+ * test, which made every later one depend on that test having run — order
+ * dependence that `corepack pnpm fixture-regression` found on its first shuffled
+ * run. Declaring it on the fixture makes each test own its precondition (FAD-15)
+ * rather than inheriting a sibling's side effect, and since the D-1 ruling the
+ * seeding itself lives in `provisionMulti` rather than in a per-file module. */
+const multi = ownedMulti('catalogue-service', { seed: { catalogue: ['alpha'] } });
 
 let admin: pg.Client;
 let runtime: Runtime;
@@ -61,13 +67,6 @@ beforeAll(async () => {
   admin = adminClient();
   await admin.connect();
   runtime = createRuntime('app_runtime', { max: 3 });
-  /* The holiday tests need `group.holiday_calendar.administer`, which the
-   * fixture grants to this scheduler. It used to be seeded by the FIRST holiday
-   * test, which made every later one depend on that test having run —
-   * order dependence that `corepack pnpm fixture-regression` found on its first
-   * shuffled run. Establishing it here makes each test own its precondition
-   * (FAD-15) rather than inheriting a sibling's side effect. */
-  await seedCatalogueFixture(runtime.runner, multi());
 }, 180_000);
 
 afterAll(async () => {

@@ -31,9 +31,7 @@ import {
   type Runtime,
 } from '../support/harness.js';
 import { withSimulatedPoolerFault } from '../support/pooler-simulator.js';
-import { seedCatalogueFixture } from '../support/catalogue-fixture.js';
 import { ownedMulti } from '../support/owned-multi.js';
-import { seedStaffingRows } from '../support/staffing.js';
 
 /**
  * FAD-15 Layer 2 — this file owns its tenant.
@@ -44,7 +42,27 @@ import { seedStaffingRows } from '../support/staffing.js';
  * below has the same shape and fresh identifiers, and RLS — not agreement — is what
  * keeps it out of everybody else's queries.
  */
-const multi = ownedMulti('tenancy-unit-of-work');
+/* The catalogue and staffing rows this file's probes need.
+ *
+ * Every table registered in `TENANT_TABLES` must be observed with a VISIBLE
+ * row: a probe over a table nobody ever saw a row in reports "0 wrong-tenant
+ * rows" for the most boring possible reason, and that vacuous pass is what the
+ * non-vacuity checks exist to refuse. So the fixture holds rows in all of them.
+ *
+ * The seeding used to be two per-file modules called after `ownedMulti` had
+ * provisioned, because packet 30 §5 made the MULTI provisioning script
+ * read-only while the two M2 packets ran in parallel. The **D-1** ruling moved
+ * it back into `provisionMulti`, so a file DECLARES what it needs and the
+ * fixture is complete when `beforeAll` returns.
+ *
+ * The credential is issued to Alpha's `scheduler` membership deliberately:
+ * `qualification_holdings` is SENSITIVE-PII with no organization-wide read
+ * policy, and that membership is the one these probes act as. A holding
+ * belonging to anybody else would be invisible to every probe context and the
+ * table would report a vacuous zero. */
+const multi = ownedMulti('tenancy-unit-of-work', {
+  seed: { staffing: true, catalogue: ['alpha'] },
+});
 
 
 /**
@@ -126,25 +144,6 @@ beforeAll(async () => {
   await admin.connect();
   runtime = createRuntime('app_runtime', { max: 4 });
   worker = createRuntime('app_worker', { max: 2 });
-
-  /* OPUS-M2-003: this file's probes iterate `TENANT_TABLES` and require every
-   * registered table to be observed with a VISIBLE row — a "0 wrong-tenant rows"
-   * result from a table nobody ever saw a row in means nothing. Registering the
-   * four staffing tables therefore obliges this fixture to hold rows in them.
-   *
-   * Seeded through a module of this task's own rather than by extending
-   * `multi.ts`, which is read-only shared substrate for both M2 packets (packet
-   * 30 §5). The credential is issued to Alpha's `scheduler` membership because
-   * `qualification_holdings` is SENSITIVE-PII with no organization-wide read
-   * policy, and that membership is the one these probes act as. */
-  await seedStaffingRows(runtime.runner, multi());
-
-  // OPUS-M2-002: migration 0005's nine catalogue tables joined `TENANT_TABLES`,
-  // and the T-15 storm below asserts that EVERY registered table is observed
-  // with at least one visible row — a probe over an empty table reports "0
-  // wrong" for the boring reason. Seeded through the production write path into
-  // this file's OWN tenant; `multi.ts` is deliberately untouched (packet 30 §5).
-  await seedCatalogueFixture(runtime.runner, multi());
 }, 180_000);
 
 afterAll(async () => {

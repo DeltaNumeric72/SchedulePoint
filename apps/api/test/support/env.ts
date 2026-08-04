@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -28,12 +29,77 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 /** `apps/api` */
 export const API_ROOT = resolve(HERE, '../..');
 
+/** The worktree root — one level above `apps/`. */
+export const REPO_ROOT = resolve(API_ROOT, '../..');
+
+/** The lowest port `deriveTestPgPort` can produce. Mirrors `scripts/sbx/test-port.mjs`. */
+export const DERIVED_PORT_BASE = 55500;
+/** How many ports `deriveTestPgPort` can produce. Mirrors `scripts/sbx/test-port.mjs`. */
+export const DERIVED_PORT_SPAN = 400;
+
 /**
- * A port distinct from the SP-A spike's 55432, so a spike run and a harness run
- * on the same machine cannot collide — and so two worktrees can each override it
- * (execution standards §E: concurrent agents never share a database instance).
+ * A stable port derived from the worktree's own path (OPUS-M2-004, E-1).
+ *
+ * ## What was wrong
+ *
+ * This constant used to be `SP_TEST_PG_PORT ?? 55433`, and the docblock said the
+ * override existed "so two worktrees can each override it (execution standards
+ * §E: concurrent agents never share a database instance)". **Nothing set it.**
+ * `.worktrees/m2-002` and `.worktrees/m2-003` derived the same port *and* the
+ * same data directory — the directory name follows the port — and the two
+ * agents' suites destroyed each other's clusters. It surfaced as the runbook's
+ * documented contention signature: whole test *files* failing, tests *skipped*,
+ * **zero tests failed** (`docs/evidence/EV-M2-PROFILES/INDEX.md` §1a E-1).
+ *
+ * A default nobody sets is not a control. The default is now derived, so "each
+ * agent gets its own worktree" *implies* its own database.
+ *
+ * ## The band
+ *
+ * `55500..55899`, deliberately above every port this repository has ever named
+ * (the SP-A spike's 55432, the old default 55433, and every pinned evidence
+ * port, all below 55500), so a derived port cannot collide with a documented
+ * fixed one.
+ *
+ * ## The duplicate, and the test that keeps it honest
+ *
+ * `scripts/sbx/test-port.mjs` carries the same arithmetic in JavaScript, because
+ * `scripts/` is outside every TypeScript project here and the harness cannot
+ * import from it. `apps/api/test/architecture/derived-test-port.test.ts` imports
+ * that module and fails if the two ever disagree.
+ *
+ * The `\u0000` domain separator is spelled as an escape on purpose — the same
+ * lesson `multi.ts`'s `mint` records: a raw NUL byte is load-bearing and
+ * invisible to both a reader and grep.
  */
-export const CLUSTER_PORT = Number.parseInt(process.env['SP_TEST_PG_PORT'] ?? '55433', 10);
+export function deriveTestPgPort(root: string): number {
+  const digest = createHash('sha256').update(`sp.test.pg.port.v1\u0000${root}`).digest('hex');
+  return DERIVED_PORT_BASE + (Number.parseInt(digest.slice(0, 8), 16) % DERIVED_PORT_SPAN);
+}
+
+/**
+ * The port this run uses.
+ *
+ * An explicit `SP_TEST_PG_PORT` still wins — the red-case harness spawns a second
+ * cluster on a port of its own choosing, and the NR-13 benchmarks pin theirs. A
+ * malformed value throws rather than falling back: a typo that silently pointed a
+ * run at a different cluster is the failure mode this exists to remove.
+ */
+function resolveClusterPort(): number {
+  const override = process.env['SP_TEST_PG_PORT'];
+  if (override !== undefined && override.trim() !== '') {
+    const parsed = Number.parseInt(override, 10);
+    if (!Number.isInteger(parsed) || parsed < 1024 || parsed > 65535) {
+      throw new Error(
+        `SP_TEST_PG_PORT is "${override}", which is not a port number between 1024 and 65535.`,
+      );
+    }
+    return parsed;
+  }
+  return deriveTestPgPort(REPO_ROOT);
+}
+
+export const CLUSTER_PORT = resolveClusterPort();
 
 /**
  * Throwaway cluster data directory. Destroyed and recreated on every run.

@@ -5,7 +5,6 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { verifyAuditChain } from '../../src/audit/verification.js';
 import { CATALOGUE_AUDIT_EVENTS } from '../../src/catalogue/policies.js';
 import { adminClient } from '../support/admin-client.js';
-import { seedCatalogueFixture } from '../support/catalogue-fixture.js';
 import { createRuntime, log, type Runtime } from '../support/harness.js';
 import {
   buildHttpHarness,
@@ -42,7 +41,18 @@ import { ownedMulti } from '../support/owned-multi.js';
  * Ten new appends through a new surface is exactly when a chain breaks.
  */
 
-const multi = ownedMulti('catalogue-audit', { profile: 'full' });
+// The catalogue seeding grants the two group-settings capabilities to the
+// scheduler and lays down a baseline catalogue, so the routes below have
+// subjects to act on. Since the D-1 ruling it is `provisionMulti`'s work,
+// declared here rather than called afterwards.
+const multi = ownedMulti('catalogue-audit', {
+  profile: 'full',
+  // Staffing too, since OPUS-M2-004: the eleventh mutation sets a shift type's
+  // qualification requirements, and the qualification it names has to exist in
+  // the same group. The seeding creates one; creating it here would need
+  // `staffing.qualification.administer`, which is grant-only.
+  seed: { staffing: true, catalogue: ['alpha'] },
+});
 
 let admin: pg.Client;
 let harness: HttpHarness;
@@ -98,9 +108,6 @@ beforeAll(async () => {
   await admin.connect();
   harness = await buildHttpHarness();
   runtime = createRuntime('app_runtime', { max: 3 });
-  // Grants the two group-settings capabilities to the scheduler and seeds a
-  // baseline catalogue, so the routes below have subjects to act on.
-  await seedCatalogueFixture(runtime.runner, multi());
 }, 180_000);
 
 afterAll(async () => {
@@ -125,11 +132,11 @@ describe('the catalogue audit vocabulary', () => {
 });
 
 describe('every catalogue mutation emits, and emits exactly once', () => {
-  it('drives all ten mutations and reads back one audit row each', async () => {
+  it('drives all eleven mutations and reads back one audit row each', async () => {
     const scheduler = alpha().users.scheduler.id;
     const marker = await headSequence();
 
-    /* ── the ten mutations, in dependency order ─────────────────────────── */
+    /* ── the eleven mutations, in dependency order ──────────────────────── */
 
     const created = await request('POST', scheduler, '/shift-types', {
       code: 'AUD',
@@ -187,7 +194,18 @@ describe('every catalogue mutation emits, and emits exactly once', () => {
     });
     expect(holiday.statusCode, holiday.body).toBe(200);
 
-    // The tenth: retirement, which must produce `archived` rather than `updated`.
+    // The eleventh (OPUS-M2-004): the qualification requirement set. Filed under
+    // the shift type, because a requirement has no life apart from the type it
+    // constrains.
+    const requirements = await request(
+      'PUT',
+      scheduler,
+      `/shift-types/${shiftTypeId}/qualifications`,
+      { qualificationIds: [multi().staffing?.qualificationId] },
+    );
+    expect(requirements.statusCode, requirements.body).toBe(200);
+
+    // Retirement last, which must produce `archived` rather than `updated`.
     expect(
       (await request('PATCH', scheduler, `/shift-types/${shiftTypeId}`, { status: 'retired' }))
         .statusCode,
@@ -202,11 +220,11 @@ describe('every catalogue mutation emits, and emits exactly once', () => {
       expect(names, `no audit row for ${expected}`).toContain(expected);
     }
 
-    // Exactly one per mutation: ten mutations, ten catalogue rows. A second row
-    // per mutation would mean the emission ran twice, which is a different and
+    // Exactly one per mutation: eleven mutations, eleven catalogue rows. A second
+    // row per mutation would mean the emission ran twice, which is a different and
     // equally serious defect from emitting none.
     const catalogueRows = rows.filter((row) => row.event_name.startsWith('catalogue.'));
-    expect(catalogueRows).toHaveLength(10);
+    expect(catalogueRows).toHaveLength(11);
 
     // And the subject types are the aggregates, not a catch-all.
     const bySubject = new Map(catalogueRows.map((row) => [row.event_name, row.subject_type]));
@@ -220,8 +238,9 @@ describe('every catalogue mutation emits, and emits exactly once', () => {
     // aggregate — filing it elsewhere would make "what changed about this
     // group?" unanswerable.
     expect(bySubject.get('catalogue.pick_positions.increased')).toBe('group');
+    expect(bySubject.get('catalogue.shift_type_qualifications.set')).toBe('shift_type');
 
-    log(`10 catalogue mutations → 10 audit rows: ${catalogueRows.map((r) => r.event_name).join(', ')}`);
+    log(`11 catalogue mutations → 11 audit rows: ${catalogueRows.map((r) => r.event_name).join(', ')}`);
   });
 
   it('a DENIED mutation writes neither the change nor an audit row', async () => {

@@ -1,5 +1,86 @@
+$ corepack pnpm sbx
+$ node scripts/sbx/run-sbx.mjs
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m2-004
+
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m2-004/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-f158fe2b913b027d2e)] INFO: Completed task 1 (outbox.dispatch, 7.88ms) with success
+[worker(worker-f158fe2b913b027d2e)] INFO: Completed task 2 (outbox.dispatch, 2.72ms) with success
+[worker(worker-f158fe2b913b027d2e)] INFO: Completed task 3 (outbox.dispatch, 2.51ms) with success
+[worker(worker-f158fe2b913b027d2e)] INFO: Completed task 4 (outbox.dispatch, 2.25ms) with success
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > every declared scenario carries all nine fields and a falsifiability probe
+      · 5 scenario(s), every contract complete
+
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > RED: a scenario missing a field is NOT RUNNABLE, and the validator says which
+      · a blank contract field makes a scenario NOT_RUNNABLE, naming the field
+
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > RED: a scenario whose probe cannot fail is reported VACUOUS, not PASS
+      · the vacuity detector catches a scenario whose probe cannot fail
+
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > RED: EVIDENCE_BLOCKED is never a pass and never a silent skip
+      · a fully blocked scenario reports EVIDENCE_BLOCKED with its dependency named
+
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > RED: a reading refused with anything but 42501 is a HARNESS DEFECT
+      · only 42501 counts as a refusal; 08006, 25P02 and 57P01 are harness defects
+
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > RED: a probe that throws a TypeError is PROBE_ERROR, not FALSIFIABLE
+      · a probe throwing TypeError is PROBE_ERROR and fails the run
+
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > RED: a probe repointed at an ABSENT subject is never FALSIFIABLE
+      · a probe repointed at an absent subject is VACUOUS, never FALSIFIABLE
+
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > RED: a probe that throws a SQL error is PROBE_ERROR, not FALSIFIABLE
+      · a probe throwing a SQL error is PROBE_ERROR and fails the run
+
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > RED: EVIDENCE_BLOCKED on a GATE-REQUIRED scenario makes the run exit non-zero
+      · EVIDENCE_BLOCKED is tolerated when no gate claims it and FAILS the run when one does — the same scenario, both ways
+
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > RED: a blocked scenario with an UNNAMED dependency is NOT RUNNABLE
+      · SPEC-16 §6: a dependency must be named, not absorbed
+
+stdout | test/sbx/sbx.test.ts > red case — SBX-004 fails when an RLS control is removed > RED: with FORCE RLS off inside a rolled-back transaction, the sweep sees foreign rows
+      · RED: FORCE RLS off -> 15 foreign membership rows became visible to the owner; SBX-004 would fail, as it must
+
+stdout | test/sbx/sbx.test.ts > red case — SBX-004 fails when an RLS control is removed > RED: with FORCE RLS off inside a rolled-back transaction, the sweep sees foreign rows
+      · the rollback restored FORCE RLS — verified from a fresh connection
+
+stdout | test/sbx/sbx.test.ts > the G-ARCH tenancy subset > runs every scenario under its contract
+      · SBX-001 PASS             probe=FALSIFIABLE 543ms
+      · SBX-002 PASS             probe=FALSIFIABLE 50ms
+      · SBX-004 PASS             probe=FALSIFIABLE 137ms
+      · SBX-005 PASS             probe=FALSIFIABLE 2ms
+      · SBX-006 EVIDENCE_BLOCKED probe=NOT_APPLICABLE 0ms
+
+stdout | test/sbx/sbx.test.ts > the G-ARCH tenancy subset > the audit chain verifies clean after the run (the 0 / N / 0 shape)
+      · audit chain after the SBX run — 731f3f7f: 0 / 1 / 0
+
+stdout | test/sbx/sbx.test.ts > the G-ARCH tenancy subset > the audit chain verifies clean after the run (the 0 / N / 0 shape)
+      · audit chain after the SBX run — 59035c50: 0 / 1 / 0
+
+stdout | test/sbx/sbx.test.ts > the G-ARCH tenancy subset > the audit chain verifies clean after the run (the 0 / N / 0 shape)
+      · audit chain after the SBX run — 7da293ed: 0 / 1 / 0
+
+stdout | test/sbx/sbx.test.ts > the G-ARCH tenancy subset > writes the evidence bundle, including EVERY declared retained artifact
+      · scenario report + 5 per-scenario artifact(s) written
+
+stdout | test/sbx/sbx.test.ts > the G-ARCH tenancy subset > SPEC-16 §7 meta-test: every DECLARED artifact exists and is non-empty
+      · 5 declared artifact(s), each produced by this run and non-empty
+
+stdout | test/sbx/sbx.test.ts > the G-ARCH tenancy subset > RED: a scenario declaring a PHANTOM artifact is caught
+      · a declared-but-never-written artifact is detected by the meta-test
+
+ ✓ |api| test/sbx/sbx.test.ts (17 tests) 912ms
+   ✓ the G-ARCH tenancy subset > runs every scenario under its contract  732ms
+
+ Test Files  1 passed (1)
+      Tests  17 passed (17)
+   Start at  00:02:24
+   Duration  2.44s (transform 193ms, setup 67ms, collect 154ms, tests 912ms, environment 0ms, prepare 60ms)
+
+
 OPUS-M2-001 — SBX evidence harness, G-ARCH tenancy subset
-generated: 2026-08-04T04:10:03.085Z
+generated: 2026-08-04T04:02:27.164Z
 
 G-ARCH IS NOT CLOSED BY THIS RUN. It also needs SBX-011, 013, 014b, 022, 023
 and 028 at later milestones. This subset clears the tenancy part.
@@ -8,7 +89,7 @@ scenarios required 5 · executed 4 · passed 4 · failed 0 · blocked 1 · vacuo
 
 ==============================================================================
 SBX-001 — Role x registered-surface matrix — every route an explicit allow or a clean deny
-STATE: PASS   falsifiability probe: FALSIFIABLE   gate-required: YES   537 ms
+STATE: PASS   falsifiability probe: FALSIFIABLE   gate-required: YES   543 ms
 
   SPEC-16 §1 contract
     owner                    OPUS-M2-001 (implementer) / Fable (acceptance)
@@ -45,7 +126,7 @@ STATE: PASS   falsifiability probe: FALSIFIABLE   gate-required: YES   537 ms
 
 ==============================================================================
 SBX-002 — Capability mapping (CAP-006 / CAP-057): the grant x entitlement x role truth table, proven server-side
-STATE: PASS   falsifiability probe: FALSIFIABLE   gate-required: YES   51 ms
+STATE: PASS   falsifiability probe: FALSIFIABLE   gate-required: YES   50 ms
 
   SPEC-16 §1 contract
     owner                    OPUS-M2-001 (implementer) / Fable (acceptance)
@@ -87,7 +168,7 @@ STATE: PASS   falsifiability probe: FALSIFIABLE   gate-required: YES   51 ms
 
 ==============================================================================
 SBX-004 — Cross-tenant isolation sweep — every resource type, both boundaries, every role
-STATE: PASS   falsifiability probe: FALSIFIABLE   gate-required: YES   134 ms
+STATE: PASS   falsifiability probe: FALSIFIABLE   gate-required: YES   137 ms
 
   SPEC-16 §1 contract
     owner                    OPUS-M2-001 (implementer) / Fable (acceptance)
@@ -159,8 +240,9 @@ vacuous assertions detected: 0
 AUDIT CHAIN AFTER THIS RUN — chain problems / checkpoints signed / checkpoint problems
 (clean is 0 / N>=1 / 0; the middle number is reported rather than pinned, because
  the periodic sweep may legitimately have signed more than one)
-  b9dd0bd6: 0 / 1 / 0  (15 entries, head 15)
-  82483278: 0 / 1 / 0  (3 entries, head 3)
-  7a69eba8: 0 / 1 / 0  (2 entries, head 2)
+  731f3f7f: 0 / 1 / 0  (15 entries, head 15)
+  59035c50: 0 / 1 / 0  (3 entries, head 3)
+  7da293ed: 0 / 1 / 0  (2 entries, head 2)
 
 evidence path: docs/evidence/EV-M2-SBX/scenario-report.txt
+EXIT=0

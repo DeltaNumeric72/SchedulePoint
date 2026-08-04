@@ -354,6 +354,30 @@ export interface ValidGroupShiftTypesTable {
   updated_at: Generated<Date>;
 }
 
+/**
+ * `shift_type_qualifications` (migration 0006, OPUS-M2-004).
+ *
+ * The requirement edge: "a member assigned to this shift type must hold this
+ * qualification". Composite tenant foreign keys into BOTH parents, so neither
+ * end can be re-tenanted and neither can point across a group boundary.
+ *
+ * `status` rather than a DELETE: a requirement in force when a schedule was
+ * built is part of why that schedule looks the way it does, and the database
+ * refuses the deletion for the table OWNER as well as for the runtime roles.
+ */
+export interface ShiftTypeQualificationsTable {
+  id: string;
+  organization_id: string;
+  group_id: string;
+  shift_type_id: string;
+  qualification_id: string;
+  status: Generated<'active' | 'archived'>;
+  /** Database-owned. Not in any UPDATE grant — naming it raises 42501. */
+  version: Generated<number>;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
 export interface GroupHolidaysTable {
   id: string;
   organization_id: string;
@@ -390,6 +414,7 @@ export interface Database {
   valid_groups: ValidGroupsTable;
   valid_group_shift_types: ValidGroupShiftTypesTable;
   group_holidays: GroupHolidaysTable;
+  shift_type_qualifications: ShiftTypeQualificationsTable;
 }
 
 /**
@@ -520,11 +545,12 @@ export const TENANT_TABLES: readonly TenantTable[] = [
    * every generic assertion that iterates this registry covers them, and each is
    * probed under a GROUP context where its policy can actually admit a row.
    *
-   * Their non-vacuity in those probes is established by
-   * `apps/api/test/support/catalogue-fixture.ts`, which seeds one of every
-   * catalogue row through the production write path. The MULTI provisioning
-   * script is deliberately NOT modified (packet 30 §5): the seeding is additive
-   * and per-file, and the reasons are in that module's docblock. */
+   * Their non-vacuity in those probes is established by `provisionMulti`
+   * (`apps/api/test/support/multi.ts`), which seeds one of every catalogue row
+   * through the production write path for any fixture that asks for it. The
+   * seeding lived in a per-file module while OPUS-M2-002 and OPUS-M2-003 ran in
+   * parallel and packet 30 §5 held the MULTI provisioning script read-only; the
+   * D-1 ruling moved it back, so there is one fixture owner again. */
   { name: 'shift_types', scope: 'organization-and-group' },
   { name: 'shift_type_weekday_demand', scope: 'organization-and-group' },
   { name: 'shift_groups', scope: 'organization-and-group' },
@@ -534,4 +560,18 @@ export const TENANT_TABLES: readonly TenantTable[] = [
   { name: 'valid_groups', scope: 'organization-and-group' },
   { name: 'valid_group_shift_types', scope: 'organization-and-group' },
   { name: 'group_holidays', scope: 'organization-and-group' },
+
+  /* ── `migrations/0006_shift_type_qualifications.sql` (OPUS-M2-004) ──────────
+   *
+   * Registered in the SAME change as the migration that creates it (packet 30
+   * §7.2, whose rule exists because 0003's four tenant tables were left out of
+   * this registry and stayed unprobed until OPUS-M1-004 noticed).
+   *
+   * `organization-and-group`: both tenant columns, V-09's conjunctive group
+   * predicate, no organization-scoped policy. Its non-vacuity in the sweeps is
+   * established by `provisionMulti`'s catalogue seeding, which writes
+   * requirement rows in Group One AND in the sibling group through the
+   * production write path — so the cross-GROUP arm has something it could see if
+   * the group predicate were broken, not only the cross-organization one. */
+  { name: 'shift_type_qualifications', scope: 'organization-and-group' },
 ] as const;

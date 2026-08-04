@@ -4,7 +4,6 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { TENANT_TABLES } from '../../src/db/schema.js';
 import { adminClient } from '../support/admin-client.js';
-import { seedCatalogueFixture, type SeededCatalogue } from '../support/catalogue-fixture.js';
 import { groupContext } from '../support/fixtures.js';
 import { createRuntime, log, type Runtime } from '../support/harness.js';
 import { ownedMulti } from '../support/owned-multi.js';
@@ -37,7 +36,7 @@ import { ownedMulti } from '../support/owned-multi.js';
  * rolled-back transaction, the sweep sees foreign rows".
  */
 
-const multi = ownedMulti('catalogue-sweep-mutation');
+const multi = ownedMulti('catalogue-sweep-mutation', { seed: { catalogue: ['alpha'] } });
 
 const CATALOGUE_TABLES = TENANT_TABLES.filter((table) =>
   [
@@ -55,7 +54,6 @@ const CATALOGUE_TABLES = TENANT_TABLES.filter((table) =>
 
 let admin: pg.Client;
 let runtime: Runtime;
-let seeded: SeededCatalogue;
 
 const alpha = () => multi().alpha;
 
@@ -63,7 +61,6 @@ beforeAll(async () => {
   admin = adminClient();
   await admin.connect();
   runtime = createRuntime('app_runtime', { max: 3 });
-  seeded = await seedCatalogueFixture(runtime.runner, multi(), 'alpha');
 }, 180_000);
 
 afterAll(async () => {
@@ -196,8 +193,8 @@ describe('the cross-group arm of the sweep can be made to fail', () => {
   it('the seeded sibling group is what makes all of the above measurable', () => {
     // Named explicitly so the dependency is visible: remove the sibling seeding
     // and the RED case above goes green, which is the original defect.
-    expect(seeded.sibling.shiftTypeIds.length).toBeGreaterThan(0);
-    expect(seeded.sibling.holidaySeeded).toBe(true);
-    expect(seeded.sibling.groupId).not.toBe(alpha().groupOne.id);
+    expect(multi.catalogue().sibling.shiftTypeIds.length).toBeGreaterThan(0);
+    expect(multi.catalogue().sibling.holidaySeeded).toBe(true);
+    expect(multi.catalogue().sibling.groupId).not.toBe(alpha().groupOne.id);
   });
 });

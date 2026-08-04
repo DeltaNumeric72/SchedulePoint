@@ -7,9 +7,12 @@ import type {
   CreateStaffGroupRequest,
   CreateValidGroupRequest,
   GroupHoliday,
+  SetShiftTypeQualificationsRequest,
   SetWeekdayDemandRequest,
   ShiftGroup,
   ShiftType,
+  ShiftTypeEligibility,
+  ShiftTypeQualification,
   StaffGroup,
   UpdateShiftGroupRequest,
   UpdateShiftTypeRequest,
@@ -20,6 +23,7 @@ import {
   canonicalPickPositions,
   crossesMidnight,
   effectiveWindowProblems,
+  isEligibleAt,
   pickPositionIncreaseProblems,
   pickPositionProblems,
   shiftTypeProblems,
@@ -31,6 +35,7 @@ import {
 import { sql, type Kysely } from 'kysely';
 
 import type { Database } from '../db/schema.js';
+import { loadHoldings } from '../profiles/in-force-loader.js';
 import {
   shiftGroupToWire,
   shiftTypeToWire,
@@ -975,4 +980,315 @@ export async function createGroupHoliday(
   const row = rows[0];
   if (row === undefined) return { kind: 'not-found' };
   return { kind: 'ok', value: holidayToWire(row) };
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Qualification requirements, and the two eligibility reads
+ * (OPUS-M2-004; `shift_type_qualifications`, migration 0006)
+ *
+ * ## What this is for
+ *
+ * The M4 scheduling engine needs to know which credentials a shift type demands.
+ * **Nothing here enforces it** — enforcement is the engine's, and this is its
+ * input. What ships is the authoring surface, the tenancy, the authorization,
+ * the audit trail, and the two reads:
+ *
+ *   * which qualifications does shift type X require?
+ *   * which shift types is member M qualified for?
+ *
+ * ## Removal is archiving, and the server decides that
+ *
+ * The set is written as a SET, not row by row. An author changing three
+ * requirements performs one action and issues one request (I-10), and expressing
+ * removal as "this id is no longer in the set" keeps the retention rule on the
+ * server — the database refuses a DELETE outright, for the table owner as well
+ * as for the runtime roles, so a client asked to send one would be asking for a
+ * statement that cannot succeed.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+interface RequirementRow {
+  id: string;
+  qualification_id: string;
+  qualification_key: string;
+  qualification_name: string;
+  status: 'active' | 'archived';
+}
+
+function requirementToWire(row: RequirementRow): ShiftTypeQualification {
+  return {
+    shiftTypeQualificationId: row.id,
+    qualificationId: row.qualification_id,
+    qualificationKey: row.qualification_key,
+    qualificationName: row.qualification_name,
+    active: row.status === 'active',
+  };
+}
+
+/**
+ * Every requirement recorded for a shift type, archived ones included.
+ *
+ * Archived rows are returned with `active: false` rather than filtered out: the
+ * reason they are retained is that they explain schedules built while they were
+ * in force, and a read that hid them would make the retention pointless for
+ * anybody but a forensic SQL query.
+ *
+ * The join to `qualifications` is inside the same group predicate on both sides,
+ * so it can neither widen what the caller sees nor fail to resolve: the
+ * composite foreign key guarantees the parent is in the same group.
+ */
+export async function listShiftTypeQualifications(
+  uow: Uow,
+  shiftTypeId: string,
+): Promise<readonly ShiftTypeQualification[]> {
+  const rows = (await uow.query
+    .selectFrom('shift_type_qualifications as stq')
+    .innerJoin('qualifications as q', (join) =>
+      join
+        .onRef('q.id', '=', 'stq.qualification_id')
+        .onRef('q.organization_id', '=', 'stq.organization_id')
+        .onRef('q.group_id', '=', 'stq.group_id'),
+    )
+    .where('stq.shift_type_id', '=', shiftTypeId)
+    .select([
+      'stq.id as id',
+      'stq.qualification_id as qualification_id',
+      'stq.status as status',
+      'q.key as qualification_key',
+      'q.name as qualification_name',
+    ])
+    // Qualified, and deliberately: an unqualified `order by key` would resolve to
+    // an output column if one ever carried that name. The lesson is
+    // OPUS-M2-004's own — see `src/audit/verification.ts`.
+    .orderBy('q.key')
+    .execute()) as unknown as RequirementRow[];
+
+  return rows.map(requirementToWire);
+}
+
+/**
+ * Replaces a shift type's requirement set.
+ *
+ * Three statements, all inside the caller's unit of work:
+ *
+ *   1. every id in the request that has no row yet is INSERTed;
+ *   2. every existing row whose qualification is in the request is set active
+ *      (this is how a previously archived requirement comes back — the unique
+ *      key is on the PAIR, so re-adding reactivates rather than duplicating);
+ *   3. every existing row whose qualification is NOT in the request is archived.
+ *
+ * A shift type or qualification that does not exist **in this group** produces a
+ * foreign-key violation, which the route turns into a `404` — the same answer as
+ * a row RLS hid, which is what T-05b requires.
+ */
+export interface RequirementSetResult {
+  readonly requirements: readonly ShiftTypeQualification[];
+  /**
+   * The before/after summary the audit row carries.
+   *
+   * COUNTS rather than the two sets, and that is a constraint rather than a
+   * choice: `app_audit_payload_is_closed` (migration 0003, I-07) admits at most
+   * sixteen keys of scalar values, each string at most 64 printable characters.
+   * A pair of id arrays cannot be expressed, and flattening them into a joined
+   * string would be a 64-character truncation of the fact it claims to record.
+   *
+   * The row-level before state is not lost by this: requirements are archived,
+   * never deleted, so `shift_type_qualifications` itself holds every requirement
+   * that ever applied, with `version` and `updated_at` on each. Archive-not-
+   * delete is what makes the audit summary sufficient rather than the only copy.
+   */
+  readonly beforeActiveCount: number;
+  readonly addedCount: number;
+  readonly reactivatedCount: number;
+  readonly archivedCount: number;
+}
+
+export async function setShiftTypeQualifications(
+  uow: Uow,
+  shiftTypeId: string,
+  body: SetShiftTypeQualificationsRequest,
+): Promise<CatalogueOutcome<RequirementSetResult>> {
+  const wanted = [...new Set(body.qualificationIds)];
+  if (wanted.length !== body.qualificationIds.length) {
+    return {
+      kind: 'invalid',
+      problems: [
+        {
+          field: 'qualificationIds',
+          message: 'A qualification is listed more than once. Each may appear only once.',
+        },
+      ],
+    };
+  }
+
+  // The subject has to exist in this group before anything is written about it,
+  // and it is read inside the same unit of work as the write (FAD-12, and the
+  // M1 S-01 lesson: the row the precondition saw is the row the write acts on).
+  const subject = await uow.query
+    .selectFrom('shift_types')
+    .select('id')
+    .where('id', '=', shiftTypeId)
+    .executeTakeFirst();
+  if (subject === undefined) return { kind: 'not-found' };
+
+  const existing = (await uow.query
+    .selectFrom('shift_type_qualifications')
+    .select(['id', 'qualification_id', 'status'])
+    .where('shift_type_id', '=', shiftTypeId)
+    .execute()) as unknown as { id: string; qualification_id: string; status: string }[];
+
+  const known = new Map(existing.map((row) => [row.qualification_id, row]));
+
+  const toInsert = wanted.filter((qualificationId) => !known.has(qualificationId));
+  const toActivate = existing
+    .filter((row) => wanted.includes(row.qualification_id) && row.status !== 'active')
+    .map((row) => row.id);
+  const toArchive = existing
+    .filter((row) => !wanted.includes(row.qualification_id) && row.status !== 'archived')
+    .map((row) => row.id);
+
+  if (toInsert.length > 0) {
+    await uow.query
+      .insertInto('shift_type_qualifications')
+      .values(
+        toInsert.map((qualificationId) => ({
+          id: randomUUID(),
+          ...tenantOf(uow.context),
+          shift_type_id: shiftTypeId,
+          qualification_id: qualificationId,
+        })),
+      )
+      .execute();
+  }
+
+  // By ROW ID, both of them. A predicate over `qualification_id` would be
+  // equivalent today and would silently start matching a row this transaction
+  // did not read the moment anything about the key changed.
+  if (toActivate.length > 0) {
+    await uow.query
+      .updateTable('shift_type_qualifications')
+      .set({ status: 'active', updated_at: new Date() })
+      .where('id', 'in', toActivate)
+      .execute();
+  }
+
+  if (toArchive.length > 0) {
+    await uow.query
+      .updateTable('shift_type_qualifications')
+      .set({ status: 'archived', updated_at: new Date() })
+      .where('id', 'in', toArchive)
+      .execute();
+  }
+
+  return {
+    kind: 'ok',
+    value: {
+      requirements: await listShiftTypeQualifications(uow, shiftTypeId),
+      beforeActiveCount: existing.filter((row) => row.status === 'active').length,
+      addedCount: toInsert.length,
+      reactivatedCount: toActivate.length,
+      archivedCount: toArchive.length,
+    },
+  };
+}
+
+interface EligibilityShiftTypeRow {
+  shift_type_id: string;
+  code: string;
+  qualification_id: string;
+}
+
+/**
+ * Which shift types the named membership is qualified for, at `instant`.
+ *
+ * ## What decides what the caller sees
+ *
+ * Not this function. `qualification_holdings` is `SENSITIVE-PII` and its SELECT
+ * policies carry a capability predicate: a caller reads their own holdings
+ * always and somebody else's only with `staffing.qualification_holding.read_any`.
+ * So a caller without that key asking about a colleague sees **no holdings** and
+ * gets the same answer they would get for a colleague who holds none — which is
+ * what P-3 requires, and what an application-layer 403 here would have
+ * destroyed.
+ *
+ * That is worth stating plainly because it cuts both ways: a caller who cannot
+ * see the holdings gets `eligible: false` with every requirement listed as
+ * missing. **That is a report about what the caller can see, not a verdict about
+ * the member**, which is exactly why the M4 engine will compute eligibility with
+ * its own credential rather than trusting a client-visible answer.
+ *
+ * ## Expiry makes this time-dependent
+ *
+ * A holding is honoured only while `valid_from <= instant` and `valid_until` is
+ * null or in the future, and only in status `valid`. The instant is a parameter,
+ * never `now()` read inside the query: two rows evaluated against two different
+ * clock readings inside one transaction is the class of defect the in-force
+ * loader exists to prevent (CAP-058, and M2-003's `?at=` discipline).
+ */
+export async function listMembershipEligibility(
+  uow: Uow,
+  membershipId: string,
+  instant: Date,
+): Promise<readonly ShiftTypeEligibility[]> {
+  const shiftTypes = (await uow.query
+    .selectFrom('shift_types')
+    .select(['id as id', 'code as code'])
+    .orderBy('shift_types.code')
+    .execute()) as unknown as { id: string; code: string }[];
+
+  const requirements = (await uow.query
+    .selectFrom('shift_type_qualifications')
+    .select(['shift_type_id as shift_type_id', 'qualification_id as qualification_id'])
+    .where('status', '=', 'active')
+    .execute()) as unknown as Omit<EligibilityShiftTypeRow, 'code'>[];
+
+  /* ── the holdings come through the ONE loader, and the rule from the domain ──
+   *
+   * `qualification_holdings` is effective-dated, and
+   * `apps/api/test/profiles/loader-is-the-only-selector.test.ts` fails the build
+   * if any module but `profiles/in-force-loader.ts` selects from it. That test is
+   * the S-01 lesson made structural: S-01 was two selection rules that disagreed,
+   * each written in good faith at its own call site, and the second query is
+   * always the one nobody thought about.
+   *
+   * This was that second query. It was written here first — a hand-rolled
+   * `status = 'valid' AND valid_from <= at AND (valid_until IS NULL OR
+   * valid_until > at)` — and the control caught it. Two things were wrong with
+   * it beyond the duplication: it treated `expiring` as ineligible, which
+   * `ELIGIBLE_HOLDING_STATUSES` does not, and its window comparison was a third
+   * spelling of a boundary rule that already has one.
+   *
+   * `loadHoldings` selects; `isEligibleAt` decides. Both are the shipped
+   * implementations, so a change to either reaches this read too. */
+  const holdings = await loadHoldings(uow.query, {
+    organizationId: uow.context.organizationId,
+    membershipId,
+  });
+
+  const heldIds = new Set(
+    [...new Set(holdings.map((holding) => holding.qualificationId))].filter((qualificationId) =>
+      isEligibleAt(
+        holdings.filter((holding) => holding.qualificationId === qualificationId),
+        instant,
+      ),
+    ),
+  );
+
+  const byShiftType = new Map<string, string[]>();
+  for (const row of requirements) {
+    const list = byShiftType.get(row.shift_type_id) ?? [];
+    list.push(row.qualification_id);
+    byShiftType.set(row.shift_type_id, list);
+  }
+
+  return shiftTypes.map((shiftType) => {
+    const required = [...(byShiftType.get(shiftType.id) ?? [])].sort();
+    const missing = required.filter((qualificationId) => !heldIds.has(qualificationId));
+    return {
+      shiftTypeId: shiftType.id,
+      shiftTypeCode: shiftType.code,
+      requiredQualificationIds: required,
+      missingQualificationIds: missing,
+      eligible: missing.length === 0,
+    };
+  });
 }

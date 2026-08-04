@@ -17,9 +17,7 @@ import { createPool } from '../../src/db/pool.js';
 import { API_ROOT } from '../support/env.js';
 import { log, type Runtime } from '../support/harness.js';
 import { buildHttpHarness, type HttpHarness } from '../support/http.js';
-import { seedCatalogueFixture } from '../support/catalogue-fixture.js';
 import { ownedMulti } from '../support/owned-multi.js';
-import { seedStaffingRows } from '../support/staffing.js';
 import {
   ProbeFalsified,
   contractProblems,
@@ -51,7 +49,28 @@ import {
  * evidence.
  * ──────────────────────────────────────────────────────────────────────────── */
 
-const multi = ownedMulti('sbx-harness', { profile: 'full' });
+/* The catalogue and staffing rows this file's probes need.
+ *
+ * Every table registered in `TENANT_TABLES` must be observed with a VISIBLE
+ * row: a probe over a table nobody ever saw a row in reports "0 wrong-tenant
+ * rows" for the most boring possible reason, and that vacuous pass is what the
+ * non-vacuity checks exist to refuse. So the fixture holds rows in all of them.
+ *
+ * The seeding used to be two per-file modules called after `ownedMulti` had
+ * provisioned, because packet 30 §5 made the MULTI provisioning script
+ * read-only while the two M2 packets ran in parallel. The **D-1** ruling moved
+ * it back into `provisionMulti`, so a file DECLARES what it needs and the
+ * fixture is complete when `beforeAll` returns.
+ *
+ * The credential is issued to Alpha's `scheduler` membership deliberately:
+ * `qualification_holdings` is SENSITIVE-PII with no organization-wide read
+ * policy, and that membership is the one these probes act as. A holding
+ * belonging to anybody else would be invisible to every probe context and the
+ * table would report a vacuous zero. */
+const multi = ownedMulti('sbx-harness', {
+  profile: 'full',
+  seed: { staffing: true, catalogue: ['alpha'] },
+});
 
 let admin: pg.Client;
 let app: FastifyInstance;
@@ -74,45 +93,6 @@ beforeAll(async () => {
   ({ app, routeTable } = await buildServer());
   http = await buildHttpHarness();
   runtimes = createRuntimes();
-
-  /* ── OPUS-M2-003: the four staffing tables need rows to be probed against ──
-   *
-   * Packet 30 §7.2: a new tenant table must appear in the SBX-004 sweep
-   * **observed with visible rows**, and a table nobody ever saw a row in reports
-   * "0 wrong-tenant rows" for the same reason an empty table does. The sweep's
-   * own vacuity check fails the run if any registered table is never seen, so
-   * this seeding is the difference between the tables being covered and the
-   * sweep merely claiming to cover them.
-   *
-   * It is a SEPARATE module rather than an addition to `multi.ts`: the MULTI
-   * provisioning script is read-only shared substrate for both M2 packets
-   * (packet 30 §5), and changing it is an escalation. `seedStaffingRows` writes
-   * through the production path — real grants, real guard triggers — into the
-   * fixture this file already owns.
-   *
-   * The credential is issued to Alpha's `scheduler` membership deliberately:
-   * `qualification_holdings` is SENSITIVE-PII and has no organization-wide read
-   * policy, and `runtime/group-one` is the probe context that acts as that
-   * membership. A holding belonging to anyone else would be invisible to every
-   * probe and the table would report a vacuous zero. */
-  const seedRuntime = runtimes.get('app_runtime');
-  if (seedRuntime === undefined) throw new Error('no app_runtime runtime for staffing seeding');
-  await seedStaffingRows(seedRuntime.runner, multi());
-
-  /* OPUS-M2-002 — migration 0005's nine catalogue tables are registered in
-   * `TENANT_TABLES`, and SBX-004's oracle requires every registered table to be
-   * observed with at least one VISIBLE row: "a probe over a table it cannot see
-   * reports 0 wrong for the boring reason". Packet 30 §7.2 makes that explicit —
-   * "a new table missing from the sweep is an acceptance failure".
-   *
-   * Seeded into THIS file's owned fixture through the production write path.
-   * `apps/api/test/support/multi.ts` is deliberately not modified: packet 30 §5
-   * makes MULTI read-only shared substrate, and OPUS-M2-003 is adding its own
-   * tables in parallel. The tension between the two clauses is disclosed in the
-   * return report rather than resolved by editing the protected file. */
-  const runtime = runtimes.get('app_runtime');
-  if (runtime === undefined) throw new Error('app_runtime runtime missing');
-  await seedCatalogueFixture(runtime.runner, multi());
 }, 240_000);
 
 afterAll(async () => {

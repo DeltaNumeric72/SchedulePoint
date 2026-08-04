@@ -243,9 +243,10 @@ corepack pnpm --filter @schedulepoint/api migrate:cycle:embedded   # up -> down 
    If the wrapper did not work, the fixture would not exist and the suite would fail
    loudly on its first assertion.
 
-Set `SP_TEST_PG_PORT` to move the cluster off `55433` (the data directory follows the port) — required when two worktrees run
-at once, because concurrent agents never share a database instance (execution standards
-§E). `SP_STORM_ITERATIONS` overrides the T-15 storm's loop count (default 120).
+**The port is derived from the worktree path** (see [Ports, per worktree](#ports-per-worktree)
+below) and the data directory follows the port, so two worktrees never share a cluster
+without anybody remembering. `SP_TEST_PG_PORT` overrides the derived value.
+`SP_STORM_ITERATIONS` overrides the T-15 storm's loop count (default 120).
 
 ### ⚠ Never import `embedded-postgres` into a process whose exit code matters
 
@@ -506,8 +507,11 @@ survives. The next run does not silently inherit it: it refuses to start and pri
 orphan pid, the data directory, and the recovery commands:
 
 ```bash
-lsof -nP -i:55433 -t | xargs -r kill -9
-rm -rf apps/api/.pgdata-test-55433
+# <port> is THIS worktree's derived port — the message prints it, and
+# `node -e "import('./scripts/sbx/test-port.mjs').then(m => console.log(m.resolveTestPgPort()))"`
+# answers it from anywhere in the worktree.
+lsof -nP -i:<port> -t | xargs -r kill -9
+rm -rf apps/api/.pgdata-test-<port>
 ```
 
 ## The SBX evidence harness
@@ -522,3 +526,88 @@ contract fields — a missing or blank field makes it **not runnable** — and c
 falsifiability probe that must fail. A scenario that cannot be made to fail is reported
 **VACUOUS** and fails the run. `EVIDENCE_BLOCKED` is never a pass and never a silent skip,
 and on a **gate-required** scenario it fails the run outright.
+
+## Ports, per worktree
+
+**Added by OPUS-M2-004 from findings E-1 and E-2, both measured while two agents ran in
+parallel worktrees.**
+
+Two ports decide whether two worktrees can run their batteries at the same time. Until
+this change, one of them had a default nobody set and the other had no override at all.
+
+| Port | Variable | Default | What holds it |
+|---|---|---|---|
+| embedded PostgreSQL | `SP_TEST_PG_PORT` | **derived from the worktree path**, in `55500..55899` | `pnpm check`, `pnpm sbx`, `pnpm fixture-regression`, `pnpm red-cases`, any `vitest --project api` run |
+| Vite preview (Playwright) | `SP_TEST_PREVIEW_PORT` | `4173` | the `axe` gate (`pnpm gate:axe`), `pnpm --filter @schedulepoint/web preview` |
+
+### The database port is derived, not defaulted
+
+`apps/api/test/support/env.ts` used to read `SP_TEST_PG_PORT ?? 55433`, and its comment
+said the override existed so two worktrees could each set it. **Nothing set it.** Two
+worktrees therefore derived the same port *and* the same data directory — the directory
+name follows the port — and each agent's suite destroyed the other's cluster. It presents
+as the runbook's contention signature: whole test *files* failing, tests *skipped*, and
+**zero tests failed**.
+
+The default is now `55500 + (sha256 of the worktree root, mod 400)`, so "each agent gets
+its own worktree" implies its own database. The band is deliberately above every port this
+repository has ever named — the SP-A spike's `55432`, the old default `55433`, and every
+port pinned in an evidence capture — so a derived port cannot collide with a documented
+fixed one.
+
+Ask for this worktree's port:
+
+```bash
+node -e "import('./scripts/sbx/test-port.mjs').then(m => console.log(m.resolveTestPgPort()))"
+```
+
+`SP_TEST_PG_PORT` still wins when set — the red-case harness spawns a deliberate second
+cluster on a port of its own, and the NR-13 benchmarks pin theirs. A malformed value
+throws rather than falling back to the derived one.
+
+The derivation exists twice — `scripts/sbx/test-port.mjs` (JavaScript, because `scripts/`
+is outside every TypeScript project here) and `apps/api/test/support/env.ts` (TypeScript,
+because the harness cannot import from `scripts/`). They are not trusted to stay equal:
+`apps/api/test/architecture/derived-test-port.test.ts` executes the JavaScript module in a
+child process and fails if the two disagree.
+
+### The preview port is overridable, and still defaults to 4173
+
+`apps/web/playwright.config.ts` hard-coded `vite preview --port 4173 --strictPort` with
+`reuseExistingServer: false`, so two concurrent worktrees could not both run the `axe`
+gate. `SP_TEST_PREVIEW_PORT` now moves it.
+
+The default is **still 4173**, and unlike the database port it is not derived. The
+difference is the failure mode, not the inconvenience. A database-port collision was
+silent and destructive — two worktrees shared a port *and* a data directory, and each
+suite destroyed the other's cluster while reporting zero failed tests. A preview-port
+collision is loud and harmless: `--strictPort` refuses to start and names the port. An
+override is the proportionate fix; a concurrent agent sets the variable, and a solo run
+is unchanged.
+
+```bash
+SP_TEST_PREVIEW_PORT=4273 corepack pnpm check      # the second worktree
+```
+
+### Port hygiene, extended to the preview server
+
+The runbook's standing discipline — finish with no background run still holding a cluster
+— applies to `vite preview` too. While diagnosing E-2, a preview server from a worktree
+**deleted two days earlier** was still holding 4173. Both are worth checking before
+concluding anything about a failing run:
+
+```bash
+lsof -nP -i:4173 -t                              # who holds the preview port
+node -e "import('./scripts/sbx/test-port.mjs').then(m => console.log(m.resolveTestPgPort()))"
+lsof -nP -i:<that port> -t                       # who holds this worktree's cluster
+```
+
+### `pnpm red-cases` waits for the cluster port
+
+Running `pnpm red-cases` immediately after `pnpm check` used to race the previous run's
+shutdown: the `unit` case's **GREEN arm** starts the cluster, the port was still held for a
+moment, and the arm failed — reporting a broken gate when nothing was broken. The runner
+now waits for the port to be released first (up to 30s). It **waits rather than retries**:
+retrying the gate would mask a genuine GREEN failure, which is the one thing that runner
+exists to detect. If the budget runs out it continues anyway and says so, so a genuinely
+stuck cluster surfaces as a failure rather than as a hang.

@@ -1,0 +1,20 @@
+=== U-04: the red-case runner waits for the cluster port ===
+this worktree's derived port: 55582
+
+A squatter holds it for 12 seconds. Without the wait, the `unit` case's
+GREEN arm would start the cluster into an occupied port and fail — reporting
+a broken gate when nothing is broken.
+
+$ node port-squatter.mjs 55582 12 &
+squatter: holding 127.0.0.1:55582 for 12s
+$ corepack pnpm red-cases
+started 02:45:51Z
+squatter: released 55582 at 2026-08-04T02:46:02.038Z
+$ node scripts/red-cases/run.mjs
+Waiting for the embedded-postgres port 55582 to be released (a previous `pnpm check` may still be shutting down)...
+Port 55582 released.
+
+=== lint — lint (eslint) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+

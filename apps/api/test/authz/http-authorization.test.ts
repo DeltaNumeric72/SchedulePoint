@@ -136,10 +136,14 @@ async function auditRowsFor(correlationId: string) {
     subject_id: string;
     sequence: string;
   }>(
+    // `order by audit_events.sequence`, QUALIFIED. An unqualified `ORDER BY`
+    // resolves to the OUTPUT column when one carries that name, so the bigint
+    // would have been sorted as the `::text` alias — `'9'` above `'14'`. Found
+    // by rotating seed 531651 (OPUS-M2-003), fixed as a class in OPUS-M2-004.
     `select event_name, actor_kind, actor_membership_id::text as actor_membership_id,
             group_id::text as group_id, subject_type, subject_id::text as subject_id,
             sequence::text as sequence
-       from audit_events where correlation_id = $1 order by sequence`,
+       from audit_events where correlation_id = $1 order by audit_events.sequence`,
     [correlationId],
   );
   return rows;

@@ -1,7 +1,11 @@
 import { spawnSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { connect } from 'node:net';
 import { dirname, resolve } from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
+
+import { resolveTestPgPort } from '../sbx/test-port.mjs';
 
 /**
  * `pnpm red-cases` — proof that every gate actually fails.
@@ -328,7 +332,74 @@ function clearStaleInjections() {
   }
 }
 
-function main() {
+/**
+ * Is anything listening on `127.0.0.1:port` right now?
+ *
+ * @param {number} port
+ * @returns {Promise<boolean>}
+ */
+function portIsHeld(port) {
+  return new Promise((resolveProbe) => {
+    const socket = connect({ host: '127.0.0.1', port });
+    const finish = (held) => {
+      socket.removeAllListeners();
+      socket.destroy();
+      resolveProbe(held);
+    };
+    socket.setTimeout(1000);
+    socket.once('connect', () => finish(true));
+    socket.once('timeout', () => finish(false));
+    socket.once('error', () => finish(false));
+  });
+}
+
+/**
+ * Waits until this worktree's embedded-postgres port is free again (U-04).
+ *
+ * ## The transient this removes
+ *
+ * The `unit` red case's **GREEN arm** runs the real `gate:unit`, which starts the
+ * embedded cluster on this worktree's port. Running `pnpm red-cases` immediately
+ * after `pnpm check` therefore raced the previous run's shutdown: the port was
+ * still held for a moment, the cluster failed to start, and the GREEN arm failed
+ * — reporting "the gate is broken" when nothing was broken. OPUS-M2-002's delta
+ * review saw it as finding U-04.
+ *
+ * A wait, not a retry: retrying the gate would mask a genuine GREEN failure,
+ * which is the one thing this runner exists to detect. If the port is still held
+ * when the budget runs out the run proceeds anyway and says so, so a genuinely
+ * stuck cluster surfaces as the failure it is rather than as a hang.
+ *
+ * @param {number} port
+ * @param {number} budgetMs
+ */
+async function waitForPortRelease(port, budgetMs = 30_000) {
+  const deadline = Date.now() + budgetMs;
+  let announced = false;
+  while (await portIsHeld(port)) {
+    if (!announced) {
+      process.stdout.write(
+        `Waiting for the embedded-postgres port ${String(port)} to be released ` +
+          '(a previous `pnpm check` may still be shutting down)...\n',
+      );
+      announced = true;
+    }
+    if (Date.now() >= deadline) {
+      process.stdout.write(
+        `Port ${String(port)} is STILL held after ${String(budgetMs / 1000)}s. Continuing anyway — ` +
+          'a GREEN-arm failure below is then a real finding, not this transient. See the runbook\n' +
+          'standing port-hygiene discipline for how to identify and clear the holder.\n',
+      );
+      return;
+    }
+    await delay(500);
+  }
+  if (announced) process.stdout.write(`Port ${String(port)} released.\n`);
+}
+
+async function main() {
+  await waitForPortRelease(resolveTestPgPort());
+
   clearStaleInjections();
 
   const transcript = [
@@ -417,4 +488,4 @@ function main() {
   process.exit(failures.length === 0 ? 0 : 1);
 }
 
-main();
+await main();
