@@ -97,7 +97,7 @@ Standing conditions unchanged by this document: external architecture re-review 
 |---|---|
 | **Task ID** | OPUS-M3-002 |
 | **Milestone / Slice** | M3 / rule model + B-\* corpus (solver **inputs** — the solver itself is M4 and prohibited) |
-| **Status** | FINALIZED 2026-08-04 — NOT ISSUED (blocked until M3-001 accepted; issued only after the §7 revalidation note) |
+| **Status** | ISSUED 2026-08-04 (branch `opus/m3-002-rules`, worktree `.worktrees/m3-002`; per the §7 revalidation note) |
 | **Objective** | The typed rule AST with a closed node set, the compiler with validation and an unmapped-node CI failure, the authoring API and accessible authoring UI with the author → compile → revalidate round trip, deterministic serialization, stable rule identifiers, audit + authorization + tenant/group isolation for every rule mutation, and the B-\* benchmark-corpus generator with the first committed feasible and infeasible fixtures |
 | **User outcome** | A scheduler authors versioned rules (hard/soft with the CAR-006 weight discipline), sees validation results, and edits round-trip losslessly; rule sets are composable and stably identified for later builds |
 | **Engineering outcome** | M4's solver has its rule input and its fixture half (E1); an unexpressible rule is a schema change with a migration, never an escape hatch |
@@ -136,7 +136,7 @@ Standing conditions unchanged by this document: external architecture re-review 
 |---|---|
 | **Task ID** | OPUS-M3-003 |
 | **Milestone / Slice** | M3 / the publication spine (SPEC-05 core; API + database + harness — the UI surfaces are M3-004/005/006) |
-| **Status** | FINALIZED 2026-08-04 — NOT ISSUED (blocked until M3-001 accepted; issued only after the §7 revalidation note) |
+| **Status** | ISSUED 2026-08-04 (branch `opus/m3-003-publication`, worktree `.worktrees/m3-003`; per the §7 revalidation note) |
 | **Objective** | Schedule periods, schedule requirements, draft schedule versions, assignment identities and snapshots, credits independent of assignments, provenance, pins, manual assignments and manual overrides with reasons, D-15 database-enforced published immutability, D-16 single-current publication, D-17 idempotency, the **complete SPEC-05 §8 proof harness V-01..V-19** (the authorization's V-01..16 plus the dated V-15b/c and V-17..19 additions — the fuller set is binding; running a subset would weaken the spec's own proof), SBX-018, publication audit events, affected-staff difference generation, transactional-outbox notification intents, forward-only correction, version preservation |
 | **User outcome** | (API-level this packet) a scheduler creates a period, manually assigns staff with reasons/pins/credits/provenance, publishes an immutable version, corrects forward, reverts by publishing forward; affected staff differences generate notification intents |
 | **Engineering outcome** | Reality (`current_published_assignments`) is database-enforced; every published child row provably immutable at the database layer; the publication transaction is idempotent, single-current, crash-safe |
@@ -190,6 +190,20 @@ Binding on M3-002 and M3-003 (M3-001 runs alone). Any need to cross these lines 
 ## 7. Revalidation gate before issuing M3-002 and M3-003
 
 Reserved. Before those two packets issue, a dated note here records: M3-001's actual outcome and any packet deltas it forces; re-verification that the two allowed-glob sets are disjoint (`git`-level check, recorded); confirmation the fixture-regression and SBX baselines are green on the post-001 main. Issued only after that note exists.
+
+> **Revalidation note — 2026-08-04, binding on M3-002 and M3-003 (post-OPUS-M3-001 acceptance at `6a01196`):**
+>
+> **M3-001 outcome and packet deltas it forces.** M3-001 accepted and merged; authn/sessions/invitation/activation are on main with migration `0007`, `TENANT_TABLES` now 31 (30 tenant + `users`), the `authn.*` audit namespace, two grant-only action keys (`identity.reset_mfa`, `identity.administer_sessions`), the `preauth` route-policy class, and FAD-18/19/20. Deltas the two follow-on packets inherit:
+> - **Migration numbers advance by one.** M3-002 → `0008`, M3-003 → `0009` (+`0010` if split) as §6 already assigns — no change, but now confirmed against real state (`0007` is taken).
+> - **Real sessions exist.** Both packets test against real authenticated sessions (the M2 injected-context surrogate is retired for HTTP-surface tests); the authn support seam is `apps/api/test/support/authn.ts` with `provisionAccount` (idempotent) and `FIXTURE_PASSWORD` — reuse it, do not fork it.
+> - **The pre-auth policy class and the `authn.*`/`security.*` audit namespaces are frozen** to both packets exactly as the audit module is (§6). Rules use `rules.*`, schedule uses `schedule.*`.
+> - No M3-001 change narrows or reshapes M3-002's rule scope or M3-003's SPEC-05 scope; the packets stand as written in §§4–5.
+>
+> **Disjointness re-verified (git-level, recorded).** M3-002 allowed globs (`apps/api/src/rules/**`, `packages/domain/src/rules/**`, `packages/contracts/src/rules/**`, `apps/web/src/rules/**`, `solver/corpus/**`, migration `0008`, `test/support/rules.ts`, additive gate for the unmapped-node check) and M3-003 allowed globs (`apps/api/src/schedule/**`, `packages/contracts/src/schedule/**`, migrations `0009`/`0010`, `test/support/schedule.ts` + `test/support/staffing.ts`) share **no path**. `schema.ts` and `packages/contracts/src/index.ts` are additive-only barrels each edits under its own namespace — a genuine collision there is an escalation to the integration packet, not a merge. `test/support/staffing.ts` is M3-003-owned for the window (§6); M3-002 needing it is an escalation. Confirmed no overlap by inspection of §4/§5 against the merged tree at `6a01196`.
+>
+> **Baselines green on post-001 main.** At `6a01196`: `corepack pnpm check` 12/12 + 965 tests, `corepack pnpm red-cases` 14/14, all three documentation validators green, fixture-regression 75/75 and the SBX battery 5/5 (0 blocked / 0 vacuous) verified on the accepted branch and re-confirmed on main. The two packets branch from this commit.
+>
+> **Both issued 2026-08-04 in parallel** under this note: `opus/m3-002-rules` (worktree `.worktrees/m3-002`) and `opus/m3-003-publication` (worktree `.worktrees/m3-003`), derived DB ports, independent second review mandatory for each, serialized merge with the second merger rebasing + renumbering its migration.
 
 ## 8. Remaining M3 packet families — pre-declared, to be finalized here before issuance
 
