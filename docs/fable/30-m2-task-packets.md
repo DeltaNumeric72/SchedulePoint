@@ -162,6 +162,8 @@ These packets supersede the *proposals* in [29-m1-exit-report.md](29-m1-exit-rep
 | **Acceptance** | `corepack pnpm check` · `red-cases` · `fixture-regression` (12 fixed + rotating) · `sbx` (26-entry registry; new table visible non-vacuously) · migration cycle · named proofs ×3 — all green in the implementer's AND the orchestrator's hands; evidence EV-M2-INTEGRATION with INDEX.md; escalate anything smelling like scope (especially any temptation to touch gate logic) |
 | **Review** | **Independent second review MANDATORY** (new tenant table + audit-module production edit + fixture-owner change = critical class). Reviewer probes per §8 of the owner's authorization, incl. attacking the consolidated fixture ownership and the eligibility read's tenancy |
 
+**Amendment 2026-08-03 (deliverable 5 escalation ruled):** the catalogue Save-success path measures **two** requests (POST + server-authoritative list refetch). Ruled: the budget for that interaction is **2, justified** — the refetch is the PO-DEC-18 server-authoritative display posture, not amplification; the justification lands in the ledger entry itself. The packet's allowed globs are widened by exactly: `apps/web/e2e/**` (the request-budget recording only — no assertion elsewhere may change) and the ledger DATA file as already allowed. A one-request alternative (POST returns the row, client-side list update) is recorded as a UI-slice option for a later packet, not this one.
+
 ## 7. Revalidation against the actual OPUS-M2-001 outcome (dated note, 2026-08-03 — binding on M2-002 and M2-003)
 
 OPUS-M2-001 merged as `bc61ee7` after a four-round review cycle. The following are now **binding requirements** on both parallel packets, superseding any softer wording above:

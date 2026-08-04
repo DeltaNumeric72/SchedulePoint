@@ -241,7 +241,7 @@ erDiagram
 | `valid_groups` | group | `shift_type_ids`, `allowed_pick_positions` | `(group_id, name)` | active/archived | ✓ | `NONE` | — |
 | `qualifications` | group | `key`, `name`, `requires_expiry`, `issuing_body?` | `(group_id, key)` | active/retired | ✓ | `INTERNAL` | Not deleted while holdings exist |
 | `qualification_holdings` | group | `membership_id`, `qualification_id`, `valid_from`, `valid_until?`, `evidence_ref?`, `status` | `(membership_id, qualification_id, valid_from)` | pending/valid/expiring/expired/revoked | ✓ | **`SENSITIVE-PII`** | **Retained after expiry for audit** |
-| `shift_type_qualifications` | group | `shift_type_id`, `qualification_id` | pair | — | — | `NONE` | — |
+| `shift_type_qualifications` | group | `shift_type_id`, `qualification_id` | pair | active/archived *(dated correction 2026-08-03, OPUS-M2-004: the table ships with a state column and archive-not-delete like its catalogue siblings; the original `—` cells predated implementation)* | ✓ | `NONE` | Composite FKs carry organization **and** group, so a shift type cannot require another group's qualification |
 | `pattern_rules` | group | `name`, `trigger`, `days_of_week`, `date_scope`, `segments` | `(group_id, name)` | active/disabled/archived | ✓ | `NONE` | Rule text versioned |
 | `staff_rules` | group | `name`, `conditions`, `action`, `action_params`, `days_of_week` | `(group_id, name)` | active/disabled/archived | ✓ | **`INTERNAL`** | **Names individuals — narrower access** |
 | `assignment_templates` | group | `name`, `cycle_length_weeks`, `entries` | `(group_id, name)` | active/disabled/archived | ✓ | `NONE` | — |
