@@ -304,7 +304,22 @@ describe('every existing mutation emits an audit event', () => {
  * ──────────────────────────────────────────────────────────────────────────── */
 
 describe('OPUS-M1-004 — every module that WRITES also records', () => {
-  const MUTATING_ROOTS = ['http/routes', 'jobs'] as const;
+  /**
+   * `profiles` joins the scanned roots at OPUS-M2-003.
+   *
+   * Its routes are thin: the writes live in `src/profiles/*.ts` services, which
+   * the route handlers call inside the caller's unit of work. Without the prefix
+   * the scan would look at `http/routes/profiles.route.ts`, see no
+   * `insertInto`, find nothing to check, and report full coverage for a surface
+   * whose every mutation it never examined — the exact vacuous-pass shape this
+   * gate exists to prevent, arriving through a refactor rather than through a
+   * missing call.
+   *
+   * The prefix-liveness assertion further down requires each root to contain at
+   * least one mutating module, so a `profiles` directory that stopped writing
+   * would fail here rather than silently widen the scan for nothing.
+   */
+  const MUTATING_ROOTS = ['http/routes', 'jobs', 'profiles'] as const;
   const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '../../src');
 
   it('no route module or job handler writes without calling recordAuditEvent', () => {

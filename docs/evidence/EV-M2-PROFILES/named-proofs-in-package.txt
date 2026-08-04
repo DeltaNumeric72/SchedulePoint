@@ -1,0 +1,47 @@
+$ SP_TEST_PG_PORT=55437 vitest run --project api --project domain   [IN-PACKAGE]
+
+      · PATCH /organizations/:organizationId/groups/:groupId/qualification-holdings/:holdingId: group-scoped, CAP-058, action=staffing.qualification_holding.administer, module=core_scheduling, objectPolicy=false
+      · GET /organizations/:organizationId/groups/:groupId/memberships/:membershipId/qualification-holdings: group-scoped, CAP-058, action=staffing.qualification_holding.read, module=core_scheduling, objectPolicy=false
+
+stdout | test/http/route-declarations.test.ts > OPUS-M1-004 — there is no second authorization path left > `provisionallyAuthorized` is exported by nothing and called by nobody
+      · the provisional role allow-list is gone from src/ entirely
+
+ ✓ |api| test/http/route-declarations.test.ts (15 tests) 23ms
+ ✓ |api| test/server.test.ts (8 tests) 18ms
+stdout | test/profiles/loader-is-the-only-selector.test.ts > the shipped source has exactly one selector > no OTHER module under src/ selects from an effective-dated table
+      · 3 effective-dated table(s), exactly 1 module selecting from them: profiles/in-force-loader.ts
+
+ ✓ |api| test/profiles/loader-is-the-only-selector.test.ts (15 tests) 56ms
+stdout | test/architecture/no-tenant-access-outside-unit-of-work.test.ts > no tenant access outside the unit of work (I-15) > GREEN: no module outside the connection owners touches a connection or a tenant table
+      · scanned apps/api/src; 7 permitted connection owner(s): db/unit-of-work.ts, db/pool.ts, db/pooler-assertion.ts, db/bootstrap.ts, db/migrate.ts, db/queue-schema.ts, db/queue-pools.ts
+
+stdout | test/architecture/no-tenant-access-outside-unit-of-work.test.ts > no tenant access outside the unit of work (I-15) > RED: the REAL scanner flags a direct query in a handler-shaped module
+      · red case: 4 finding(s) — imports the pg driver outside the unit of work · checks out a connection outside the unit of work · issues a raw statement outside the unit of work · names the tenant table `memberships` in a SQL string literal
+
+ ✓ |api| test/architecture/no-tenant-access-outside-unit-of-work.test.ts (10 tests) 44ms
+stdout | test/architecture/embedded-postgres-isolation.test.ts > embedded-postgres is confined to the cluster daemon > only support/cluster.ts imports embedded-postgres
+      · embedded-postgres is imported by exactly one module: support/cluster.ts
+
+stdout | test/architecture/embedded-postgres-isolation.test.ts > embedded-postgres is confined to the cluster daemon > only support/cluster-daemon.ts imports support/cluster.ts
+      · support/cluster.ts is imported by exactly one module: support/cluster-daemon.ts
+
+ ✓ |api| test/architecture/embedded-postgres-isolation.test.ts (5 tests) 39ms
+stdout | test/audit/architecture.test.ts > the price of the OPUS-M1-003 connection-owner exemptions > neither exempt file names a TENANT table
+      · 2 exempt modules, 0 tenant-table references — the exemption is paid for
+
+stdout | test/audit/architecture.test.ts > non-bypass rule 6, as a scan > the audit tables are named ONLY inside src/audit
+      · no module outside src/audit names an audit table in SQL
+
+stdout | test/audit/architecture.test.ts > non-bypass rule 6, as a scan > NO module names audit_chain_heads — the chain tip belongs to the trigger
+      · audit_chain_heads appears in no TypeScript module at all
+
+stdout | test/audit/architecture.test.ts > non-bypass rule 6, as a scan > no module issues an UPDATE or DELETE against audit_events
+      · no module contains an UPDATE, DELETE or TRUNCATE against audit_events
+
+ ✓ |api| test/audit/architecture.test.ts (5 tests) 25ms
+
+ Test Files  41 passed (41)
+      Tests  646 passed (646)
+   Start at  20:09:16
+   Duration  51.51s (transform 532ms, setup 359ms, collect 30.84s, tests 18.93s, environment 1ms, prepare 407ms)
+

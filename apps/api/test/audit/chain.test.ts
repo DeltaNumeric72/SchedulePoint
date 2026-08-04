@@ -272,12 +272,18 @@ describe('SPEC-11 §10 X-01 — an edited audit row is detected', () => {
     // Defeating the refusal trigger requires disabling it — which is exactly the
     // point SPEC-11 §2 makes: prevention is defeasible by a privileged actor,
     // detection is not. This is that attack, performed.
-    const target = await admin.query<{ sequence: string }>(
-      `select sequence::text as sequence from audit_events
+    // The output column is `seq`, not `sequence`, and that is load-bearing: with
+    // the alias named `sequence`, PostgreSQL resolves the unqualified ORDER BY to
+    // the TEXT output column and sorts `'10'` before `'2'`. The row this test
+    // tampers with would then be whichever one sorted second lexicographically
+    // rather than the second row of the chain — a silently mis-aimed probe, and
+    // the same defect rotating seed 531651 exposed in R-04.
+    const target = await admin.query<{ seq: string }>(
+      `select sequence::text as seq from audit_events
         where organization_id = $1::uuid order by sequence limit 1 offset 1`,
       [ALPHA().organizationId],
     );
-    const sequence = target.rows[0]?.sequence;
+    const sequence = target.rows[0]?.seq;
     expect(sequence).toBeDefined();
 
     await admin.query('alter table audit_events disable trigger audit_events_refuse_update');
@@ -983,30 +989,63 @@ describe('second-review findings — the holes the first submission left', () =>
     // append-only — so a checkpoint with a wrong `entry_hash` would be permanent
     // and would report `matchesChain = false` forever, poisoning the one signal
     // that catches a competent rewrite.
-    // FAD-15 Layer 4 — this test establishes its own subject. It used to poison
-    // whatever the current head happened to be; if a sibling test had already
-    // checkpointed that sequence, the UNIQUE key fired first (23505) and the
-    // composite foreign key this test is about was never reached. Appending an
-    // event first guarantees a head sequence that no checkpoint can already name.
-    await appendAlpha(1, 'r04-fresh-head');
+    /* ── FAD-15 Layer 4 — this test ESTABLISHES its own subject ──────────────
+     *
+     * It used to poison whatever the current head happened to be; if a sibling
+     * had already checkpointed that sequence, the UNIQUE key fired first (23505)
+     * and the composite foreign key this test is about was never reached. So it
+     * appended one event first — and the comment claimed that "guarantees a head
+     * sequence that no checkpoint can already name."
+     *
+     * **It does not, and rotating seed 531651 proved it** (found while running
+     * OPUS-M2-003's fixture-regression gate; reproduced unchanged on `main` at
+     * `20b9f7f`, so it is a pre-existing coupling rather than that task's). Three
+     * siblings — `audit_checkpoints is append-only`, `R-01` and `R-06` — write a
+     * checkpoint over ALPHA's head, and under some orderings one of them lands on
+     * exactly the sequence this test then appends to. One append is an assumption
+     * about the other tests, not a precondition of this one.
+     *
+     * The fix is the rule the docblock above already states: establish, never
+     * assume. Append until the head is one that no checkpoint names, and fail
+     * loudly if that cannot be reached — rather than asserting a state a sibling
+     * decides. */
+    const headSequence = async (): Promise<string | undefined> => {
+      // `max(sequence)`, NOT `order by sequence desc limit 1`.
+      //
+      // **This is the defect rotating seed 531651 found.** The original spelling
+      // was `select sequence::text as sequence … order by sequence desc`, and
+      // PostgreSQL resolves an unqualified ORDER BY to the OUTPUT column when one
+      // has that name — so it sorted the bigint AS TEXT and `'9'` came out above
+      // `'14'`. It is correct for the first nine events of a chain and wrong from
+      // the tenth, which is why only some test orderings reach it.
+      const head = await admin.query<{ sequence: string | null }>(
+        `select max(sequence)::text as sequence from audit_events
+          where organization_id = $1::uuid`,
+        [ALPHA().organizationId],
+      );
+      return head.rows[0]?.sequence ?? undefined;
+    };
+    const checkpointsAt = async (at: string): Promise<number> => {
+      const found = await admin.query<{ n: string }>(
+        `select count(*)::text as n from audit_checkpoints
+          where organization_id = $1::uuid and sequence = $2::bigint`,
+        [ALPHA().organizationId, at],
+      );
+      return Number(found.rows[0]?.n ?? '0');
+    };
 
-    const real = await admin.query<{ sequence: string }>(
-      `select sequence::text as sequence from audit_events
-        where organization_id = $1::uuid order by sequence desc limit 1`,
-      [ALPHA().organizationId],
-    );
-    const sequence = real.rows[0]?.sequence;
-    expect(sequence).toBeDefined();
-
-    const alreadyCheckpointed = await admin.query<{ n: string }>(
-      `select count(*)::text as n from audit_checkpoints
-        where organization_id = $1::uuid and sequence = $2::bigint`,
-      [ALPHA().organizationId, sequence],
-    );
+    let sequence: string | undefined;
+    for (let attempt = 0; attempt < 5 && sequence === undefined; attempt += 1) {
+      await appendAlpha(1, `r04-fresh-head-${String(attempt)}`);
+      const candidate = await headSequence();
+      if (candidate !== undefined && (await checkpointsAt(candidate)) === 0) sequence = candidate;
+    }
     expect(
-      alreadyCheckpointed.rows[0]?.n,
-      'a checkpoint already names this sequence, so the UNIQUE key would mask the foreign key',
-    ).toBe('0');
+      sequence,
+      'no uncheckpointed head could be established in five appends, so the UNIQUE key would ' +
+        'mask the foreign key this test is about',
+    ).toBeDefined();
+    if (sequence === undefined) return;
 
     await expect(
       worker.runner.run(

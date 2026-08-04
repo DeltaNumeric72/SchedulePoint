@@ -32,6 +32,7 @@ import {
 } from '../support/harness.js';
 import { withSimulatedPoolerFault } from '../support/pooler-simulator.js';
 import { ownedMulti } from '../support/owned-multi.js';
+import { seedStaffingRows } from '../support/staffing.js';
 
 /**
  * FAD-15 Layer 2 — this file owns its tenant.
@@ -124,6 +125,18 @@ beforeAll(async () => {
   await admin.connect();
   runtime = createRuntime('app_runtime', { max: 4 });
   worker = createRuntime('app_worker', { max: 2 });
+
+  /* OPUS-M2-003: this file's probes iterate `TENANT_TABLES` and require every
+   * registered table to be observed with a VISIBLE row — a "0 wrong-tenant rows"
+   * result from a table nobody ever saw a row in means nothing. Registering the
+   * four staffing tables therefore obliges this fixture to hold rows in them.
+   *
+   * Seeded through a module of this task's own rather than by extending
+   * `multi.ts`, which is read-only shared substrate for both M2 packets (packet
+   * 30 §5). The credential is issued to Alpha's `scheduler` membership because
+   * `qualification_holdings` is SENSITIVE-PII with no organization-wide read
+   * policy, and that membership is the one these probes act as. */
+  await seedStaffingRows(runtime.runner, multi());
 });
 
 afterAll(async () => {

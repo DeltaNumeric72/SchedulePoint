@@ -50,3 +50,11 @@ export {
   type WriteGrantRequest,
   type WriteGrantResult,
 } from './authz.js';
+
+/**
+ * OPUS-M2-003 — work profiles, weekday/holiday FTE targets, qualifications
+ * (CAP-013, CAP-058). Re-exported wholesale rather than key by key: the module is
+ * a single cohesive contract surface and an omission from a hand-written list is
+ * a compile error at the call site, which is the failure mode this avoids.
+ */
+export * from './profiles/index.js';

@@ -1,5 +1,5 @@
 SBX-006 — Session timeout and persistence
-generated: 2026-08-03T18:04:52.012Z
+generated: 2026-08-04T00:10:19.373Z
 
 STATE: EVIDENCE_BLOCKED   falsifiability probe: NOT_APPLICABLE   gate-required: no
 

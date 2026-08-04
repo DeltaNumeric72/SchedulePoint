@@ -120,3 +120,30 @@ export type {
   PublishedOutboxEvent,
   RecordedAuditEvent,
 } from './audit/port.js';
+
+/* ── OPUS-M2-003: effective dating (CAP-013, CAP-058) ─────────────────────────
+ *
+ * The single implementation of "which row is in force at instant T", and the
+ * single window predicate underneath it. Pure functions over plain data, as
+ * everything in this package must be — which is what lets the boundary battery
+ * enumerate instant-of-change, gap, future-dated and first/last cases without a
+ * database, against exactly the code the SQL loader and every writer's
+ * precondition check run.
+ *
+ * It exists because of `docs/evidence/EV-M1-AUTHZ` finding S-01. */
+export {
+  AmbiguousInForceError,
+  ELIGIBLE_HOLDING_STATUSES,
+  containsInstant,
+  filterInForce,
+  isEligibleAt,
+  nextWindowStart,
+  parseInstant,
+  requireInForce,
+  selectInForce,
+  type EffectiveDated,
+  type EligibleHoldingStatus,
+  type HoldingLike,
+  type InForceSelection,
+  type NoRowReason,
+} from './profiles/in-force.js';

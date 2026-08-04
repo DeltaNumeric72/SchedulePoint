@@ -246,6 +246,84 @@ export const CAPABILITIES: readonly CapabilityDefinition[] = [
     description: 'Configure a hospital connector (doc 08 §4; depends on picklist, doc 05 §3.2).',
   },
 
+  /* ── OPUS-M2-003 — staffing parameters (CAP-013, CAP-058) ───────────────────
+   *
+   * Six action keys, all **group-scoped** and all in `core_scheduling`.
+   *
+   * *Why group scope:* doc 06 §3.2 gives all four tables tenant scope `org+group`,
+   * and a work profile or a credential belongs to a GROUP membership. There is no
+   * organization-wide version of "this person works 60% on Tuesdays".
+   *
+   * *Why `core_scheduling` and not a module of their own:* the entitlement modules
+   * are doc 05 §3.2's commercially packaged set. M-05 (Qualifications) and M-06
+   * (Scheduling Configuration) in doc 04 are **domain** modules — bounded
+   * contexts — not packages anybody buys separately, and inventing an entitlement
+   * module for them would be making a PO-DEC-04 packaging decision nobody has
+   * made. FTE targets and credential eligibility are inputs the scheduling engine
+   * cannot run without, so `core_scheduling` is where revoking the entitlement has
+   * the meaning it should: no scheduling, no staffing parameters.
+   *
+   * *Why grant-only:* no system role carries them. CAP-013 and CAP-058 both state
+   * the requirement as "requires an administrative capability", which is doc 08
+   * §4's named-grant class — the same shape as `schedule.publish`,
+   * `vacation.commit` and `audit.export`. `SYSTEM_ROLE_CAPABILITIES` is
+   * OPUS-M1-002's file and is deliberately not edited here.
+   *
+   * The read/write split on holdings is the `SENSITIVE-PII` classification made
+   * operational: a scheduler who must check eligibility gets
+   * `…holding.read_any` and thereby no power to issue or revoke a credential. */
+  {
+    key: 'staffing.work_profile.administer',
+    scope: 'group',
+    module: 'core_scheduling',
+    description:
+      'CAP-013: author a membership\'s effective-dated work profile — FTE, weekday and holiday ' +
+      'targets, maximum assignments. Grant-only ("editing another member\'s work profile requires ' +
+      'an administrative capability").',
+  },
+  {
+    key: 'staffing.work_profile.read',
+    scope: 'group',
+    module: 'core_scheduling',
+    description:
+      'CAP-013: read a membership\'s work profile in force, and its history. Separate from the ' +
+      'administer key so a reader of FTE data gains no power to change it.',
+  },
+  {
+    key: 'staffing.qualification.administer',
+    scope: 'group',
+    module: 'core_scheduling',
+    description:
+      'CAP-058: maintain the group\'s qualification vocabulary — create, rename, retire. Retiring ' +
+      'is the only removal; a qualification with holdings is never deleted (06 §3.2).',
+  },
+  {
+    key: 'staffing.qualification_holding.administer',
+    scope: 'group',
+    module: 'core_scheduling',
+    description:
+      'CAP-058, PO-DEC-12 default (administrator-granted, patient-safety adjacent): issue and ' +
+      'revoke a membership\'s credential. Revocation is a first-class audited event.',
+  },
+  {
+    key: 'staffing.qualification_holding.read',
+    scope: 'group',
+    module: 'core_scheduling',
+    description:
+      'CAP-058: use the credential read surface. It admits a caller to the route; WHAT they see ' +
+      'is decided by the RLS policies — their own holdings always, anyone else\'s only with ' +
+      '`read_any`. Two keys rather than one so the SENSITIVE-PII narrowing is a property of the ' +
+      'data rather than of which URL was called.',
+  },
+  {
+    key: 'staffing.qualification_holding.read_any',
+    scope: 'group',
+    module: 'core_scheduling',
+    description:
+      'CAP-058: read ANOTHER membership\'s credential holdings. A member always reads their own; ' +
+      'this is the SENSITIVE-PII narrowing, enforced in the RLS SELECT policy itself.',
+  },
+
   /* ── organization scope (SPEC-06 §1.1's enumerated classes) ──────────────── */
   {
     key: 'organization.membership.touch_self',

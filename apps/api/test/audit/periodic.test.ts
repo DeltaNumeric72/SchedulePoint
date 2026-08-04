@@ -195,12 +195,16 @@ describe('SPEC-11 §2 — the verification sweep ALERTS', () => {
     const noiseBefore = worker.alerts.byCode('AUDIT_CHAIN_BROKEN').length;
 
     /* ── now break it, exactly as SPEC-11 §3's adversary would ─────────────── */
-    const target = await admin.query<{ sequence: string }>(
-      `select sequence::text as sequence from audit_events
+    // `seq`, not `sequence`: an output column named `sequence` makes the
+    // unqualified ORDER BY sort the bigint AS TEXT, so this would tamper with
+    // whichever row came second lexicographically rather than second in the
+    // chain. Same defect as chain.test.ts R-04, found by rotating seed 531651.
+    const target = await admin.query<{ seq: string }>(
+      `select sequence::text as seq from audit_events
         where organization_id = $1::uuid order by sequence limit 1 offset 1`,
       [ALPHA().organizationId],
     );
-    const sequence = target.rows[0]?.sequence;
+    const sequence = target.rows[0]?.seq;
     await admin.query('alter table audit_events disable trigger audit_events_refuse_update');
     try {
       await admin.query(

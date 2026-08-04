@@ -1,0 +1,42 @@
+$ SP_TEST_PG_PORT=55437 corepack pnpm sbx
+
+  tables exercised: memberships
+  policies exercised: membership status retention (STM-017/STM-018 partial)
+  EVIDENCE_BLOCKED sub-scenarios (never a pass, never a silent skip):
+    - invite / token single-use / token replay / activate  ->  EVIDENCE_BLOCKED(authn milestone)
+    - suspend and confirm live sessions die immediately  ->  EVIDENCE_BLOCKED(authn milestone (no session subsystem))
+    - impersonation banner, audit entry, blocked credential screens  ->  EVIDENCE_BLOCKED(authn milestone (no impersonation subsystem))
+    - invitation email to a controlled mailbox  ->  EVIDENCE_BLOCKED(controlled notification endpoint (report 18 §4))
+  membership statuses retained: active=12, ended=1, invited=1, suspended=1
+  blocked: invitation, activation, session death on suspend and impersonation all require the authn subsystem, which does not exist — reported EVIDENCE_BLOCKED, never skipped
+
+==============================================================================
+SBX-006 — Session timeout and persistence
+STATE: EVIDENCE_BLOCKED   falsifiability probe: NOT_APPLICABLE   gate-required: no   0 ms
+
+  SPEC-16 §1 contract
+    owner                    OPUS-M2-001 (implementer) / Fable (acceptance)
+    fixtureProvenance        MULTI — no fixture beyond a signed-in principal is needed.
+    deterministicSetup       Would require the SPEC-16 §4 controllable virtual clock; wall-clock sampling is not evidence because it is unrepeatable.
+    externalDependency       None, once a session subsystem exists.
+    faultControls            Forced disconnection and idle simulation, once there is a session to idle.
+    objectiveOracle          Measured idle and absolute lifetimes, bounded and consistent across devices — a number, not an impression.
+    retainedArtifact         docs/evidence/EV-M2-SBX/sbx-006-session.txt
+    environment              MULTI
+    earliestExecutionPoint   E2
+  EVIDENCE_BLOCKED sub-scenarios (never a pass, never a silent skip):
+    - idle session lifetime, with and without "stay signed in"  ->  EVIDENCE_BLOCKED(authn milestone (no session subsystem))
+    - absolute session lifetime  ->  EVIDENCE_BLOCKED(authn milestone (no session subsystem))
+    - concurrent-device behaviour  ->  EVIDENCE_BLOCKED(authn milestone (no session subsystem))
+
+==============================================================================
+vacuous assertions detected: 0
+
+AUDIT CHAIN AFTER THIS RUN — chain problems / checkpoints signed / checkpoint problems
+(clean is 0 / N>=1 / 0; the middle number is reported rather than pinned, because
+ the periodic sweep may legitimately have signed more than one)
+  7e1e4038: 0 / 1 / 0  (15 entries, head 15)
+  42fface7: 0 / 1 / 0  (3 entries, head 3)
+  a1bfcce1: 0 / 1 / 0  (2 entries, head 2)
+
+evidence path: docs/evidence/EV-M2-SBX/scenario-report.txt

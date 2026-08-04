@@ -1,0 +1,76 @@
+$ SP_TEST_PG_PORT=55437 vitest run --project api <one proof file at a time>   [STANDALONE]
+
+Standing verification discipline (OPUS-M1-004): a proof that passes in the
+battery may fail alone. Each of the three named conditions is run in its own
+process here, and again together (in-package) and in the full battery.
+
+===== STANDALONE: test/profiles/in-force-determinism.test.ts =====
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m2-003
+stdout | test/profiles/in-force-determinism.test.ts > in-force determinism against stored rows > the fixture really has four adjacent windows — otherwise everything below is vacuous
+      · four stored windows for one membership: 100% -> 80% -> 60% -> 40%
+stdout | test/profiles/in-force-determinism.test.ts > in-force determinism against stored rows > the exact instant of change belongs to the SUCCESSOR, not the predecessor
+      · the instant of change is the first instant of the new row and not the last of the old
+stdout | test/profiles/in-force-determinism.test.ts > in-force determinism against stored rows > timezone-explicit instants resolve identically to their UTC form
+      · an offset-bearing instant selects the same row as its UTC spelling
+stdout | test/profiles/in-force-determinism.test.ts > in-force determinism against stored rows > a gap in the history reports `gap`, and does not fall back to the previous row
+      · a gap between two windows reports `gap` and names the ended row as a diagnostic only
+ ✓ |api| test/profiles/in-force-determinism.test.ts (7 tests) 99ms
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  20:09:07
+   Duration  1.56s (transform 112ms, setup 70ms, collect 29ms, tests 99ms, environment 0ms, prepare 51ms)
+
+===== STANDALONE: test/profiles/loader-writer-agreement.test.ts =====
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m2-003
+stdout | test/profiles/loader-writer-agreement.test.ts > the writer supersedes exactly the row the reader reports > with a history present, precondition and reader agree at every instant that has a row
+      · writer/reader agreement at 5 instants (5 with a row in force), 0 disagreements
+stdout | test/profiles/loader-writer-agreement.test.ts > the writer supersedes exactly the row the reader reports > an actual supersession closes the row the precondition named, and no other
+      · supersession produces exactly adjacent half-open windows — no gap, no overlap
+stdout | test/profiles/loader-writer-agreement.test.ts > the writer supersedes exactly the row the reader reports > a FUTURE-dated supersession closes the row in force AT THAT FUTURE INSTANT
+      · a change dated 90 days out leaves the present verdict untouched
+stdout | test/profiles/loader-writer-agreement.test.ts > the agreement holds against a concurrent writer > a row committed by another transaction cannot make the precondition stale
+      · concurrent supersession: outer transaction wrote; 3 window(s), exactly 1 open-ended, 0 overlapping
+ ✓ |api| test/profiles/loader-writer-agreement.test.ts (4 tests) 127ms
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  20:09:10
+   Duration  1.68s (transform 125ms, setup 76ms, collect 40ms, tests 127ms, environment 0ms, prepare 54ms)
+
+===== STANDALONE: test/profiles/overlap-rejection.test.ts =====
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m2-003
+stdout | test/profiles/overlap-rejection.test.ts > the database refuses overlapping windows > ALLOW control — two ADJACENT windows are accepted
+      · adjacent [) windows are accepted — the constraint permits supersession, as it must
+stdout | test/profiles/overlap-rejection.test.ts > overlap rejection under CONCURRENT inserts > two transactions inserting overlapping windows: exactly one commits
+      · concurrent overlapping inserts: 1 committed, 1 rejected with 23P01, 1 row stored
+ ✓ |api| test/profiles/overlap-rejection.test.ts (8 tests) 262ms
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  20:09:12
+   Duration  1.76s (transform 118ms, setup 81ms, collect 24ms, tests 262ms, environment 0ms, prepare 43ms)
+
+===== STANDALONE: packages/domain/test/profiles/in-force.test.ts =====
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m2-003
+ ✓ |domain| test/profiles/in-force.test.ts (36 tests) 4ms
+ Test Files  1 passed (1)
+      Tests  36 passed (36)
+   Start at  20:09:14
+   Duration  221ms (transform 32ms, setup 0ms, collect 28ms, tests 4ms, environment 0ms, prepare 55ms)
+
+===== STANDALONE: packages/domain/test/profiles/s01-defective-loader.test.ts =====
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m2-003
+      · S-01 verbatim — whichever row the database returned last
+          caught by: instant of change — the exact start instant belongs to the NEW row
+      · S-01 tidied up — the first row
+          caught by: instant of change — one millisecond earlier still belongs to the OLD row
+      · the latest-starting row — `ORDER BY effective_from DESC LIMIT 1`
+          caught by: instant of change — the exact start instant belongs to the NEW row
+      · the open-ended row — "the one with no end date is the current one"
+          caught by: instant of change — the exact start instant belongs to the NEW row
+      · closed upper bound — `[from, to]` instead of `[from, to)`
+          caught by: future-dated row present — and it governs once its instant arrives
+ ✓ |domain| test/profiles/s01-defective-loader.test.ts (8 tests) 3ms
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  20:09:15
+   Duration  217ms (transform 24ms, setup 0ms, collect 26ms, tests 3ms, environment 0ms, prepare 35ms)
+

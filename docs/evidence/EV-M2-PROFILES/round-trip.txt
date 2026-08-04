@@ -1,0 +1,54 @@
+$ SP_TEST_PG_PORT=55437 vitest run --project api test/profiles/round-trip
+
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m2-003
+
+stdout | test/profiles/round-trip.test.ts > work profiles: create -> future-date -> supersede -> read history > CREATE — the first profile carries seven weekday targets and a holiday target
+      · created a work profile with seven weekday targets and a holiday target
+
+stdout | test/profiles/round-trip.test.ts > work profiles: create -> future-date -> supersede -> read history > …and the PRESENT verdict is unchanged
+      · a change dated 60 days out does not move the present verdict
+
+stdout | test/profiles/round-trip.test.ts > work profiles: create -> future-date -> supersede -> read history > READ HISTORY — every window, oldest first, with nothing rewritten
+      · history: 100% -> 80% -> 60% across 3 exactly-adjacent windows
+
+stdout | test/profiles/round-trip.test.ts > work profiles: create -> future-date -> supersede -> read history > the audit chain records the supersession as its OWN event
+      · 5 work-profile audit rows: 3 authored, 2 superseded
+
+stdout | test/profiles/round-trip.test.ts > work profiles: create -> future-date -> supersede -> read history > T-06 — every work-profile audit row carries BEFORE, AFTER and a mechanism
+      · 5 staffing audit rows, every payload closed and non-empty
+
+stdout | test/profiles/round-trip.test.ts > T-01 — retroactive authoring is a 422 on the wire, not a 500 > GREEN control — the same request with a FUTURE instant is accepted
+      · retroactive authoring answers 422 over HTTP; a future instant still answers 200
+
+stdout | test/profiles/round-trip.test.ts > T-02 — a supersession does not silently discard weekday targets > OMITTED on a supersession — the predecessor's targets are carried forward
+      · a percentage-only supersession carries the predecessor's eight-day dimension forward
+
+stdout | test/profiles/round-trip.test.ts > T-02 — a supersession does not silently discard weekday targets > EXPLICIT `[]` — the targets are cleared, because saying "none" is a decision
+      · an explicit empty array clears the targets — omission and emptiness are different
+
+stdout | test/profiles/round-trip.test.ts > T-02 — a supersession does not silently discard weekday targets > the audit payload records WHICH of the two happened
+      · the authored payload distinguishes a stated target set from an inherited one
+
+stdout | test/profiles/round-trip.test.ts > qualifications: define -> issue -> revoke -> retire, all retained > eligibility is answered AT THE INSTANT ASKED ABOUT, not at request time
+      · eligibility is answered at the instant asked about, not at request time
+
+stdout | test/profiles/round-trip.test.ts > qualifications: define -> issue -> revoke -> retire, all retained > …the revoked holding is RETAINED and confers nothing
+      · a revoked credential is retained, keeps its window, and confers nothing
+
+stdout | test/profiles/round-trip.test.ts > qualifications: define -> issue -> revoke -> retire, all retained > T-06 — create, retire and reinstate are DISTINGUISHABLE in the audit trail
+      · create / retire / reinstate are distinguished by `mechanism` and by before/after status
+
+stdout | test/profiles/round-trip.test.ts > qualifications: define -> issue -> revoke -> retire, all retained > T-06 — a holding's events carry before/after status, and never the evidence VALUE
+      · holding events carry before/after status; the evidence reference value never appears
+
+stdout | test/profiles/round-trip.test.ts > qualifications: define -> issue -> revoke -> retire, all retained > RETIRE the qualification — archived, never deleted, holdings intact
+      · retiring a qualification leaves every holding that referenced it intact
+
+ ✓ |api| test/profiles/round-trip.test.ts (24 tests) 317ms
+
+ Test Files  1 passed (1)
+      Tests  24 passed (24)
+   Start at  20:10:08
+   Duration  1.92s (transform 175ms, setup 71ms, collect 140ms, tests 317ms, environment 0ms, prepare 44ms)
+

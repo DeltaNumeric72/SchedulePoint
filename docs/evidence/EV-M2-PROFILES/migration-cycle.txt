@@ -1,0 +1,42 @@
+$ SP_TEST_PG_PORT=55437 corepack pnpm --filter @schedulepoint/api migrate:cycle:embedded
+
+  Can't determine timestamp for 0002
+  Can't determine timestamp for 0001
+  Can't determine timestamp for 0004
+  Can't determine timestamp for 0003
+  > Migrating files:
+  > - 0004_work_profiles_qualifications
+  > - 0003_audit_outbox
+  > - 0002_authorization
+  > - 0001_tenancy_core
+  ### MIGRATION 0004_work_profiles_qualifications (DOWN) ###
+  ### MIGRATION 0003_audit_outbox (DOWN) ###
+  ### MIGRATION 0002_authorization (DOWN) ###
+  ### MIGRATION 0001_tenancy_core (DOWN) ###
+tables remaining after down: (none)
+policies remaining after down: 0
+
+--- up, to leave a usable schema ------------------------------
+  Can't determine timestamp for 0002
+  Can't determine timestamp for 0001
+  Can't determine timestamp for 0003
+  Can't determine timestamp for 0002
+  Can't determine timestamp for 0004
+  Can't determine timestamp for 0003
+  Can't determine timestamp for 0001
+  Can't determine timestamp for 0002
+  Can't determine timestamp for 0003
+  Can't determine timestamp for 0004
+  > Migrating files:
+  > - 0001_tenancy_core
+  > - 0002_authorization
+  > - 0003_audit_outbox
+  > - 0004_work_profiles_qualifications
+  ### MIGRATION 0001_tenancy_core (UP) ###
+  ### MIGRATION 0002_authorization (UP) ###
+  ### MIGRATION 0003_audit_outbox (UP) ###
+  ### MIGRATION 0004_work_profiles_qualifications (UP) ###
+up   : 0001_tenancy_core, 0002_authorization, 0003_audit_outbox, 0004_work_profiles_qualifications
+
+MIGRATION CYCLE CLEAN — up -> down -> up -> down -> up, 929ms
+cluster: stopped

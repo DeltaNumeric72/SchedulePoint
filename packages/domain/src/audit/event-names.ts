@@ -56,6 +56,35 @@ export const AUDIT_EVENT_NAMES = [
   'authorization.capability_grant.written',
   /** An entitlement's state moved: trial/active/suspended/revoked (CAP-057). */
   'authorization.entitlement.state_changed',
+
+  /* ── OPUS-M2-003 — staffing parameters (CAP-013, CAP-058) ───────────────────
+   *
+   * Six names, one per shipped mutation, and not one more. Two of them are worth
+   * reading twice:
+   *
+   *   `staffing.work_profile.superseded` is emitted **in addition to**
+   *   `…authored` when a new profile closes an outgoing one. A supersession is
+   *   two facts — a window ended, and a different window began — and filing them
+   *   under one name makes "when did this member's 80% arrangement end" a
+   *   question the audit log cannot answer.
+   *
+   *   `staffing.qualification_holding.revoked` is separate from `…status_changed`
+   *   because PO-DEC-12 calls qualifications patient-safety adjacent: a revocation
+   *   is the event an incident review searches for, and it must not be one row of
+   *   a generic status-change stream. */
+
+  /** A work profile was authored — the first for a membership, or a successor. */
+  'staffing.work_profile.authored',
+  /** An in-force work profile's window was closed by its successor. */
+  'staffing.work_profile.superseded',
+  /** A qualification was added to the group's vocabulary, or retired. */
+  'staffing.qualification.written',
+  /** A credential was issued to a membership. */
+  'staffing.qualification_holding.granted',
+  /** A credential moved through its expiry states: pending -> valid -> expiring -> expired. */
+  'staffing.qualification_holding.status_changed',
+  /** A credential was REVOKED. Its own name, per PO-DEC-12's patient-safety framing. */
+  'staffing.qualification_holding.revoked',
 ] as const;
 
 export type AuditEventName = (typeof AUDIT_EVENT_NAMES)[number];
@@ -87,6 +116,14 @@ export const AUDIT_SUBJECT_TYPES = [
    * to this membership" would then return rows about a module. */
   'capability_grant',
   'entitlement',
+  /* ── OPUS-M2-003 ────────────────────────────────────────────────────────────
+   * Three aggregates, each with its own lifecycle. A holding is NOT filed under
+   * the membership it names, for the reason `capability_grant` is not: "everything
+   * that happened to this credential" is the question a credentialing incident
+   * asks, and it becomes unanswerable if the events live under the person. */
+  'work_profile',
+  'qualification',
+  'qualification_holding',
 ] as const;
 
 export type AuditSubjectType = (typeof AUDIT_SUBJECT_TYPES)[number];

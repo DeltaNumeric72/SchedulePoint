@@ -125,6 +125,78 @@ export interface GroupModuleAvailabilityTable {
   updated_at: Generated<Date>;
 }
 
+/* ────────────────────────────────────────────────────────────────────────────
+ * `migrations/0004_work_profiles_qualifications.sql` — OPUS-M2-003.
+ *
+ * Effective-dated staffing parameters (CAP-013) and credentials (CAP-058). The
+ * same warning at the top of this file applies with more force here: these types
+ * describe the schema and enforce nothing. What guarantees one profile row in
+ * force per membership is the EXCLUDE constraint; what guarantees history is not
+ * rewritten is `app_guard_work_profile_history`; what narrows a credential read
+ * is the RLS policy. A `numeric` typed as `string` cannot do any of that.
+ *
+ * `numeric` columns are `string`, not `number`, and deliberately: node-postgres
+ * returns `numeric` as a string to avoid the float64 rounding that would silently
+ * turn a 33.33% work percentage into something else. The loader parses them
+ * explicitly at the boundary, where the conversion is visible.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+export interface MembershipWorkProfilesTable {
+  id: string;
+  organization_id: string;
+  group_id: string;
+  membership_id: string;
+  effective_from: Generated<Date>;
+  /** `null` means OPEN-ENDED. Never `infinity` — a CHECK constraint refuses it. */
+  effective_to: Date | null;
+  work_percentage: string;
+  max_assignments_per_week: number | null;
+  max_assignments_per_period: number | null;
+  max_consecutive_days: number | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface MembershipWeekdayFteTable {
+  id: string;
+  organization_id: string;
+  group_id: string;
+  work_profile_id: string;
+  /** `mon`..`sun` plus `holiday` — FAD-16's eight-member day domain. */
+  day: 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun' | 'holiday';
+  fte_fraction: string;
+  max_assignments: number | null;
+  created_at: Generated<Date>;
+}
+
+export interface QualificationsTable {
+  id: string;
+  organization_id: string;
+  group_id: string;
+  key: string;
+  name: string;
+  requires_expiry: Generated<boolean>;
+  issuing_body: string | null;
+  status: Generated<'active' | 'retired'>;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface QualificationHoldingsTable {
+  id: string;
+  organization_id: string;
+  group_id: string;
+  membership_id: string;
+  qualification_id: string;
+  valid_from: Generated<Date>;
+  valid_until: Date | null;
+  /** An opaque REFERENCE to a document held elsewhere. Never free text (I-07). */
+  evidence_ref: string | null;
+  status: Generated<'pending' | 'valid' | 'expiring' | 'expired' | 'revoked'>;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
 export interface Database {
   organizations: OrganizationsTable;
   groups: GroupsTable;
@@ -135,6 +207,10 @@ export interface Database {
   capability_grants: CapabilityGrantsTable;
   entitlements: EntitlementsTable;
   group_module_availability: GroupModuleAvailabilityTable;
+  membership_work_profiles: MembershipWorkProfilesTable;
+  membership_weekday_fte: MembershipWeekdayFteTable;
+  qualifications: QualificationsTable;
+  qualification_holdings: QualificationHoldingsTable;
 }
 
 /**
@@ -236,4 +312,25 @@ export const TENANT_TABLES: readonly TenantTable[] = [
   { name: 'audit_checkpoints', scope: 'organization-context-only' },
   { name: 'outbox_events', scope: 'organization-and-group' },
   { name: 'outbox_effects', scope: 'organization-and-group' },
+
+  /* ── `migrations/0004_work_profiles_qualifications.sql` (OPUS-M2-003) ───────
+   *
+   * Registered in the SAME change as the migration, per packet 30 §7.2 — which
+   * exists because migration 0003's four tenant tables were left out of this
+   * registry and stayed unprobed until OPUS-M1-004 noticed. Registration is what
+   * puts them into the generic assertions: the pool-cleanliness probe, the
+   * wrong-tenant probe, the (role, table) privilege matrix, the nullif-guard scan,
+   * the T-15 storm, and — the one that would have caught 0003's omission —
+   * SBX-004's non-vacuity check, which fails the sweep if a registered table is
+   * never seen with a visible row.
+   *
+   * All four are `organization-and-group`: every row carries both columns, and
+   * each table has a V-09 conjunctive group policy plus an organization-context
+   * policy. `qualification_holdings` is the exception in READ breadth rather than
+   * in scope — its SELECT policies additionally require a capability, because 06
+   * §3.2 classifies it `SENSITIVE-PII`. */
+  { name: 'membership_work_profiles', scope: 'organization-and-group' },
+  { name: 'membership_weekday_fte', scope: 'organization-and-group' },
+  { name: 'qualifications', scope: 'organization-and-group' },
+  { name: 'qualification_holdings', scope: 'organization-and-group' },
 ] as const;

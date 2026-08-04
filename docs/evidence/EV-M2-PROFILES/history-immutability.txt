@@ -1,0 +1,72 @@
+$ SP_TEST_PG_PORT=55437 vitest run --project api test/profiles/history-immutability test/profiles/loader-is-the-only-selector
+
+stdout | test/profiles/history-immutability.test.ts > a work-profile window that has ALREADY ENDED cannot be touched > RED — no runtime role can reach a work-percentage UPDATE at all
+      · the column-level grant and the trigger are two independent controls, both firing
+
+ ✓ |api| test/profiles/history-immutability.test.ts > a work-profile window that has ALREADY ENDED cannot be touched > GREEN — the LIVE window can be closed at a future instant (this is supersession) 5ms
+ ✓ |api| test/profiles/history-immutability.test.ts > a work-profile window that has ALREADY ENDED cannot be touched > RED — changing the work percentage of an elapsed window is refused at the database 1ms
+ ✓ |api| test/profiles/history-immutability.test.ts > a work-profile window that has ALREADY ENDED cannot be touched > RED — moving the start instant of an elapsed window is refused at the database 1ms
+ ✓ |api| test/profiles/history-immutability.test.ts > a work-profile window that has ALREADY ENDED cannot be touched > RED — moving the END instant of an elapsed window is refused at the database 1ms
+ ✓ |api| test/profiles/history-immutability.test.ts > a work-profile window that has ALREADY ENDED cannot be touched > RED — re-opening an elapsed window is refused at the database 1ms
+ ✓ |api| test/profiles/history-immutability.test.ts > a work-profile window that has ALREADY ENDED cannot be touched > RED — moving an elapsed window to another membership is refused at the database 1ms
+ ✓ |api| test/profiles/history-immutability.test.ts > a work-profile window that has ALREADY ENDED cannot be touched > RED — closing a window in the PAST is refused (retroactive close) 3ms
+ ✓ |api| test/profiles/history-immutability.test.ts > a work-profile window that has ALREADY ENDED cannot be touched > RED — no runtime role can reach a work-percentage UPDATE at all 4ms
+stdout | test/profiles/history-immutability.test.ts > a work-profile window that has ALREADY ENDED cannot be touched > a correction is a NEW row, and the elapsed history is still there afterwards
+      · an administrative correction adds a row; the row it corrects is still readable
+
+stdout | test/profiles/history-immutability.test.ts > T-01 — history is not AUTHORED either > GREEN control — a FUTURE effectiveFrom is accepted
+      · a future-dated effectiveFrom is still accepted — future-dating is not what was refused
+
+stdout | test/profiles/history-immutability.test.ts > T-01 — history is not AUTHORED either > RED — an instant BEFORE the first window is refused with no row and no audit row
+      · a retro-dated authoring before the first window: 0 rows written, 0 audit rows
+
+stdout | test/profiles/history-immutability.test.ts > T-01 — history is not AUTHORED either > RED — an instant inside a GAP between two windows is refused
+      · a retro-dated authoring into a gap: refused, 0 rows, 0 audit rows
+
+stdout | test/profiles/history-immutability.test.ts > archive, never delete > RED — deleting a qualification that has holdings is refused, even for the owner
+      · a qualification with holdings cannot be deleted — retire it instead
+
+stdout | test/profiles/history-immutability.test.ts > archive, never delete > T-05 — owner DELETE is refused on ALL FOUR tables
+      · owner DELETE refused with 23001 on all four staffing tables
+
+stdout | test/profiles/history-immutability.test.ts > archive, never delete > RED — deleting a qualification HOLDING is refused unconditionally (retained for audit)
+      · a qualification holding is retained after expiry for audit — delete is refused
+
+stdout | test/profiles/history-immutability.test.ts > archive, never delete > GREEN then RED — the status machine permits valid -> expired and refuses expired -> valid
+      · the credential status machine is enforced at the database; `revoked` and `expired` do not go back
+
+ ✓ |api| test/profiles/history-immutability.test.ts > a work-profile window that has ALREADY ENDED cannot be touched > a correction is a NEW row, and the elapsed history is still there afterwards 9ms
+ ✓ |api| test/profiles/history-immutability.test.ts > T-01 — history is not AUTHORED either > GREEN control — a FUTURE effectiveFrom is accepted 3ms
+ ✓ |api| test/profiles/history-immutability.test.ts > T-01 — history is not AUTHORED either > RED — an instant BEFORE the first window is refused with no row and no audit row 2ms
+ ✓ |api| test/profiles/history-immutability.test.ts > T-01 — history is not AUTHORED either > RED — an instant inside a GAP between two windows is refused 2ms
+ ✓ |api| test/profiles/history-immutability.test.ts > T-01 — history is not AUTHORED either > the refusal is a 422 over HTTP, not a 500 1ms
+ ✓ |api| test/profiles/history-immutability.test.ts > archive, never delete > GREEN — retiring a qualification is permitted 1ms
+ ✓ |api| test/profiles/history-immutability.test.ts > archive, never delete > RED — deleting a qualification that has holdings is refused, even for the owner 1ms
+ ✓ |api| test/profiles/history-immutability.test.ts > archive, never delete > T-05 — owner DELETE is refused on ALL FOUR tables 4ms
+ ✓ |api| test/profiles/history-immutability.test.ts > archive, never delete > RED — deleting a qualification HOLDING is refused unconditionally (retained for audit) 1ms
+ ✓ |api| test/profiles/history-immutability.test.ts > archive, never delete > RED — a holding's WINDOW and evidence reference cannot be edited after issue 2ms
+ ✓ |api| test/profiles/history-immutability.test.ts > archive, never delete > GREEN then RED — the status machine permits valid -> expired and refuses expired -> valid 2ms
+stdout | test/profiles/loader-is-the-only-selector.test.ts > the shipped source has exactly one selector > no OTHER module under src/ selects from an effective-dated table
+      · 3 effective-dated table(s), exactly 1 module selecting from them: profiles/in-force-loader.ts
+
+ ✓ |api| test/profiles/loader-is-the-only-selector.test.ts > the shipped source has exactly one selector > names the effective-dated tables it protects 0ms
+ ✓ |api| test/profiles/loader-is-the-only-selector.test.ts > the shipped source has exactly one selector > the loader itself IS found by the scan — otherwise the scan sees nothing 7ms
+ ✓ |api| test/profiles/loader-is-the-only-selector.test.ts > the shipped source has exactly one selector > no OTHER module under src/ selects from an effective-dated table 6ms
+ ✓ |api| test/profiles/loader-is-the-only-selector.test.ts > RED — the scan catches a second selector > GREEN control — a tree with only the loader has no offenders 1ms
+ ✓ |api| test/profiles/loader-is-the-only-selector.test.ts > RED — the scan catches a second selector > catches a Kysely `selectFrom` in another module 1ms
+ ✓ |api| test/profiles/loader-is-the-only-selector.test.ts > RED — the scan catches a second selector > catches raw SQL naming the table 1ms
+ ✓ |api| test/profiles/loader-is-the-only-selector.test.ts > RED — the scan catches a second selector > catches a JOIN, which is the shape a reviewer misses 1ms
+ ✓ |api| test/profiles/loader-is-the-only-selector.test.ts > RED — the scan catches a second selector > does NOT fire on a comment or on a differently-named table 1ms
+ ✓ |api| test/profiles/loader-is-the-only-selector.test.ts > RED — the scan catches a second selector > does NOT fire on a WRITE, or on the schema declaration 1ms
+ ✓ |api| test/profiles/loader-is-the-only-selector.test.ts > RED — the scan catches a second selector > EVASION 1 — `selectFrom` reached through a `const` identifier 1ms
+ ✓ |api| test/profiles/loader-is-the-only-selector.test.ts > RED — the scan catches a second selector > EVASION 2 — raw SQL with a QUOTED identifier 1ms
+ ✓ |api| test/profiles/loader-is-the-only-selector.test.ts > RED — the scan catches a second selector > EVASION 3 — `returning()` reads window columns off a write, INSIDE an allowlisted writer 1ms
+ ✓ |api| test/profiles/loader-is-the-only-selector.test.ts > RED — the scan catches a second selector > …and returning() of the id alone in the same writer is NOT a finding 1ms
+ ✓ |api| test/profiles/loader-is-the-only-selector.test.ts > RED — the scan catches a second selector > MUTATION — emptying the allowlist makes the shipped writers findings 11ms
+ ✓ |api| test/profiles/loader-is-the-only-selector.test.ts > RED — the scan catches a second selector > MUTATION — narrowing the table list makes the scan miss a real offender 1ms
+
+ Test Files  2 passed (2)
+      Tests  34 passed (34)
+   Start at  20:10:13
+   Duration  1.74s (transform 125ms, setup 81ms, collect 48ms, tests 194ms, environment 0ms, prepare 63ms)
+

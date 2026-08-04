@@ -13,10 +13,12 @@ import { buildServer } from '../../src/http/server.js';
 import type { RouteTableEntry } from '../../src/http/route-table.js';
 import { adminClient } from '../support/admin-client.js';
 import { createPool } from '../../src/db/pool.js';
+import { TENANT_TABLES } from '../../src/db/schema.js';
 import { API_ROOT } from '../support/env.js';
 import { log, type Runtime } from '../support/harness.js';
 import { buildHttpHarness, type HttpHarness } from '../support/http.js';
 import { ownedMulti } from '../support/owned-multi.js';
+import { seedStaffingRows } from '../support/staffing.js';
 import {
   ProbeFalsified,
   contractProblems,
@@ -71,6 +73,30 @@ beforeAll(async () => {
   ({ app, routeTable } = await buildServer());
   http = await buildHttpHarness();
   runtimes = createRuntimes();
+
+  /* ── OPUS-M2-003: the four staffing tables need rows to be probed against ──
+   *
+   * Packet 30 §7.2: a new tenant table must appear in the SBX-004 sweep
+   * **observed with visible rows**, and a table nobody ever saw a row in reports
+   * "0 wrong-tenant rows" for the same reason an empty table does. The sweep's
+   * own vacuity check fails the run if any registered table is never seen, so
+   * this seeding is the difference between the tables being covered and the
+   * sweep merely claiming to cover them.
+   *
+   * It is a SEPARATE module rather than an addition to `multi.ts`: the MULTI
+   * provisioning script is read-only shared substrate for both M2 packets
+   * (packet 30 §5), and changing it is an escalation. `seedStaffingRows` writes
+   * through the production path — real grants, real guard triggers — into the
+   * fixture this file already owns.
+   *
+   * The credential is issued to Alpha's `scheduler` membership deliberately:
+   * `qualification_holdings` is SENSITIVE-PII and has no organization-wide read
+   * policy, and `runtime/group-one` is the probe context that acts as that
+   * membership. A holding belonging to anyone else would be invisible to every
+   * probe and the table would report a vacuous zero. */
+  const seedRuntime = runtimes.get('app_runtime');
+  if (seedRuntime === undefined) throw new Error('no app_runtime runtime for staffing seeding');
+  await seedStaffingRows(seedRuntime.runner, multi());
 }, 120_000);
 
 afterAll(async () => {
@@ -525,10 +551,22 @@ describe('the G-ARCH tenancy subset', () => {
     const sweep = results.find((r) => r.id === 'SBX-004');
     expect(sweep?.state).toBe('PASS');
     expect(sweep?.probeOutcome, 'the sweep could not be made to fail').toBe('FALSIFIABLE');
-    // Twelve tenant tables plus `users`. My phase-A prototype probed three of them
-    // vacuously; the packet requires all twelve to be covered non-vacuously, and
-    // this is where that is asserted rather than hoped.
-    expect(sweep?.tables.length, `tables exercised: ${sweep?.tables.join(', ')}`).toBe(13);
+    // Twelve tenant tables plus `users` at OPUS-M2-001; **sixteen plus `users`**
+    // since OPUS-M2-003 registered the four staffing tables in `TENANT_TABLES`.
+    // My phase-A prototype probed three of them vacuously; the packet requires
+    // every one to be covered non-vacuously, and this is where that is asserted
+    // rather than hoped.
+    //
+    // The literal is derived from the registry rather than hard-coded, because
+    // two M2 packets add tenant tables in parallel worktrees and a hand-counted
+    // number is a merge conflict that resolves silently to the wrong answer. What
+    // makes the assertion real is the sweep's own vacuity check, which fails when
+    // a REGISTERED table is never seen with a visible row — this line only
+    // confirms the sweep reported on all of them.
+    const expectedTables =
+      TENANT_TABLES.filter((table) => table.scope !== 'through-membership').length + 1;
+    expect(expectedTables, 'the tenant registry shrank').toBeGreaterThanOrEqual(17);
+    expect(sweep?.tables.length, `tables exercised: ${sweep?.tables.join(', ')}`).toBe(expectedTables);
   });
 
   const ensureChainVerified = async (): Promise<string[]> => {

@@ -1,0 +1,71 @@
+$ SP_TEST_PG_PORT=55437 vitest run --project api test/profiles/authorization test/profiles/isolation
+
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m2-003
+
+ ✓ |api| test/profiles/authorization.test.ts > the six new action keys are declared exactly once, group-scoped > every staffing key is in the catalogue with group scope and core_scheduling 1ms
+ ✓ |api| test/profiles/authorization.test.ts > the six new action keys are declared exactly once, group-scoped > every route this packet registers declares one of them 0ms
+ ✓ |api| test/profiles/authorization.test.ts > allow and deny for every new capability > ALLOW — a holder of staffing.work_profile.administer may author a work profile 8ms
+ ✓ |api| test/profiles/authorization.test.ts > allow and deny for every new capability > DENY — a principal without staffing.work_profile.administer may NOT author a work profile 5ms
+ ✓ |api| test/profiles/authorization.test.ts > allow and deny for every new capability > ALLOW — a holder of staffing.work_profile.read may read the profile in force 4ms
+ ✓ |api| test/profiles/authorization.test.ts > allow and deny for every new capability > DENY — a principal without staffing.work_profile.read may NOT read the profile in force 3ms
+ ✓ |api| test/profiles/authorization.test.ts > allow and deny for every new capability > ALLOW — a holder of staffing.work_profile.read may read the profile history 4ms
+ ✓ |api| test/profiles/authorization.test.ts > allow and deny for every new capability > DENY — a principal without staffing.work_profile.read may NOT read the profile history 4ms
+ ✓ |api| test/profiles/authorization.test.ts > allow and deny for every new capability > ALLOW — a holder of staffing.qualification.administer may create a qualification 5ms
+ ✓ |api| test/profiles/authorization.test.ts > allow and deny for every new capability > DENY — a principal without staffing.qualification.administer may NOT create a qualification 3ms
+ ✓ |api| test/profiles/authorization.test.ts > allow and deny for every new capability > ALLOW — a holder of staffing.qualification.administer may retire a qualification 4ms
+ ✓ |api| test/profiles/authorization.test.ts > allow and deny for every new capability > DENY — a principal without staffing.qualification.administer may NOT retire a qualification 4ms
+ ✓ |api| test/profiles/authorization.test.ts > allow and deny for every new capability > ALLOW — a holder of staffing.qualification_holding.administer may issue a credential 5ms
+ ✓ |api| test/profiles/authorization.test.ts > allow and deny for every new capability > DENY — a principal without staffing.qualification_holding.administer may NOT issue a credential 3ms
+ ✓ |api| test/profiles/authorization.test.ts > allow and deny for every new capability > ALLOW — a holder of staffing.qualification_holding.read may read a membership's credentials 6ms
+ ✓ |api| test/profiles/authorization.test.ts > allow and deny for every new capability > DENY — a principal without staffing.qualification_holding.read may NOT read a membership's credentials 4ms
+ ✓ |api| test/profiles/authorization.test.ts > allow and deny for every new capability > ORDERING — a malformed body to author a work profile: 403 unauthorized, 400 authorized 8ms
+ ✓ |api| test/profiles/authorization.test.ts > allow and deny for every new capability > ORDERING — a malformed body to create a qualification: 403 unauthorized, 400 authorized 7ms
+ ✓ |api| test/profiles/authorization.test.ts > allow and deny for every new capability > ORDERING — a malformed body to issue a credential: 403 unauthorized, 400 authorized 6ms
+stdout | test/profiles/authorization.test.ts > allow and deny for every new capability > ORDERING — a malformed `?at=` is invisible to an unauthorized caller too
+      · authorize-then-parse holds on bodies and on query parameters, in both directions
+
+stdout | test/profiles/authorization.test.ts > allow and deny for every new capability > an EXPLICIT DENY beats a role and an allow (P-1), at the database as well
+      · an explicit deny on a staffing capability refuses the write
+
+stdout | test/profiles/authorization.test.ts > SENSITIVE-PII — who may read whose credentials > a member reads their OWN credentials
+      · a member reads their own credential record
+
+stdout | test/profiles/authorization.test.ts > SENSITIVE-PII — who may read whose credentials > …and sees NOTHING of a colleague's, without `read_any`
+      · without read_any a colleague's holdings are an empty list, not an error
+
+stdout | test/profiles/authorization.test.ts > SENSITIVE-PII — who may read whose credentials > the narrowing is in the DATA, not in the route: a direct read is narrowed too
+      · direct table read as a peer: 1 row(s), all their own, 0 belonging to anyone else
+
+ ✓ |api| test/profiles/authorization.test.ts > allow and deny for every new capability > ORDERING — a malformed `?at=` is invisible to an unauthorized caller too 6ms
+ ✓ |api| test/profiles/authorization.test.ts > allow and deny for every new capability > an EXPLICIT DENY beats a role and an allow (P-1), at the database as well 4ms
+ ✓ |api| test/profiles/authorization.test.ts > SENSITIVE-PII — who may read whose credentials > a member reads their OWN credentials 2ms
+ ✓ |api| test/profiles/authorization.test.ts > SENSITIVE-PII — who may read whose credentials > …and sees NOTHING of a colleague's, without `read_any` 4ms
+ ✓ |api| test/profiles/authorization.test.ts > SENSITIVE-PII — who may read whose credentials > a holder of `read_any` sees them 3ms
+ ✓ |api| test/profiles/authorization.test.ts > SENSITIVE-PII — who may read whose credentials > the narrowing is in the DATA, not in the route: a direct read is narrowed too 1ms
+stdout | test/profiles/isolation.test.ts > the ORGANIZATION boundary > positive control — Beta's own context sees Beta's rows
+      · Beta sees its own rows in all four tables: {"membership_work_profiles":1,"membership_weekday_fte":1,"qualifications":1,"qualification_holdings":1}
+
+stdout | test/profiles/isolation.test.ts > the ORGANIZATION boundary > an ALPHA context sees ZERO of Beta's rows, by row id
+      · cross-organization read: 0 rows in all four tables, probed by row id
+
+stdout | test/profiles/isolation.test.ts > the GROUP boundary > a GROUP ONE context sees zero of group TWO's rows
+      · cross-group read within one organization: 0 rows in all four tables
+
+stdout | test/profiles/isolation.test.ts > no statement reaches these tables outside a unit of work (I-15) > a read with NO transaction-local context returns zero rows from every table
+      · with no tenant context all four tables return zero rows — fail closed, not fail open
+
+ ✓ |api| test/profiles/isolation.test.ts > the four tables are registered as tenant tables > every one appears in TENANT_TABLES with an organization-and-group scope 0ms
+ ✓ |api| test/profiles/isolation.test.ts > the ORGANIZATION boundary > positive control — Beta's own context sees Beta's rows 3ms
+ ✓ |api| test/profiles/isolation.test.ts > the ORGANIZATION boundary > an ALPHA context sees ZERO of Beta's rows, by row id 3ms
+ ✓ |api| test/profiles/isolation.test.ts > the ORGANIZATION boundary > an ALPHA context cannot WRITE a row carrying Beta's organization 4ms
+ ✓ |api| test/profiles/isolation.test.ts > the GROUP boundary > positive control — group one's context sees group one's rows 3ms
+ ✓ |api| test/profiles/isolation.test.ts > the GROUP boundary > a GROUP ONE context sees zero of group TWO's rows 3ms
+ ✓ |api| test/profiles/isolation.test.ts > the GROUP boundary > a GROUP TWO context sees zero of group ONE's rows — the boundary is two-sided 2ms
+ ✓ |api| test/profiles/isolation.test.ts > no statement reaches these tables outside a unit of work (I-15) > a read with NO transaction-local context returns zero rows from every table 1ms
+
+ Test Files  2 passed (2)
+      Tests  33 passed (33)
+   Start at  20:10:10
+   Duration  1.89s (transform 163ms, setup 106ms, collect 130ms, tests 365ms, environment 0ms, prepare 37ms)
+

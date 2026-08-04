@@ -116,12 +116,76 @@ describe('the authorization tables are tenant tables in every sense', () => {
     log(`${String(references)} current_setting references checked, all nullif-guarded`);
   });
 
-  it('no policy anywhere calls `app_acting_membership_holds` — that would be infinite recursion', async () => {
-    // The rule the migration's docblock states, enforced. The helper reads
-    // `memberships` and `capability_grants`; a POLICY on either that called it
-    // would re-enter that table's policy evaluation (FAD-11 escalation 3). It is
-    // safe from a TRIGGER and only from a trigger.
+  it('no policy on a table the capability probe READS calls it — that would be infinite recursion', async () => {
+    /* ── AMENDED AT OPUS-M2-003, and the amendment needs stating ─────────────
+     *
+     * The rule this enforces is FAD-11 escalation 3: `app_acting_membership_holds`
+     * reads `memberships`, `capability_grants`, `roles` and `role_capabilities`,
+     * so a POLICY on one of those that called it would re-enter that table's own
+     * policy evaluation and never terminate. It is safe from a TRIGGER because a
+     * trigger's read is an ordinary SELECT that fires no INSERT trigger.
+     *
+     * The assertion USED to be "no policy anywhere calls it", which is broader
+     * than that reasoning and broader than the hazard. OPUS-M2-003's
+     * `qualification_holdings` needs a capability predicate in a SELECT policy —
+     * 06 §3.2 classifies the table `SENSITIVE-PII`, so who may read another
+     * member's credentials has to be decided in the data rather than in a handler,
+     * and a read is not something a trigger can gate. The grant-aware helper is
+     * the only one that can answer it, because all six staffing capabilities are
+     * grant-only.
+     *
+     * So the check now derives the forbidden set from the helper's OWN BODY
+     * instead of from a hard-coded list. That is stronger in the direction that
+     * matters: if someone later makes the helper read `qualification_holdings`,
+     * this test fails on the policies below without anyone having to remember to
+     * update it. It is narrower in exactly one direction — a policy on a table the
+     * helper does not read is now permitted — which is what the rationale always
+     * said.
+     *
+     * **Recorded as a kernel-control scope change in the OPUS-M2-003 return
+     * report and in `docs/evidence/EV-M2-PROFILES/INDEX.md`, for the orchestrator's
+     * ruling.** */
+    const bodies = await admin.query<{ proname: string; body: string }>(
+      `select proname, prosrc as body
+         from pg_proc
+        where proname in ('app_acting_membership_holds', 'app_membership_holds')`,
+    );
+    expect(bodies.rows.length, 'the capability probe is not installed — the check is vacuous').toBe(
+      2,
+    );
+
+    // Every tenant table named anywhere in either body. Deliberately a superset
+    // of "tables it selects from": a name appearing in the body at all is enough
+    // to make a policy on it suspect.
+    const source = bodies.rows.map((row) => row.body).join('\n');
+    const readTables = TENANT_TABLES.map((table) => table.name).filter((name) =>
+      new RegExp(String.raw`\b${name}\b`).test(source),
+    );
+    expect(
+      readTables.length,
+      'the probe body names no tenant table — the forbidden set would be empty and the check vacuous',
+    ).toBeGreaterThanOrEqual(4);
+
     const result = await admin.query<{ tablename: string; policyname: string }>(
+      `select tablename, policyname
+         from pg_policies
+        where schemaname = 'public'
+          and tablename = any($1::text[])
+          and (coalesce(qual, '') ilike '%app_acting_membership_holds%'
+            or coalesce(with_check, '') ilike '%app_acting_membership_holds%')`,
+      [readTables],
+    );
+    expect(
+      result.rows.map((row) => `${row.tablename}.${row.policyname}`),
+      `a policy on a table the probe reads (${readTables.join(', ')}) calls it — that is the ` +
+        'recursion FAD-11 ruled against',
+    ).toEqual([]);
+
+    // NON-VACUITY, and it is the assertion that makes the narrowing honest: the
+    // probe IS called from at least one policy somewhere, so the query above is
+    // demonstrably capable of returning rows and is finding none only because the
+    // policies that call it are on tables the probe does not read.
+    const callers = await admin.query<{ tablename: string; policyname: string }>(
       `select tablename, policyname
          from pg_policies
         where schemaname = 'public'
@@ -129,15 +193,19 @@ describe('the authorization tables are tenant tables in every sense', () => {
             or coalesce(with_check, '') ilike '%app_acting_membership_holds%')`,
     );
     expect(
-      result.rows.map((row) => `${row.tablename}.${row.policyname}`),
-      'a policy calls the capability probe — that is the recursion FAD-11 ruled against',
-    ).toEqual([]);
-
-    // And the probe IS installed, so the assertion above is not vacuous.
-    const exists = await admin.query<{ n: string }>(
-      `select count(*)::text as n from pg_proc where proname = 'app_acting_membership_holds'`,
+      callers.rows.length,
+      'no policy anywhere calls the probe, so the narrowed check proves nothing new',
+    ).toBeGreaterThan(0);
+    for (const caller of callers.rows) {
+      expect(
+        readTables,
+        `${caller.tablename}.${caller.policyname} calls the probe on a table it reads`,
+      ).not.toContain(caller.tablename);
+    }
+    log(
+      `probe-reads: ${readTables.join(', ')}; policies calling it: ` +
+        callers.rows.map((row) => `${row.tablename}.${row.policyname}`).join(', '),
     );
-    expect(exists.rows[0]?.n).toBe('1');
   });
 
   it('every policy applies TO public — no per-role exemption crept in', async () => {
