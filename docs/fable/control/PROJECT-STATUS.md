@@ -1,17 +1,20 @@
 # PROJECT-STATUS
 
-**As of 2026-08-04 (M2 complete).**
+**As of 2026-08-04 (M3 authorized and underway).**
+
+- **M3 AUTHORIZED by the owner 2026-08-04** against frozen M2 checkpoint `e476573` (tag `milestone/M2`). Entry verification PASSED (checkpoint/tag/tree/branches confirmed; validators 36/36 · 95/95 · PASS; gates 12/12; red cases all proven — exit codes checked; record in [../32-m3-task-packets.md](../32-m3-task-packets.md) §1). Packets finalized: OPUS-M3-001 (authn/sessions/invitation — issued alone first), OPUS-M3-002 (rules/AST/corpus), OPUS-M3-003 (periods/publication SPEC-05 core); further families M3-004..008 pre-declared in §8 and finalized before their own issuance. All M2 carried items dispositioned with owners in §2. **M4 NOT authorized — M3 ends with a frozen checkpoint and exit report; work stops there.**
+- Sequencing: M3-001 first and alone; 002/003 issue only after M3-001 acceptance and the §7 revalidation note; serialized merges; OPUS-M3-008 integration packet mandatory.
 
 - **Milestone M2 COMPLETE — 4/4 tasks ACCEPTED and merged** (authorized 2026-08-03 against b051193): OPUS-M2-001 SBX harness + FAD-15 fixture isolation + MULTI (bc61ee7) · OPUS-M2-002 catalogue, first UI slice (ff2e67b) · OPUS-M2-003 effective-dated profiles/qualifications (567964c) · OPUS-M2-004 integration + hardening (fce095c). Exit report: [../31-m2-exit-report.md](../31-m2-exit-report.md). Frozen M2 checkpoint = the exit report's commit, tagged `milestone/M2`.
 - On main at close: **881 tests / 66 files, 12/12 gates, 14/14 red cases, fixture-regression 63/63 (twelve fixed seeds + rotating), sbx 26/26 tables 0 wrong-tenant, six migrations, cycle clean.** Parity: 8 verified · 2 in-progress · 48 not-started.
 - **NR-13 retired** (FAD-15 implemented + the gate catching the class four times in M2 itself); NR-4 stays elevated; NR-14 (regenerated evidence artifacts) opened low.
-- **M3 NOT authorized — awaiting the owner.** Proposed M3 packets and the exact authorization prompt are in the exit report.
+- Proposed M3 packets and the authorization prompt were in the exit report; the owner authorized M3 on 2026-08-04 (header block above).
 
 - **M2 AUTHORIZED by the owner 2026-08-03** against frozen M1 checkpoint b051193. Packets finalized: [../30-m2-task-packets.md](../30-m2-task-packets.md) (validators green at authoring: plan 36/36, arch 95/95, research PASS).
 - **OPUS-M2-001 ACCEPTED & MERGED 2026-08-03** (bc61ee7): FAD-15 fixture isolation implemented (seven couplings closed), fixture-regression acceptance gate 39/39, MULTI factory + canonical fixture, SPEC-16 SBX harness — SBX-001/002/004 PASS all falsifiable, SBX-005 partial, SBX-006 EVIDENCE_BLOCKED(authn). NR-13 structurally addressed (formal retirement at M2 exit risk review). G-ARCH tenancy subset executed and filed; G-ARCH itself remains open by design. Evidence EV-M2-NR13 + EV-M2-SBX. 585 tests, 12 gates, 14 red cases on main.
 - **OPUS-M2-002 and OPUS-M2-003 ISSUED 2026-08-03 in parallel** after packet revalidation against the actual M2-001 outcome (30-m2-task-packets §7) and the FAD-16 doc-06 catalogue amendment. Branches `opus/m2-002-catalogue` (worktree `.worktrees/m2-002`) and `opus/m2-003-profiles` (worktree `.worktrees/m2-003`); disjoint globs re-verified; `shift_type_qualifications` reserved for the integration packet. Independent second review mandatory for both.
-- **M3 NOT authorized.** M2 ends with a frozen checkpoint and exit report; work stops there.
-- Next action: parallel implementation → per-task orchestrator rerun → independent second reviews → serialized merges → integration packet if needed.
+- (Historical, M2-era: M3 was not authorized until 2026-08-04; M2 ended at its frozen checkpoint as required.)
+- Next action: issue OPUS-M3-001 → delegate → orchestrator rerun → independent second review → merge → §7 revalidation → issue 002/003 in parallel.
 
 - Phase: **implementation — Milestone M0 complete and ACCEPTED** (planning ratified and frozen at 2b64a7b; M0 authorized 2026-08-01 and executed; reconciliation checkpoint dc9fd63; final M0 checkpoint = the commit introducing [../26-m0-acceptance-addendum.md](../26-m0-acceptance-addendum.md) — independent re-verification of all M0 claims, 2026-08-02).
 - Research: COMPLETE, permanently closed against the source.

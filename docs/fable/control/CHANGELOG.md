@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2026-08-04 — Milestone M3 AUTHORIZED; packets finalized
+- Owner authorized M3 against `e476573` (M4 not authorized). Entry verification PASSED with exit codes checked (checkpoint/tag/tree/branches/merges confirmed; validators 36/36 · 95/95 · PASS; gates 12/12; red cases all proven; NR-14 regenerated artifacts restored).
+- [32-m3-task-packets.md](../32-m3-task-packets.md) finalized: OPUS-M3-001 authn/sessions/invitation (first, alone — clears SBX-005/006 + X-12 + break-glass session auditing), OPUS-M3-002 typed rules/compiler/B-\* corpus, OPUS-M3-003 SPEC-05 publication core (full V-01..V-19, SBX-018); §6 shared-surface pre-assignment; §8 pre-declares M3-004..008 (authoring UX, publication UX, staff views, settings+site, mandatory integration/hardening).
+- All fourteen M2 carried items dispositioned with explicit owners and completion points (§2); deferred halves carry milestone/family/reason/dependency/capability/gate/evidence.
+
 ## 2026-08-04 — Milestone M2 COMPLETE (4/4 accepted)
 - M2-002 (ff2e67b, first UI slice) and M2-003 (567964c) merged after REVISE→delta-APPROVE and APPROVE-WITH-FOLLOW-UPS cycles; M2-004 integration (fce095c) composed the join table, consolidated fixtures per D-1, fixed the sequence::text class incl. production audit verification, closed the port-collision hazard, and landed the request-budget ledger under the budget=2 ruling.
 - Review findings of record this half: a vacuous cross-group proof arm (a CAR-001-class policy mutation sailed through — now pinned as a red case), an INSERT-blind capability gate, effective dating that was created_at in disguise, an arbitrary-row read (the S-01 class, twice more — once reintroduced by the person who had just read the warning, caught by the structural scan), a version counter that wasn't a control, reachable retroactive history creation, silent weekday-target loss on supersession, and a fault-masking catch. All closed with regression evidence.
