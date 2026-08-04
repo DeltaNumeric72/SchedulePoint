@@ -11,7 +11,14 @@ Execution log (M0):
 
 All three M0 rows re-verified by independent rerun at the acceptance review 2026-08-02 ([../26-m0-acceptance-addendum.md](../26-m0-acceptance-addendum.md) §1): 36/36 · 12/12 + 14/14 · H-0..H-8 0 failed.
 
-Execution log (M2 — authorized 2026-08-03):
+Execution log (M2 — authorized 2026-08-03; closed 2026-08-04):
+| Harness / gate | Task | Status | Evidence |
+|---|---|---|---|
+| Catalogue battery: 9-table RLS sweeps + sweep-mutation red case (the reviewer's CAR-001-class mutation pinned) + monotonic pick positions + archive-not-delete + OCC version + I-13/axe/keyboard/320px UI evidence + 31-row field mapping | OPUS-M2-002 | **PASSED — re-run by orchestrator on the rebased branch (850 tests) and on main post-merge** | docs/evidence/EV-M2-CATALOGUE |
+| Profiles battery: in-force boundary battery + loader/writer agreement (S-01 lesson as named test) + overlap rejection under concurrency + history immutability incl. owner + SENSITIVE-PII narrowing (mutation-tested) + round-trip incl. 422 retroactive refusal | OPUS-M2-003 | **PASSED — re-run by orchestrator (739 tests) and on main post-merge** | docs/evidence/EV-M2-PROFILES |
+| Integration battery: shift_type_qualifications tenancy incl. cross-group FK proof + eligibility reads + sequence numeric-ordering regression (production verification.ts) + two-worktree simultaneous batteries (port derivation) + request-budget ledger green-before-red both directions | OPUS-M2-004 | **PASSED — re-run by orchestrator on the rebased branch (881 tests) and on main post-merge (63/63 gate)** | docs/evidence/EV-M2-INTEGRATION |
+
+Execution log (M2-001 issuance rows):
 | Harness / gate | Task | Status | Evidence |
 |---|---|---|---|
 | SBX-001 (role×route matrix, 104 cells, three outcome classes) / SBX-002 (12 of 15 SPEC-06 rows server-side in 15 cases + 39.3M-case domain companion) / SBX-004 (five-role sweep, 84 readings, 0 wrong-tenant rows, 12/12 tables non-vacuous, 24-attempt write arm w/ 4 reaching RLS, FAD-14 + breakglass exceptions pinned by exact pair) PASS all FALSIFIABLE · SBX-005 partial (executable sub-scenarios PASS; authn arms EVIDENCE_BLOCKED) · SBX-006 EVIDENCE_BLOCKED(authn) · MULTI double-provision determinism · fixture-regression 39/39 (FAD-15 gate) | OPUS-M2-001 | **PASSED as scoped — re-run by orchestrator on branch and on main post-merge (bc61ee7); G-ARCH NOT closed (needs SBX-011/013/014b/022/023/028)** | docs/evidence/EV-M2-SBX · EV-M2-NR13 |

@@ -14,19 +14,19 @@
 
 | CAP | Capability | Parity | Intended difference (reason) | AC source | Depends on | Roadmap | Status |
 |---|---|---|---|---|---|---|---|
-| 001 | Organization tenancy root | HIGH | Org is explicit and first-class; source's org concept was implicit (retrofit-impossible) | SPEC-01 §7 | — | M1 | not-started |
-| 002 | Group scope & switching | HIGH | Context switch is declared+verified, never silent (CAR-001; QA-TEN-004) | SPEC-01 T-01..06 | 001 | M1 | not-started |
-| 003 | Tenant isolation, server+DB | REDESIGN | No source equivalent observable; fail-closed RLS in unit-of-work | SPEC-01 T-07..15 | 001 | M0–M1 | not-started |
+| 001 | Organization tenancy root | HIGH | Org is explicit and first-class; source's org concept was implicit (retrofit-impossible) | SPEC-01 §7 | — | M1 | verified *(2026-08-04, M2 exit: SPEC-01 batteries M1 + SBX-004 sweep executed, EV-M2-SBX)* |
+| 002 | Group scope & switching | HIGH | Context switch is declared+verified, never silent (CAR-001; QA-TEN-004) | SPEC-01 T-01..06 | 001 | M1 | verified *(2026-08-04, M2 exit: SPEC-01 T-01..06 M1 + SBX-001/004, EV-M2-SBX)* |
+| 003 | Tenant isolation, server+DB | REDESIGN | No source equivalent observable; fail-closed RLS in unit-of-work | SPEC-01 T-07..15 | 001 | M0–M1 | verified *(2026-08-04, M2 exit: SPEC-01 T-07..15 + five-role SBX-004 incl. write arm, 0 wrong-tenant, EV-M2-SBX)* |
 | 004 | Site modelling | HIGH | Attribute not entity while PO-DEC-01 pending; both migrations pre-modelled | 06 §3.2a | 002 | M2 | not-started |
-| 005 | User accounts & types | HIGH | `login_email` admin-changeable (CAR-027); explicit account types (C-06) | SPEC-11 X-12 | 002 | M1 | not-started |
-| 006 | Membership roles & capabilities | REDESIGN | Role+grant model replaces vestigial flags (C-02/PO-DEC-02); every grant tested | SPEC-06 §8 | 005, 057 | M1 | not-started |
+| 005 | User accounts & types | HIGH | `login_email` admin-changeable (CAR-027); explicit account types (C-06) | SPEC-11 X-12 | 002 | M1 | in-progress *(2026-08-04, M2 exit: schema+membership lifecycle live, SBX-005 executable arms PASS; authn/session arms EVIDENCE_BLOCKED, SPEC-11 X-12 not run)* |
+| 006 | Membership roles & capabilities | REDESIGN | Role+grant model replaces vestigial flags (C-02/PO-DEC-02); every grant tested | SPEC-06 §8 | 005, 057 | M1 | verified *(2026-08-04, M2 exit: SPEC-06 §8 cross-product 49.0M 0 disagreements + SBX-001/002, EV-M1-AUTHZ/EV-M2-SBX)* |
 | 007 | Self-service profile & prefs | HIGH | — | R19 CAP-007 | 005 | M1 | not-started |
 | 008 | AuthN & sessions | REDESIGN | MFA/SSO added; bounded lifetimes (source baseline unknown/weaker; PO-DEC-09) | R19 + 02 §7 | 001 | M1 | not-started |
 | 009 | Invitation/activation | HIGH | Separated from password reset explicitly | R19 | 008 | M1 | not-started |
 | 010 | Impersonation | REDESIGN | Audited, banner, time-limited, no credential screens (source showed no audit trail) | R19; PO-DEC-11 | 006 | M8 | not-started |
-| 011 | Shift type catalogue | **EXACT** | Four orthogonal flags preserved as-is (Confirmed, load-bearing product-wide) | R19 | 002 | M2 | not-started |
-| 012 | Shift groups & staff groups | **EXACT** | `allowRequest` server-side filter preserved; scoring mode+weight preserved | R19 | 011 | M2 | not-started |
-| 013 | Weekday FTE / max assignments | HIGH | Canonical effective-dated tables (CAR-006) | SPEC-04 | 011 | M2 | not-started |
+| 011 | Shift type catalogue | **EXACT** | Four orthogonal flags preserved as-is (Confirmed, load-bearing product-wide) | R19 | 002 | M2 | verified *(2026-08-04, M2 exit: EV-M2-CATALOGUE: full field set, UI, field-mapping 31 rows)* |
+| 012 | Shift groups & staff groups | **EXACT** | `allowRequest` server-side filter preserved; scoring mode+weight preserved | R19 | 011 | M2 | verified *(2026-08-04, M2 exit: EV-M2-CATALOGUE incl. valid combinations + monotonic pick positions)* |
+| 013 | Weekday FTE / max assignments | HIGH | Canonical effective-dated tables (CAR-006) | SPEC-04 | 011 | M2 | verified *(2026-08-04, M2 exit: EV-M2-PROFILES: in-force battery, carry-forward semantics)* |
 | 014 | Periods & versioned publication | REDESIGN | Immutable versions + revert-forward; **source has no rollback anywhere** | SPEC-05 V-01..16 | 015* | M3 | not-started |
 | 015 | Automated schedule generation | HIGH | Own solver/model (source algorithm unknown, clean-room) | SPEC-04; R21 | 011–013,016,058 | M4 | not-started |
 | 016 | Rule engine (patterns/staff/positions) | HIGH | Typed versioned AST; hard/soft enforced in data+compiler | SPEC-04 S-01t..16t | 011,012 | M2 | not-started |
@@ -60,8 +60,8 @@
 | 051 | Observability, backup, recovery | REDESIGN | No source equivalent observable; restore rehearsal gated | SBX-035 | all | M1→M12 | not-started |
 | 055 | Hospital integration framework | HIGH | Canonical schema owned by platform; connectors gated per-vendor | SPEC-03 I-01..12 | 030, 062 | M11 | not-started |
 | 056 | Group communication identity | HIGH | Outbound-first (C-11/PO-DEC-21) | SPEC-07 | 040, 043 | M11 | not-started |
-| 057 | Entitlements & feature gating | REDESIGN | First-class records; disable-never-deletes (PO-DEC-04 approved) | SPEC-06 | 001 | M1 | not-started |
-| 058 | Qualifications & eligibility | HIGH | Evidence reference + expiry (PO-DEC-12) | R19 | 005, 011 | M2 | not-started |
+| 057 | Entitlements & feature gating | REDESIGN | First-class records; disable-never-deletes (PO-DEC-04 approved) | SPEC-06 | 001 | M1 | in-progress *(2026-08-04, M2 exit: gating live server-side + SBX-002 truth table; tenant-facing admin surface pending (FAD-13(2)))* |
+| 058 | Qualifications & eligibility | HIGH | Evidence reference + expiry (PO-DEC-12) | R19 | 005, 011 | M2 | verified *(2026-08-04, M2 exit: EV-M2-PROFILES + EV-M2-INTEGRATION incl. shift_type_qualifications)* |
 | 059 | Conflict detection & build quality | HIGH | Severity taxonomy (PO-DEC-13); independent solution re-validation | SPEC-04 | 015,016,058 | M4 | not-started |
 | 060 | Picklist modes: paper/manual/integrated | HIGH | — | R19 | 030 | M9 | not-started |
 | 061 | Connector certification pipeline | **DEFERRED** (post-beta per R19) | Gated on EV-1 vendor specs — blocks G-CONN only | SPEC-03; SBX-028/029 | 055 | M12+ | not-started |

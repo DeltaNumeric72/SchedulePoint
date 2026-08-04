@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-04 — Milestone M2 COMPLETE (4/4 accepted)
+- M2-002 (ff2e67b, first UI slice) and M2-003 (567964c) merged after REVISE→delta-APPROVE and APPROVE-WITH-FOLLOW-UPS cycles; M2-004 integration (fce095c) composed the join table, consolidated fixtures per D-1, fixed the sequence::text class incl. production audit verification, closed the port-collision hazard, and landed the request-budget ledger under the budget=2 ruling.
+- Review findings of record this half: a vacuous cross-group proof arm (a CAR-001-class policy mutation sailed through — now pinned as a red case), an INSERT-blind capability gate, effective dating that was created_at in disguise, an arbitrary-row read (the S-01 class, twice more — once reintroduced by the person who had just read the warning, caught by the structural scan), a version counter that wasn't a control, reachable retroactive history creation, silent weekday-target loss on supersession, and a fault-masking catch. All closed with regression evidence.
+- One session-limit interruption (both agents) recovered per protocol with zero loss. FAD-16/17 recorded; doc 06 amended thrice (dated). NR-13 retired; NR-14 opened low; E-1/E-2 closed. Parity: first 10 rows move (8 verified, 2 in-progress).
+- Frozen M2 checkpoint = the exit-report commit, tagged milestone/M2 (milestone/M1 retro-tagged at b051193 per 24 §E — the tag was missed at M1 close, disclosed).
+
 ## 2026-08-03 — OPUS-M2-002 and OPUS-M2-003 issued in parallel
 - Packets revalidated against the actual M2-001 outcome; binding deltas recorded as 30-m2-task-packets §7 (FAD-15 fixture discipline concretely named, TENANT_TABLES + SBX-004 non-vacuous coverage for every new tenant table, fixture-regression at submission and acceptance, ProbeFalsified vacuity discipline, restore-by-id).
 - FAD-16 recorded and doc 06 §3.2 amended (dated, additive): extended shift_types field set with CHECK-constrained display tokens, shift_type_weekday_demand, monotonic groups.pick_position_count.

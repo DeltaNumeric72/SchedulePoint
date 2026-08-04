@@ -1,6 +1,11 @@
 # PROJECT-STATUS
 
-**As of 2026-08-03 (M2 begun).**
+**As of 2026-08-04 (M2 complete).**
+
+- **Milestone M2 COMPLETE — 4/4 tasks ACCEPTED and merged** (authorized 2026-08-03 against b051193): OPUS-M2-001 SBX harness + FAD-15 fixture isolation + MULTI (bc61ee7) · OPUS-M2-002 catalogue, first UI slice (ff2e67b) · OPUS-M2-003 effective-dated profiles/qualifications (567964c) · OPUS-M2-004 integration + hardening (fce095c). Exit report: [../31-m2-exit-report.md](../31-m2-exit-report.md). Frozen M2 checkpoint = the exit report's commit, tagged `milestone/M2`.
+- On main at close: **881 tests / 66 files, 12/12 gates, 14/14 red cases, fixture-regression 63/63 (twelve fixed seeds + rotating), sbx 26/26 tables 0 wrong-tenant, six migrations, cycle clean.** Parity: 8 verified · 2 in-progress · 48 not-started.
+- **NR-13 retired** (FAD-15 implemented + the gate catching the class four times in M2 itself); NR-4 stays elevated; NR-14 (regenerated evidence artifacts) opened low.
+- **M3 NOT authorized — awaiting the owner.** Proposed M3 packets and the exact authorization prompt are in the exit report.
 
 - **M2 AUTHORIZED by the owner 2026-08-03** against frozen M1 checkpoint b051193. Packets finalized: [../30-m2-task-packets.md](../30-m2-task-packets.md) (validators green at authoring: plan 36/36, arch 95/95, research PASS).
 - **OPUS-M2-001 ACCEPTED & MERGED 2026-08-03** (bc61ee7): FAD-15 fixture isolation implemented (seven couplings closed), fixture-regression acceptance gate 39/39, MULTI factory + canonical fixture, SPEC-16 SBX harness — SBX-001/002/004 PASS all falsifiable, SBX-005 partial, SBX-006 EVIDENCE_BLOCKED(authn). NR-13 structurally addressed (formal retirement at M2 exit risk review). G-ARCH tenancy subset executed and filed; G-ARCH itself remains open by design. Evidence EV-M2-NR13 + EV-M2-SBX. 585 tests, 12 gates, 14 red cases on main.
