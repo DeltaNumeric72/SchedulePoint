@@ -40,6 +40,70 @@ export interface GroupsTable {
    * OPUS-M3-007.
    */
   timezone: Generated<string>;
+  /* ── OPUS-M3-007 group settings (`migrations/0010_group_settings_locations.sql`)
+   *
+   * A discriminated triple, not three independent fields: the
+   * `groups_request_until_shape` CHECK admits exactly the columns each mode
+   * needs and refuses every other combination. The contract mirrors it as a zod
+   * discriminated union, so the meaningless states are unrepresentable on the
+   * wire as well as in the table.
+   *
+   * **Stored and authored only at this milestone.** The request window is
+   * enforced at M5 (SPEC-08) and the picklist mode at M9 (SPEC-02) — packet 32
+   * §2 rows 5 and 6. Nothing in `src/` reads either to decide anything. */
+  request_until_mode: Generated<'closed' | 'fixed_date' | 'days_before_period_start'>;
+  /** Populated exactly when the mode is `fixed_date`. A `date`, not an instant. */
+  request_until_date: string | null;
+  /** Populated exactly when the mode is `days_before_period_start`. 0..365. */
+  request_until_lead_days: number | null;
+  /**
+   * SchedulePoint's own closed set. The source's `Pick List Access` semantics
+   * are UNRESOLVED (C-02, doc 05 §5) and are not reproduced here. The setting
+   * only ever NARROWS — it never grants — which is why `disabled` is the
+   * default.
+   */
+  picklist_access_mode: Generated<'disabled' | 'members' | 'members_and_proxies'>;
+  /**
+   * Optimistic concurrency for the SETTINGS facet of this row — the two stored
+   * settings plus `timezone`.
+   *
+   * A counter of its own rather than `group_version`, for two reasons and the
+   * first was measured: `group_version` bumps only on a `status` change (0001,
+   * SPEC-06 §4), so a CAS predicate against it matches forever and the second
+   * writer silently overwrites the first — `test/settings/timezone.test.ts`
+   * caught exactly that. Making `group_version` move instead would invalidate
+   * every cached AUTHORIZATION decision on a change that alters no
+   * authorization.
+   *
+   * Database-owned (`app_maintain_group_settings_version`) and absent from every
+   * UPDATE grant.
+   */
+  settings_version: Generated<number>;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+/**
+ * `locations` — doc 06 §3.2 row 237 (`migrations/0010_group_settings_locations.sql`).
+ *
+ * **`site_label` is a free-form attribute and NOT a foreign key.** PO-DEC-01 is
+ * pending with the working default "defer a first-class Site; model location as
+ * an attribute" (06 §3.2a), so there is no `sites` table, no `site_id`, and no
+ * site-scoped surface anywhere — building one would select the pending
+ * decision's non-default branch by stealth (non-bypass rule 12).
+ */
+export interface LocationsTable {
+  id: string;
+  organization_id: string;
+  group_id: string;
+  name: string;
+  site_label: string | null;
+  address: string | null;
+  /** Per-LOCATION zone, distinct from `groups.timezone`. Null = the group's. */
+  timezone: string | null;
+  status: Generated<'active' | 'archived'>;
+  /** Database-owned (`app_maintain_catalogue_version`); absent from every grant. */
+  version: Generated<number>;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
@@ -784,6 +848,8 @@ export interface Database {
   credits: CreditsTable;
   schedule_conflicts: ScheduleConflictsTable;
   current_published_assignments: CurrentPublishedAssignmentsTable;
+  /* OPUS-M3-007 (`migrations/0010_group_settings_locations.sql`). */
+  locations: LocationsTable;
 }
 
 /**
@@ -1017,4 +1083,32 @@ export const TENANT_TABLES: readonly TenantTable[] = [
   { name: 'publication_records', scope: 'organization-and-group' },
   { name: 'version_supersessions', scope: 'organization-and-group' },
   { name: 'current_published_assignments', scope: 'organization-and-group' },
+
+  /* ── `migrations/0010_group_settings_locations.sql` (OPUS-M3-007) ───────────
+   *
+   * Registered in the SAME change as the migration that creates it (packet 30
+   * §7.2, whose rule exists because 0003's four tenant tables were left out of
+   * this registry and stayed unprobed until OPUS-M1-004 noticed). This is the
+   * sweep floor this packet raises, and raising it is only meaningful if the
+   * table is observed NON-vacuously.
+   *
+   * `organization-and-group`: both tenant columns, V-09's conjunctive group
+   * predicate, and no organization-scoped policy at all — location
+   * administration is not in SPEC-06 §1.1's organization-scoped enumeration, so
+   * an organization-scoped context sees zero location rows.
+   *
+   * Non-vacuity is established by **`apps/api/test/support/settings.ts::
+   * seedLocationsForSweep`**, called from the files that sweep this registry
+   * (`test/sbx/sbx.test.ts`, `test/tenancy/unit-of-work.test.ts`,
+   * `test/red-cases/probe-is-not-vacuous.test.ts`). It writes locations into
+   * BOTH of Alpha's groups AND into Beta through the production write path, so
+   * the cross-GROUP arm has rows it could see if the group predicate were
+   * broken — not only the cross-organization arm. That is the M2-002 review's
+   * blocking finding applied in advance rather than rediscovered.
+   *
+   * NOT `provisionMulti`: `test/support/multi.ts` is the single fixture owner
+   * and packet 32 §10a gives this packet `test/support/settings.ts` alone, so
+   * the seeding reaches the same fixture without editing the shared script —
+   * exactly as OPUS-M3-002 did for `rules`. */
+  { name: 'locations', scope: 'organization-and-group' },
 ] as const;

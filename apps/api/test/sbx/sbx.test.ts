@@ -19,6 +19,7 @@ import { log, type Runtime } from '../support/harness.js';
 import { buildHttpHarness, type HttpHarness } from '../support/http.js';
 import { ownedMulti } from '../support/owned-multi.js';
 import { seedRulesForSweep } from '../support/rules.js';
+import { seedLocationsForSweep } from '../support/settings.js';
 import {
   ProbeFalsified,
   contractProblems,
@@ -138,6 +139,62 @@ beforeAll(async () => {
     },
   ]);
   log(`      · OPUS-M3-002: seeded ${String(seeded)} rule row(s) across three groups for SBX-004`);
+
+  /* ── OPUS-M3-007: location rows for the SBX-004 sweep ─────────────────────
+   *
+   * Migration 0010 registers `locations` in `TENANT_TABLES` — this packet RAISES
+   * the sweep floor — and the sweep's non-vacuity check fails a registered table
+   * that is never seen with a visible row. Same arrangement as the rule seeding
+   * above and for the same reason: `test/support/multi.ts` is the single fixture
+   * owner and packet 32 §10a gives this packet `test/support/settings.ts` alone.
+   *
+   * Into both of Alpha's groups and into Beta, so the group-predicate arm has
+   * rows it could see if the predicate were broken.
+   *
+   * **Alpha Group One is seeded by the GROUP ADMINISTRATOR**, who holds the key
+   * by role — no grant is written for it. The other two groups have no
+   * `group_admin` membership, so they get a TEMPORARY layer-4 grant that
+   * `seedLocationsForSweep` closes again the instant the rows are written.
+   *
+   * Both details are a correction, not a preference. The first version granted
+   * the capability to `alpha.users.scheduler` and left the grant open, and this
+   * scenario's own matrix then printed
+   * `scheduler(G1+G2) … GET settings/locations=200` — true of that principal,
+   * and badly misleading on a row labelled by ROLE, since doc 08 §6 puts
+   * scheduler at `—` for group settings. Found by reading the run's output. */
+  const alphaFull = alpha.full;
+  if (alphaFull === undefined) throw new Error('the full profile provisions a group admin');
+
+  const seededLocations = await seedLocationsForSweep(seedRuntime.runner, [
+    {
+      organizationId: alpha.organizationId,
+      groupId: alpha.groupOne.id,
+      // The GROUP ADMINISTRATOR, who holds `group.location.administer` by ROLE
+      // (doc 08 §6 "Group settings"). No grant is written here at all — which
+      // is what keeps SBX-001's `group_admin(G1)` row a true statement about
+      // the role rather than about a fixture's grant.
+      membershipId: alphaFull.groupAdmin.membershipId,
+      label: 'alpha_one',
+    },
+    {
+      organizationId: alpha.organizationId,
+      groupId: alpha.groupTwo.id,
+      membershipId: alpha.users.scheduler.groupTwoMembershipId,
+      grantorMembershipId: alpha.users.organizationAdmin.membershipId,
+      label: 'alpha_two',
+    },
+    {
+      organizationId: beta.organizationId,
+      groupId: beta.groupOne.id,
+      membershipId: beta.users.scheduler.membershipId,
+      grantorMembershipId: beta.users.organizationAdmin.membershipId,
+      label: 'beta_one',
+    },
+  ]);
+  log(
+    `      · OPUS-M3-007: seeded ${String(seededLocations)} location row(s) across three groups ` +
+      'for SBX-004 (sweep floor raised)',
+  );
 }, 240_000);
 
 afterAll(async () => {

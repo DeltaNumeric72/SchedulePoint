@@ -18,6 +18,7 @@ import {
 } from '../support/harness.js';
 import { ownedMulti } from '../support/owned-multi.js';
 import { seedRulesForSweep } from '../support/rules.js';
+import { seedLocationsForSweep } from '../support/settings.js';
 
 /**
  * FAD-15 Layer 2 — this file owns its tenant.
@@ -121,6 +122,53 @@ beforeAll(async () => {
       organizationId: multi().beta.organizationId,
       groupId: multi().beta.groupOne.id,
       membershipId: multi().beta.users.scheduler.membershipId,
+      label: 'beta_one',
+    },
+  ]);
+
+  /* ── OPUS-M3-007: location rows for the SBX-004 sweep ─────────────────────
+   *
+   * Migration 0010 registers `locations` in `TENANT_TABLES` — this packet raises
+   * the sweep floor — and the sweep's own non-vacuity check fails when a
+   * REGISTERED table is never seen with a visible row. "0 wrong" over an empty
+   * table means nothing.
+   *
+   * Seeded HERE rather than in `provisionMulti`: `test/support/multi.ts` is the
+   * single fixture owner and packet 32 §10a gives this packet
+   * `test/support/settings.ts` alone. This file and that one are both in the
+   * allowed globs, so the seeding reaches the same fixture without either packet
+   * editing the shared provisioning script — the arrangement OPUS-M3-002 used
+   * for `rules`.
+   *
+   * Into BOTH of Alpha's groups AND into Beta, so the group predicate arm has
+   * rows it COULD see if the predicate were broken, not only the
+   * cross-organization arm.
+   *
+   * Each target names an organization administrator as `grantorMembershipId`,
+   * because `group.location.administer` is role-implied for `group_admin` alone
+   * (doc 08 §6 "Group settings") and these fixtures' group memberships are
+   * schedulers. The grant is the product's own layer-4 mechanism; the write
+   * still goes through the trigger and RLS. */
+  await seedLocationsForSweep(runtime.runner, [
+    {
+      organizationId: multi().alpha.organizationId,
+      groupId: multi().alpha.groupOne.id,
+      membershipId: multi().alpha.users.scheduler.membershipId,
+      grantorMembershipId: multi().alpha.users.organizationAdmin.membershipId,
+      label: 'alpha_one',
+    },
+    {
+      organizationId: multi().alpha.organizationId,
+      groupId: multi().alpha.groupTwo.id,
+      membershipId: multi().alpha.users.scheduler.groupTwoMembershipId,
+      grantorMembershipId: multi().alpha.users.organizationAdmin.membershipId,
+      label: 'alpha_two',
+    },
+    {
+      organizationId: multi().beta.organizationId,
+      groupId: multi().beta.groupOne.id,
+      membershipId: multi().beta.users.scheduler.membershipId,
+      grantorMembershipId: multi().beta.users.organizationAdmin.membershipId,
       label: 'beta_one',
     },
   ]);

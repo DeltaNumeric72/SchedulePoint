@@ -287,6 +287,45 @@ export const AUDIT_EVENT_NAMES = [
    * — the only schedule mutation with no audit trail.
    */
   'schedule.conflict.recorded',
+
+  /* ── OPUS-M3-007: the `settings.*` namespace (packet 32 §10a) ───────────────
+   *
+   * One name per mutation the settings module actually performs, and not one
+   * more. Three of them are worth reading twice.
+   *
+   * **`settings.request_until.changed` and `settings.picklist_access.changed`
+   * are separate names**, not one `settings.changed` carrying which field
+   * moved. They are enforced by different milestones (M5 SPEC-08 and M9
+   * SPEC-02, packet 32 §2 rows 5-6), so "when did this group's request window
+   * change" and "when did its picklist policy change" are questions two
+   * different investigations ask — and a single name makes both answerable only
+   * by scanning payloads.
+   *
+   * **`settings.timezone.changed` is its own name and carries the count of
+   * published versions that existed at the moment of the change.** That is the
+   * audited half of the packet's warning requirement: a timezone change is
+   * permitted while published schedules exist, and the record of the change has
+   * to say whether it happened over an empty group or over months of published
+   * history. Scalars only (I-07): the from-zone, the to-zone and a count.
+   *
+   * **A location is archived, never deleted**, so `settings.location.archived`
+   * is a real event with a real row behind it — the same discipline
+   * `catalogue.shift_type.archived` follows, and for the same reason: "when did
+   * this place stop being used" must be answerable from a filtered audit query
+   * rather than by scanning every update for a status field. */
+
+  /** The group's request-until policy changed (mode and its one populated field). */
+  'settings.request_until.changed',
+  /** The group's picklist-access mode changed. Stored only; enforcement is M9. */
+  'settings.picklist_access.changed',
+  /** The group's timezone changed. Payload carries the published-version count. */
+  'settings.timezone.changed',
+  /** A location was added to the group. */
+  'settings.location.created',
+  /** A location's name, site label, address or zone changed. */
+  'settings.location.updated',
+  /** A location was archived. Archive, never delete: everything referencing it stays. */
+  'settings.location.archived',
 ] as const;
 
 export type AuditEventName = (typeof AUDIT_EVENT_NAMES)[number];
@@ -379,6 +418,14 @@ export const AUDIT_SUBJECT_TYPES = [
   'schedule_version',
   'assignment_identity',
   'credit',
+  /* ── OPUS-M3-007 ────────────────────────────────────────────────────────────
+   * `location` is its own aggregate. The three GROUP-settings events file under
+   * the existing `group` subject, because a request window, a picklist mode and
+   * a timezone are properties OF the group and "everything that happened to this
+   * group" must return them. A location is a different thing with its own
+   * lifecycle, and filing its events under the group would bury them in that
+   * same stream. */
+  'location',
 ] as const;
 
 export type AuditSubjectType = (typeof AUDIT_SUBJECT_TYPES)[number];

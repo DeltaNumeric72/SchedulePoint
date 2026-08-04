@@ -174,6 +174,18 @@ export const SYSTEM_ROLE_CAPABILITIES: Readonly<Record<string, readonly string[]
     'schedule.version.edit',
     'group.holiday_calendar.administer',
     'group.pick_positions.administer',
+    /* OPUS-M3-007 adds the three group-settings keys to `group_admin` ALONE,
+     * from the same doc 08 §6 "Group settings" row the two keys above come from
+     * — scheduler is `—` there, and the row's cells are `✓` rather than `G`, so
+     * they are role-implied rather than grant-only. Recorded as a disclosed
+     * glob deviation in the return report: packet 32 §10c names
+     * `authz/catalogue.ts` for the key declarations, and this constant is the
+     * other half of the same additive vocabulary change — a key declared and
+     * held by nobody would have made group settings unreachable for the one
+     * role doc 08 §6 assigns them to. */
+    'group.settings.administer',
+    'group.timezone.administer',
+    'group.location.administer',
   ],
   /* organization roles */
   org_admin: [

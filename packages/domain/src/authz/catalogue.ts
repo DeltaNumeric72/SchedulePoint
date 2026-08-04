@@ -398,6 +398,85 @@ export const CAPABILITIES: readonly CapabilityDefinition[] = [
       'catalogue action a mistake cannot be undone from.',
   },
 
+  /* ── OPUS-M3-007 — group settings and locations (packet 32 §10c) ───────────
+   *
+   * Three group-scoped `core_scheduling` keys, all **role-implied for
+   * `group_admin` and for nobody else**.
+   *
+   * *Why role-implied rather than grant-only.* doc 08 §6's "Group settings /
+   * vocabulary / connectors" row reads `— — — — ✓ ✓` with the parenthetical
+   * "(connectors: G)". A `✓` is role-implied and a `G` is grant-only; the row
+   * marks exactly one of its three subjects as a grant, and it is not these.
+   * Scheduler is `—`, which is why none of the three joins `scheduler` — the
+   * same line `group.holiday_calendar.administer` and
+   * `group.pick_positions.administer` already sit on.
+   *
+   * *Why group scope.* SPEC-06 §1.1: "Everything not in this enumeration is
+   * group-scoped. The default is the narrower scope, deliberately." Group
+   * settings are not in that enumeration. doc 08 §6 also gives the row to Org
+   * Admin, and that is honoured the way this system honours it everywhere —
+   * an organization administrator who needs to administer a group's settings
+   * holds a group membership with the `group_admin` role, because a
+   * group-scoped action evaluates against a group membership (L3).
+   *
+   * *Why `core_scheduling`.* Same reasoning as the catalogue keys: the
+   * entitlement modules are doc 05 §3.2's commercially packaged set, and a
+   * group's request window, picklist policy, timezone and locations are
+   * scheduling configuration. Inventing a module for them would be making a
+   * PO-DEC-04 packaging decision nobody has made.
+   *
+   * *Why three keys and not one.* doc 08 §6 draws no line inside the row, so
+   * the split is justified by blast radius, exactly as the catalogue's is:
+   *
+   *   `group.settings.administer`  request-until + picklist access. Both are
+   *                                STORED ONLY at this milestone (enforcement
+   *                                M5 and M9 respectively, packet 32 §2 rows
+   *                                5-6), so a mistake changes a row nothing
+   *                                reads yet.
+   *   `group.timezone.administer`  the one settings change that reaches
+   *                                ALREADY-PUBLISHED history: every shift-local
+   *                                boundary in every published version resolves
+   *                                against `groups.timezone`, so changing it
+   *                                re-interprets immutable rows without
+   *                                touching them. Its own key for the same
+   *                                shape of reason `group.pick_positions.
+   *                                administer` has one — it is the settings
+   *                                action whose consequences a mistake cannot
+   *                                simply be edited back out of.
+   *   `group.location.administer`  the `locations` table. A separate key so a
+   *                                grant to maintain the places a group works
+   *                                is not also a grant over its request window.
+   *
+   * **This does not expand the 58-capability baseline** — see this file's
+   * header. The routes declare `CAP-004` / `CAP-021` / `CAP-030` in
+   * `policy.capability`; these are ACTION keys, the unit L4 evaluates. */
+  {
+    key: 'group.settings.administer',
+    scope: 'group',
+    module: 'core_scheduling',
+    description:
+      "CAP-021/CAP-030: author the group's request-until policy and its picklist-access mode " +
+      '(doc 08 §6 "Group settings"; group administrators only). Storage and authoring only — ' +
+      'enforcement is M5 (SPEC-08) and M9 (SPEC-02) respectively.',
+  },
+  {
+    key: 'group.timezone.administer',
+    scope: 'group',
+    module: 'core_scheduling',
+    description:
+      "Change the group's timezone (06 §3.1, `groups.timezone` NOT NULL). Its own key because " +
+      'it is the one group setting that re-interprets already-published history: every ' +
+      'shift-local boundary resolves against it.',
+  },
+  {
+    key: 'group.location.administer',
+    scope: 'group',
+    module: 'core_scheduling',
+    description:
+      'CAP-004: maintain the group\'s locations — name, the free-form `site_label` attribute ' +
+      '(PO-DEC-01 default, CAR-021), address and optional zone. Archive, never delete.',
+  },
+
   /* ── organization scope (SPEC-06 §1.1's enumerated classes) ──────────────── */
   {
     key: 'organization.membership.touch_self',

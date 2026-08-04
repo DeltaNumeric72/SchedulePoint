@@ -92,3 +92,12 @@ export * from './rules/index.js';
  * (SPEC-05, FAD-22).
  */
 export * from './schedule/index.js';
+
+/**
+ * OPUS-M3-007 — group settings (request-until, picklist access, timezone) and
+ * `locations` with the free-form `siteLabel` attribute (PO-DEC-01 default,
+ * CAR-021). Read that module's header before adding to it: two of the three
+ * settings are STORED here and ENFORCED at later milestones, and `siteLabel` is
+ * deliberately not an identifier.
+ */
+export * from './settings/index.js';

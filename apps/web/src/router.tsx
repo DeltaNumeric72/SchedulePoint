@@ -20,6 +20,8 @@ import {
 import { RulesPage } from './rules/RulesPage.js';
 import { ShiftTypesPage } from './catalogue/ShiftTypesPage.js';
 import { ShellPage } from './shell/ShellPage.js';
+import { GroupSettingsPage as SettingsGroupPage } from './settings/GroupSettingsPage.js';
+import { LocationsPage } from './settings/LocationsPage.js';
 
 /**
  * TanStack Router, code-based.
@@ -111,6 +113,39 @@ const rulesRoute = createRoute({
 });
 
 /**
+ * Group settings and locations (OPUS-M3-007).
+ *
+ * A sibling TREE of the catalogue's rather than a section inside it, and that is
+ * a seam rather than a preference: `catalogue/GroupSettingsPage.tsx` already
+ * holds the pick-position count and the holiday calendar at
+ * `/catalogue/group-settings`, and packet 32 §10a freezes that file to this
+ * packet. The two live at different URLs rather than being merged by a packet
+ * that may not touch one of them; consolidating them belongs to OPUS-M3-008,
+ * which owns composition, and it is recorded in EV-M3-SETTINGS.
+ *
+ * The organization and group are PATH segments for the same reason the
+ * catalogue's are: SPEC-01 §2.2 requires the client to declare the tenant
+ * context and §3 requires switching it to be explicit rather than inferred.
+ */
+const settingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/organizations/$organizationId/groups/$groupId/settings',
+  component: RootLayout,
+});
+
+const settingsGroupRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: 'group',
+  component: SettingsGroupPage,
+});
+
+const settingsLocationsRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: 'locations',
+  component: LocationsPage,
+});
+
+/**
  * The authentication surfaces (OPUS-M3-001).
  *
  * **The organization is in the PATH**, for the same reason the catalogue's is:
@@ -169,6 +204,7 @@ const routeTree = rootRoute.addChildren([
     groupSettingsRoute,
     rulesRoute,
   ]),
+  settingsRoute.addChildren([settingsGroupRoute, settingsLocationsRoute]),
 ]);
 
 export function createAppRouter(options: { memory?: boolean } = {}) {

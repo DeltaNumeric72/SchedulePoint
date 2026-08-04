@@ -80,6 +80,30 @@
       "description": "User clicks Save and the server accepts the shift type (200).",
       "maxRequests": 2,
       "note": "TWO, ruled and justified — not an I-10 exception. The POST plus the server-authoritative list refetch is the PO-DEC-18 display posture: after a mutation the client re-reads what the SERVER says the list is, rather than patching its own cache from the response and rendering a view no server ever produced. The second request is therefore the invariant's intent (one action, one authoritative round trip to re-establish truth) rather than amplification of it — amplification is N requests for one action's WORK, and this is one write plus one read-back. A one-request alternative exists (POST returns the row; the client updates the list from it) and is recorded as a later-packet option; it is deliberately NOT implemented, because it moves the rendered list's authority to the client. Ruled by Fable on the OPUS-M2-004 escalation (packet 30 §6a as amended). Measured 2 at both viewports: POST .../catalogue/shift-types, then GET .../catalogue/shift-types."
+    },
+    {
+      "id": "settings-open-new-location",
+      "description": "User clicks 'Add a location' to open the authoring form.",
+      "maxRequests": 0,
+      "note": "I-13, in the same strict form as catalogue-open-new-shift-type and rules-open-new-rule. A control labelled Add must persist nothing before a completed form, validation, and an explicit Save. ZERO is the only correct number and this budget can never be raised without the invariant changing first. Measured 0 at both viewports (OPUS-M3-007)."
+    },
+    {
+      "id": "settings-save-location-accepted",
+      "description": "User clicks Save and the server accepts the location (200).",
+      "maxRequests": 2,
+      "note": "The POST plus ONE server-authoritative list refetch, under the same PO-DEC-18 ruling the catalogue's accepted-save budget carries: after a mutation the client re-reads what the SERVER says the list is rather than patching its own cache and rendering a view no server produced. One write plus one read-back is not amplification. Measured 2 at both viewports: POST .../settings/locations, then GET .../settings/locations (OPUS-M3-007)."
+    },
+    {
+      "id": "settings-save-timezone-accepted",
+      "description": "User acknowledges the published-schedule impact and saves a new group time zone (204).",
+      "maxRequests": 2,
+      "note": "The PUT plus ONE re-read of the settings, same ruling as above \u2014 and here the read-back is load-bearing rather than cosmetic: the settings response carries the optimistic-concurrency token (groups.settings_version) that the next save must echo, so a client that patched its own cache would save against a version it invented. Measured 2 at both viewports: PUT .../settings/timezone, then GET .../settings (OPUS-M3-007)."
+    },
+    {
+      "id": "settings-save-timezone-refused",
+      "description": "User saves a time-zone change without acknowledging the published-schedule impact; the server refuses it with a 422.",
+      "maxRequests": 1,
+      "note": "One Save, one request. A refused save does NOT refetch, because nothing changed and there is nothing new to read \u2014 which is what makes the two-request success budget above a property of the success path rather than of Save in general. Measured 1 at both viewports (OPUS-M3-007)."
     }
   ]
 }
