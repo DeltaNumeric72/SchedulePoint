@@ -827,6 +827,7 @@ export function buildScenarios(deps: () => ScenarioDependencies): readonly SbxSc
       let allowed = 0;
       let denied = 0;
       let refused = 0;
+      let bodyRefusals = 0;
       for (const principal of principals) {
         const counters = await currentCounters(admin, {
           organizationId: alpha.organizationId,
@@ -855,7 +856,24 @@ export function buildScenarios(deps: () => ScenarioDependencies): readonly SbxSc
           // classes and a cross-group target legitimately answered 409.
           const contextRefusal = status === 409;
           const cleanDeny = status === 403 || status === 404;
-          if (!allow && !cleanDeny && !contextRefusal) {
+          /* FOUR defined outcomes since OPUS-M2-002, for the same reason there
+           * were three: running it found one the classification did not cover.
+           *
+           * The matrix sends `payload: {}` to every route. A route that takes a
+           * BODY and is reached by an AUTHORIZED principal therefore answers
+           * `422` — the body was well-formed JSON with the wrong fields in it,
+           * which is neither an allow nor a denial nor a context precondition.
+           *
+           * **It is only acceptable because it is unreachable before an
+           * allow.** The catalogue routes parse the body INSIDE the unit of
+           * work, after `evaluateInTransaction` — so an actor holding nothing
+           * gets the ordinary 403/404 and learns nothing about the body the
+           * route expects. That ordering is asserted directly in
+           * `apps/api/test/catalogue/authorization.test.ts` ("a malformed body
+           * from an unauthorized actor is a denial, not a 422"); this class
+           * records the outcome, that test proves the precondition. */
+          const bodyRefusal = status === 422;
+          if (!allow && !cleanDeny && !contextRefusal && !bodyRefusal) {
             throw new Error(
               `${principal.label} x ${entry.method} ${entry.url} answered ${String(status)} — ` +
                 'not an explicit allow, a clean deny, or a declared context refusal',
@@ -864,6 +882,7 @@ export function buildScenarios(deps: () => ScenarioDependencies): readonly SbxSc
           if (allow) allowed += 1;
           else if (cleanDeny) denied += 1;
           else refused += 1;
+          if (bodyRefusal) bodyRefusals += 1;
           cells.push(`${entry.method} ${entry.url.split('/').slice(-2).join('/')}=${String(status)}`);
         }
         matrix.push(`${principal.label.padEnd(18)} ${cells.join('  ')}`);
@@ -880,8 +899,9 @@ export function buildScenarios(deps: () => ScenarioDependencies): readonly SbxSc
         'role x route matrix',
         `${String(principals.length)} principals x ${String(routes.length)} routes = ` +
           `${String(principals.length * routes.length)} cells; ${String(allowed)} allow, ` +
-          `${String(denied)} clean deny (403/404), ${String(refused)} context refusal (409), ` +
-          `0 unclassified\n    ${matrix.join('\n    ')}`,
+          `${String(denied)} clean deny (403/404), ${String(refused - bodyRefusals)} context ` +
+          `refusal (409), ${String(bodyRefusals)} body refusal (422, reachable only after an ` +
+          `allow), 0 unclassified\n    ${matrix.join('\n    ')}`,
       );
 
       /* ── byte-identity, where SPEC-01 requires it ───────────────────────── */

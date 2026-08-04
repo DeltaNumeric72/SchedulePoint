@@ -1,0 +1,59 @@
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m2-002
+
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m2-002/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-c3e721e0383dd1e5f2)] INFO: Completed task 1 (outbox.dispatch, 7.48ms) with success
+[worker(worker-c3e721e0383dd1e5f2)] INFO: Completed task 2 (outbox.dispatch, 2.49ms) with success
+[worker(worker-c3e721e0383dd1e5f2)] INFO: Completed task 3 (outbox.dispatch, 2.30ms) with success
+[worker(worker-c3e721e0383dd1e5f2)] INFO: Completed task 4 (outbox.dispatch, 2.12ms) with success
+stdout | test/catalogue/audit.test.ts > the catalogue audit vocabulary > every declared event name is in the closed vocabulary
+      · 10 catalogue event names, all declared
+
+stdout | test/catalogue/audit.test.ts > every catalogue mutation emits, and emits exactly once > drives all ten mutations and reads back one audit row each
+      · 10 catalogue mutations → 10 audit rows: catalogue.shift_type.created, catalogue.shift_type.updated, catalogue.shift_type_demand.set, catalogue.shift_group.created, catalogue.shift_group.updated, catalogue.staff_group.created, catalogue.valid_group.created, catalogue.pick_positions.increased, catalogue.group_holiday.created, catalogue.shift_type.archived
+
+stdout | test/catalogue/audit.test.ts > every catalogue mutation emits, and emits exactly once > a DENIED mutation writes neither the change nor an audit row
+      · denied POST /shift-types → 403, 0 audit rows, 0 shift types
+
+stdout | test/catalogue/audit.test.ts > every catalogue mutation emits, and emits exactly once > the audit chain verifies clean after every catalogue append
+      · chain verified: 14 entries, head 14, 0 problems
+
+ ✓ |api| test/catalogue/audit.test.ts (5 tests) 235ms
+stdout | test/catalogue/authorization.test.ts > schedule.catalogue.administer — allow and deny > ALLOW: a scheduler creates a shift type
+      · scheduler → POST /shift-types → 200
+
+stdout | test/catalogue/authorization.test.ts > schedule.catalogue.administer — allow and deny > DENY: a member — an active membership with a role that holds nothing — gets 403
+      · member → POST /shift-types → 403, no explanation on the wire
+
+stdout | test/catalogue/authorization.test.ts > schedule.catalogue.administer — allow and deny > DENY: a viewer gets 403 on the READ route too — reads are gated by the same key
+      · viewer → GET /shift-types → 403 (deny-by-default: there is no read capability yet)
+
+stdout | test/catalogue/authorization.test.ts > schedule.catalogue.administer — allow and deny > a malformed body from an UNAUTHORIZED actor is a denial, not a 422
+      · unauthorized + malformed body → 403; authorized + malformed body → 422 with fields
+
+stdout | test/catalogue/authorization.test.ts > schedule.catalogue.administer — allow and deny > DENY at L1: an organization with no core_scheduling entitlement gets 404, not 403
+      · unentitled organization → POST /shift-types → 404 (L1, not L4)
+
+stdout | test/catalogue/authorization.test.ts > group.holiday_calendar.administer — allow and deny > ALLOW: a group administrator adds a holiday
+      · group_admin → POST /holidays → 200
+
+stdout | test/catalogue/authorization.test.ts > group.holiday_calendar.administer — allow and deny > DENY: a SCHEDULER gets 403 — authorized for the catalogue, not for group settings
+      · scheduler → POST /holidays → 403 (holds the catalogue key, not the calendar key)
+
+stdout | test/catalogue/authorization.test.ts > group.pick_positions.administer — allow and deny > ALLOW: a group administrator raises the pick-position count
+      · group_admin → PUT /pick-positions → 200, count 6
+
+stdout | test/catalogue/authorization.test.ts > group.pick_positions.administer — allow and deny > DENY: a scheduler gets 403
+      · scheduler → PUT /pick-positions → 403, and the stored count is unchanged
+
+stdout | test/catalogue/authorization.test.ts > every capability this slice introduces is reachable and gated > each key appears on at least one REGISTERED route
+      · 3 catalogue capabilities, each on a live route
+
+ ✓ |api| test/catalogue/authorization.test.ts (10 tests) 113ms
+
+ Test Files  2 passed (2)
+      Tests  15 passed (15)
+   Start at  21:16:43
+   Duration  1.78s (transform 165ms, setup 68ms, collect 120ms, tests 348ms, environment 0ms, prepare 54ms)
+

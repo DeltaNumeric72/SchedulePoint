@@ -1,0 +1,53 @@
+## axe — axe-core via Playwright (CAP-066)
+
+```
+
+Running 36 tests using 1 worker
+
+  ✓   1 [desktop] › e2e/catalogue.spec.ts:157:3 › catalogue — shift types › LOADING: the list announces itself while it is being fetched (682ms)
+  ✓   2 [desktop] › e2e/catalogue.spec.ts:180:3 › catalogue — shift types › EMPTY: the empty state says what to do next, not "no data" (310ms)
+  ✓   3 [desktop] › e2e/catalogue.spec.ts:193:3 › catalogue — shift types › POPULATED: all six palettes render, and colour is never the only carrier (445ms)
+  ✓   4 [desktop] › e2e/catalogue.spec.ts:222:3 › catalogue — shift types › PERMISSION DENIED: a 403 says so, and does not say why (319ms)
+  ✓   5 [desktop] › e2e/catalogue.spec.ts:238:3 › catalogue — shift types › ERROR: a 404 renders "not found", never "no access" (329ms)
+  ✓   6 [desktop] › e2e/catalogue.spec.ts:253:3 › catalogue — shift types › I-13: opening the New form persists NOTHING — zero requests (670ms)
+  ✓   7 [desktop] › e2e/catalogue.spec.ts:272:3 › catalogue — shift types › AC-11: an empty form is refused by the CLIENT — focus to the summary, zero requests (608ms)
+  ✓   8 [desktop] › e2e/catalogue.spec.ts:309:3 › catalogue — shift types › I-10: a SERVER 422 issues exactly one request and renders the same summary (294ms)
+  ✓   9 [desktop] › e2e/catalogue.spec.ts:347:3 › catalogue — shift types › AC-02: the form is completable by keyboard alone (157ms)
+  ✓  10 [desktop] › e2e/catalogue.spec.ts:388:3 › catalogue — shift types › AC-08 and AC-09: 320px reflow, and every target is at least 44px (568ms)
+  ✓  11 [desktop] › e2e/catalogue.spec.ts:458:3 › catalogue — the other surfaces › shift groups: populated and empty, both accessible (457ms)
+  ✓  12 [desktop] › e2e/catalogue.spec.ts:503:3 › catalogue — the other surfaces › staff groups: empty state and form (386ms)
+  ✓  13 [desktop] › e2e/catalogue.spec.ts:517:3 › catalogue — the other surfaces › valid combinations: the ceiling is explained before the user hits it (437ms)
+  ✓  14 [desktop] › e2e/catalogue.spec.ts:549:3 › catalogue — the other surfaces › group settings: the irreversible control warns BEFORE the click (360ms)
+  ✓  15 [desktop] › e2e/catalogue.spec.ts:576:3 › catalogue — the other surfaces › group settings: a 403 on one panel does not hide the other (319ms)
+  ✓  16 [desktop] › e2e/shell.spec.ts:21:3 › application shell › renders the shell structure (80ms)
+  ✓  17 [desktop] › e2e/shell.spec.ts:42:3 › application shell › has no axe-core violations (261ms)
+  ✓  18 [desktop] › e2e/shell.spec.ts:59:3 › application shell › keeps the shell within its request budget (613ms)
+  ✓  19 [mobile] › e2e/catalogue.spec.ts:157:3 › catalogue — shift types › LOADING: the list announces itself while it is being fetched (466ms)
+  ✓  20 [mobile] › e2e/catalogue.spec.ts:180:3 › catalogue — shift types › EMPTY: the empty state says what to do next, not "no data" (354ms)
+  ✓  21 [mobile] › e2e/catalogue.spec.ts:193:3 › catalogue — shift types › POPULATED: all six palettes render, and colour is never the only carrier (501ms)
+  ✓  22 [mobile] › e2e/catalogue.spec.ts:222:3 › catalogue — shift types › PERMISSION DENIED: a 403 says so, and does not say why (358ms)
+  ✓  23 [mobile] › e2e/catalogue.spec.ts:238:3 › catalogue — shift types › ERROR: a 404 renders "not found", never "no access" (362ms)
+  ✓  24 [mobile] › e2e/catalogue.spec.ts:253:3 › catalogue — shift types › I-13: opening the New form persists NOTHING — zero requests (626ms)
+  ✓  25 [mobile] › e2e/catalogue.spec.ts:272:3 › catalogue — shift types › AC-11: an empty form is refused by the CLIENT — focus to the summary, zero requests (785ms)
+  ✓  26 [mobile] › e2e/catalogue.spec.ts:309:3 › catalogue — shift types › I-10: a SERVER 422 issues exactly one request and renders the same summary (285ms)
+  ✓  27 [mobile] › e2e/catalogue.spec.ts:347:3 › catalogue — shift types › AC-02: the form is completable by keyboard alone (151ms)
+  ✓  28 [mobile] › e2e/catalogue.spec.ts:388:3 › catalogue — shift types › AC-08 and AC-09: 320px reflow, and every target is at least 44px (729ms)
+  ✓  29 [mobile] › e2e/catalogue.spec.ts:458:3 › catalogue — the other surfaces › shift groups: populated and empty, both accessible (497ms)
+  ✓  30 [mobile] › e2e/catalogue.spec.ts:503:3 › catalogue — the other surfaces › staff groups: empty state and form (415ms)
+  ✓  31 [mobile] › e2e/catalogue.spec.ts:517:3 › catalogue — the other surfaces › valid combinations: the ceiling is explained before the user hits it (480ms)
+  ✓  32 [mobile] › e2e/catalogue.spec.ts:549:3 › catalogue — the other surfaces › group settings: the irreversible control warns BEFORE the click (395ms)
+  ✓  33 [mobile] › e2e/catalogue.spec.ts:576:3 › catalogue — the other surfaces › group settings: a 403 on one panel does not hide the other (370ms)
+  ✓  34 [mobile] › e2e/shell.spec.ts:21:3 › application shell › renders the shell structure (81ms)
+  ✓  35 [mobile] › e2e/shell.spec.ts:42:3 › application shell › has no axe-core violations (261ms)
+  ✓  36 [mobile] › e2e/shell.spec.ts:59:3 › application shell › keeps the shell within its request budget (610ms)
+
+  36 passed (16.6s)
+$ node scripts/run-in-workspace.mjs apps/web playwright test
+```
+
+## request-budget — requests per interaction (SP-HR-2)
+
+```
+PASS  request-budget (SP-HR-2 / I-10) — 2 budgeted interaction(s), 4 recording(s) [health-retry-click.desktop.json, health-retry-click.mobile.json, shell-initial-load.desktop.json, shell-initial-load.mobile.json]
+$ node scripts/gates/request-budget.mjs
+```

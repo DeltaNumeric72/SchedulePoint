@@ -150,8 +150,19 @@ export const SYSTEM_ROLE_CAPABILITIES: Readonly<Record<string, readonly string[]
   member: [],
   viewer: [],
   telecom: [],
-  scheduler: ['membership.touch_self'],
-  group_admin: ['membership.touch_self', 'documents.manage'],
+  /* OPUS-M2-002 adds `schedule.catalogue.administer` to both, from doc 08 §6's
+   * "Author catalogue & rules" row (scheduler ✓, group admin ✓). The two
+   * group-SETTINGS keys go to `group_admin` alone, from the "Group settings"
+   * row, where scheduler is `—`. Neither is a `G` cell, so both are role-implied
+   * rather than grant-only. */
+  scheduler: ['membership.touch_self', 'schedule.catalogue.administer'],
+  group_admin: [
+    'membership.touch_self',
+    'documents.manage',
+    'schedule.catalogue.administer',
+    'group.holiday_calendar.administer',
+    'group.pick_positions.administer',
+  ],
   /* organization roles */
   org_admin: [
     'organization.membership.touch_self',

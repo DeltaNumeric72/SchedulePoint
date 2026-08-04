@@ -147,3 +147,14 @@ export {
   type InForceSelection,
   type NoRowReason,
 } from './profiles/in-force.js';
+
+/* ── OPUS-M2-002: the shift-type catalogue's pure rules (CAP-011, CAP-012) ────
+ *
+ * The closed display-token sets, the derived midnight crossing, the pick-position
+ * canonical form and monotonicity rule, and the field-addressed validation the
+ * authoring form's `role="alert"` summary is built from. Every rule here is also
+ * enforced by migration 0005; the tests assert the two agree rather than assuming
+ * it, because a constant and a CHECK that drift produce a save which fails for no
+ * visible reason.
+ */
+export * from './catalogue/index.js';

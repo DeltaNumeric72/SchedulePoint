@@ -58,3 +58,9 @@ export {
  * a compile error at the call site, which is the failure mode this avoids.
  */
 export * from './profiles/index.js';
+
+/**
+ * OPUS-M2-002 — the scheduling-structure catalogue's wire shapes (CAP-011,
+ * CAP-012, CAR-011). The first contracts a product screen consumes.
+ */
+export * from './catalogue/index.js';

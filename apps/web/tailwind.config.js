@@ -22,6 +22,30 @@ export default {
         accent: 'var(--sp-color-accent)',
         'accent-contrast': 'var(--sp-color-accent-contrast)',
         danger: 'var(--sp-color-danger)',
+        /* OPUS-M2-002 — the SP-E §4 extensions, each resolving to a token whose
+           contrast is computed by `scripts/contrast.mjs` and rendered (and
+           therefore axe-measured) by `e2e/catalogue.spec.ts`. */
+        success: 'var(--sp-color-success)',
+        warning: 'var(--sp-color-warning)',
+        focus: 'var(--sp-color-focus)',
+        'shift-neutral': 'var(--sp-color-shift-neutral-surface)',
+        'shift-neutral-ink': 'var(--sp-color-shift-neutral-ink)',
+        'shift-indigo': 'var(--sp-color-shift-indigo-surface)',
+        'shift-indigo-ink': 'var(--sp-color-shift-indigo-ink)',
+        'shift-teal': 'var(--sp-color-shift-teal-surface)',
+        'shift-teal-ink': 'var(--sp-color-shift-teal-ink)',
+        'shift-amber': 'var(--sp-color-shift-amber-surface)',
+        'shift-amber-ink': 'var(--sp-color-shift-amber-ink)',
+        'shift-rose': 'var(--sp-color-shift-rose-surface)',
+        'shift-rose-ink': 'var(--sp-color-shift-rose-ink)',
+        'shift-violet': 'var(--sp-color-shift-violet-surface)',
+        'shift-violet-ink': 'var(--sp-color-shift-violet-ink)',
+      },
+      fontSize: {
+        sm: ['var(--sp-text-sm)', { lineHeight: '1.5' }],
+        base: ['var(--sp-text-base)', { lineHeight: '1.5' }],
+        lg: ['var(--sp-text-lg)', { lineHeight: '1.4' }],
+        xl: ['var(--sp-text-xl)', { lineHeight: '1.3' }],
       },
       borderRadius: {
         control: 'var(--sp-radius-control)',
@@ -34,6 +58,16 @@ export default {
         // Minimum interactive target. SPEC-14 / SP-HR-4 requires 44px; it is a
         // token rather than a magic number so the axe/manual matrix can cite it.
         target: 'var(--sp-size-target)',
+        // The SP-E §4 spacing scale. Components use `gap-sp-4`, never `gap-4`,
+        // so a spacing change is a token change rather than a sweep.
+        'sp-1': 'var(--sp-space-1)',
+        'sp-2': 'var(--sp-space-2)',
+        'sp-3': 'var(--sp-space-3)',
+        'sp-4': 'var(--sp-space-4)',
+        'sp-5': 'var(--sp-space-5)',
+        'sp-6': 'var(--sp-space-6)',
+        'sp-7': 'var(--sp-space-7)',
+        'sp-8': 'var(--sp-space-8)',
       },
     },
   },

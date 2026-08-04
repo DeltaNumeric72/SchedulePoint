@@ -24,6 +24,15 @@ export interface GroupsTable {
   name: string;
   status: Generated<'active' | 'inactive'>;
   group_version: Generated<string>;
+  /**
+   * The group-wide count of numbered draft pick positions
+   * (`migrations/0005_shift_catalogue.sql`, FAD-16).
+   *
+   * **MONOTONICALLY INCREASING ONLY**, enforced by
+   * `app_guard_group_pick_position_count`. The type cannot say so — which is
+   * exactly why the rule lives in a trigger rather than in a comment.
+   */
+  pick_position_count: Generated<number>;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
@@ -197,6 +206,167 @@ export interface QualificationHoldingsTable {
   updated_at: Generated<Date>;
 }
 
+/* ────────────────────────────────────────────────────────────────────────────
+ * `migrations/0005_shift_catalogue.sql` — the scheduling-structure catalogue
+ * (OPUS-M2-002; CAP-011, CAP-012, and the CAR-011 holiday slice).
+ *
+ * Every one of these is GROUP-scoped: it carries both tenant columns, its RLS
+ * policy is V-09's conjunctive group predicate, and an organization-scoped
+ * context sees none of it. SPEC-06 §1.1 puts catalogue authoring outside the
+ * organization-scoped action set, so the narrow scope is the correct one rather
+ * than a restriction to be relaxed later.
+ *
+ * `numeric` columns arrive from node-postgres as **strings**, not numbers, and
+ * they are typed as such here. A `number` on `credit_weight` would be a type that
+ * lies at run time, and the lie would surface as `NaN` in a fairness calculation.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+export type ShiftPaletteKeyColumn = 'neutral' | 'indigo' | 'teal' | 'amber' | 'rose' | 'violet';
+export type ShiftTextStyleColumn = 'regular' | 'bold' | 'italic';
+export type CatalogueDayColumn =
+  | 'mon'
+  | 'tue'
+  | 'wed'
+  | 'thu'
+  | 'fri'
+  | 'sat'
+  | 'sun'
+  | 'holiday';
+
+export interface ShiftTypesTable {
+  id: string;
+  organization_id: string;
+  group_id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  display_palette_key: Generated<ShiftPaletteKeyColumn>;
+  display_text_style: Generated<ShiftTextStyleColumn>;
+  /** `HH:MM:SS` as PostgreSQL renders `time`. */
+  start_time: string;
+  end_time: string;
+  /** DERIVED from the two times and enforced by `shift_types_overnight_shape`. */
+  crosses_midnight: Generated<boolean>;
+  is_on_call: Generated<boolean>;
+  attracts_stipend: Generated<boolean>;
+  is_manual_only: Generated<boolean>;
+  is_daily_pick: Generated<boolean>;
+  include_in_statistics: Generated<boolean>;
+  is_leave_of_absence: Generated<boolean>;
+  allow_on_request: Generated<boolean>;
+  allow_off_request: Generated<boolean>;
+  report_order: Generated<number>;
+  /** `numeric` — a string on the wire. */
+  credit_weight: Generated<string>;
+  status: Generated<'active' | 'retired'>;
+  effective_from: Generated<Date>;
+  effective_to: Date | null;
+  version: Generated<number>;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface ShiftTypeWeekdayDemandTable {
+  id: string;
+  organization_id: string;
+  group_id: string;
+  shift_type_id: string;
+  day: CatalogueDayColumn;
+  demand_count: Generated<number>;
+  version: Generated<number>;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface ShiftGroupsTable {
+  id: string;
+  organization_id: string;
+  group_id: string;
+  name: string;
+  description: string | null;
+  scoring_mode: 'hard' | 'weighted';
+  /** `numeric` — a string on the wire. NULL exactly when `scoring_mode` is `hard`. */
+  weight: string | null;
+  allow_request: Generated<boolean>;
+  request_off_label: string | null;
+  status: Generated<'active' | 'archived'>;
+  version: Generated<number>;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface ShiftGroupMembersTable {
+  id: string;
+  organization_id: string;
+  group_id: string;
+  shift_group_id: string;
+  shift_type_id: string;
+  /** De-bundling is `false`, never a DELETE: no runtime role holds one. */
+  is_active: Generated<boolean>;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface StaffGroupsTable {
+  id: string;
+  organization_id: string;
+  group_id: string;
+  name: string;
+  description: string | null;
+  status: Generated<'active' | 'archived'>;
+  version: Generated<number>;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface StaffGroupMembersTable {
+  id: string;
+  organization_id: string;
+  group_id: string;
+  staff_group_id: string;
+  membership_id: string;
+  is_active: Generated<boolean>;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface ValidGroupsTable {
+  id: string;
+  organization_id: string;
+  group_id: string;
+  name: string;
+  /** Ascending, distinct, each `<= groups.pick_position_count`. Trigger-enforced. */
+  allowed_pick_positions: Generated<number[]>;
+  status: Generated<'active' | 'archived'>;
+  version: Generated<number>;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface ValidGroupShiftTypesTable {
+  id: string;
+  organization_id: string;
+  group_id: string;
+  valid_group_id: string;
+  shift_type_id: string;
+  is_active: Generated<boolean>;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface GroupHolidaysTable {
+  id: string;
+  organization_id: string;
+  group_id: string;
+  /** `date` — a calendar date with no time zone, as `YYYY-MM-DD`. */
+  holiday_date: string;
+  name: string;
+  observed: Generated<boolean>;
+  version: Generated<number>;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
 export interface Database {
   organizations: OrganizationsTable;
   groups: GroupsTable;
@@ -211,6 +381,15 @@ export interface Database {
   membership_weekday_fte: MembershipWeekdayFteTable;
   qualifications: QualificationsTable;
   qualification_holdings: QualificationHoldingsTable;
+  shift_types: ShiftTypesTable;
+  shift_type_weekday_demand: ShiftTypeWeekdayDemandTable;
+  shift_groups: ShiftGroupsTable;
+  shift_group_members: ShiftGroupMembersTable;
+  staff_groups: StaffGroupsTable;
+  staff_group_members: StaffGroupMembersTable;
+  valid_groups: ValidGroupsTable;
+  valid_group_shift_types: ValidGroupShiftTypesTable;
+  group_holidays: GroupHolidaysTable;
 }
 
 /**
@@ -333,4 +512,26 @@ export const TENANT_TABLES: readonly TenantTable[] = [
   { name: 'membership_weekday_fte', scope: 'organization-and-group' },
   { name: 'qualifications', scope: 'organization-and-group' },
   { name: 'qualification_holdings', scope: 'organization-and-group' },
+  /* ── `migrations/0005_shift_catalogue.sql` (OPUS-M2-002) ────────────────────
+   *
+   * Registered in the SAME change as the migration that creates them (packet 30
+   * §7.2). Every one is `organization-and-group`: both tenant columns, V-09's
+   * conjunctive group predicate, and no organization-scoped policy at all — so
+   * every generic assertion that iterates this registry covers them, and each is
+   * probed under a GROUP context where its policy can actually admit a row.
+   *
+   * Their non-vacuity in those probes is established by
+   * `apps/api/test/support/catalogue-fixture.ts`, which seeds one of every
+   * catalogue row through the production write path. The MULTI provisioning
+   * script is deliberately NOT modified (packet 30 §5): the seeding is additive
+   * and per-file, and the reasons are in that module's docblock. */
+  { name: 'shift_types', scope: 'organization-and-group' },
+  { name: 'shift_type_weekday_demand', scope: 'organization-and-group' },
+  { name: 'shift_groups', scope: 'organization-and-group' },
+  { name: 'shift_group_members', scope: 'organization-and-group' },
+  { name: 'staff_groups', scope: 'organization-and-group' },
+  { name: 'staff_group_members', scope: 'organization-and-group' },
+  { name: 'valid_groups', scope: 'organization-and-group' },
+  { name: 'valid_group_shift_types', scope: 'organization-and-group' },
+  { name: 'group_holidays', scope: 'organization-and-group' },
 ] as const;

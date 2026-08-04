@@ -10,9 +10,38 @@
   }
 
   /* Focus visibility is a token-level guarantee, not a per-component decision
-     (SP-HR-3). Removing this is a weakening of an accessibility control. */
+     (SP-HR-3). Removing this is a weakening of an accessibility control.
+
+     OPUS-M2-002 moves it onto `--sp-color-focus` (10.04:1 against the surface,
+     against the accent's 7.87:1) and keeps the 2px offset, which is what places
+     the ring on the page beside a filled control rather than on top of it. */
   :focus-visible {
-    outline: 3px solid var(--sp-color-accent);
+    outline: 3px solid var(--sp-color-focus);
     outline-offset: 2px;
+  }
+
+  /* Forced-colors (Windows High Contrast) is SUPPORTED, not disabled
+     (SPEC-14 §1). Two rules are all it needs, and both are about not getting in
+     the way: boundaries are carried by borders rather than shadows everywhere in
+     this codebase, and the focus ring must remain visible when the system
+     replaces our colour with its own. */
+  @media (forced-colors: active) {
+    :focus-visible {
+      outline: 3px solid CanvasText;
+      outline-offset: 2px;
+    }
+  }
+
+  /* Motion: durations ≤200ms, opacity/transform only, and every animation gated
+     on the user's stated preference (SP-E §4, SPEC-14 AC-10). */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }

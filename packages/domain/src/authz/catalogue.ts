@@ -324,6 +324,51 @@ export const CAPABILITIES: readonly CapabilityDefinition[] = [
       'this is the SENSITIVE-PII narrowing, enforced in the RLS SELECT policy itself.',
   },
 
+  /* ── OPUS-M2-002: the scheduling-structure catalogue (CAP-011, CAP-012) ─────
+   *
+   * All three are GROUP-scoped because SPEC-06 §1.1 says so by exclusion:
+   * "Everything not in this enumeration is group-scoped. The default is the
+   * narrower scope, deliberately." Catalogue authoring appears in none of the six
+   * organization-scoped action classes.
+   *
+   * All three are in `core_scheduling` because that is the module the catalogue
+   * belongs to — CAP-011 and CAP-012 both name module M-06 (Scheduling
+   * Configuration) in doc 18, and `core_scheduling` is its key in doc 05 §3.2.
+   * **No new module is invented**: the packet says the module taxonomy being
+   * ambiguous is an escalation, and it is not ambiguous here.
+   *
+   * They are THREE keys rather than one because doc 08 §6 draws the role line in
+   * two different places, and one key would have had to pick a side:
+   *
+   *   "Author catalogue & rules"   scheduler ✓  group_admin ✓
+   *   "Group settings"             scheduler —  group_admin ✓
+   */
+  {
+    key: 'schedule.catalogue.administer',
+    scope: 'group',
+    module: 'core_scheduling',
+    description:
+      'Author the scheduling-structure catalogue: shift types, shift groups, staff groups, valid ' +
+      'combinations and per-weekday demand (doc 08 §6 "Author catalogue & rules"; CAP-011/CAP-012).',
+  },
+  {
+    key: 'group.holiday_calendar.administer',
+    scope: 'group',
+    module: 'core_scheduling',
+    description:
+      'Maintain the group holiday calendar (CAR-011). A group setting rather than catalogue ' +
+      'authoring, so doc 08 §6 puts it with "Group settings" — group administrators only.',
+  },
+  {
+    key: 'group.pick_positions.administer',
+    scope: 'group',
+    module: 'core_scheduling',
+    description:
+      'Increase the group-wide count of numbered draft pick positions. Its own key because the ' +
+      'change is MONOTONIC and therefore irreversible (research 05 §ADM-07), which is the one ' +
+      'catalogue action a mistake cannot be undone from.',
+  },
+
   /* ── organization scope (SPEC-06 §1.1's enumerated classes) ──────────────── */
   {
     key: 'organization.membership.touch_self',

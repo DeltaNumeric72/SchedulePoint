@@ -1,0 +1,1683 @@
+# pnpm check — 2026-08-04T01:10:43.276Z
+
+## lint — lint (eslint)
+
+```
+$ eslint .
+```
+
+## typecheck — typecheck (tsc -b)
+
+```
+$ tsc -b --force
+```
+
+## unit — unit tests (vitest)
+
+```
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m2-002
+
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m2-002/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-589262cbf337a67df2)] INFO: Completed task 1 (outbox.dispatch, 12.47ms) with success
+[worker(worker-589262cbf337a67df2)] INFO: Completed task 2 (outbox.dispatch, 2.57ms) with success
+[worker(worker-589262cbf337a67df2)] INFO: Completed task 3 (outbox.dispatch, 2.81ms) with success
+[worker(worker-589262cbf337a67df2)] INFO: Completed task 4 (outbox.dispatch, 2.99ms) with success
+      · S-01 verbatim — whichever row the database returned last
+          caught by: instant of change — the exact start instant belongs to the NEW row
+      · S-01 tidied up — the first row
+          caught by: instant of change — one millisecond earlier still belongs to the OLD row
+      · the latest-starting row — `ORDER BY effective_from DESC LIMIT 1`
+          caught by: instant of change — the exact start instant belongs to the NEW row
+      · the open-ended row — "the one with no end date is the current one"
+          caught by: instant of change — the exact start instant belongs to the NEW row
+      · closed upper bound — `[from, to]` instead of `[from, to)`
+          caught by: future-dated row present — and it governs once its instant arrives
+ ✓  domain  test/profiles/s01-defective-loader.test.ts (8 tests) 3ms
+ ✓  domain  test/profiles/in-force.test.ts (36 tests) 5ms
+ ✓  gates  test/secret-scan.test.ts (22 tests) 4ms
+ ✓  gates  test/network-assertion-guard.test.ts (26 tests) 5ms
+ ✓  gates  test/migration-rls-check.test.ts (15 tests) 6ms
+ ✓  domain  test/catalogue/rules.test.ts (22 tests) 4ms
+ ✓  gates  test/invariant-id-uniqueness.test.ts (7 tests) 16ms
+stdout | test/authz/named-cases.test.ts > SPEC-06 §8.2 coverage ledger > prints the ledger, so the evidence bundle can quote it verbatim
+      · A-01: here — explicit deny + role allow
+      · A-02: here — explicit allow + unentitled module
+      · A-03: here — two-level dependency chain
+      · A-04: here — suspended membership + valid grant
+      · A-05: here (two instants) and apps/api/test/authz/http-authorization.test.ts (mid-session)
+      · A-06: DEFERRED — no WebSocket surface exists (SPEC-01 §5 / SPEC-02 milestone)
+      · A-07: DEFERRED (partial) — the job surface re-authorizes, but on OPUS-M1-001's role allow-list; apps/api/src/jobs/** is OPUS-M1-003's file scope. See EV-M1-AUTHZ §5 escalation 1
+      · A-08: DEFERRED — no report or artifact surface exists (SPEC-09 milestone)
+      · A-09: apps/api/test/authz/http-authorization.test.ts — disable, deny, re-enable, data intact
+      · A-10: here — PROXY_GRANTOR_DENIED
+      · A-11: here — credential surface, and the intersection rule
+      · A-12: apps/api/test/authz/schema.test.ts — the EXCLUDE constraint rejects the overlap
+      · A-13: DEFERRED — nothing caches an authorization decision in this milestone (see EV-M1-AUTHZ §5)
+      · A-14: apps/api/test/http/route-declarations.test.ts — `routeActionProblems` over the registered table
+      · A-15: packages/domain/test/authz/cross-product.test.ts — allow/deny pair per capability
+      · A-16: here — overlapping and duplicate capability keys
+      · A-17: here — organization role satisfies an organization-scoped action
+      · A-18: here — P-9: a group role never satisfies an organization-scoped action
+      · A-19: here — P-8: an organization role never reaches into a group
+      · A-20: here — organization membership suspended / expired / roleless
+      · A-21: DEFERRED — picklist fan-out does not exist (SPEC-02 milestone)
+      · A-22: DEFERRED — picklist fan-out does not exist (SPEC-02 milestone)
+      · A-23: DEFERRED — picklist fan-out does not exist (SPEC-02 milestone)
+      · 7 of 23 deferred, each with a named reason
+
+ ✓  domain  test/authz/named-cases.test.ts (54 tests) 8ms
+ ✓  domain  test/context-verification.test.ts (44 tests) 4ms
+ ✓  domain  test/layering.test.ts (2 tests) 3ms
+ ✓  gates  test/request-budget.test.ts (8 tests) 4ms
+ ✓  gates  test/route-policy-check.test.ts (6 tests) 2ms
+ ✓  contracts  test/health.test.ts (4 tests) 2ms
+ ✓  web  test/design-tokens.test.ts (7 tests) 7ms
+ ✓  web  test/client.test.ts (5 tests) 4ms
+stdout | test/authz/cross-product.test.ts > SPEC-06 §8.1 — the full generated cross-product > every case agrees with the independent oracle
+      · 68445000 cases evaluated in 34026 ms, 0 disagreements
+      · outcomes: ALLOW=4016 L0.1 ORG_INACTIVE=34222500 L0.2 GROUP_INACTIVE=16200000 L1.1 NOT_ENTITLED=3604500 L1.2 ENTITLEMENT_REVOKED=3604500 L1.2 ENTITLEMENT_SUSPENDED=3604500 L1.3 ENTITLEMENT_EXPIRED=4806000 L1.4 MODULE_DEPENDENCY_UNSATISFIED=445500 L2.1 MODULE_UNAVAILABLE_IN_GROUP=864000 L3.1 NO_MEMBERSHIP=172800 L3.1 NO_ORG_MEMBERSHIP=107100 L3.2 MEMBERSHIP_ENDED=203400 L3.2 MEMBERSHIP_INVITED=203400 L3.2 MEMBERSHIP_SUSPENDED=203400 L3.3 MEMBERSHIP_EXPIRED=101700 L4.1 EXPLICIT_DENY=33900 L4.2 NO_CAPABILITY=30150 L5.1 OBJECT_POLICY=12550 L6.1 PROXY_GRANTOR_DENIED=5020 L6.1 PROXY_INVALID=5020 L6.1 PROXY_SCOPE=5020 L6.2 IMPERSONATION_EXPIRED=2008 L6.2 IMPERSONATION_FORBIDDEN_SURFACE=4016
+
+ ✓  domain  test/authz/cross-product.test.ts (19 tests) 696ms
+   ✓ SPEC-06 §8.1 — the full generated cross-product > both halves of the scope dimension are non-empty for every capability  686ms
+stdout | test/tenancy/unit-of-work.test.ts > the wrapper establishes and confines context > X-01 transaction affinity: one backend, one transaction, for the whole unit of work
+      · backend 67493, transaction 840, both statements
+
+stdout | test/tenancy/unit-of-work.test.ts > the wrapper establishes and confines context > the startup pooler-mode assertion passes against the real pool
+      · affinity probe: backend 67493, setting survived within the transaction and expired after it
+
+stdout | test/tenancy/unit-of-work.test.ts > the wrapper establishes and confines context > the startup pooler-mode assertion REFUSES a pool that drops set_config
+      · assertTransactionAffinity threw POOLER_MODE_UNSUPPORTED on a pooler that drops set_config
+
+stdout | test/tenancy/unit-of-work.test.ts > the wrapper establishes and confines context > X-03 pool reuse across organizations: the same backend serves Alpha then Beta, cleanly
+      · backend 67495 served Alpha (4 rows) then Beta (1 rows), no bleed
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 — injected faults > T-07 exception mid-transaction: rollback, and the next checkout sees no setting
+      · backend 67493: insert rolled back, 0 rows named t07-c41f49d9-9750-45a9-9ac2-9ff50c979cf8
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 — injected faults > T-08 statement cancellation: 57014, rollback, no lingering setting
+      · cancelled: SQLSTATE 57014, transaction rolled back
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 — injected faults > T-08b a client-side deadline abandons the wait; the rollback still holds
+      · client-side deadline surfaced with no SQLSTATE; transaction rolled back
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 — injected faults > T-09 server statement_timeout: 57014, rollback, and the timeout itself expires
+      · server timeout: 57014, rolled back, statement_timeout back to 0 afterwards
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 — injected faults > T-10 connection killed mid-transaction: the pool discards it and never re-issues it
+      · killed backend 67498; pool now holds 67497,67496,67493,67502
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 — injected faults > T-11 nested unit of work, SAME tenant: permitted, and behaves as a savepoint
+      · same backend 67497; outer committed, inner rolled back to savepoint
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 — injected faults > T-12 nested unit of work, DIFFERENT tenant: throws, and the outer is untouched
+      · cross-organization and cross-group re-tenanting both refused; outer still sees 4 correctly-tenanted rows
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 — injected faults > T-13 outside any unit of work: zero rows, and every write rejected (fail-closed)
+      · app_runtime: 0 rows readable on all 26 tenant tables, INSERT 42501, UPDATE affected 0 rows, DELETE 42501 (no grant)
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 — injected faults > T-13 outside any unit of work: zero rows, and every write rejected (fail-closed)
+      · app_worker: 0 rows readable on all 26 tenant tables, INSERT 42501, UPDATE affected 0 rows, DELETE 42501 (no grant)
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 — injected faults > T-13b Group One context cannot see or write Group Two, in the SAME organization
+      · Group Two rows invisible, unaddressable and unwritable under a Group One context; DELETE refused 42501 by grant; target unmodified
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 T-14 — the prohibited pooling mode is detected > T-14 total context loss: transaction aborted, connection discarded, page alert emitted
+      · (a) aborted, body never ran · (b) backend 67504 destroyed, 12 later checkouts used 67505,67506,67507 · (c) severity=page
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 T-14 — the prohibited pooling mode is detected > T-14 total context loss: transaction aborted, connection discarded, page alert emitted
+      · control: the identical unit of work succeeds once the pooler preserves set_config
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 T-14 — the prohibited pooling mode is detected > T-14b PARTIAL loss — only app.group_id — which a single-setting read-back would miss
+      · only app.group_id lost; exactly one mismatch reported; backend 67508 poisoned and paged
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 T-15 — two-organization concurrency storm > runs both roles against every tenant table under injected faults with zero wrong-tenant rows
+      · 900 iterations · 3600 units of work · 3087 committed · 513 injected faults
+      · 1800 probe passes × 26 tables = 46800 in-wrapper reads, 23400 outside-wrapper reads
+      · 54000 tenant-table statements (protocol overhead counted separately)
+      · census: 27 partitions, 0 impossible · WRONG-TENANT ROWS: 0
+
+stdout | test/tenancy/unit-of-work.test.ts > R-15 — a nested unit of work may not change the acting membership > re-tenanting the ACTOR throws before any statement, and the outer commits
+      · nested actor change refused before any statement; outer transaction unaffected
+
+ ✓  api  test/tenancy/unit-of-work.test.ts (17 tests) 4841ms
+   ✓ SPEC-01 §7.2 — injected faults > T-08b a client-side deadline abandons the wait; the rollback still holds  844ms
+   ✓ SPEC-01 §7.2 T-15 — two-organization concurrency storm > runs both roles against every tenant table under injected faults with zero wrong-tenant rows  3146ms
+stdout | test/red-cases/gates-fail-on-violations.test.ts > red case — migration+RLS pairing (I-15) > GREEN: the real tenancy migration passes
+      · PASS  migration-rls-pairing (I-15) — 5 migration file(s) in apps/api/migrations
+
+stdout | test/red-cases/gates-fail-on-violations.test.ts > red case — migration+RLS pairing (I-15) > RED: a tenant table created without ENABLE + FORCE + a policy fails the gate
+      · FAIL  migration-rls-pairing (I-15) — 1 violation(s)
+  ../../../../../../var/folders/x3/3hfck_x11s7932bkg43dw4v00000gn/T/sp-redcase-migration-gjv1ur/0001_missing_rls.sql:2  table "shift_assignments" created without ENABLE ROW LEVEL SECURITY + FORCE ROW LEVEL SECURITY + CREATE POLICY in the same migration
+      scanned: 1 migration file(s) in ../../../../../../var/folders/x3/3hfck_x11s7932bkg43dw4v00000gn/T/sp-redcase-migration-gjv1ur
+
+stdout | test/red-cases/gates-fail-on-violations.test.ts > red case — route without a policy (I-02) > GREEN: every registered route declares a policy
+      · PASS  route-policy-check (I-02) — 32 registered route(s)
+
+stdout | test/red-cases/gates-fail-on-violations.test.ts > red case — route without a policy (I-02) > RED: a route registered with no config.policy fails the gate
+      · FAIL  route-policy-check (I-02) — 1 violation(s)
+  POST /red-case/undeclared:0  route registered without a policy declaration (config.policy)
+      scanned: 33 registered route(s)
+
+stdout | test/red-cases/gates-fail-on-violations.test.ts > red case — the lint ban on every statement form of a tenant setting > RED: the transaction-local statement form, in a string literal, fails lint
+      · /Users/prabashan/Claude/SchedulePoint/.worktrees/m2-002/__red_case__set-local.ts
+  2:22  error  Tenant settings are established only with set_config(name, value, true). Every SET / SET SESSION / SET LOCAL form requires interpolating the tenant id into SQL (SPIKE-REPORT §7.2)  no-restricted-syntax
+
+✖ 1 problem (1 error, 0 warnings)
+
+stdout | test/red-cases/gates-fail-on-violations.test.ts > red case — the test runner's exit code is real > HAZARD: importing the package registers an exit-code-clobbering beforeExit handler
+      · beforeExit listeners 0 -> 1 on import (1 async-exit-hook); a failing run in that process exited 0 (observed, not asserted)
+
+stdout | test/red-cases/gates-fail-on-violations.test.ts > red case — the test runner's exit code is real > RED: WITHOUT that import, the same failing spec exits non-zero
+      · without the import: 1 failed test, exit status 1
+
+stdout | test/red-cases/gates-fail-on-violations.test.ts > red case — the test runner's exit code is real > RED: the REAL api project exits non-zero on a failing spec
+      · real api project, failing spec -> exit status 1
+
+ ✓  api  test/red-cases/gates-fail-on-violations.test.ts (12 tests) 5123ms
+   ✓ red case — route without a policy (I-02) > GREEN: every registered route declares a policy  411ms
+   ✓ red case — route without a policy (I-02) > RED: a route registered with no config.policy fails the gate  318ms
+   ✓ red case — the lint ban on every statement form of a tenant setting > GREEN: the permitted `set_config(name, value, true)` spelling lints clean  550ms
+   ✓ red case — the test runner's exit code is real > HAZARD: importing the package registers an exit-code-clobbering beforeExit handler  516ms
+   ✓ red case — the test runner's exit code is real > RED: WITHOUT that import, the same failing spec exits non-zero  434ms
+   ✓ red case — the test runner's exit code is real > RED: the REAL api project exits non-zero on a failing spec  1904ms
+stdout | test/audit/periodic.test.ts > the enumeration that lets a tenant-less job find its work > lists every organization that has a chain, and nothing about what is in it
+      · enumeration: 6 organization(s) with an audit chain
+
+stdout | test/audit/periodic.test.ts > SPEC-11 §2 — the periodic checkpoint sweep > checkpoints an organization whose chain has advanced
+      · checkpoint sweep: 6 organization(s) due, 1 checkpoint(s) written, 0 failures
+
+stdout | test/audit/periodic.test.ts > SPEC-11 §2 — the periodic checkpoint sweep > is idempotent: a second sweep with nothing new writes nothing
+      · checkpoint sweep is idempotent: an unchanged head is not re-checkpointed
+
+stdout | test/audit/periodic.test.ts > SPEC-11 §2 — the verification sweep ALERTS > a broken chain pages, and the page names the organization and the problem
+      · verification sweep: page raised for 80dfd789-084a-4478-b68c-9e5a1052683c — ["entry_hash_mismatch","checkpoint_signature_invalid"] at sequence 2, signingKeyIsIsolated=false
+
+stdout | test/audit/periodic.test.ts > R-03 — the jobs are REGISTERED, not merely written > enqueuing audit.checkpoint by name makes the real runner write a checkpoint
+[core] INFO: Worker connected and looking for jobs... (task names: 'audit.checkpoint', 'audit.verify', 'outbox.dispatch')
+
+stdout | test/audit/periodic.test.ts > R-03 — the jobs are REGISTERED, not merely written > enqueuing audit.checkpoint by name makes the real runner write a checkpoint
+[worker(worker-8cc42d2ff7499f832c)] INFO: Completed task 5 (outbox.dispatch, 4.11ms) with success
+
+stdout | test/audit/periodic.test.ts > R-03 — the jobs are REGISTERED, not merely written > enqueuing audit.checkpoint by name makes the real runner write a checkpoint
+[worker(worker-8cc42d2ff7499f832c)] INFO: Completed task 6 (outbox.dispatch, 2.36ms) with success
+
+stdout | test/audit/periodic.test.ts > R-03 — the jobs are REGISTERED, not merely written > enqueuing audit.checkpoint by name makes the real runner write a checkpoint
+[worker(worker-8cc42d2ff7499f832c)] INFO: Completed task 7 (outbox.dispatch, 2.21ms) with success
+
+stdout | test/audit/periodic.test.ts > R-03 — the jobs are REGISTERED, not merely written > enqueuing audit.checkpoint by name makes the real runner write a checkpoint
+[worker(worker-8cc42d2ff7499f832c)] INFO: Completed task 8 (outbox.dispatch, 2.32ms) with success
+
+stdout | test/audit/periodic.test.ts > R-03 — the jobs are REGISTERED, not merely written > enqueuing audit.checkpoint by name makes the real runner write a checkpoint
+[worker(worker-8cc42d2ff7499f832c)] INFO: Completed task 9 (outbox.dispatch, 2.65ms) with success
+
+stdout | test/audit/periodic.test.ts > R-03 — the jobs are REGISTERED, not merely written > enqueuing audit.checkpoint by name makes the real runner write a checkpoint
+[worker(worker-8cc42d2ff7499f832c)] INFO: Completed task 10 (outbox.dispatch, 2.45ms) with success
+
+stdout | test/audit/periodic.test.ts > R-03 — the jobs are REGISTERED, not merely written > enqueuing audit.checkpoint by name makes the real runner write a checkpoint
+[worker(worker-8cc42d2ff7499f832c)] INFO: Completed task 11 (outbox.dispatch, 2.27ms) with success
+
+stdout | test/audit/periodic.test.ts > R-03 — the jobs are REGISTERED, not merely written > enqueuing audit.checkpoint by name makes the real runner write a checkpoint
+[worker(worker-8cc42d2ff7499f832c)] INFO: Completed task 12 (outbox.dispatch, 2.14ms) with success
+
+stdout | test/audit/periodic.test.ts > R-03 — the jobs are REGISTERED, not merely written > enqueuing audit.checkpoint by name makes the real runner write a checkpoint
+[worker(worker-8cc42d2ff7499f832c)] INFO: Completed task 13 (audit.checkpoint, 5.60ms) with success
+
+stdout | test/audit/periodic.test.ts > R-03 — the jobs are REGISTERED, not merely written > enqueuing audit.checkpoint by name makes the real runner write a checkpoint
+      · R-03: audit.checkpoint enqueued by name → the runner executed it and wrote a checkpoint. The task is registered, not merely written
+
+stdout | test/audit/periodic.test.ts > R-03 — the jobs are REGISTERED, not merely written > a runner without a signer registers NO periodic task, loudly rather than silently
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m2-002/crontab'; cron is disabled
+
+stdout | test/audit/periodic.test.ts > R-03 — the jobs are REGISTERED, not merely written > a runner without a signer registers NO periodic task, loudly rather than silently
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+
+stdout | test/audit/periodic.test.ts > R-03 — the jobs are REGISTERED, not merely written > a runner without a signer registers NO periodic task, loudly rather than silently
+      · a signer-less runner registered no audit task (2 audit identifier(s) known to the queue, none of them executed here)
+
+ ✓  api  test/audit/periodic.test.ts (6 tests) 3260ms
+   ✓ R-03 — the jobs are REGISTERED, not merely written > a runner without a signer registers NO periodic task, loudly rather than silently  3020ms
+stdout | test/audit/crash-restart.test.ts > A — the chain survives a process killed mid-batch > is intact and gapless up to the last commit the dying process reported
+      · A: killed after 16 reported commits (last sequence 19); chain intact, head 19, 19 rows spanning 1..19 with no gap
+
+stdout | test/audit/crash-restart.test.ts > A — the chain survives a process killed mid-batch > the interrupted process left no half-written row and no consumed sequence
+      · audit_chain_heads tip (19) equals the highest chain row
+
+stdout | test/audit/crash-restart.test.ts > B — lease recovery on restart (SP-D condition C-2, no clock manipulation) > a replacement worker reclaims a dead pool's job and completes it in seconds
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m2-002/crontab'; cron is disabled
+
+stdout | test/audit/crash-restart.test.ts > B — lease recovery on restart (SP-D condition C-2, no clock manipulation) > a replacement worker reclaims a dead pool's job and completes it in seconds
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+
+stdout | test/audit/crash-restart.test.ts > B — lease recovery on restart (SP-D condition C-2, no clock manipulation) > a replacement worker reclaims a dead pool's job and completes it in seconds
+[worker(worker-b7938d66d4d1b08055)] INFO: Completed task 15 (outbox.dispatch, 8.18ms) with success
+
+stdout | test/audit/crash-restart.test.ts > B — lease recovery on restart (SP-D condition C-2, no clock manipulation) > a replacement worker reclaims a dead pool's job and completes it in seconds
+[worker(worker-b7938d66d4d1b08055)] INFO: Completed task 16 (outbox.dispatch, 3.22ms) with success
+
+stdout | test/audit/crash-restart.test.ts > B — lease recovery on restart (SP-D condition C-2, no clock manipulation) > a replacement worker reclaims a dead pool's job and completes it in seconds
+[worker(worker-b7938d66d4d1b08055)] INFO: Completed task 17 (outbox.dispatch, 2.61ms) with success
+
+stdout | test/audit/crash-restart.test.ts > B — lease recovery on restart (SP-D condition C-2, no clock manipulation) > a replacement worker reclaims a dead pool's job and completes it in seconds
+[worker(worker-b7938d66d4d1b08055)] INFO: Completed task 18 (outbox.dispatch, 2.23ms) with success
+
+stdout | test/audit/crash-restart.test.ts > B — lease recovery on restart (SP-D condition C-2, no clock manipulation) > a replacement worker reclaims a dead pool's job and completes it in seconds
+      · B precondition: drained 4 pre-existing job(s); the queue is empty and the crash worker can only take the job this test publishes
+
+stdout | test/audit/crash-restart.test.ts > B — lease recovery on restart (SP-D condition C-2, no clock manipulation) > a replacement worker reclaims a dead pool's job and completes it in seconds
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m2-002/crontab'; cron is disabled
+
+stdout | test/audit/crash-restart.test.ts > B — lease recovery on restart (SP-D condition C-2, no clock manipulation) > a replacement worker reclaims a dead pool's job and completes it in seconds
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+
+stdout | test/audit/crash-restart.test.ts > B — lease recovery on restart (SP-D condition C-2, no clock manipulation) > a replacement worker reclaims a dead pool's job and completes it in seconds
+[worker(worker-831ee16f3f6610f81f)] INFO: Completed task 19 (outbox.dispatch, 6.67ms, attempt 2 of 25) with success
+
+stdout | test/audit/crash-restart.test.ts > B — lease recovery on restart (SP-D condition C-2, no clock manipulation) > a replacement worker reclaims a dead pool's job and completes it in seconds
+      · B: a worker killed while holding job 19 (pool pool-c1fbf578ef3d6a4938); a replacement reclaimed and completed it in 568 ms of real time, against an unmitigated 4-hour lease. No clock was manipulated
+
+stdout | test/audit/crash-restart.test.ts > B — lease recovery on restart (SP-D condition C-2, no clock manipulation) > a replacement worker reclaims a dead pool's job and completes it in seconds
+      · chain verified across the crash and the restart: 23 entries, head 23, 0 problems
+
+stdout | test/audit/crash-restart.test.ts > B — lease recovery on restart (SP-D condition C-2, no clock manipulation) > the effect was applied EXACTLY ONCE despite the crash and the re-execution
+      · the effect was applied exactly once: outbox state=dispatched, attempts=2 (one crashed claim + one that finished), and 1 row in outbox_effects from attempt 2
+
+ ✓  api  test/audit/crash-restart.test.ts (4 tests) 1252ms
+   ✓ B — lease recovery on restart (SP-D condition C-2, no clock manipulation) > a replacement worker reclaims a dead pool's job and completes it in seconds  908ms
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > every declared scenario carries all nine fields and a falsifiability probe
+      · 5 scenario(s), every contract complete
+
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > RED: a scenario missing a field is NOT RUNNABLE, and the validator says which
+      · a blank contract field makes a scenario NOT_RUNNABLE, naming the field
+
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > RED: a scenario whose probe cannot fail is reported VACUOUS, not PASS
+      · the vacuity detector catches a scenario whose probe cannot fail
+
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > RED: EVIDENCE_BLOCKED is never a pass and never a silent skip
+      · a fully blocked scenario reports EVIDENCE_BLOCKED with its dependency named
+
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > RED: a reading refused with anything but 42501 is a HARNESS DEFECT
+      · only 42501 counts as a refusal; 08006, 25P02 and 57P01 are harness defects
+
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > RED: a probe that throws a TypeError is PROBE_ERROR, not FALSIFIABLE
+      · a probe throwing TypeError is PROBE_ERROR and fails the run
+
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > RED: a probe repointed at an ABSENT subject is never FALSIFIABLE
+      · a probe repointed at an absent subject is VACUOUS, never FALSIFIABLE
+
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > RED: a probe that throws a SQL error is PROBE_ERROR, not FALSIFIABLE
+      · a probe throwing a SQL error is PROBE_ERROR and fails the run
+
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > RED: EVIDENCE_BLOCKED on a GATE-REQUIRED scenario makes the run exit non-zero
+      · EVIDENCE_BLOCKED is tolerated when no gate claims it and FAILS the run when one does — the same scenario, both ways
+
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > RED: a blocked scenario with an UNNAMED dependency is NOT RUNNABLE
+      · SPEC-16 §6: a dependency must be named, not absorbed
+
+stdout | test/sbx/sbx.test.ts > red case — SBX-004 fails when an RLS control is removed > RED: with FORCE RLS off inside a rolled-back transaction, the sweep sees foreign rows
+      · RED: FORCE RLS off -> 45 foreign membership rows became visible to the owner; SBX-004 would fail, as it must
+
+stdout | test/sbx/sbx.test.ts > red case — SBX-004 fails when an RLS control is removed > RED: with FORCE RLS off inside a rolled-back transaction, the sweep sees foreign rows
+      · the rollback restored FORCE RLS — verified from a fresh connection
+
+stdout | test/sbx/sbx.test.ts > the G-ARCH tenancy subset > runs every scenario under its contract
+      · SBX-001 PASS             probe=FALSIFIABLE 553ms
+      · SBX-002 PASS             probe=FALSIFIABLE 48ms
+      · SBX-004 PASS             probe=FALSIFIABLE 145ms
+      · SBX-005 PASS             probe=FALSIFIABLE 2ms
+      · SBX-006 EVIDENCE_BLOCKED probe=NOT_APPLICABLE 0ms
+
+stdout | test/sbx/sbx.test.ts > the G-ARCH tenancy subset > the audit chain verifies clean after the run (the 0 / N / 0 shape)
+      · audit chain after the SBX run — 59673186: 0 / 1 / 0
+
+stdout | test/sbx/sbx.test.ts > the G-ARCH tenancy subset > the audit chain verifies clean after the run (the 0 / N / 0 shape)
+      · audit chain after the SBX run — 9c928d8d: 0 / 1 / 0
+
+stdout | test/sbx/sbx.test.ts > the G-ARCH tenancy subset > the audit chain verifies clean after the run (the 0 / N / 0 shape)
+      · audit chain after the SBX run — 741ddb41: 0 / 1 / 0
+
+stdout | test/sbx/sbx.test.ts > the G-ARCH tenancy subset > writes the evidence bundle, including EVERY declared retained artifact
+      · scenario report + 5 per-scenario artifact(s) written
+
+stdout | test/sbx/sbx.test.ts > the G-ARCH tenancy subset > SPEC-16 §7 meta-test: every DECLARED artifact exists and is non-empty
+      · 5 declared artifact(s), each produced by this run and non-empty
+
+stdout | test/sbx/sbx.test.ts > the G-ARCH tenancy subset > RED: a scenario declaring a PHANTOM artifact is caught
+      · a declared-but-never-written artifact is detected by the meta-test
+
+ ✓  api  test/sbx/sbx.test.ts (17 tests) 942ms
+   ✓ the G-ARCH tenancy subset > runs every scenario under its contract  749ms
+stdout | test/catalogue/review-findings.test.ts > S-02 — pick_position_count is gated on INSERT as well as UPDATE > CONTROL: creating a group with the DEFAULT count is still ordinary group creation
+      · CONTROL: group created with the default count 0, ungated, as designed
+
+stdout | test/catalogue/review-findings.test.ts > S-02 — pick_position_count is gated on INSERT as well as UPDATE > RED (the reviewer's probe): an INSERT carrying a non-zero count is REFUSED
+      · RED: INSERT with pick_position_count = 500 → 42501, and no group was created
+
+stdout | test/catalogue/review-findings.test.ts > S-03 — the in-force window is authorable, and read filtering is M4 > a FUTURE-DATED definition round-trips: authored, stored, and read back
+      · future-dated definition 2030-01-01T00:00:00.000Z → 2031-01-01T00:00:00.000Z round-trips and stays visible for authoring
+
+stdout | test/catalogue/review-findings.test.ts > S-03 — the in-force window is authorable, and read filtering is M4 > the window can be re-authored, and an END BEFORE the START is refused by field
+      · backwards window refused: The date this definition stops applying must be after the date it starts.
+
+stdout | test/catalogue/review-findings.test.ts > S-03 — the in-force window is authorable, and read filtering is M4 > a FUTURE-DATED definition can still be RETIRED — the retirement instant is the database's
+      · future-dated definition retired: 2030-01-01T00:00:00.000Z -> 2030-01-01T00:00:00.000Z, and still editable
+
+stdout | test/catalogue/review-findings.test.ts > S-03 — the in-force window is authorable, and read filtering is M4 > `null` on effectiveTo OPENS the window; the row keeps a finite start
+      · effectiveTo: null reopens a closed window, and the start stays finite
+
+stdout | test/catalogue/review-findings.test.ts > S-03 — the in-force window is authorable, and read filtering is M4 > an INFINITE bound is refused — `null` is how a window is left open (S-22)
+      · an infinite effectiveFrom is refused with a field-addressed problem
+
+stdout | test/catalogue/review-findings.test.ts > S-04 — pick position reads and writes pin their tenant > CONTROL: under a GROUP context the count is this group's, not a sibling's
+      · group one reads 5; the sibling group holds 0
+
+stdout | test/catalogue/review-findings.test.ts > S-04 — pick position reads and writes pin their tenant > RED (the reviewer's probe): under an ORGANIZATION context the read REFUSES rather than guessing
+      · organization-scoped read → named refusal, never an arbitrary group's count
+
+stdout | test/catalogue/review-findings.test.ts > S-04 — pick position reads and writes pin their tenant > the WRITE is pinned too — a raise touches one group and no other
+      · 3 groups in the organization; exactly 1 moved
+
+stdout | test/catalogue/review-findings.test.ts > S-05 — optimistic concurrency actually prevents a lost update > RED (the reviewer's probe): app_runtime cannot set `version` at all
+      · app_runtime UPDATE naming `version` → 42501; the column is the database's
+
+stdout | test/catalogue/review-findings.test.ts > S-05 — optimistic concurrency actually prevents a lost update > the database bumps `version` on every update, without being asked
+      · version 1 → 2, assigned by app_maintain_catalogue_version
+
+stdout | test/catalogue/review-findings.test.ts > S-05 — optimistic concurrency actually prevents a lost update > RED: the SELECT-merge-UPDATE race no longer loses a write — the second is a CONFLICT
+      · A committed at version 2; B's stale predicate matched nothing and reported conflict; stored name "Written by A"
+
+stdout | test/catalogue/review-findings.test.ts > S-05 — optimistic concurrency actually prevents a lost update > CONTROL: two SEQUENTIAL updates both succeed — the predicate blocks races, not edits
+      · sequential edits: both accepted, version 1 → 2 → 3
+
+stdout | test/catalogue/review-findings.test.ts > S-05 — optimistic concurrency actually prevents a lost update > shift GROUPS carry the same predicate
+      · shift group version 1 → 2 by trigger; the update predicate is on `version`
+
+ ✓  api  test/catalogue/review-findings.test.ts (15 tests) 371ms
+stdout | test/authz/http-authorization.test.ts > SPEC-06 §8.1 — the HTTP half agrees with the pure evaluator > the eight rows above cover eight DISTINCT layers — the table is not one case repeated
+      · HTTP subset covers L0.1, L1.2, L1.3, L2.1, L3.2, L3.3, L4.1, L4.2
+
+stdout | test/authz/http-authorization.test.ts > A-05 and A-09 — entitlement revocation mid-session, and data intact on re-enable > A-05: a request that would have succeeded is denied the moment the entitlement is revoked
+      · entitlement revoked mid-session: the next request is 404, not 403
+
+stdout | test/authz/http-authorization.test.ts > A-05 and A-09 — entitlement revocation mid-session, and data intact on re-enable > A-09: re-enabling restores access, and no row was deleted while it was off
+      · module disabled then re-enabled: access restored, row count unchanged
+
+stdout | test/authz/http-authorization.test.ts > deny paths and allow paths for every GRANT type > an explicit ALLOW grant lets a role through that would otherwise be denied
+      · member: 403 without a grant, 200 with one — L4.2 both ways
+
+stdout | test/authz/http-authorization.test.ts > the membership-creation route — EV-M1-TENANCY residuals 1 and 2 > RESIDUAL 2: a non-existent user and a foreign user are BYTE-IDENTICAL to an unauthorized actor
+      · residual 2: non-existent user and foreign user both answer 404 with a byte-identical body
+
+stdout | test/authz/http-authorization.test.ts > the membership-creation route — EV-M1-TENANCY residuals 1 and 2 > RESIDUAL 1b, STATED AS IT IS: an AUTHORIZED administrator CAN still attach a foreign user
+      · RESIDUAL 1b OPEN and asserted: an authorized administrator attaches a foreign user and raises their monotonic membership_set_version 5 -> 6. Owner: the provisioning design (EV-M1-AUTHZ §4)
+
+stdout | test/authz/http-authorization.test.ts > the membership-creation route — EV-M1-TENANCY residuals 1 and 2 > X-11: the caller CANNOT choose the row id — a client-supplied one is rejected outright
+      · a client-supplied membershipId is rejected: the server owns the primary key
+
+stdout | test/authz/http-authorization.test.ts > FAD-12 — the evaluation and the mutation share ONE unit of work > a request still opens exactly TWO transactions with the real evaluator in place
+      · one request, two transactions: the §2.3 snapshot and the command
+
+stdout | test/authz/http-authorization.test.ts > FAD-12 — the evaluation and the mutation share ONE unit of work > an entitlement revoked BETWEEN the snapshot and the command is caught by the command
+      · entitlement revoked between snapshot and command: 404, no write
+
+stdout | test/authz/http-authorization.test.ts > OPUS-M1-004 — every OPUS-M1-002 mutation emits its audit event > creating a membership emits one row, attributed to the acting administrator
+      · membership.created -> audit sequence 20
+
+stdout | test/authz/http-authorization.test.ts > OPUS-M1-004 — every OPUS-M1-002 mutation emits its audit event > writing a capability grant emits one row whose subject is the GRANT
+      · capability_grant.written -> audit sequence 21
+
+stdout | test/authz/http-authorization.test.ts > OPUS-M1-004 — every OPUS-M1-002 mutation emits its audit event > changing an entitlement emits an audit row AND an outbox row linked to it
+      · entitlement.state_changed -> audit 22 + outbox entitlement-state:22
+
+stdout | test/authz/http-authorization.test.ts > OPUS-M1-004 — every OPUS-M1-002 mutation emits its audit event > a mutation DENIED BY THE EVALUATOR writes neither the change nor an audit row
+      · denied at L4.2 (NO_CAPABILITY) inside the handler: 403, last_active_at unmoved, 0 audit rows
+
+stdout | test/authz/http-authorization.test.ts > OPUS-M1-004 — every OPUS-M1-002 mutation emits its audit event > the SAME route ALLOWS the same actor once the capability is granted — the denial is not a wall
+      · the same actor, one grant later: 200, the row moved, and exactly one audit row
+
+stdout | test/authz/http-authorization.test.ts > OPUS-M1-004 — every OPUS-M1-002 mutation emits its audit event > a mutation that FAILS after its audit call leaves neither (FAD-12)
+      · overlapping grant window: 409, and 0 audit rows for the failed attempt
+
+stdout | test/authz/http-authorization.test.ts > the surfaces agree on the SAME case, not merely on the same status > a case the pure evaluator denies at L4.2 is denied at L4.2 over HTTP
+      · pure evaluator and HTTP both deny at L4.2 with NO_CAPABILITY
+
+stdout | test/authz/http-authorization.test.ts > a principal cannot grant themselves a capability through a SECOND membership > hop 2 is REFUSED: the grant names a membership of the acting principal
+      · the two-hop self-grant is refused at the route: the check keys on the principal
+
+ ✓  api  test/authz/http-authorization.test.ts (42 tests) 270ms
+stdout | test/profiles/round-trip.test.ts > work profiles: create -> future-date -> supersede -> read history > CREATE — the first profile carries seven weekday targets and a holiday target
+      · created a work profile with seven weekday targets and a holiday target
+
+stdout | test/profiles/round-trip.test.ts > work profiles: create -> future-date -> supersede -> read history > …and the PRESENT verdict is unchanged
+      · a change dated 60 days out does not move the present verdict
+
+stdout | test/profiles/round-trip.test.ts > work profiles: create -> future-date -> supersede -> read history > READ HISTORY — every window, oldest first, with nothing rewritten
+      · history: 100% -> 80% -> 60% across 3 exactly-adjacent windows
+
+stdout | test/profiles/round-trip.test.ts > work profiles: create -> future-date -> supersede -> read history > the audit chain records the supersession as its OWN event
+      · 5 work-profile audit rows: 3 authored, 2 superseded
+
+stdout | test/profiles/round-trip.test.ts > work profiles: create -> future-date -> supersede -> read history > T-06 — every work-profile audit row carries BEFORE, AFTER and a mechanism
+      · 5 staffing audit rows, every payload closed and non-empty
+
+stdout | test/profiles/round-trip.test.ts > T-01 — retroactive authoring is a 422 on the wire, not a 500 > GREEN control — the same request with a FUTURE instant is accepted
+      · retroactive authoring answers 422 over HTTP; a future instant still answers 200
+
+stdout | test/profiles/round-trip.test.ts > T-02 — a supersession does not silently discard weekday targets > OMITTED on a supersession — the predecessor's targets are carried forward
+      · a percentage-only supersession carries the predecessor's eight-day dimension forward
+
+stdout | test/profiles/round-trip.test.ts > T-02 — a supersession does not silently discard weekday targets > EXPLICIT `[]` — the targets are cleared, because saying "none" is a decision
+      · an explicit empty array clears the targets — omission and emptiness are different
+
+stdout | test/profiles/round-trip.test.ts > T-02 — a supersession does not silently discard weekday targets > the audit payload records WHICH of the two happened
+      · the authored payload distinguishes a stated target set from an inherited one
+
+stdout | test/profiles/round-trip.test.ts > qualifications: define -> issue -> revoke -> retire, all retained > eligibility is answered AT THE INSTANT ASKED ABOUT, not at request time
+      · eligibility is answered at the instant asked about, not at request time
+
+stdout | test/profiles/round-trip.test.ts > qualifications: define -> issue -> revoke -> retire, all retained > …the revoked holding is RETAINED and confers nothing
+      · a revoked credential is retained, keeps its window, and confers nothing
+
+stdout | test/profiles/round-trip.test.ts > qualifications: define -> issue -> revoke -> retire, all retained > T-06 — create, retire and reinstate are DISTINGUISHABLE in the audit trail
+      · create / retire / reinstate are distinguished by `mechanism` and by before/after status
+
+stdout | test/profiles/round-trip.test.ts > qualifications: define -> issue -> revoke -> retire, all retained > T-06 — a holding's events carry before/after status, and never the evidence VALUE
+      · holding events carry before/after status; the evidence reference value never appears
+
+stdout | test/profiles/round-trip.test.ts > qualifications: define -> issue -> revoke -> retire, all retained > RETIRE the qualification — archived, never deleted, holdings intact
+      · retiring a qualification leaves every holding that referenced it intact
+
+ ✓  api  test/profiles/round-trip.test.ts (24 tests) 191ms
+stdout | test/profiles/authorization.test.ts > allow and deny for every new capability > ORDERING — a malformed `?at=` is invisible to an unauthorized caller too
+      · authorize-then-parse holds on bodies and on query parameters, in both directions
+
+stdout | test/profiles/authorization.test.ts > allow and deny for every new capability > an EXPLICIT DENY beats a role and an allow (P-1), at the database as well
+      · an explicit deny on a staffing capability refuses the write
+
+stdout | test/profiles/authorization.test.ts > SENSITIVE-PII — who may read whose credentials > a member reads their OWN credentials
+      · a member reads their own credential record
+
+stdout | test/profiles/authorization.test.ts > SENSITIVE-PII — who may read whose credentials > …and sees NOTHING of a colleague's, without `read_any`
+      · without read_any a colleague's holdings are an empty list, not an error
+
+stdout | test/profiles/authorization.test.ts > SENSITIVE-PII — who may read whose credentials > the narrowing is in the DATA, not in the route: a direct read is narrowed too
+      · direct table read as a peer: 1 row(s), all their own, 0 belonging to anyone else
+
+ ✓  api  test/profiles/authorization.test.ts (25 tests) 174ms
+stdout | test/profiles/overlap-rejection.test.ts > the database refuses overlapping windows > ALLOW control — two ADJACENT windows are accepted
+      · adjacent [) windows are accepted — the constraint permits supersession, as it must
+
+stdout | test/profiles/overlap-rejection.test.ts > overlap rejection under CONCURRENT inserts > two transactions inserting overlapping windows: exactly one commits
+      · concurrent overlapping inserts: 1 committed, 1 rejected with 23P01, 1 row stored
+
+ ✓  api  test/profiles/overlap-rejection.test.ts (8 tests) 234ms
+stdout | test/catalogue/pick-position-monotonicity.test.ts > pick_position_count is monotonic > CONTROL: an increase succeeds and is stored
+      · CONTROL: 0 → 3 accepted and stored
+
+stdout | test/catalogue/pick-position-monotonicity.test.ts > pick_position_count is monotonic > a DECREASE is rejected by the database, not only by the service
+      · direct UPDATE lowering the count 5 → 4 → restrict_violation; stored value unchanged at 5
+
+stdout | test/catalogue/pick-position-monotonicity.test.ts > pick_position_count is monotonic > CONCURRENT increases: the later, LOWER write is refused — the count never goes down
+      · concurrent 14 and 10 from two backends: 14 committed, 10 refused by the database; stored value 14
+
+stdout | test/catalogue/pick-position-monotonicity.test.ts > pick_position_count is monotonic > a valid combination cannot name a position above the ceiling
+      · valid combination: position 15 accepted at ceiling 15; position 16 refused
+
+ ✓  api  test/catalogue/pick-position-monotonicity.test.ts (4 tests) 247ms
+stdout | test/catalogue/audit.test.ts > the catalogue audit vocabulary > every declared event name is in the closed vocabulary
+      · 10 catalogue event names, all declared
+
+stdout | test/catalogue/audit.test.ts > every catalogue mutation emits, and emits exactly once > drives all ten mutations and reads back one audit row each
+      · 10 catalogue mutations → 10 audit rows: catalogue.shift_type.created, catalogue.shift_type.updated, catalogue.shift_type_demand.set, catalogue.shift_group.created, catalogue.shift_group.updated, catalogue.staff_group.created, catalogue.valid_group.created, catalogue.pick_positions.increased, catalogue.group_holiday.created, catalogue.shift_type.archived
+
+stdout | test/catalogue/audit.test.ts > every catalogue mutation emits, and emits exactly once > a DENIED mutation writes neither the change nor an audit row
+      · denied POST /shift-types → 403, 0 audit rows, 0 shift types
+
+stdout | test/catalogue/audit.test.ts > every catalogue mutation emits, and emits exactly once > the audit chain verifies clean after every catalogue append
+      · chain verified: 14 entries, head 14, 0 problems
+
+ ✓  api  test/catalogue/audit.test.ts (5 tests) 168ms
+stdout | test/authz/provisioning.test.ts > the provisioning door opens once > a fresh organization can be provisioned with no acting membership
+      · provisioned 7 roles, 13 role capabilities, 3 entitlements
+
+stdout | test/authz/provisioning.test.ts > and then it is shut > the provisioned administrator CAN continue — the door shutting is not a lockout
+      · the provisioned org_admin can create further memberships — the gate is capability-based
+
+stdout | test/authz/provisioning.test.ts > an UNPROVISIONED organization denies everything > a membership with no roles seeded resolves to no capabilities at all
+      · a role key with no `roles` row behind it grants nothing — fail-closed
+
+stdout | test/authz/provisioning.test.ts > the bootstrap door is unreachable over HTTP — residual 7, revisited > a request declaring a freshly created, membership-less organization is a 404
+      · a self-created, membership-less organization is inert over HTTP: §2.3 step 2 refuses before any command transaction opens, so the provisioning door is never entered
+
+stdout | test/authz/provisioning.test.ts > S-02 — an organization cannot be left without an administrator > a sole administrator cannot end their own membership
+      · a sole administrator cannot end their own membership
+
+stdout | test/authz/provisioning.test.ts > S-02 — an organization cannot be left without an administrator > SELF-demotion is refused even when another administrator exists
+      · another administrator CAN end the first — the guard is a two-person rule, not a wall
+
+stdout | test/authz/provisioning.test.ts > S-11 — derived ids do not collide across organizations > two organizations sharing eight leading hex characters get distinct role ids
+      · 7 roles per organization, 0 id collisions across the two
+
+ ✓  api  test/authz/provisioning.test.ts (17 tests) 179ms
+stdout | test/http/context-surface.test.ts > SPEC-01 §7.1 — declared context is honoured, never substituted > T-01 ONE principal, two tabs: A's declared group is honoured, no write against B
+      · one principal, two memberships: Tab A declared and wrote Group One; Group Two unchanged since Tab B at 2026-08-04T01:11:42.806Z
+
+stdout | test/http/context-surface.test.ts > SPEC-01 §7.1 — declared context is honoured, never substituted > T-02 a revoked membership: no write, no event — and 404, not a stale-context hint
+      · revoked membership: 404, no write, no job enqueued
+
+stdout | test/http/context-surface.test.ts > SPEC-01 §7.1 — declared context is honoured, never substituted > T-02b an ACTIVE membership whose counters advanced: 409 CONTEXT_STALE, no write
+      · membership_set_version advanced: 409 CONTEXT_STALE with a re-fetch directive, no write
+
+stdout | test/http/context-surface.test.ts > SPEC-01 §7.1 — declared context is honoured, never substituted > T-04 a forged group id: 404 byte-identical to a non-existent id, AND a security event
+      · forged and non-existent group ids are byte-identical ({"error":{"code":"NOT_FOUND","message":"Not found.","correlationId":"forged12345678"}}); security event logged at step 2
+
+stdout | test/http/context-surface.test.ts > SPEC-01 §7.1 T-05 / T-05b — target aggregate binding and its disclosure rule > T-05 authorized actor, target in a sibling group: 409 CONTEXT_TARGET_MISMATCH, before any write
+      · authorized actor + sibling-group target: 409 CONTEXT_TARGET_MISMATCH, target unmodified
+
+stdout | test/http/context-surface.test.ts > SPEC-01 §7.1 T-05 / T-05b — target aggregate binding and its disclosure rule > T-05b unauthorized actor: 404, BYTE-IDENTICAL to a non-existent id
+      · unauthorized cross-group target and non-existent id are byte-identical: {"error":{"code":"NOT_FOUND","message":"Not found.","correlationId":"redcase12345678"}}
+
+stdout | test/http/context-surface.test.ts > SPEC-01 §7.1 T-05 / T-05b — target aggregate binding and its disclosure rule > a target in the actor's OWN group binds, and the OBJECT POLICY then decides
+      · in-scope target: owned → 200, not owned → 404 at L5.1
+
+stdout | test/http/context-surface.test.ts > SPEC-01 §7.1 T-05 / T-05b — target aggregate binding and its disclosure rule > the ownership OVERRIDE lifts it — asserted in BOTH directions
+      · ownership override: 404 without it, 200 with it
+
+stdout | test/http/context-surface.test.ts > SPEC-01 §7.1 T-05 / T-05b — target aggregate binding and its disclosure rule > an authorized actor is still denied a target in another ORGANIZATION — 404, never 409
+      · cross-ORGANIZATION target: 404 even for an authorized actor — no 409, no disclosure
+
+stdout | test/http/context-surface.test.ts > SPEC-01 §7.1 T-06 — entitlement-class change, and the scope branches > T-06 an organization-version change invalidates a long-lived form with no partial effect
+      · organization_version advanced: 409 CONTEXT_STALE, no partial effect
+
+stdout | test/http/context-surface.test.ts > SPEC-01 §7.1 T-06 — entitlement-class change, and the scope branches > T-06b organization-scoped action with an active organization membership and role: accepted
+      · organization-scoped action accepted; membership_id resolved to the organization membership
+
+stdout | test/http/context-surface.test.ts > SPEC-01 §7.1 T-06 — entitlement-class change, and the scope branches > T-06c organization-scoped action, actor holds only a GROUP membership: 404
+      · group-only member attempting an organization-scoped action: 404
+
+stdout | test/http/context-surface.test.ts > SPEC-01 §7.1 T-06 — entitlement-class change, and the scope branches > T-06d group-scoped action declaring no group: 404 — the branch follows the ROUTE's scope
+      · group-scoped route with no declared group: 404 for every actor
+
+stdout | test/http/context-surface.test.ts > deny-by-default holds for the provisional policies > an actor whose role is not listed is denied 403, and writes nothing
+      · role `member` is not in the provisional allow-list: 403, no write
+
+stdout | test/http/context-surface.test.ts > FAD-12 — authorization and mutation share one unit of work > a request opens exactly TWO transactions: the §2.3 snapshot, then the command
+      · one request = 1 resolution transaction + 1 command transaction
+
+stdout | test/http/context-surface.test.ts > FAD-12 — authorization and mutation share one unit of work > a role revoked BETWEEN the snapshot and the command is caught by the command itself
+      · role revoked between snapshot and command: 403, no write
+
+ ✓  api  test/http/context-surface.test.ts (24 tests) 156ms
+stdout | test/authz/entitlement-in-force.test.ts > S-01 — a historical entitlement row must not govern > a CLOSED, REVOKED historical window alongside the live one changes nothing
+      · a closed revoked window beside the live one leaves evaluation unaffected
+
+stdout | test/authz/entitlement-in-force.test.ts > S-01 — a historical entitlement row must not govern > L1.4 uses the same selection: a DEPENDENCY's historical row does not govern
+      · a dependency's historical row is ignored; its live row governs
+
+stdout | test/authz/entitlement-in-force.test.ts > S-08 — the entitlement write must target the row in force > changing state leaves a historical row untouched
+      · the entitlement write touches the in-force row only; history is intact
+
+stdout | test/authz/entitlement-in-force.test.ts > S-06 (second half) — HTTP coverage for L1.1 > with NO entitlement row at all, the denial is NOT_ENTITLED at L1.1
+      · no entitlement row: 404 at L1.1, over HTTP
+
+ ✓  api  test/authz/entitlement-in-force.test.ts (15 tests) 147ms
+stdout | test/catalogue/authorization.test.ts > schedule.catalogue.administer — allow and deny > ALLOW: a scheduler creates a shift type
+      · scheduler → POST /shift-types → 200
+
+stdout | test/catalogue/authorization.test.ts > schedule.catalogue.administer — allow and deny > DENY: a member — an active membership with a role that holds nothing — gets 403
+      · member → POST /shift-types → 403, no explanation on the wire
+
+stdout | test/catalogue/authorization.test.ts > schedule.catalogue.administer — allow and deny > DENY: a viewer gets 403 on the READ route too — reads are gated by the same key
+      · viewer → GET /shift-types → 403 (deny-by-default: there is no read capability yet)
+
+stdout | test/catalogue/authorization.test.ts > schedule.catalogue.administer — allow and deny > a malformed body from an UNAUTHORIZED actor is a denial, not a 422
+      · unauthorized + malformed body → 403; authorized + malformed body → 422 with fields
+
+stdout | test/catalogue/authorization.test.ts > schedule.catalogue.administer — allow and deny > DENY at L1: an organization with no core_scheduling entitlement gets 404, not 403
+      · unentitled organization → POST /shift-types → 404 (L1, not L4)
+
+stdout | test/catalogue/authorization.test.ts > group.holiday_calendar.administer — allow and deny > ALLOW: a group administrator adds a holiday
+      · group_admin → POST /holidays → 200
+
+stdout | test/catalogue/authorization.test.ts > group.holiday_calendar.administer — allow and deny > DENY: a SCHEDULER gets 403 — authorized for the catalogue, not for group settings
+      · scheduler → POST /holidays → 403 (holds the catalogue key, not the calendar key)
+
+stdout | test/catalogue/authorization.test.ts > group.pick_positions.administer — allow and deny > ALLOW: a group administrator raises the pick-position count
+      · group_admin → PUT /pick-positions → 200, count 6
+
+stdout | test/catalogue/authorization.test.ts > group.pick_positions.administer — allow and deny > DENY: a scheduler gets 403
+      · scheduler → PUT /pick-positions → 403, and the stored count is unchanged
+
+stdout | test/catalogue/authorization.test.ts > every capability this slice introduces is reachable and gated > each key appears on at least one REGISTERED route
+      · 3 catalogue capabilities, each on a live route
+
+ ✓  api  test/catalogue/authorization.test.ts (10 tests) 129ms
+stdout | test/jobs/job-context.test.ts > SPEC-01 §6 — enqueue freezes the context > T-03 (job surface) an enqueue carries the verified context, frozen
+      · enqueued 93551c98-c01c-4c48-a4bd-508a2d84a681 with frozen context {"organizationId":"2c6a2e60-1f6a-44e4-b3f2-722539dd21f7","groupId":"714bdbea-17b1-4bce-93be-6c22bb6c637e","membershipId":"488a7438-5b69-4506-89ef-9d4e6ca18e0b","actionScope":"group","authorizationVersionAtEnqueue":"av1:4.4.4.1"}
+
+stdout | test/jobs/job-context.test.ts > SPEC-01 §6 / SPEC-06 §5 — execution re-evaluates against current state > a job whose actor still holds the capability completes, and writes under the frozen tenant
+      · job completed under app_worker and wrote inside the frozen tenant
+
+stdout | test/jobs/job-context.test.ts > SPEC-01 §6 / SPEC-06 §5 — execution re-evaluates against current state > "No context: the worker REFUSES the job. There is no default tenant."
+      · no organization: refused_no_context
+
+stdout | test/jobs/job-context.test.ts > SPEC-01 §6 / SPEC-06 §5 — execution re-evaluates against current state > "No context: the worker REFUSES the job. There is no default tenant."
+      · group-scoped with no group: refused_no_context
+
+stdout | test/jobs/job-context.test.ts > SPEC-01 §6 / SPEC-06 §5 — execution re-evaluates against current state > "No context: the worker REFUSES the job. There is no default tenant."
+      · no membership and not a system actor: refused_no_context
+
+stdout | test/jobs/job-context.test.ts > SPEC-01 §6 / SPEC-06 §5 — execution re-evaluates against current state > "No context: the worker REFUSES the job. There is no default tenant."
+      · scope disagrees with the handler: refused_no_context
+
+stdout | test/jobs/job-context.test.ts > SPEC-01 §6 / SPEC-06 §5 — execution re-evaluates against current state > a job whose actor LOST the capability terminates cancelled_unauthorized, writing nothing
+      · role demoted between enqueue and execution: cancelled_unauthorized
+
+stdout | test/jobs/job-context.test.ts > SPEC-06 §7 — one evaluator, every path > the job handler declares the SAME SPEC-06 action object the HTTP route declares
+      · both surfaces evaluate membership.touch_self through packages/domain/src/authz — one truth table, one loader, one transaction
+
+stdout | test/jobs/job-context.test.ts > the dimensions the worker could NOT see before OPUS-M1-004 (SPEC-06 A-07) > L1: an entitlement revoked between enqueue and execution cancels the job
+      · entitlement revoked after enqueue: cancelled_unauthorized
+
+stdout | test/jobs/job-context.test.ts > the dimensions the worker could NOT see before OPUS-M1-004 (SPEC-06 A-07) > L2: the module made unavailable in the group cancels the job
+      · module availability withdrawn after enqueue: cancelled_unauthorized
+
+stdout | test/jobs/job-context.test.ts > the dimensions the worker could NOT see before OPUS-M1-004 (SPEC-06 A-07) > L4: an explicit DENY grant on the actor cancels the job (P-1)
+      · explicit deny grant: cancelled_unauthorized
+
+stdout | test/jobs/job-context.test.ts > the dimensions the worker could NOT see before OPUS-M1-004 (SPEC-06 A-07) > S-21: an INFINITE validity bound cancels the job instead of crashing the worker
+      · membership with valid_to = infinity: cancelled_unauthorized, no TypeError
+
+ ✓  api  test/jobs/job-context.test.ts (18 tests) 135ms
+stdout | test/audit/emission-coverage.test.ts > every existing mutation emits an audit event > the HTTP mutation emits one, attributed to the acting membership and the declared group
+      · HTTP touch → audit sequence 4, membership.activity_touched, actor 87b213c4-0668-46ca-9f57-fb8b9e9ae46c
+
+stdout | test/audit/emission-coverage.test.ts > every existing mutation emits an audit event > the JOB surface emits the SAME event against the SAME subject (SPEC-06 §7)
+      · job touch → the same event name, actor, group and subject as the HTTP surface
+
+stdout | test/audit/emission-coverage.test.ts > every existing mutation emits an audit event > a mutation that FAILS emits nothing — the audit write is in the same transaction (FAD-12)
+      · a failed mutation leaves 0 audit rows: the audit write shares its transaction
+
+stdout | test/audit/emission-coverage.test.ts > every existing mutation emits an audit event > the chain does not skip a sequence when a transaction rolls back
+      · a rolled-back append leaves no gap: the chain head is transactional too
+
+stdout | test/audit/emission-coverage.test.ts > every existing mutation emits an audit event > an actor-less draft is REFUSED rather than attributed to nobody
+      · "nobody was acting" and "we failed to resolve the actor" are kept distinguishable
+
+stdout | test/audit/emission-coverage.test.ts > OPUS-M1-004 — every module that WRITES also records > no route module or job handler writes without calling recordAuditEvent
+      · 5 mutating modules scanned, 5 record: http/routes/authorization.route.ts, http/routes/context-probe.route.ts, jobs/handlers.ts, profiles/qualifications.ts, profiles/work-profiles.ts
+
+stdout | test/audit/emission-coverage.test.ts > OPUS-M1-004 — every module that WRITES also records > RED: a module that mutates and records nothing is reported
+      · red case: 1 write form(s), 0 audit calls — reported
+
+stdout | test/audit/emission-coverage.test.ts > OPUS-M1-004 — every module that WRITES also records > RED: every write detector fires on its OWN fixture
+      · all 6 write detectors fire independently
+
+ ✓  api  test/audit/emission-coverage.test.ts (12 tests) 120ms
+stdout | test/tenancy/roles-and-schema.test.ts > A — environment and the SPEC-01 §4.4 role matrix > A-01 runs against a real PostgreSQL 17.x server (FAD-7 substitution)
+      · PostgreSQL 17.10 on x86_64-apple-darwin24.6.0, compiled by Apple clang version 17.0.0 (clang-1700.6.3.2), 64-bit
+
+stdout | test/tenancy/roles-and-schema.test.ts > A — environment and the SPEC-01 §4.4 role matrix > A-02 the five roles exist with exactly the attributes SPEC-01 §4.4 requires
+      · app_migrator: superuser=false bypassrls=false createrole=false
+      · app_runtime: superuser=false bypassrls=false createrole=false
+      · app_worker: superuser=false bypassrls=false createrole=false
+      · app_readonly_support: superuser=false bypassrls=false createrole=false
+      · app_breakglass: superuser=false bypassrls=true createrole=false
+
+stdout | test/tenancy/roles-and-schema.test.ts > A — environment and the SPEC-01 §4.4 role matrix > A-03 every tenant table has RLS ENABLED and FORCED, with at least one policy
+      · audit_checkpoints: enabled+forced, 3 policy/policies
+      · audit_events: enabled+forced, 4 policy/policies
+      · capability_grants: enabled+forced, 3 policy/policies
+      · entitlements: enabled+forced, 2 policy/policies
+      · group_holidays: enabled+forced, 1 policy/policies
+      · group_module_availability: enabled+forced, 2 policy/policies
+      · groups: enabled+forced, 2 policy/policies
+      · membership_weekday_fte: enabled+forced, 2 policy/policies
+      · membership_work_profiles: enabled+forced, 2 policy/policies
+      · memberships: enabled+forced, 4 policy/policies
+      · organizations: enabled+forced, 1 policy/policies
+      · outbox_effects: enabled+forced, 2 policy/policies
+      · outbox_events: enabled+forced, 2 policy/policies
+      · qualification_holdings: enabled+forced, 3 policy/policies
+      · qualifications: enabled+forced, 2 policy/policies
+      · role_capabilities: enabled+forced, 2 policy/policies
+      · roles: enabled+forced, 2 policy/policies
+      · shift_group_members: enabled+forced, 1 policy/policies
+      · shift_groups: enabled+forced, 1 policy/policies
+      · shift_type_weekday_demand: enabled+forced, 1 policy/policies
+      · shift_types: enabled+forced, 1 policy/policies
+      · staff_group_members: enabled+forced, 1 policy/policies
+      · staff_groups: enabled+forced, 1 policy/policies
+      · users: enabled+forced, 3 policy/policies
+      · valid_group_shift_types: enabled+forced, 1 policy/policies
+      · valid_groups: enabled+forced, 1 policy/policies
+
+stdout | test/tenancy/roles-and-schema.test.ts > A — environment and the SPEC-01 §4.4 role matrix > A-03b EVERY tenant-setting reference in EVERY policy is nullif-guarded
+      · audit_checkpoints.audit_checkpoints_maintenance_read: every reference guarded
+      · audit_checkpoints.audit_checkpoints_organization_insert: every reference guarded
+      · audit_checkpoints.audit_checkpoints_organization_read: every reference guarded
+      · audit_events.audit_events_group_insert: every reference guarded
+      · audit_events.audit_events_group_read: every reference guarded
+      · audit_events.audit_events_organization_insert: every reference guarded
+      · audit_events.audit_events_organization_read: every reference guarded
+      · capability_grants.capability_grants_group_scope: every reference guarded
+      · capability_grants.capability_grants_organization_administration: every reference guarded
+      · capability_grants.capability_grants_own: every reference guarded
+      · entitlements.entitlements_organization_read: every reference guarded
+      · entitlements.entitlements_organization_write: every reference guarded
+      · group_holidays.group_holidays_group_scope: every reference guarded
+      · group_module_availability.group_module_availability_group_scope: every reference guarded
+      · group_module_availability.group_module_availability_organization_scope: every reference guarded
+      · groups.groups_group_scope: every reference guarded
+      · groups.groups_organization_scope: every reference guarded
+      · membership_weekday_fte.membership_weekday_fte_group_scope: every reference guarded
+      · membership_weekday_fte.membership_weekday_fte_organization_scope: every reference guarded
+      · membership_work_profiles.membership_work_profiles_group_scope: every reference guarded
+      · membership_work_profiles.membership_work_profiles_organization_scope: every reference guarded
+      · memberships.memberships_group_scope: every reference guarded
+      · memberships.memberships_organization_administration: every reference guarded
+      · memberships.memberships_organization_read: every reference guarded
+      · memberships.memberships_organization_scope: every reference guarded
+      · organizations.organizations_tenant: every reference guarded
+      · outbox_effects.outbox_effects_group_scope: every reference guarded
+      · outbox_effects.outbox_effects_organization_scope: every reference guarded
+      · outbox_events.outbox_events_group_scope: every reference guarded
+      · outbox_events.outbox_events_organization_scope: every reference guarded
+      · qualification_holdings.qualification_holdings_group_administration: every reference guarded
+      · qualification_holdings.qualification_holdings_group_read_any: every reference guarded
+      · qualification_holdings.qualification_holdings_own: every reference guarded
+      · qualifications.qualifications_group_scope: every reference guarded
+      · qualifications.qualifications_organization_scope: every reference guarded
+      · role_capabilities.role_capabilities_organization_read: every reference guarded
+      · role_capabilities.role_capabilities_organization_write: every reference guarded
+      · roles.roles_organization_read: every reference guarded
+      · roles.roles_organization_write: every reference guarded
+      · shift_group_members.shift_group_members_group_scope: every reference guarded
+      · shift_groups.shift_groups_group_scope: every reference guarded
+      · shift_type_weekday_demand.shift_type_weekday_demand_group_scope: every reference guarded
+      · shift_types.shift_types_group_scope: every reference guarded
+      · staff_group_members.staff_group_members_group_scope: every reference guarded
+      · staff_groups.staff_groups_group_scope: every reference guarded
+      · users.users_readable_through_membership: every reference guarded
+      · users.users_updatable_through_membership: every reference guarded
+      · users.users_writable_under_organization_context: every reference guarded
+      · valid_group_shift_types.valid_group_shift_types_group_scope: every reference guarded
+      · valid_groups.valid_groups_group_scope: every reference guarded
+      · 201 individual tenant-setting references checked
+
+stdout | test/tenancy/roles-and-schema.test.ts > A — environment and the SPEC-01 §4.4 role matrix > A-04 FORCE RLS binds the OWNER too: app_migrator sees zero rows without context
+      · app_migrator reads 0 rows from every tenant table without context except audit_checkpoints (FAD-14's sanctioned maintenance read)
+
+stdout | test/tenancy/roles-and-schema.test.ts > A — environment and the SPEC-01 §4.4 role matrix > the FAD-14 maintenance read reaches app_migrator ALONE, and no runtime role
+      · FAD-14 maintenance read: app_migrator only; the three RLS-bound roles read 0 rows
+
+stdout | test/tenancy/roles-and-schema.test.ts > A — environment and the SPEC-01 §4.4 role matrix > A-05 no runtime role holds TRUNCATE or REFERENCES on ANY tenant table
+      · 104 (role, table) pairs checked, 0 TRUNCATE/REFERENCES violations
+
+stdout | test/tenancy/roles-and-schema.test.ts > A — environment and the SPEC-01 §4.4 role matrix > A-05b no runtime role holds TEMP on the database
+      · no runtime role holds TEMP; the trigger pins search_path=public, pg_temp (pg_temp last)
+
+stdout | test/tenancy/roles-and-schema.test.ts > A — environment and the SPEC-01 §4.4 role matrix > A-06 app_runtime cannot disable RLS on a table it does not own
+      · app_runtime: ALTER TABLE ... DISABLE ROW LEVEL SECURITY rejected 42501
+
+stdout | test/tenancy/roles-and-schema.test.ts > A — environment and the SPEC-01 §4.4 role matrix > A-07 app_readonly_support reads under context and is denied every write
+      · app_readonly_support: 4 memberships readable under context, UPDATE rejected 42501
+
+stdout | test/tenancy/roles-and-schema.test.ts > A — environment and the SPEC-01 §4.4 role matrix > A-08 app_breakglass genuinely differs: BYPASSRLS sees both organizations
+      · app_breakglass sees both of this file's organizations (of 45 in the cluster) with no context — the role is genuinely distinct
+
+stdout | test/tenancy/roles-and-schema.test.ts > X — sharp edges from the executed spike, re-proved against production schema > X-06 composite tenant FK: a cross-tenant membership reference is rejected
+      · cross-tenant membership INSERT under RLS rejected with SQLSTATE 42501
+
+stdout | test/tenancy/roles-and-schema.test.ts > X — sharp edges from the executed spike, re-proved against production schema > X-06 composite tenant FK: a cross-tenant membership reference is rejected
+      · cross-tenant membership reference rejected by the composite FK (23503) even as an authorized superuser
+
+stdout | test/tenancy/roles-and-schema.test.ts > X — sharp edges from the executed spike, re-proved against production schema > X-11 tenant-qualified unique keys keep 23505 inside the caller's own tenant
+      · audit_checkpoints_pkey: primary key on a server-generated id
+      · audit_events_identity_unique: tenant-qualified
+      · audit_events_pkey: primary key on a server-generated id
+      · audit_events_sequence_hash_unique: tenant-qualified
+      · capability_grants_pkey: primary key on a server-generated id
+      · capability_grants_tenant_identity: tenant-qualified
+      · entitlements_pkey: primary key on a server-generated id
+      · entitlements_tenant_identity: tenant-qualified
+      · group_holidays_date_unique_in_group: tenant-qualified
+      · group_holidays_pkey: primary key on a server-generated id
+      · group_holidays_tenant_identity: tenant-qualified
+      · group_module_availability_pkey: primary key on a server-generated id
+      · group_module_availability_unique_in_group: tenant-qualified
+      · groups_name_unique_in_organization: tenant-qualified
+      · groups_pkey: primary key on a server-generated id
+      · groups_tenant_identity: tenant-qualified
+      · membership_weekday_fte_pkey: primary key on a server-generated id
+      · membership_weekday_fte_tenant_identity: tenant-qualified
+      · membership_weekday_fte_unique_day: tenant-qualified
+      · membership_work_profiles_pkey: primary key on a server-generated id
+      · membership_work_profiles_tenant_identity: tenant-qualified
+      · memberships_one_org_membership_per_user: tenant-qualified
+      · memberships_one_per_user_and_group: tenant-qualified
+      · memberships_pkey: primary key on a server-generated id
+      · memberships_tenant_identity: tenant-qualified
+      · organizations_pkey: primary key on a server-generated id
+      · outbox_effects_pkey: primary key on a server-generated id
+      · outbox_events_idempotency_unique: tenant-qualified
+      · outbox_events_pkey: primary key on a server-generated id
+      · qualification_holdings_pkey: primary key on a server-generated id
+      · qualification_holdings_tenant_identity: tenant-qualified
+      · qualification_holdings_unique_issue: tenant-qualified
+      · qualifications_pkey: primary key on a server-generated id
+      · qualifications_tenant_identity: tenant-qualified
+      · qualifications_unique_key: tenant-qualified
+      · role_capabilities_pkey: primary key on a server-generated id
+      · role_capabilities_unique_in_organization: tenant-qualified
+      · roles_key_unique_in_organization: tenant-qualified
+      · roles_pkey: primary key on a server-generated id
+      · roles_tenant_identity: tenant-qualified
+      · shift_group_members_pkey: primary key on a server-generated id
+      · shift_group_members_unique_in_group: tenant-qualified
+      · shift_groups_name_unique_in_group: tenant-qualified
+      · shift_groups_pkey: primary key on a server-generated id
+      · shift_groups_tenant_identity: tenant-qualified
+      · shift_type_weekday_demand_pkey: primary key on a server-generated id
+      · shift_type_weekday_demand_unique_in_group: tenant-qualified
+      · shift_types_code_unique_in_group: tenant-qualified
+      · shift_types_pkey: primary key on a server-generated id
+      · shift_types_tenant_identity: tenant-qualified
+      · staff_group_members_pkey: primary key on a server-generated id
+      · staff_group_members_unique_in_group: tenant-qualified
+      · staff_groups_name_unique_in_group: tenant-qualified
+      · staff_groups_pkey: primary key on a server-generated id
+      · staff_groups_tenant_identity: tenant-qualified
+      · users_login_email_unique: GLOBAL (login identity)
+      · users_pkey: primary key on a server-generated id
+      · valid_group_shift_types_pkey: primary key on a server-generated id
+      · valid_group_shift_types_unique_in_group: tenant-qualified
+      · valid_groups_name_unique_in_group: tenant-qualified
+      · valid_groups_pkey: primary key on a server-generated id
+      · valid_groups_tenant_identity: tenant-qualified
+
+stdout | test/tenancy/roles-and-schema.test.ts > X — sharp edges from the executed spike, re-proved against production schema > X-09 SET LOCAL reverts the VALUE and does not undefine the GUC
+      · pristine=NULL, after COMMIT='', after ROLLBACK=''; predicate false, 0 rows, no 22P02
+
+stdout | test/tenancy/roles-and-schema.test.ts > X — sharp edges from the executed spike, re-proved against production schema > X-10 `SET LOCAL` cannot be parameterised; only set_config() can
+      · SET LOCAL with a bind parameter -> 42601; set_config(name, $1, true) -> accepted
+
+stdout | test/tenancy/roles-and-schema.test.ts > X — sharp edges from the executed spike, re-proved against production schema > X-07 an organization-scoped context is fail-closed on group-scoped rows
+      · organization-scoped context: 1 organization membership, 2 groups, all in Alpha
+
+stdout | test/tenancy/roles-and-schema.test.ts > OPUS-M1-004 — the registry accounts for EVERY table in the schema > every public table is either in TENANT_TABLES or declared with a reason
+      · 29 public tables: 26 tenant, 3 declared non-tenant, 0 unaccounted
+
+stdout | test/tenancy/roles-and-schema.test.ts > OPUS-M1-004 — the registry accounts for EVERY table in the schema > the audit and outbox tables are registered with the scope their POLICIES have
+      · four 0003 tables registered with the scope their policies actually implement
+
+stdout | test/tenancy/roles-and-schema.test.ts > R-05 — app_runtime's DML envelope is bounded by grants, not by convention > D/E: no runtime role holds column-level UPDATE on any freshness counter
+      · 8 (role, counter) pairs checked; none is application-writable
+
+stdout | test/tenancy/roles-and-schema.test.ts > R-05 — app_runtime's DML envelope is bounded by grants, not by convention > D/E: an attempted counter write under app_runtime is rejected 42501
+      · app_runtime UPDATE of organization_version rejected 42501
+
+stdout | test/tenancy/roles-and-schema.test.ts > R-05 — app_runtime's DML envelope is bounded by grants, not by convention > MONOTONIC: a counter cannot be moved backwards, even by a superuser
+      · organization_version and session_epoch both refuse to decrease (23001)
+
+stdout | test/tenancy/roles-and-schema.test.ts > R-05 — app_runtime's DML envelope is bounded by grants, not by convention > TRIGGER-MAINTAINED: a status change advances organization_version by itself
+      · status change advances organization_version; a name-only update does not
+
+stdout | test/tenancy/roles-and-schema.test.ts > R-05 — app_runtime's DML envelope is bounded by grants, not by convention > TRIGGER-MAINTAINED: a membership role change advances the user's membership_set_version
+      · role change bumps membership_set_version; last_active_at does not
+
+stdout | test/tenancy/roles-and-schema.test.ts > R-05 — app_runtime's DML envelope is bounded by grants, not by convention > F/B: DELETE is granted to no runtime role on any tenant table
+      · 104 (role, table) pairs checked; DELETE granted nowhere
+
+stdout | test/tenancy/roles-and-schema.test.ts > R-05 — app_runtime's DML envelope is bounded by grants, not by convention > F/B: an attempted DELETE under app_runtime is rejected 42501, inside the wrapper
+      · DELETE on memberships rejected 42501; the row survives
+
+stdout | test/tenancy/roles-and-schema.test.ts > EV-M1-TENANCY residuals 1, 2 and 4 — CLOSED by OPUS-M1-002 > RESIDUAL (1) CLOSED: an actor with no capability can no longer attach ANY user
+      · RESIDUAL 1 CLOSED: unauthorized attach -> 42501; foreign user's membership_set_version asserted unchanged at 2
+
+stdout | test/tenancy/roles-and-schema.test.ts > EV-M1-TENANCY residuals 1, 2 and 4 — CLOSED by OPUS-M1-002 > RESIDUAL (1) CLOSED, both directions: an AUTHORIZED administrator still can
+      · an authorized administrator can still create a membership — the gate is not a wall
+
+stdout | test/tenancy/roles-and-schema.test.ts > EV-M1-TENANCY residuals 1, 2 and 4 — CLOSED by OPUS-M1-002 > RESIDUAL (2) CLOSED: the FK is no longer a global user-id existence oracle
+      · RESIDUAL 2 CLOSED: a non-existent user id and an existing-but-invisible one now produce the SAME SQLSTATE (42501), so the pair discloses nothing
+
+stdout | test/tenancy/roles-and-schema.test.ts > EV-M1-TENANCY residuals 1, 2 and 4 — CLOSED by OPUS-M1-002 > RESIDUAL (4) CLOSED: a member cannot escalate its own role
+      · RESIDUAL 4 CLOSED: self role escalation refused 42501 for member and for scheduler
+
+stdout | test/tenancy/roles-and-schema.test.ts > EV-M1-TENANCY residuals 1, 2 and 4 — CLOSED by OPUS-M1-002 > a PRINCIPAL may not write a capability grant for any of their own memberships
+      · a self-grant is refused even for the organization administrator
+
+stdout | test/tenancy/roles-and-schema.test.ts > the counter bump enforces the unit of work > A-04 still holds for users: the owner reads zero rows without context
+      · app_migrator still reads 0 user rows without context; the policy is UPDATE-only
+
+stdout | test/tenancy/roles-and-schema.test.ts > the counter bump enforces the unit of work > EVERY policy on EVERY tenant table applies to PUBLIC — no role is exempted
+      · 50 policies checked; all apply TO public, none tests current_user
+
+stdout | test/tenancy/roles-and-schema.test.ts > the counter bump enforces the unit of work > a privilege-bearing membership change OUTSIDE a unit of work is refused — by TWO independent controls
+      · membership status change with no context: 42501 (capability guard); with an actor but no tenant context: 23001 (counter trigger). Row unchanged either way.
+
+stdout | test/tenancy/roles-and-schema.test.ts > the counter bump enforces the unit of work > the SAME change INSIDE a unit of work succeeds and advances the counter
+      · the same change inside a unit of work advances membership_set_version twice
+
+ ✓  api  test/tenancy/roles-and-schema.test.ts (37 tests) 179ms
+stdout | test/authz/no-explanation-leaks.test.ts > the evaluator produces real explanations — the check below is not vacuous > there are many distinct explanations, and each is a sentence
+      · 19 distinct denial explanations exist and must never ship
+
+stdout | test/authz/no-explanation-leaks.test.ts > no denial explanation, reason code, step or capability key reaches the client > the 403 and 404 bodies are FIXED — the same for every reason
+      · L4.1 and L4.2 produce byte-identical 403 bodies
+
+ ✓  api  test/authz/no-explanation-leaks.test.ts (5 tests) 103ms
+stdout | test/audit/chain.test.ts > SPEC-11 §2 — the hash chain > assigns a gapless per-organization sequence and links each row to the last
+      · 5 events: sequence 4..8, each prev_hash equals the previous entry_hash
+
+stdout | test/audit/chain.test.ts > SPEC-11 §2 — the hash chain > prev_hash is part of the HASHED INPUT, not merely a stored neighbour
+      · prev_hash participates in the hash: changing only it changes entry_hash
+
+stdout | test/audit/chain.test.ts > SPEC-11 §2 — the hash chain > the application CANNOT name a chain column: the grant does not include it
+      · naming sequence/prev_hash/entry_hash in an INSERT raises 42501 (insufficient_privilege)
+
+stdout | test/audit/chain.test.ts > SPEC-11 §2 — the hash chain > the chain is per ORGANIZATION, with a genesis bound to the organization id
+      · each organization's chain begins at sequence 1 from its own genesis link
+
+stdout | test/audit/chain.test.ts > SPEC-11 §2 — the hash chain > verification reports an intact chain
+      · chain intact: 10 entries, head 10
+
+stdout | test/audit/chain.test.ts > SPEC-11 §2 — the hash chain > verification REFUSES a group-scoped context rather than returning a wrong answer
+      · a group-scoped verification is refused (it would see a subset and cry wolf)
+
+stdout | test/audit/chain.test.ts > SPEC-11 §10 X-01 — an edited audit row is detected > a privileged UPDATE that defeats the trigger is caught by chain verification
+      · X-01: a privileged edit at sequence 2 produced 1 problem(s): entry_hash_mismatch
+
+stdout | test/audit/chain.test.ts > SPEC-11 §10 X-03 — a deleted row leaves a gap that is recorded explicitly > the gap is a first-class finding, and restoring the row closes it
+      · X-03: deleting sequence 12 is recorded as an explicit sequence_gap at 13 (plus 1 hash problem(s))
+
+stdout | test/audit/chain.test.ts > SPEC-11 §10 X-03 — a deleted row leaves a gap that is recorded explicitly > the gap is a first-class finding, and restoring the row closes it
+      · X-03: the row restored verbatim closes the gap — the chain verifies again
+
+stdout | test/audit/chain.test.ts > SPEC-11 §10 X-02 — a consistently rewritten segment is caught by the SIGNATURE > the chain verifies against itself after a competent rewrite, and the checkpoint does not
+      · X-02/R-04: rewriting a CHECKPOINTED row is refused by the composite foreign key (23503) — prevention, not merely detection
+
+stdout | test/audit/chain.test.ts > SPEC-11 §10 X-02 — a consistently rewritten segment is caught by the SIGNATURE > the chain verifies against itself after a competent rewrite, and the checkpoint does not
+      · X-02: after a consistent rewrite the chain verifies (intact=true) and the checkpoint at sequence 5 reports signatureValid=true matchesChain=false
+
+stdout | test/audit/chain.test.ts > SPEC-11 §10 X-02 — a consistently rewritten segment is caught by the SIGNATURE > the chain verifies against itself after a competent rewrite, and the checkpoint does not
+      · X-02: the dropped foreign key cannot be re-added — the chain and the checkpoint disagree
+
+stdout | test/audit/chain.test.ts > SPEC-11 §10 X-02 — a consistently rewritten segment is caught by the SIGNATURE > the local signer is HONEST about not being an assurance control
+      · LocalCheckpointSigner.keyIsIsolated === false (real KMS is a deployment condition)
+
+stdout | test/audit/chain.test.ts > SPEC-11 §10 X-02 — a consistently rewritten segment is caught by the SIGNATURE > a checkpoint does not verify under a DIFFERENT key of the same id
+      · a checkpoint does not verify under different key material, even with the same key id
+
+stdout | test/audit/chain.test.ts > non-bypass rule 6 — append-only, per role > app_runtime holds NO update, delete, truncate or references grant
+      · app_runtime on audit_events: table=[SELECT] insertable columns=[actor_kind, actor_membership_id, correlation_id, event_name, group_id, id, organization_id, payload, subject_id, subject_type]
+
+stdout | test/audit/chain.test.ts > non-bypass rule 6 — append-only, per role > app_worker holds NO update, delete, truncate or references grant
+      · app_worker on audit_events: table=[SELECT] insertable columns=[actor_kind, actor_membership_id, correlation_id, event_name, group_id, id, organization_id, payload, subject_id, subject_type]
+
+stdout | test/audit/chain.test.ts > non-bypass rule 6 — append-only, per role > the OWNER updates ZERO rows — there is no UPDATE policy at all
+      · app_migrator (the table owner) UPDATE affects 0 rows: no UPDATE policy exists
+
+stdout | test/audit/chain.test.ts > non-bypass rule 6 — append-only, per role > the SUPERUSER is refused too, and so is replica mode
+      · superuser UPDATE / DELETE / TRUNCATE CASCADE all refused (23001), including under session_replication_role = 'replica'
+
+stdout | test/audit/chain.test.ts > non-bypass rule 6 — append-only, per role > audit_checkpoints is append-only on the same terms
+      · audit_checkpoints: superuser UPDATE / DELETE / TRUNCATE all refused (23001)
+
+stdout | test/audit/chain.test.ts > non-bypass rule 6 — append-only, per role > an outbox row cannot be re-pointed at a different audit event, or deleted
+      · outbox rows: the audit link is immutable and the row is not deletable
+
+stdout | test/audit/chain.test.ts > non-bypass rule 6 — append-only, per role > NO role holds any grant at all on audit_chain_heads
+      · audit_chain_heads: no grant to any role but its owner
+
+stdout | test/audit/chain.test.ts > tenant isolation of the audit tables > a group-scoped context reads only its own group's audit rows
+      · group scoping: 1 in its own group, 0 from the sibling, 1 org-wide, 0 cross-tenant
+
+stdout | test/audit/chain.test.ts > tenant isolation of the audit tables > a group-scoped writer CANNOT file an audit row against a sibling group
+      · a group-scoped context cannot write an audit row attributed to a sibling group
+
+stdout | test/audit/chain.test.ts > tenant isolation of the audit tables > outside a unit of work, every audit table is empty and unwritable
+      · outside a unit of work: 0 rows visible on all three tables, INSERT refused (42501)
+
+stdout | test/audit/chain.test.ts > second-review findings — the holes the first submission left > R-01: a TAIL TRUNCATION above the last checkpoint is detected
+      · R-01: head says 20, chain stops at 16 → head_sequence_ahead_of_chain at 17, while every checkpoint still verified and matched
+
+stdout | test/audit/chain.test.ts > second-review findings — the holes the first submission left > R-01: the head row that makes that check possible is monotonic and undeletable
+      · audit_chain_heads: DELETE, rewind and TRUNCATE all refused (23001)
+
+stdout | test/audit/chain.test.ts > second-review findings — the holes the first submission left > R-05: verification REFUSES an organization id that is not the session tenant
+      · R-05: a foreign organization id and a missing context both raise 23001, not "clean"
+
+stdout | test/audit/chain.test.ts > second-review findings — the holes the first submission left > R-04: a checkpoint CANNOT be signed over a hash the chain never had
+      · R-04: a checkpoint naming a hash the chain never had is refused (23503)
+
+stdout | test/audit/chain.test.ts > second-review findings — the holes the first submission left > R-06: a GROUP-scoped context reads zero checkpoints
+      · R-06: organization-scoped sees 4 checkpoint(s), group-scoped sees 0
+
+stdout | test/audit/chain.test.ts > second-review findings — the holes the first submission left > the cross-tenant maintenance read is reachable by NO application role
+      · both maintenance-read policies are FOR SELECT TO app_migrator only; the enumeration function is granted to app_worker only; app_runtime cannot call it (42501)
+
+ ✓  api  test/audit/chain.test.ts (27 tests) 167ms
+stdout | test/fixture/multi.test.ts > MULTI determinism — two provisions produce canonically identical content > identifier minting is deterministic for a given slug
+      · minting is deterministic per slug and disjoint across slugs
+
+stdout | test/fixture/multi.test.ts > MULTI determinism — two provisions produce canonically identical content > two independently provisioned fixtures are canonically identical
+      · double-provision comparison: 20 memberships, identical modulo minted identity (ids, slug-derived addresses, timestamps)
+
+stdout | test/fixture/multi.test.ts > MULTI determinism — two provisions produce canonically identical content > the comparison is not vacuous — a single changed row breaks it
+      · a single changed group name breaks the comparison — it is comparing something
+
+stdout | test/fixture/multi.test.ts > MULTI supports the ten things doc 16 §3 requires of it > 1 + 2: at least two organizations, each with at least two groups
+      · 3 organizations, each with >= 2 groups
+
+stdout | test/fixture/multi.test.ts > MULTI supports the ten things doc 16 §3 requires of it > 3: one user holds DIFFERENT roles in different memberships
+      · one principal, two memberships, roles [group_admin, viewer]
+
+stdout | test/fixture/multi.test.ts > MULTI supports the ten things doc 16 §3 requires of it > 4: users cover every SPEC-06 role, and the suspended / invited / ended cases exist
+      · group roles [group_admin, member, scheduler, telecom, viewer] · organization roles [org_admin, org_observer] · statuses [active, ended, invited, suspended]
+
+stdout | test/fixture/multi.test.ts > MULTI supports the ten things doc 16 §3 requires of it > 5: an entitlement-ON and an entitlement-OFF organization both exist
+      · Alpha is entitled to core_scheduling; Gamma deliberately is not
+
+stdout | test/fixture/multi.test.ts > MULTI supports the ten things doc 16 §3 requires of it > 6: a cross-ORGANIZATION read is denied — zero rows, not an error
+      · cross-organization read under an Alpha context: 0 rows
+
+stdout | test/fixture/multi.test.ts > MULTI supports the ten things doc 16 §3 requires of it > 7: a cross-GROUP read inside ONE organization is denied
+      · cross-group: 0 rows from Group One, 5 from Group Two
+
+stdout | test/fixture/multi.test.ts > MULTI supports the ten things doc 16 §3 requires of it > 8: organization-scoped administration works, and group-scoped operations work
+      · organization scope sees 2 groups; group scope sees exactly its own
+
+stdout | test/fixture/multi.test.ts > MULTI supports the ten things doc 16 §3 requires of it > 9: the maintenance plane can be tested against it
+      · maintenance plane reads checkpoints for 3 of this fixture's organizations
+
+stdout | test/fixture/multi.test.ts > MULTI supports the ten things doc 16 §3 requires of it > 10: it is provisioned by ONE owner, and this file ran standalone to prove it
+      · every user in this fixture carries the provisioner slug — one owner, no strays
+
+ ✓  api  test/fixture/multi.test.ts (12 tests) 157ms
+stdout | test/catalogue/cross-tenant-sweep.test.ts > the catalogue is invisible across both boundaries > CONTROL: both tenants really do hold catalogue rows
+      · 9 catalogue tables populated in BOTH fixture organizations
+
+stdout | test/catalogue/cross-tenant-sweep.test.ts > the catalogue is invisible across both boundaries > CONTROL: the SIBLING group holds rows in every table — the cross-group arm can fail
+      · Alpha sibling group 659a581b: shift_types=2 shift_type_weekday_demand=4 shift_groups=1 shift_group_members=2 staff_groups=1 staff_group_members=1 valid_groups=1 valid_group_shift_types=2 group_holidays=1
+
+stdout | test/catalogue/cross-tenant-sweep.test.ts > the catalogue is invisible across both boundaries > CONTROL: the SIBLING group holds rows in every table — the cross-group arm can fail
+      · Beta sibling group b2768467: shift_types=2 shift_type_weekday_demand=4 shift_groups=1 shift_group_members=2 staff_groups=1 staff_group_members=1 valid_groups=1 valid_group_shift_types=2 group_holidays=1
+
+stdout | test/catalogue/cross-tenant-sweep.test.ts > the catalogue is invisible across both boundaries > Alpha Group One sees zero rows from Beta and zero from Alpha Group Two
+      · Alpha/GroupOne sweep: shift_types=2 shift_type_weekday_demand=6 shift_groups=1 shift_group_members=2 staff_groups=1 staff_group_members=1 valid_groups=1 valid_group_shift_types=2 group_holidays=1 — 0 wrong-organization, 0 wrong-group, with 15 sibling-group row(s) present and correctly invisible
+
+stdout | test/catalogue/cross-tenant-sweep.test.ts > the catalogue is invisible across both boundaries > Beta Group One sees zero rows from Alpha — the same sweep, from the other side
+      · Beta/GroupOne sweep: 0 wrong-organization, 0 wrong-group, every table non-vacuous
+
+stdout | test/catalogue/cross-tenant-sweep.test.ts > the catalogue is invisible across both boundaries > an ORGANIZATION-scoped context sees NO catalogue rows at all — the policy is group-only
+      · organization-scoped context: 0 rows on all nine catalogue tables (group predicate only)
+
+stdout | test/catalogue/cross-tenant-sweep.test.ts > the catalogue is invisible across both boundaries > FALSIFIABILITY: the same sweep measured against the WRONG tenant reports wrong > 0
+      · falsifiability: every catalogue table reports wrong > 0 against the wrong expectation
+
+stdout | test/catalogue/cross-tenant-sweep.test.ts > the catalogue is invisible across both boundaries > a write declaring Alpha but naming Beta's group is refused, not silently retenanted
+      · cross-group INSERT declaring Alpha/GroupOne and naming GroupTwo → 42501, nothing written
+
+ ✓  api  test/catalogue/cross-tenant-sweep.test.ts (7 tests) 132ms
+stdout | test/audit/outbox-dispatch.test.ts > the outbox write is atomic with the domain change > COMMIT → domain row, audit row, outbox row and queue job all exist
+      · commit → outbox 3054b996-2426-4d4d-ad80-6bb4ec1fb94d linked to audit sequence 4, queue job 121
+
+stdout | test/audit/outbox-dispatch.test.ts > the outbox write is atomic with the domain change > ROLLBACK → no domain change, no audit row, no outbox row and NO QUEUE JOB
+      · rollback → 0 audit rows, 0 outbox rows, 0 queue jobs (the outbox property, in situ)
+
+stdout | test/audit/outbox-dispatch.test.ts > the outbox write is atomic with the domain change > a duplicate idempotency key is refused at the database
+      · a repeated idempotency key raises 23505 — a duplicate publication is impossible
+
+stdout | test/audit/outbox-dispatch.test.ts > dispatch > delivers once, marks the row, and audits the dispatch
+      · dispatch → delivered once, row marked, one outbox.dispatched audit event
+
+stdout | test/audit/outbox-dispatch.test.ts > dispatch > AT-LEAST-ONCE: a redelivery is suppressed by the idempotency key, not by luck
+      · redelivery: outbox CAS (already_dispatched) AND a durable primary-key refusal, independently — one row in outbox_effects
+
+stdout | test/audit/outbox-dispatch.test.ts > I-11 — a delivery failure NEVER rolls back the domain change > the domain row, the audit row and the outbox row all survive a failing sink
+      · I-11: a failing sink left the domain row, the audit row and the chain intact; the outbox row records last_error_code=sink_unavailable
+
+stdout | test/audit/outbox-dispatch.test.ts > I-11 — a delivery failure NEVER rolls back the domain change > the recorded failure is a CODE and cannot be an exception message
+      · last_error_code accepts a code and rejects an exception message (SQLSTATE 23514)
+
+stdout | test/audit/outbox-dispatch.test.ts > nothing leaves the machine > no module the dispatcher reaches imports an outbound-network client
+      · 4 dispatch-path modules: no outbound-network import
+
+stdout | test/audit/outbox-dispatch.test.ts > R-02 — the two windows in which the same event was delivered twice > TWO CONCURRENT DISPATCHERS: one effect, one audit event, one delivery
+      · R-02(a): two concurrent dispatchers → outcomes [already_dispatched, delivered], 1 effect row, 1 outbox.dispatched audit event
+
+stdout | test/audit/outbox-dispatch.test.ts > R-02 — the two windows in which the same event was delivered twice > CRASH AFTER THE EFFECT, before the dispatched mark: the replacement does NOT re-apply
+      · R-02(b): effect applied on attempt 1, dispatcher died before the mark; the replacement re-ran, was suppressed by the primary key, applied nothing, and completed the bookkeeping
+
+stdout | test/audit/outbox-dispatch.test.ts > R-02 — the two windows in which the same event was delivered twice > the effect row itself is append-only — a suppressed duplicate cannot overwrite it
+      · outbox_effects: UPDATE and DELETE both refused (23001)
+
+ ✓  api  test/audit/outbox-dispatch.test.ts (12 tests) 133ms
+stdout | test/catalogue/service.test.ts > shift types > crossesMidnight is DERIVED, and the caller cannot send it
+      · 07:00→19:00 crossesMidnight=false; 19:00→07:00 crossesMidnight=true, both derived
+
+stdout | test/catalogue/service.test.ts > shift types > a manual-only type cannot also be a daily-pick type — the flags contradict
+      · refused with a field-addressed problem: A manually assigned shift type is not offered in the daily pick. Turn one of the two off.
+
+stdout | test/catalogue/service.test.ts > shift types > a duplicate code in the same group is a CONFLICT, and the key is tenant-qualified
+      · code "DUP5": duplicate in the same group → 23505; the same code in another group → ok
+
+stdout | test/catalogue/service.test.ts > shift types > retirement closes the in-force window and keeps the row
+      · retirement: window closed, row kept, and the transition fires exactly once
+
+stdout | test/catalogue/service.test.ts > shift types > the update contract cannot carry a code, and the database would refuse it anyway
+      · updateShiftTypeRequestSchema rejects `code` — a shift type's permanent name is permanent
+
+stdout | test/catalogue/service.test.ts > shift types > a stored shift type round-trips through its contract
+      · shift type round-trips: numeric → number, time → HH:MM, tokens preserved
+
+stdout | test/catalogue/service.test.ts > per-weekday and holiday demand > a set replaces, and an absent day reads as zero rather than as missing
+      · demand upsert: Monday 3 → 5 in place; eight days always returned; absent days read 0
+
+stdout | test/catalogue/service.test.ts > per-weekday and holiday demand > the same day twice in one request is refused before any statement
+      · duplicate day → invalid, and nothing was written
+
+stdout | test/catalogue/service.test.ts > per-weekday and holiday demand > demand for a shift type in ANOTHER group is a 404-shaped not-found
+      · demand against another group's shift type → not-found, indistinguishable from absent
+
+stdout | test/catalogue/service.test.ts > shift groups > a hard group carries no weight, and the contract makes the alternative unrepresentable
+      · hard shift group: weight null, request-off label null
+
+stdout | test/catalogue/service.test.ts > shift groups > membership changes de-bundle by is_active, never by DELETE
+      · de-bundling: 2 membership rows survive, 1 active — history intact
+
+stdout | test/catalogue/service.test.ts > shift groups > a shift type from another group cannot be bundled
+      · bundling another group's shift type → invalid, named on the shiftTypeIds field
+
+stdout | test/catalogue/service.test.ts > the group holiday calendar > one date per group, and a duplicate is a conflict
+      · group holiday: 2028-05-01 accepted once; the same date again → 23505
+
+stdout | test/catalogue/service.test.ts > the group holiday calendar > a calendar date is stored and returned without moving
+      · calendar date 2028-01-01 stored and read back unchanged
+
+ ✓  api  test/catalogue/service.test.ts (14 tests) 119ms
+stdout | test/profiles/history-immutability.test.ts > a work-profile window that has ALREADY ENDED cannot be touched > RED — closing a window in the PAST is refused (retroactive close)
+      · a retroactive close is refused: history is what has already elapsed
+
+stdout | test/profiles/history-immutability.test.ts > a work-profile window that has ALREADY ENDED cannot be touched > RED — no runtime role can reach a work-percentage UPDATE at all
+      · the column-level grant and the trigger are two independent controls, both firing
+
+stdout | test/profiles/history-immutability.test.ts > a work-profile window that has ALREADY ENDED cannot be touched > a correction is a NEW row, and the elapsed history is still there afterwards
+      · an administrative correction adds a row; the row it corrects is still readable
+
+stdout | test/profiles/history-immutability.test.ts > T-01 — history is not AUTHORED either > GREEN control — a FUTURE effectiveFrom is accepted
+      · a future-dated effectiveFrom is still accepted — future-dating is not what was refused
+
+stdout | test/profiles/history-immutability.test.ts > T-01 — history is not AUTHORED either > RED — an instant BEFORE the first window is refused with no row and no audit row
+      · a retro-dated authoring before the first window: 0 rows written, 0 audit rows
+
+stdout | test/profiles/history-immutability.test.ts > T-01 — history is not AUTHORED either > RED — an instant inside a GAP between two windows is refused
+      · a retro-dated authoring into a gap: refused, 0 rows, 0 audit rows
+
+stdout | test/profiles/history-immutability.test.ts > archive, never delete > RED — deleting a qualification that has holdings is refused, even for the owner
+      · a qualification with holdings cannot be deleted — retire it instead
+
+stdout | test/profiles/history-immutability.test.ts > archive, never delete > T-05 — owner DELETE is refused on ALL FOUR tables
+      · owner DELETE refused with 23001 on all four staffing tables
+
+stdout | test/profiles/history-immutability.test.ts > archive, never delete > RED — deleting a qualification HOLDING is refused unconditionally (retained for audit)
+      · a qualification holding is retained after expiry for audit — delete is refused
+
+stdout | test/profiles/history-immutability.test.ts > archive, never delete > GREEN then RED — the status machine permits valid -> expired and refuses expired -> valid
+      · the credential status machine is enforced at the database; `revoked` and `expired` do not go back
+
+ ✓  api  test/profiles/history-immutability.test.ts (19 tests) 135ms
+stdout | test/authz/schema.test.ts > the authorization tables are tenant tables in every sense > RLS is ENABLED and FORCED on all five
+      · 5 authorization tables: RLS enabled and forced
+
+stdout | test/authz/schema.test.ts > the authorization tables are tenant tables in every sense > A-03b: EVERY current_setting reference in EVERY new policy is nullif-guarded
+      · 55 current_setting references checked, all nullif-guarded
+
+stdout | test/authz/schema.test.ts > the authorization tables are tenant tables in every sense > no policy on a table the capability probe READS calls it — that would be infinite recursion
+      · probe-reads: memberships, roles, role_capabilities, capability_grants; policies calling it: qualification_holdings.qualification_holdings_group_read_any, qualification_holdings.qualification_holdings_group_administration
+
+stdout | test/authz/schema.test.ts > the authorization tables are tenant tables in every sense > composite tenant FKs, and tenant-qualified unique keys
+      · 7 FKs and 6 unique keys, all tenant-qualified
+
+stdout | test/authz/schema.test.ts > the authorization tables are tenant tables in every sense > DELETE is granted to no runtime role on any authorization table
+      · 60 (role, table, privilege) triples checked; none granted
+
+stdout | test/authz/schema.test.ts > the authorization tables are tenant tables in every sense > T-13: outside a unit of work every authorization table returns zero rows
+      · all five authorization tables fail closed outside the wrapper
+
+stdout | test/authz/schema.test.ts > the authorization tables are tenant tables in every sense > S-05 / T-13b: a group-scoped context sees only its OWN grants, not the group's
+      · under a group context a principal sees their OWN grants and no others
+
+stdout | test/authz/schema.test.ts > the authorization tables are tenant tables in every sense > S-05: an organization role WITHOUT the administration capability reads no grants
+      · org_observer reads 0 grants; org_admin reads 3 — EX-2's gate is applied, not just cited
+
+stdout | test/authz/schema.test.ts > SPEC-06 P-7 / A-12 — overlapping grant windows are rejected by the exclusion constraint > the constraint exists, and is a gist EXCLUDE over the window
+      · EXCLUDE USING gist (organization_id WITH =, membership_id WITH =, capability_key WITH =, tstzrange(valid_from, valid_to, '[)'::text) WITH &&)
+
+stdout | test/authz/schema.test.ts > SPEC-06 P-7 / A-12 — overlapping grant windows are rejected by the exclusion constraint > A-12: a second, OVERLAPPING window for the same (membership, capability) is rejected 23P01
+      · overlapping window rejected 23P01; a touching window at the same instant accepted
+
+stdout | test/authz/schema.test.ts > the seeded role capabilities match the catalogue > every seeded (role, capability) pair is catalogued at the role's own scope (P-10)
+      · 13 seeded role capabilities, all catalogued at the matching scope
+
+stdout | test/authz/schema.test.ts > S-22 — infinite window bounds are rejected, on every effective-dated table > a FINITE bound is still accepted — the constraint is not a blanket refusal
+      · infinite bounds refused on all three tables; a finite bound still lands
+
+ ✓  api  test/authz/schema.test.ts (26 tests) 113ms
+stdout | test/red-cases/probe-is-not-vacuous.test.ts > the wrong-tenant probe reports a violation when one is expected > RED: probing Group One's rows against Group Two's expectation reports wrong > 0
+      · probe against a deliberately wrong expectation: [["organizations",0],["groups",1],["users",3],["memberships",4],["roles",0],["role_capabilities",0],["capability_grants",3],["entitlements",0],["group_module_availability",3],["audit_events",1],["audit_checkpoints",0],["outbox_events",1],["outbox_effects",1],["membership_work_profiles",1],["membership_weekday_fte",8],["qualifications",1],["qualification_holdings",1],["shift_types",2],["shift_type_weekday_demand",6],["shift_groups",1],["shift_group_members",2],["staff_groups",1],["staff_group_members",1],["valid_groups",1],["valid_group_shift_types",2],["group_holidays",1]]
+
+stdout | test/red-cases/probe-is-not-vacuous.test.ts > the wrong-tenant probe reports a violation when one is expected > RED: probing Alpha's rows against Beta's expectation reports wrong > 0 on every table
+      · every tenant table reports wrong > 0 when probed against the other organization
+
+stdout | test/red-cases/probe-is-not-vacuous.test.ts > the ground-truth census reports a violation when one is planted > RED: a row in a partition that does not exist is flagged
+      · census flagged 1 impossible partition(s) when one was withheld
+
+ ✓  api  test/red-cases/probe-is-not-vacuous.test.ts (5 tests) 118ms
+stdout | test/profiles/loader-writer-agreement.test.ts > the writer supersedes exactly the row the reader reports > with a history present, precondition and reader agree at every instant that has a row
+      · writer/reader agreement at 5 instants (5 with a row in force), 0 disagreements
+
+stdout | test/profiles/loader-writer-agreement.test.ts > the writer supersedes exactly the row the reader reports > an actual supersession closes the row the precondition named, and no other
+      · supersession produces exactly adjacent half-open windows — no gap, no overlap
+
+stdout | test/profiles/loader-writer-agreement.test.ts > the writer supersedes exactly the row the reader reports > a FUTURE-dated supersession closes the row in force AT THAT FUTURE INSTANT
+      · a change dated 90 days out leaves the present verdict untouched
+
+stdout | test/profiles/loader-writer-agreement.test.ts > the agreement holds against a concurrent writer > a row committed by another transaction cannot make the precondition stale
+      · concurrent supersession: outer transaction wrote; 3 window(s), exactly 1 open-ended, 0 overlapping
+
+ ✓  api  test/profiles/loader-writer-agreement.test.ts (4 tests) 106ms
+stdout | test/catalogue/referenced-shift-type-not-deletable.test.ts > archive-not-delete, proven at the database > CONTROL: the owner CAN delete an UNREFERENCED shift type — so the refusals below mean something
+      · CONTROL: an unreferenced shift type is deletable by the owner — the probe can delete
+
+stdout | test/catalogue/referenced-shift-type-not-deletable.test.ts > archive-not-delete, proven at the database > the OWNER cannot delete a shift type referenced by a shift group, valid group or demand row
+      · OWNER delete of a referenced shift type → 23503 (foreign_key_violation); references: shift_type_weekday_demand=3, shift_group_members=1, valid_group_shift_types=1
+
+stdout | test/catalogue/referenced-shift-type-not-deletable.test.ts > archive-not-delete, proven at the database > no runtime role holds DELETE on ANY of the nine catalogue tables
+      · 36 (role, catalogue table) pairs checked; DELETE granted nowhere
+
+stdout | test/catalogue/referenced-shift-type-not-deletable.test.ts > archive-not-delete, proven at the database > an attempted DELETE under app_runtime is refused 42501 INSIDE the unit of work
+      · app_runtime DELETE on shift_types → 42501, inside the wrapper
+
+stdout | test/catalogue/referenced-shift-type-not-deletable.test.ts > archive-not-delete, proven at the database > RETIREMENT is the path that works, and it keeps every reference resolvable
+      · retirement: status → retired, effective_to closed, every reference still resolvable
+
+ ✓  api  test/catalogue/referenced-shift-type-not-deletable.test.ts (5 tests) 95ms
+stdout | test/catalogue/sweep-mutation.test.ts > the cross-group arm of the sweep can be made to fail > GREEN: unmutated, Alpha Group One sees zero rows from its sibling group
+      · GREEN: 0 wrong-group on all nine tables, every table non-vacuous
+
+stdout | test/catalogue/sweep-mutation.test.ts > the cross-group arm of the sweep can be made to fail > RED: with the group clause dropped from every policy, the sweep reports wrong-group rows
+      · RED (group clause dropped, organization clause kept): shift_types=2 shift_type_weekday_demand=4 shift_groups=1 shift_group_members=2 staff_groups=1 staff_group_members=1 valid_groups=1 valid_group_shift_types=2 group_holidays=1 — the sweep would fail, as it must
+
+stdout | test/catalogue/sweep-mutation.test.ts > the cross-group arm of the sweep can be made to fail > the rollback restored every policy — verified from a FRESH connection
+      · 9 catalogue policies intact after the rolled-back mutation
+
+ ✓  api  test/catalogue/sweep-mutation.test.ts (4 tests) 99ms
+stdout | test/profiles/isolation.test.ts > the ORGANIZATION boundary > positive control — Beta's own context sees Beta's rows
+      · Beta sees its own rows in all four tables: {"membership_work_profiles":1,"membership_weekday_fte":1,"qualifications":1,"qualification_holdings":1}
+
+stdout | test/profiles/isolation.test.ts > the ORGANIZATION boundary > an ALPHA context sees ZERO of Beta's rows, by row id
+      · cross-organization read: 0 rows in all four tables, probed by row id
+
+stdout | test/profiles/isolation.test.ts > the GROUP boundary > a GROUP ONE context sees zero of group TWO's rows
+      · cross-group read within one organization: 0 rows in all four tables
+
+stdout | test/profiles/isolation.test.ts > no statement reaches these tables outside a unit of work (I-15) > a read with NO transaction-local context returns zero rows from every table
+      · with no tenant context all four tables return zero rows — fail closed, not fail open
+
+ ✓  api  test/profiles/isolation.test.ts (8 tests) 93ms
+stdout | test/red-cases/fixture-isolation-controls.test.ts > red case — the Layer 1 baseline control catches a write to the shared fixture > GREEN: with the baseline untouched, the control reports no violation
+      · control is quiet on an untouched baseline
+
+stdout | test/red-cases/fixture-isolation-controls.test.ts > red case — the Layer 1 baseline control catches a write to the shared fixture > RED: one row changed in the baseline, and the control names the table
+      · control caught the tampering: public.groups: 1 row(s) appeared, 1 row(s) removed or modified in place (4 -> 4)
+
+stdout | test/red-cases/fixture-isolation-controls.test.ts > red case — the Layer 1 baseline control catches a write to the shared fixture > RED: one row changed in the baseline, and the control names the table
+      · baseline restored; the control is quiet again
+
+stdout | test/red-cases/fixture-isolation-controls.test.ts > red case — a hidden order dependence is caught by the new fixture strategy > RED: run second-then-first, the coupled pair FAILS
+      · the coupled pair fails when its unstated precondition has not run
+
+stdout | test/red-cases/fixture-isolation-controls.test.ts > red case — a hidden order dependence is caught by the new fixture strategy > GREEN: run first-then-second, the same pair passes — so the failure was the ORDER
+      · the same pair passes in the declared order — the defect is the dependency, not the code
+
+stdout | test/red-cases/fixture-isolation-controls.test.ts > red case — a hidden order dependence is caught by the new fixture strategy > GREEN: a test that OWNS its state passes in BOTH orders — run both
+      · the state-owning pair passes run twice from cleared state; the coupled one still fails
+
+ ✓  api  test/red-cases/fixture-isolation-controls.test.ts (5 tests) 93ms
+stdout | test/authz/fail-closed-guard.test.ts > a capability route that forgets to evaluate cannot return success > the FORGETFUL route answers 500, not 200, for a fully authorized request
+      · a capability route that skips evaluation is converted to 500 by the onSend guard
+
+ ✓  api  test/authz/fail-closed-guard.test.ts (4 tests) 75ms
+stdout | test/profiles/in-force-determinism.test.ts > in-force determinism against stored rows > the fixture really has four adjacent windows — otherwise everything below is vacuous
+      · four stored windows for one membership: 100% -> 80% -> 60% -> 40%
+
+stdout | test/profiles/in-force-determinism.test.ts > in-force determinism against stored rows > the exact instant of change belongs to the SUCCESSOR, not the predecessor
+      · the instant of change is the first instant of the new row and not the last of the old
+
+stdout | test/profiles/in-force-determinism.test.ts > in-force determinism against stored rows > timezone-explicit instants resolve identically to their UTC form
+      · an offset-bearing instant selects the same row as its UTC spelling
+
+stdout | test/profiles/in-force-determinism.test.ts > in-force determinism against stored rows > a gap in the history reports `gap`, and does not fall back to the previous row
+      · a gap between two windows reports `gap` and names the ended row as a diagnostic only
+
+ ✓  api  test/profiles/in-force-determinism.test.ts (7 tests) 84ms
+stdout | test/authz/loader-cross-checks.test.ts > S-04 — each cross-check, individually necessary > GROUP: a membership in a sibling group is discarded
+      · all four loader cross-checks reject a mismatched context
+
+ ✓  api  test/authz/loader-cross-checks.test.ts (8 tests) 81ms
+stdout | test/audit/payload-closedness.test.ts > I-07 — the audit payload schema is closed > the TypeScript validator classifies every candidate as expected
+      · TypeScript validator: 22 candidates, all as expected
+
+stdout | test/audit/payload-closedness.test.ts > I-07 — the audit payload schema is closed > the SQL CHECK function agrees with it on every candidate
+      · SQL CHECK function agrees on all 22 candidates
+
+stdout | test/audit/payload-closedness.test.ts > I-07 — the audit payload schema is closed > the database REFUSES a free-text payload even when the application layer is bypassed
+      · a free-text payload is rejected by the CHECK constraint (SQLSTATE 23514)
+
+stdout | test/audit/payload-closedness.test.ts > I-07 — the audit payload schema is closed > the violation error names the rule and the key, and NEVER the value
+      · violation message carries rule + key only: AUDIT_PAYLOAD_NOT_CLOSED: string_not_a_token at clinicalNote
+
+ ✓  api  test/audit/payload-closedness.test.ts (5 tests) 75ms
+stdout | test/http/route-declarations.test.ts > route declarations > registers more than the scaffold's single route
+      · POST /organizations/:organizationId/memberships -> capability
+        POST /organizations/:organizationId/memberships/:membershipId/grants -> capability
+        PATCH /organizations/:organizationId/entitlements/:moduleKey -> capability
+        GET /organizations/:organizationId/groups/:groupId/catalogue/shift-types -> capability
+        POST /organizations/:organizationId/groups/:groupId/catalogue/shift-types -> capability
+        PATCH /organizations/:organizationId/groups/:groupId/catalogue/shift-types/:shiftTypeId -> capability
+        PUT /organizations/:organizationId/groups/:groupId/catalogue/shift-types/:shiftTypeId/weekday-demand -> capability
+        GET /organizations/:organizationId/groups/:groupId/catalogue/shift-groups -> capability
+        POST /organizations/:organizationId/groups/:groupId/catalogue/shift-groups -> capability
+        PATCH /organizations/:organizationId/groups/:groupId/catalogue/shift-groups/:shiftGroupId -> capability
+        GET /organizations/:organizationId/groups/:groupId/catalogue/staff-groups -> capability
+        POST /organizations/:organizationId/groups/:groupId/catalogue/staff-groups -> capability
+        GET /organizations/:organizationId/groups/:groupId/catalogue/valid-groups -> capability
+        POST /organizations/:organizationId/groups/:groupId/catalogue/valid-groups -> capability
+        GET /organizations/:organizationId/groups/:groupId/catalogue/pick-positions -> capability
+        PUT /organizations/:organizationId/groups/:groupId/catalogue/pick-positions -> capability
+        GET /organizations/:organizationId/groups/:groupId/catalogue/holidays -> capability
+        POST /organizations/:organizationId/groups/:groupId/catalogue/holidays -> capability
+        POST /organizations/:organizationId/groups/:groupId/context-probe/touch -> capability
+        POST /organizations/:organizationId/context-probe/touch -> capability
+        POST /organizations/:organizationId/context-probe/group-scoped-touch -> capability
+        POST /organizations/:organizationId/groups/:groupId/context-probe/targets/:targetMembershipId -> capability
+        POST /organizations/:organizationId/groups/:groupId/context-probe/enqueue -> capability
+        GET /health -> public
+        POST /organizations/:organizationId/groups/:groupId/work-profiles -> capability
+        GET /organizations/:organizationId/groups/:groupId/memberships/:membershipId/work-profile -> capability
+        GET /organizations/:organizationId/groups/:groupId/memberships/:membershipId/work-profiles -> capability
+        POST /organizations/:organizationId/groups/:groupId/qualifications -> capability
+        PATCH /organizations/:organizationId/groups/:groupId/qualifications/:qualificationId -> capability
+        POST /organizations/:organizationId/groups/:groupId/qualification-holdings -> capability
+        PATCH /organizations/:organizationId/groups/:groupId/qualification-holdings/:holdingId -> capability
+        GET /organizations/:organizationId/groups/:groupId/memberships/:membershipId/qualification-holdings -> capability
+
+stdout | test/http/route-declarations.test.ts > route declarations > every CAPABILITY route declares an action scope and a catalogued action (A-14, A-16)
+      · POST /organizations/:organizationId/memberships: organization-scoped, CAP-006, action=organization.membership.administer, module=organization_administration, objectPolicy=false
+      · POST /organizations/:organizationId/memberships/:membershipId/grants: organization-scoped, CAP-006, action=organization.role.administer, module=organization_administration, objectPolicy=false
+      · PATCH /organizations/:organizationId/entitlements/:moduleKey: organization-scoped, CAP-057, action=organization.entitlement.administer, module=entitlements, objectPolicy=false
+      · GET /organizations/:organizationId/groups/:groupId/catalogue/shift-types: group-scoped, CAP-011, action=schedule.catalogue.administer, module=core_scheduling, objectPolicy=false
+      · POST /organizations/:organizationId/groups/:groupId/catalogue/shift-types: group-scoped, CAP-011, action=schedule.catalogue.administer, module=core_scheduling, objectPolicy=false
+      · PATCH /organizations/:organizationId/groups/:groupId/catalogue/shift-types/:shiftTypeId: group-scoped, CAP-011, action=schedule.catalogue.administer, module=core_scheduling, objectPolicy=false
+      · PUT /organizations/:organizationId/groups/:groupId/catalogue/shift-types/:shiftTypeId/weekday-demand: group-scoped, CAP-011, action=schedule.catalogue.administer, module=core_scheduling, objectPolicy=false
+      · GET /organizations/:organizationId/groups/:groupId/catalogue/shift-groups: group-scoped, CAP-012, action=schedule.catalogue.administer, module=core_scheduling, objectPolicy=false
+      · POST /organizations/:organizationId/groups/:groupId/catalogue/shift-groups: group-scoped, CAP-012, action=schedule.catalogue.administer, module=core_scheduling, objectPolicy=false
+      · PATCH /organizations/:organizationId/groups/:groupId/catalogue/shift-groups/:shiftGroupId: group-scoped, CAP-012, action=schedule.catalogue.administer, module=core_scheduling, objectPolicy=false
+      · GET /organizations/:organizationId/groups/:groupId/catalogue/staff-groups: group-scoped, CAP-012, action=schedule.catalogue.administer, module=core_scheduling, objectPolicy=false
+      · POST /organizations/:organizationId/groups/:groupId/catalogue/staff-groups: group-scoped, CAP-012, action=schedule.catalogue.administer, module=core_scheduling, objectPolicy=false
+      · GET /organizations/:organizationId/groups/:groupId/catalogue/valid-groups: group-scoped, CAP-011, action=schedule.catalogue.administer, module=core_scheduling, objectPolicy=false
+      · POST /organizations/:organizationId/groups/:groupId/catalogue/valid-groups: group-scoped, CAP-011, action=schedule.catalogue.administer, module=core_scheduling, objectPolicy=false
+      · GET /organizations/:organizationId/groups/:groupId/catalogue/pick-positions: group-scoped, CAP-011, action=group.pick_positions.administer, module=core_scheduling, objectPolicy=false
+      · PUT /organizations/:organizationId/groups/:groupId/catalogue/pick-positions: group-scoped, CAP-011, action=group.pick_positions.administer, module=core_scheduling, objectPolicy=false
+      · GET /organizations/:organizationId/groups/:groupId/catalogue/holidays: group-scoped, CAP-004, action=group.holiday_calendar.administer, module=core_scheduling, objectPolicy=false
+      · POST /organizations/:organizationId/groups/:groupId/catalogue/holidays: group-scoped, CAP-004, action=group.holiday_calendar.administer, module=core_scheduling, objectPolicy=false
+      · POST /organizations/:organizationId/groups/:groupId/context-probe/touch: group-scoped, CAP-003, action=membership.touch_self, module=core_scheduling, objectPolicy=false
+      · POST /organizations/:organizationId/context-probe/touch: organization-scoped, CAP-003, action=organization.membership.touch_self, module=core_scheduling, objectPolicy=false
+      · POST /organizations/:organizationId/context-probe/group-scoped-touch: group-scoped, CAP-003, action=membership.touch_self, module=core_scheduling, objectPolicy=false
+      · POST /organizations/:organizationId/groups/:groupId/context-probe/targets/:targetMembershipId: group-scoped, CAP-003, action=membership.touch_self, module=core_scheduling, objectPolicy=true
+      · POST /organizations/:organizationId/groups/:groupId/context-probe/enqueue: group-scoped, CAP-003, action=membership.touch_self, module=core_scheduling, objectPolicy=false
+      · POST /organizations/:organizationId/groups/:groupId/work-profiles: group-scoped, CAP-013, action=staffing.work_profile.administer, module=core_scheduling, objectPolicy=false
+      · GET /organizations/:organizationId/groups/:groupId/memberships/:membershipId/work-profile: group-scoped, CAP-013, action=staffing.work_profile.read, module=core_scheduling, objectPolicy=false
+      · GET /organizations/:organizationId/groups/:groupId/memberships/:membershipId/work-profiles: group-scoped, CAP-013, action=staffing.work_profile.read, module=core_scheduling, objectPolicy=false
+      · POST /organizations/:organizationId/groups/:groupId/qualifications: group-scoped, CAP-058, action=staffing.qualification.administer, module=core_scheduling, objectPolicy=false
+      · PATCH /organizations/:organizationId/groups/:groupId/qualifications/:qualificationId: group-scoped, CAP-058, action=staffing.qualification.administer, module=core_scheduling, objectPolicy=false
+      · POST /organizations/:organizationId/groups/:groupId/qualification-holdings: group-scoped, CAP-058, action=staffing.qualification_holding.administer, module=core_scheduling, objectPolicy=false
+      · PATCH /organizations/:organizationId/groups/:groupId/qualification-holdings/:holdingId: group-scoped, CAP-058, action=staffing.qualification_holding.administer, module=core_scheduling, objectPolicy=false
+      · GET /organizations/:organizationId/groups/:groupId/memberships/:membershipId/qualification-holdings: group-scoped, CAP-058, action=staffing.qualification_holding.read, module=core_scheduling, objectPolicy=false
+
+stdout | test/http/route-declarations.test.ts > OPUS-M1-004 — there is no second authorization path left > `provisionallyAuthorized` is exported by nothing and called by nobody
+      · the provisional role allow-list is gone from src/ entirely
+
+ ✓  api  test/http/route-declarations.test.ts (15 tests) 27ms
+ ✓  api  test/server.test.ts (8 tests) 21ms
+stdout | test/profiles/loader-is-the-only-selector.test.ts > the shipped source has exactly one selector > no OTHER module under src/ selects from an effective-dated table
+      · 3 effective-dated table(s), exactly 1 module selecting from them: profiles/in-force-loader.ts
+
+ ✓  api  test/profiles/loader-is-the-only-selector.test.ts (15 tests) 55ms
+stdout | test/architecture/no-tenant-access-outside-unit-of-work.test.ts > no tenant access outside the unit of work (I-15) > GREEN: no module outside the connection owners touches a connection or a tenant table
+      · scanned apps/api/src; 7 permitted connection owner(s): db/unit-of-work.ts, db/pool.ts, db/pooler-assertion.ts, db/bootstrap.ts, db/migrate.ts, db/queue-schema.ts, db/queue-pools.ts
+
+stdout | test/architecture/no-tenant-access-outside-unit-of-work.test.ts > no tenant access outside the unit of work (I-15) > RED: the REAL scanner flags a direct query in a handler-shaped module
+      · red case: 4 finding(s) — imports the pg driver outside the unit of work · checks out a connection outside the unit of work · issues a raw statement outside the unit of work · names the tenant table `memberships` in a SQL string literal
+
+ ✓  api  test/architecture/no-tenant-access-outside-unit-of-work.test.ts (10 tests) 46ms
+stdout | test/architecture/embedded-postgres-isolation.test.ts > embedded-postgres is confined to the cluster daemon > only support/cluster.ts imports embedded-postgres
+      · embedded-postgres is imported by exactly one module: support/cluster.ts
+
+stdout | test/architecture/embedded-postgres-isolation.test.ts > embedded-postgres is confined to the cluster daemon > only support/cluster-daemon.ts imports support/cluster.ts
+      · support/cluster.ts is imported by exactly one module: support/cluster-daemon.ts
+
+ ✓  api  test/architecture/embedded-postgres-isolation.test.ts (5 tests) 43ms
+stdout | test/catalogue/schema.test.ts > the display token sets agree in all three places > display_palette_key: database CHECK == domain constant == contract enum
+      · display_palette_key: amber, indigo, neutral, rose, teal, violet — database, domain and contract agree
+
+stdout | test/catalogue/schema.test.ts > the display token sets agree in all three places > display_text_style: database CHECK == domain constant == contract enum
+      · display_text_style: bold, italic, regular — database, domain and contract agree
+
+stdout | test/catalogue/schema.test.ts > the display token sets agree in all three places > the demand day enumeration agrees, holiday included
+      · demand days: fri, holiday, mon, sat, sun, thu, tue, wed
+
+stdout | test/catalogue/schema.test.ts > every catalogue table is a tenant table in the full sense > RLS is enabled AND forced on all nine
+      · 9 catalogue tables: RLS enabled and FORCEd
+
+stdout | test/catalogue/schema.test.ts > every catalogue table is a tenant table in the full sense > every policy reference to app.* is nullif-guarded (A-03b)
+      · 9 catalogue policies, every app.* reference nullif-guarded
+
+stdout | test/catalogue/schema.test.ts > every catalogue table is a tenant table in the full sense > all nine are registered in TENANT_TABLES, in the same change as the migration
+      · all nine catalogue tables registered in TENANT_TABLES (packet 30 §7.2)
+
+stdout | test/catalogue/schema.test.ts > every catalogue table is a tenant table in the full sense > no runtime role holds TRUNCATE or REFERENCES on any of them
+      · 36 (role, table) pairs: no TRUNCATE, no REFERENCES
+
+stdout | test/catalogue/schema.test.ts > every catalogue table is a tenant table in the full sense > `code` is NOT updatable — a shift type's permanent name cannot be rewritten
+      · shift_types.code not updatable by any runtime role; shift_types.name is
+
+stdout | test/catalogue/schema.test.ts > the shape constraints refuse the states that make no sense > an overnight shift must declare crosses_midnight, and a daytime one must not
+      · shift_types_overnight_shape: CHECK ((((end_time > start_time) AND (crosses_midnight = false)) OR ((end_time <= start_time) AND (crosses_midnight = true))))
+
+stdout | test/catalogue/schema.test.ts > the shape constraints refuse the states that make no sense > a shift group carries a weight exactly when it is weighted
+      · shift_groups_scoring_shape: CHECK ((((scoring_mode = 'hard'::text) AND (weight IS NULL)) OR ((scoring_mode = 'weighted'::text) AND (weight IS NOT NULL))))
+
+stdout | test/catalogue/schema.test.ts > the shape constraints refuse the states that make no sense > a request-off label exists exactly when requests are allowed
+      · shift_groups_request_label_shape present
+
+stdout | test/catalogue/schema.test.ts > the shape constraints refuse the states that make no sense > every catalogue table carries a composite tenant foreign key to groups
+      · all nine catalogue tables carry the composite tenant foreign key
+
+ ✓  api  test/catalogue/schema.test.ts (12 tests) 30ms
+stdout | test/audit/architecture.test.ts > the price of the OPUS-M1-003 connection-owner exemptions > neither exempt file names a TENANT table
+      · 2 exempt modules, 0 tenant-table references — the exemption is paid for
+
+stdout | test/audit/architecture.test.ts > non-bypass rule 6, as a scan > the audit tables are named ONLY inside src/audit
+      · no module outside src/audit names an audit table in SQL
+
+stdout | test/audit/architecture.test.ts > non-bypass rule 6, as a scan > NO module names audit_chain_heads — the chain tip belongs to the trigger
+      · audit_chain_heads appears in no TypeScript module at all
+
+stdout | test/audit/architecture.test.ts > non-bypass rule 6, as a scan > no module issues an UPDATE or DELETE against audit_events
+      · no module contains an UPDATE, DELETE or TRUNCATE against audit_events
+
+ ✓  api  test/audit/architecture.test.ts (5 tests) 30ms
+stdout | test/catalogue/gate-red-cases.test.ts > migration + RLS pairing, against this task's own tables > GREEN: 0005 as shipped has ENABLE + FORCE + a policy for every table it creates
+      · 0005 as shipped: 0 RLS pairing violations
+
+stdout | test/catalogue/gate-red-cases.test.ts > migration + RLS pairing, against this task's own tables > RED: `shift_types` with its policy removed FAILS the gate, naming the table
+      · RED (policy deleted): table "shift_types" created without CREATE POLICY in the same migration
+
+stdout | test/catalogue/gate-red-cases.test.ts > migration + RLS pairing, against this task's own tables > RED: `group_holidays` with FORCE removed FAILS the gate
+      · RED (FORCE deleted): table "group_holidays" created without FORCE ROW LEVEL SECURITY in the same migration
+
+stdout | test/catalogue/gate-red-cases.test.ts > route-without-policy, against this task's own routes > RED: the same route with its policy removed FAILS, naming the route
+      · RED (policy removed): POST /organizations/:organizationId/groups/:groupId/catalogue/shift-types — route registered without a policy declaration (config.policy)
+
+ ✓  api  test/catalogue/gate-red-cases.test.ts (6 tests) 26ms
+
+ Test Files  61 passed (61)
+      Tests  850 passed (850)
+   Start at  21:10:48
+   Duration  57.90s (transform 1.03s, setup 339ms, collect 35.64s, tests 21.15s, environment 706ms, prepare 1.05s)
+
+$ vitest run
+```
+
+## import-boundary — import boundary (dependency-cruiser)
+
+```
+
+✔ no dependency violations found (106 modules, 199 dependencies cruised)
+
+$ depcruise --config .dependency-cruiser.cjs packages apps
+```
+
+## route-policy — route-without-policy (I-02)
+
+```
+PASS  route-policy-check (I-02) — 32 registered route(s)
+$ node scripts/gates/route-policy-check.mjs
+```
+
+## migration-rls — migration + RLS pairing (I-15)
+
+```
+PASS  migration-rls-pairing (I-15) — 5 migration file(s) in apps/api/migrations
+$ node scripts/gates/migration-rls-check.mjs
+```
+
+## invariant-ids — invariant-ID uniqueness (CAR-023)
+
+```
+PASS  invariant-id-uniqueness (CAR-023) — 64 document(s), 22 invariant definition(s), 22 distinct ID(s) referenced
+$ node scripts/gates/invariant-id-uniqueness.mjs
+```
+
+## secret-scan — secret scan
+
+```
+PASS  secret-scan — 576 file(s) under /Users/prabashan/Claude/SchedulePoint/.worktrees/m2-002, 11 detectors
+$ node scripts/gates/secret-scan.mjs
+```
+
+## build — production build (vite build)
+
+```
+vite v7.1.7 building for production...
+transforming...
+✓ 191 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.40 kB │ gzip:   0.27 kB
+dist/assets/index-DI85IMpH.css   12.01 kB │ gzip:   3.32 kB
+dist/assets/index-DDVaLGjn.js   362.84 kB │ gzip: 106.37 kB
+✓ built in 877ms
+$ node scripts/run-in-workspace.mjs apps/web vite build
+```
+
+## network-guard — network-assertion guard (SP-HR-1)
+
+```
+      vendor string (bundle only): www.w3.org — XML/SVG/MathML namespace identifiers emitted by react-dom (createElementNS). Namespace URIs are identifiers, never fetched.
+      vendor string (bundle only): reactjs.org — react-dom production error decoder link, embedded as message text in invariant errors.
+      vendor string (bundle only): tanstack.com — @tanstack/react-router migration-guidance link, embedded as message text in a development warning.
+      vendor string (bundle only): tailwindcss.com — Attribution comment in the Tailwind preflight stylesheet. A CSS comment issues no request.
+      vendor string (bundle only): localhost — @tanstack/react-router uses 'http://localhost' as an inert base when parsing relative paths with the URL constructor.
+PASS  network-assertion-guard (SP-HR-1) — 15 source file(s), 3 built file(s); requestHosts allowlist: 0 (must be 0)
+$ node scripts/gates/network-assertion-guard.mjs
+```
+
+## axe — axe-core via Playwright (CAP-066)
+
+```
+
+Running 36 tests using 1 worker
+
+  ✓   1 [desktop] › e2e/catalogue.spec.ts:157:3 › catalogue — shift types › LOADING: the list announces itself while it is being fetched (682ms)
+  ✓   2 [desktop] › e2e/catalogue.spec.ts:180:3 › catalogue — shift types › EMPTY: the empty state says what to do next, not "no data" (310ms)
+  ✓   3 [desktop] › e2e/catalogue.spec.ts:193:3 › catalogue — shift types › POPULATED: all six palettes render, and colour is never the only carrier (445ms)
+  ✓   4 [desktop] › e2e/catalogue.spec.ts:222:3 › catalogue — shift types › PERMISSION DENIED: a 403 says so, and does not say why (319ms)
+  ✓   5 [desktop] › e2e/catalogue.spec.ts:238:3 › catalogue — shift types › ERROR: a 404 renders "not found", never "no access" (329ms)
+  ✓   6 [desktop] › e2e/catalogue.spec.ts:253:3 › catalogue — shift types › I-13: opening the New form persists NOTHING — zero requests (670ms)
+  ✓   7 [desktop] › e2e/catalogue.spec.ts:272:3 › catalogue — shift types › AC-11: an empty form is refused by the CLIENT — focus to the summary, zero requests (608ms)
+  ✓   8 [desktop] › e2e/catalogue.spec.ts:309:3 › catalogue — shift types › I-10: a SERVER 422 issues exactly one request and renders the same summary (294ms)
+  ✓   9 [desktop] › e2e/catalogue.spec.ts:347:3 › catalogue — shift types › AC-02: the form is completable by keyboard alone (157ms)
+  ✓  10 [desktop] › e2e/catalogue.spec.ts:388:3 › catalogue — shift types › AC-08 and AC-09: 320px reflow, and every target is at least 44px (568ms)
+  ✓  11 [desktop] › e2e/catalogue.spec.ts:458:3 › catalogue — the other surfaces › shift groups: populated and empty, both accessible (457ms)
+  ✓  12 [desktop] › e2e/catalogue.spec.ts:503:3 › catalogue — the other surfaces › staff groups: empty state and form (386ms)
+  ✓  13 [desktop] › e2e/catalogue.spec.ts:517:3 › catalogue — the other surfaces › valid combinations: the ceiling is explained before the user hits it (437ms)
+  ✓  14 [desktop] › e2e/catalogue.spec.ts:549:3 › catalogue — the other surfaces › group settings: the irreversible control warns BEFORE the click (360ms)
+  ✓  15 [desktop] › e2e/catalogue.spec.ts:576:3 › catalogue — the other surfaces › group settings: a 403 on one panel does not hide the other (319ms)
+  ✓  16 [desktop] › e2e/shell.spec.ts:21:3 › application shell › renders the shell structure (80ms)
+  ✓  17 [desktop] › e2e/shell.spec.ts:42:3 › application shell › has no axe-core violations (261ms)
+  ✓  18 [desktop] › e2e/shell.spec.ts:59:3 › application shell › keeps the shell within its request budget (613ms)
+  ✓  19 [mobile] › e2e/catalogue.spec.ts:157:3 › catalogue — shift types › LOADING: the list announces itself while it is being fetched (466ms)
+  ✓  20 [mobile] › e2e/catalogue.spec.ts:180:3 › catalogue — shift types › EMPTY: the empty state says what to do next, not "no data" (354ms)
+  ✓  21 [mobile] › e2e/catalogue.spec.ts:193:3 › catalogue — shift types › POPULATED: all six palettes render, and colour is never the only carrier (501ms)
+  ✓  22 [mobile] › e2e/catalogue.spec.ts:222:3 › catalogue — shift types › PERMISSION DENIED: a 403 says so, and does not say why (358ms)
+  ✓  23 [mobile] › e2e/catalogue.spec.ts:238:3 › catalogue — shift types › ERROR: a 404 renders "not found", never "no access" (362ms)
+  ✓  24 [mobile] › e2e/catalogue.spec.ts:253:3 › catalogue — shift types › I-13: opening the New form persists NOTHING — zero requests (626ms)
+  ✓  25 [mobile] › e2e/catalogue.spec.ts:272:3 › catalogue — shift types › AC-11: an empty form is refused by the CLIENT — focus to the summary, zero requests (785ms)
+  ✓  26 [mobile] › e2e/catalogue.spec.ts:309:3 › catalogue — shift types › I-10: a SERVER 422 issues exactly one request and renders the same summary (285ms)
+  ✓  27 [mobile] › e2e/catalogue.spec.ts:347:3 › catalogue — shift types › AC-02: the form is completable by keyboard alone (151ms)
+  ✓  28 [mobile] › e2e/catalogue.spec.ts:388:3 › catalogue — shift types › AC-08 and AC-09: 320px reflow, and every target is at least 44px (729ms)
+  ✓  29 [mobile] › e2e/catalogue.spec.ts:458:3 › catalogue — the other surfaces › shift groups: populated and empty, both accessible (497ms)
+  ✓  30 [mobile] › e2e/catalogue.spec.ts:503:3 › catalogue — the other surfaces › staff groups: empty state and form (415ms)
+  ✓  31 [mobile] › e2e/catalogue.spec.ts:517:3 › catalogue — the other surfaces › valid combinations: the ceiling is explained before the user hits it (480ms)
+  ✓  32 [mobile] › e2e/catalogue.spec.ts:549:3 › catalogue — the other surfaces › group settings: the irreversible control warns BEFORE the click (395ms)
+  ✓  33 [mobile] › e2e/catalogue.spec.ts:576:3 › catalogue — the other surfaces › group settings: a 403 on one panel does not hide the other (370ms)
+  ✓  34 [mobile] › e2e/shell.spec.ts:21:3 › application shell › renders the shell structure (81ms)
+  ✓  35 [mobile] › e2e/shell.spec.ts:42:3 › application shell › has no axe-core violations (261ms)
+  ✓  36 [mobile] › e2e/shell.spec.ts:59:3 › application shell › keeps the shell within its request budget (610ms)
+
+  36 passed (16.6s)
+$ node scripts/run-in-workspace.mjs apps/web playwright test
+```
+
+## request-budget — requests per interaction (SP-HR-2)
+
+```
+PASS  request-budget (SP-HR-2 / I-10) — 2 budgeted interaction(s), 4 recording(s) [health-retry-click.desktop.json, health-retry-click.mobile.json, shell-initial-load.desktop.json, shell-initial-load.mobile.json]
+$ node scripts/gates/request-budget.mjs
+```
+
+## summary
+
+```
+GATE                     RESULT   TIME
+------------------------ -------- --------
+lint                     PASS       1496ms
+typecheck                PASS       3263ms
+unit                     PASS      58602ms
+import-boundary          PASS        760ms
+route-policy             PASS        535ms
+migration-rls            PASS        227ms
+invariant-ids            PASS        241ms
+secret-scan              PASS        355ms
+build                    PASS       1255ms
+network-guard            PASS        227ms
+axe                      PASS      17228ms
+request-budget           PASS        226ms
+------------------------ -------- --------
+12 gate(s): 12 passed, 0 failed
+```

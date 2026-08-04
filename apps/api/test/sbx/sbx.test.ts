@@ -9,14 +9,15 @@ const { Client: PgClient } = PgPkg;
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { verifyAuditChain } from '../../src/audit/verification.js';
+import { TENANT_TABLES } from '../../src/db/schema.js';
 import { buildServer } from '../../src/http/server.js';
 import type { RouteTableEntry } from '../../src/http/route-table.js';
 import { adminClient } from '../support/admin-client.js';
 import { createPool } from '../../src/db/pool.js';
-import { TENANT_TABLES } from '../../src/db/schema.js';
 import { API_ROOT } from '../support/env.js';
 import { log, type Runtime } from '../support/harness.js';
 import { buildHttpHarness, type HttpHarness } from '../support/http.js';
+import { seedCatalogueFixture } from '../support/catalogue-fixture.js';
 import { ownedMulti } from '../support/owned-multi.js';
 import { seedStaffingRows } from '../support/staffing.js';
 import {
@@ -97,7 +98,22 @@ beforeAll(async () => {
   const seedRuntime = runtimes.get('app_runtime');
   if (seedRuntime === undefined) throw new Error('no app_runtime runtime for staffing seeding');
   await seedStaffingRows(seedRuntime.runner, multi());
-}, 120_000);
+
+  /* OPUS-M2-002 — migration 0005's nine catalogue tables are registered in
+   * `TENANT_TABLES`, and SBX-004's oracle requires every registered table to be
+   * observed with at least one VISIBLE row: "a probe over a table it cannot see
+   * reports 0 wrong for the boring reason". Packet 30 §7.2 makes that explicit —
+   * "a new table missing from the sweep is an acceptance failure".
+   *
+   * Seeded into THIS file's owned fixture through the production write path.
+   * `apps/api/test/support/multi.ts` is deliberately not modified: packet 30 §5
+   * makes MULTI read-only shared substrate, and OPUS-M2-003 is adding its own
+   * tables in parallel. The tension between the two clauses is disclosed in the
+   * return report rather than resolved by editing the protected file. */
+  const runtime = runtimes.get('app_runtime');
+  if (runtime === undefined) throw new Error('app_runtime runtime missing');
+  await seedCatalogueFixture(runtime.runner, multi());
+}, 240_000);
 
 afterAll(async () => {
   for (const runtime of runtimes.values()) await runtime.destroy();
@@ -551,22 +567,33 @@ describe('the G-ARCH tenancy subset', () => {
     const sweep = results.find((r) => r.id === 'SBX-004');
     expect(sweep?.state).toBe('PASS');
     expect(sweep?.probeOutcome, 'the sweep could not be made to fail').toBe('FALSIFIABLE');
-    // Twelve tenant tables plus `users` at OPUS-M2-001; **sixteen plus `users`**
-    // since OPUS-M2-003 registered the four staffing tables in `TENANT_TABLES`.
-    // My phase-A prototype probed three of them vacuously; the packet requires
-    // every one to be covered non-vacuously, and this is where that is asserted
-    // rather than hoped.
-    //
-    // The literal is derived from the registry rather than hard-coded, because
-    // two M2 packets add tenant tables in parallel worktrees and a hand-counted
-    // number is a merge conflict that resolves silently to the wrong answer. What
-    // makes the assertion real is the sweep's own vacuity check, which fails when
-    // a REGISTERED table is never seen with a visible row — this line only
-    // confirms the sweep reported on all of them.
-    const expectedTables =
-      TENANT_TABLES.filter((table) => table.scope !== 'through-membership').length + 1;
-    expect(expectedTables, 'the tenant registry shrank').toBeGreaterThanOrEqual(17);
-    expect(sweep?.tables.length, `tables exercised: ${sweep?.tables.join(', ')}`).toBe(expectedTables);
+    /* EVERY registered tenant table, derived from the registry rather than
+     * counted by hand.
+     *
+     * **Both M2 packets fixed the same hard-coded literal, independently.** It
+     * was `13` — twelve tables plus `users` — and each of OPUS-M2-002's nine
+     * catalogue tables and OPUS-M2-003's four staffing tables made that number
+     * wrong while the property it stood for became more true. A hand-counted
+     * number is also a merge conflict that resolves silently to the wrong
+     * answer, which is precisely the risk two parallel worktrees create.
+     *
+     * This composition keeps both properties the two sides asserted:
+     *
+     *   - **set equality** (M2-002's form) — a missing table is named, rather
+     *     than reported as an off-by-one that could be any of twenty-six;
+     *   - **a shrink floor** (M2-003's form) — a registry that got SMALLER would
+     *     satisfy set equality against its own shrunken self, so the floor is
+     *     what notices a table being removed from the registry entirely.
+     *
+     * What makes either assertion real is the sweep's own vacuity check, which
+     * fails when a REGISTERED table is never seen with a visible row. These
+     * lines only confirm the sweep reported on all of them. */
+    const expectedTables = TENANT_TABLES.map((table) => table.name).sort();
+    expect(expectedTables.length, 'the tenant registry shrank').toBeGreaterThanOrEqual(17);
+    expect(
+      [...(sweep?.tables ?? [])].sort(),
+      `tables exercised: ${sweep?.tables.join(', ')}`,
+    ).toEqual(expectedTables);
   });
 
   const ensureChainVerified = async (): Promise<string[]> => {

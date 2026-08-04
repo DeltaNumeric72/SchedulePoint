@@ -1,0 +1,28 @@
+pair                                                                  foreground  background  ratio   AA text (4.5)  AA non-text (3.0)
+--------------------------------------------------------------------  ----------  ----------  ------  -------------  -----------------
+text on surface                                                       #1f2430     #ffffff     15.52  pass           pass
+text on raised                                                        #1f2430     #f4f5f7     14.23  pass           pass
+muted text on surface                                                 #555f70     #ffffff      6.45  pass           pass
+accent on surface                                                     #1a4fa0     #ffffff      7.87  pass           pass
+accent-contrast on accent                                             #ffffff     #1a4fa0      7.87  pass           pass
+danger on surface                                                     #9b1c1c     #ffffff      8.15  pass           pass
+danger on raised                                                      #9b1c1c     #f4f5f7      7.47  pass           pass
+success on surface                                                    #136c39     #ffffff      6.50  pass           pass
+warning on surface                                                    #7a4a05     #ffffff      7.48  pass           pass
+focus ring against surface                                            #0b3d91     #ffffff     10.04  pass           pass
+focus ring over accent (informational, offset places it off-control)  #0b3d91     #1a4fa0      1.28  n/a            n/a
+border against surface                                                #c9ced6     #ffffff      1.58  n/a            n/a
+shift neutral: ink on its own surface                                 #2b3240     #e7e9ee     10.59  pass           pass
+shift neutral: surface against the page                               #e7e9ee     #ffffff      1.21  n/a            n/a
+shift indigo: ink on its own surface                                  #1f3468     #e2e8f7      9.79  pass           pass
+shift indigo: surface against the page                                #e2e8f7     #ffffff      1.23  n/a            n/a
+shift teal: ink on its own surface                                    #0f4a43     #daeae7      8.12  pass           pass
+shift teal: surface against the page                                  #daeae7     #ffffff      1.24  n/a            n/a
+shift amber: ink on its own surface                                   #63400a     #f6ead4      7.78  pass           pass
+shift amber: surface against the page                                 #f6ead4     #ffffff      1.19  n/a            n/a
+shift rose: ink on its own surface                                    #761d29     #f8e3e6      8.66  pass           pass
+shift rose: surface against the page                                  #f8e3e6     #ffffff      1.23  n/a            n/a
+shift violet: ink on its own surface                                  #452767     #eae1f4      9.53  pass           pass
+shift violet: surface against the page                                #eae1f4     #ffffff      1.27  n/a            n/a
+
+24 pair(s) computed; 0 below the level required for their role.

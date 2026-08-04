@@ -1,5 +1,5 @@
 SBX-002 — Capability mapping (CAP-006 / CAP-057): the grant x entitlement x role truth table, proven server-side
-generated: 2026-08-04T00:10:19.373Z
+generated: 2026-08-04T01:16:21.140Z
 
 STATE: PASS   falsifiability probe: FALSIFIABLE   gate-required: YES
 
@@ -30,7 +30,7 @@ EVIDENCE_BLOCKED sub-scenarios (never a pass, never a silent skip):
 OBSERVATIONS
 
   truth table dimensions:
-    entitlement ON (Alpha: core_scheduling, entitlements, organization_administration) x OFF (Gamma: entitlements, organization_administration) x grant ALLOW(2) / DENY(4) x 7 roles
+    entitlement ON (Alpha: core_scheduling, entitlements, organization_administration) x OFF (Gamma: entitlements, organization_administration) x grant ALLOW(6) / DENY(4) x 7 roles
 
   fifteen rows, server-side:
     12 of the 15 SPEC-06 rows execute, in 15 concrete cases over the real HTTP surface (some rows carry more than one case; L1.4, L6.1 and L6.2 have no surface and are EVIDENCE_BLOCKED below):

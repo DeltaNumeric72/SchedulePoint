@@ -31,6 +31,7 @@ import {
   type Runtime,
 } from '../support/harness.js';
 import { withSimulatedPoolerFault } from '../support/pooler-simulator.js';
+import { seedCatalogueFixture } from '../support/catalogue-fixture.js';
 import { ownedMulti } from '../support/owned-multi.js';
 import { seedStaffingRows } from '../support/staffing.js';
 
@@ -137,7 +138,14 @@ beforeAll(async () => {
    * `qualification_holdings` is SENSITIVE-PII with no organization-wide read
    * policy, and that membership is the one these probes act as. */
   await seedStaffingRows(runtime.runner, multi());
-});
+
+  // OPUS-M2-002: migration 0005's nine catalogue tables joined `TENANT_TABLES`,
+  // and the T-15 storm below asserts that EVERY registered table is observed
+  // with at least one visible row — a probe over an empty table reports "0
+  // wrong" for the boring reason. Seeded through the production write path into
+  // this file's OWN tenant; `multi.ts` is deliberately untouched (packet 30 §5).
+  await seedCatalogueFixture(runtime.runner, multi());
+}, 180_000);
 
 afterAll(async () => {
   await runtime.destroy();

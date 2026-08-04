@@ -25,16 +25,34 @@ const API_PREFIX = '/api';
 export class ApiError extends Error {
   readonly code: string;
   readonly correlationId: string | undefined;
+  /**
+   * The parsed response body, when there was one.
+   *
+   * Carried so a caller that knows a particular code has a richer shape can
+   * re-parse it through its own contract — the catalogue's `422`, which names
+   * the fields that failed validation, is the only such case today. It is
+   * `unknown` on purpose: nothing may read a field off it without parsing.
+   */
+  readonly body: unknown;
 
-  constructor(code: string, message: string, correlationId?: string) {
+  constructor(code: string, message: string, correlationId?: string, body?: unknown) {
     super(message);
     this.name = 'ApiError';
     this.code = code;
     this.correlationId = correlationId;
+    this.body = body;
   }
 }
 
-async function request(path: string, init?: RequestInit): Promise<unknown> {
+/**
+ * One request, one parse of the error envelope.
+ *
+ * Exported since OPUS-M2-002 so the catalogue client shares it rather than
+ * reimplementing the same three rules. A second copy of "parse the envelope,
+ * throw an ApiError" is a second place for the fixed 5xx text to get expanded
+ * into something more helpful and less true.
+ */
+export async function apiRequest(path: string, init?: RequestInit): Promise<unknown> {
   const response = await fetch(`${API_PREFIX}${path}`, {
     ...init,
     headers: { accept: 'application/json', ...init?.headers },
@@ -50,14 +68,20 @@ async function request(path: string, init?: RequestInit): Promise<unknown> {
         envelope.data.error.code,
         envelope.data.error.message,
         envelope.data.error.correlationId,
+        body,
       );
     }
-    throw new ApiError('UNEXPECTED_RESPONSE', `Request failed (${String(response.status)}).`);
+    throw new ApiError(
+      'UNEXPECTED_RESPONSE',
+      `Request failed (${String(response.status)}).`,
+      undefined,
+      body,
+    );
   }
 
   return body;
 }
 
 export async function fetchHealth(): Promise<HealthStatus> {
-  return healthStatusSchema.parse(await request('/health'));
+  return healthStatusSchema.parse(await apiRequest('/health'));
 }

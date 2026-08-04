@@ -85,6 +85,37 @@ export const AUDIT_EVENT_NAMES = [
   'staffing.qualification_holding.status_changed',
   /** A credential was REVOKED. Its own name, per PO-DEC-12's patient-safety framing. */
   'staffing.qualification_holding.revoked',
+  /* ── OPUS-M2-002's catalogue mutations (CAP-011, CAP-012, CAR-011) ──────────
+   *
+   * One name per mutation the routes actually perform, and not one more. The list
+   * only ever grows (non-bypass rule 13), so a speculative name is a permanent
+   * commitment to something nothing emits.
+   *
+   * `archived` is separate from `updated` deliberately. "This type was retired"
+   * is the question a scheduling incident asks; answering it by scanning every
+   * `updated` row for a status change makes retirement invisible in a filtered
+   * audit query, which is the query that matters. */
+
+  /** A shift type was added to the group's catalogue. */
+  'catalogue.shift_type.created',
+  /** A shift type's definition changed (any field except its code, which is fixed). */
+  'catalogue.shift_type.updated',
+  /** A shift type was retired. Archive, never delete: everything referencing it stays. */
+  'catalogue.shift_type.archived',
+  /** A shift type's per-weekday and holiday demand defaults were set. */
+  'catalogue.shift_type_demand.set',
+  /** A shift group (a scoring / request-off bundle) was created. */
+  'catalogue.shift_group.created',
+  /** A shift group's scoring mode, weight, request settings or membership changed. */
+  'catalogue.shift_group.updated',
+  /** A staff group was created. */
+  'catalogue.staff_group.created',
+  /** A valid combination of shift types and pick positions was created. */
+  'catalogue.valid_group.created',
+  /** The group's count of numbered draft pick positions was increased. Irreversible. */
+  'catalogue.pick_positions.increased',
+  /** A date was added to the group's holiday calendar. */
+  'catalogue.group_holiday.created',
 ] as const;
 
 export type AuditEventName = (typeof AUDIT_EVENT_NAMES)[number];
@@ -124,6 +155,19 @@ export const AUDIT_SUBJECT_TYPES = [
   'work_profile',
   'qualification',
   'qualification_holding',
+
+  /* ── OPUS-M2-002 ────────────────────────────────────────────────────────────
+   * Each catalogue concept is its own aggregate and is filed as one. A shift
+   * type's demand is filed under `shift_type` rather than gaining a subject type
+   * of its own, because demand has no life apart from the type it belongs to —
+   * "everything that happened to this shift type" must return its demand changes.
+   * The pick-position count is a property of the GROUP, and `group` already
+   * exists. */
+  'shift_type',
+  'shift_group',
+  'staff_group',
+  'valid_group',
+  'group_holiday',
 ] as const;
 
 export type AuditSubjectType = (typeof AUDIT_SUBJECT_TYPES)[number];

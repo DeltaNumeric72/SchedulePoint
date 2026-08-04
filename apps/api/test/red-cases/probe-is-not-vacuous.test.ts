@@ -16,6 +16,7 @@ import {
   type ProbeResult,
   type Runtime,
 } from '../support/harness.js';
+import { seedCatalogueFixture } from '../support/catalogue-fixture.js';
 import { ownedMulti } from '../support/owned-multi.js';
 import { seedStaffingRows } from '../support/staffing.js';
 
@@ -83,7 +84,14 @@ beforeAll(async () => {
    * `qualification_holdings` is SENSITIVE-PII with no organization-wide read
    * policy, and that membership is the one these probes act as. */
   await seedStaffingRows(runtime.runner, multi());
-});
+
+  // OPUS-M2-002: migration 0005's catalogue tables are in `TENANT_TABLES`, and
+  // the GREEN assertion below requires every one of them to have a visible row
+  // — otherwise "0 wrong" there means nothing, which is the exact vacuity this
+  // file exists to catch. Seeded into this file's OWN tenant through the
+  // production write path; `multi.ts` is deliberately untouched (packet 30 §5).
+  await seedCatalogueFixture(runtime.runner, multi());
+}, 180_000);
 
 afterAll(async () => {
   await runtime.destroy();

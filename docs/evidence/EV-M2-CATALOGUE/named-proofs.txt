@@ -1,0 +1,228 @@
+==================================================================
+MODE 1 — STANDALONE: apps/api/test/catalogue/referenced-shift-type-not-deletable.test.ts
+==================================================================
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m2-002
+
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m2-002/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-9113e7d72c2928d06c)] INFO: Completed task 1 (outbox.dispatch, 7.50ms) with success
+[worker(worker-9113e7d72c2928d06c)] INFO: Completed task 2 (outbox.dispatch, 2.52ms) with success
+[worker(worker-9113e7d72c2928d06c)] INFO: Completed task 3 (outbox.dispatch, 2.37ms) with success
+[worker(worker-9113e7d72c2928d06c)] INFO: Completed task 4 (outbox.dispatch, 2.33ms) with success
+stdout | test/catalogue/referenced-shift-type-not-deletable.test.ts > archive-not-delete, proven at the database > CONTROL: the owner CAN delete an UNREFERENCED shift type — so the refusals below mean something
+      · CONTROL: an unreferenced shift type is deletable by the owner — the probe can delete
+
+stdout | test/catalogue/referenced-shift-type-not-deletable.test.ts > archive-not-delete, proven at the database > the OWNER cannot delete a shift type referenced by a shift group, valid group or demand row
+      · OWNER delete of a referenced shift type → 23503 (foreign_key_violation); references: shift_type_weekday_demand=3, shift_group_members=1, valid_group_shift_types=1
+
+stdout | test/catalogue/referenced-shift-type-not-deletable.test.ts > archive-not-delete, proven at the database > no runtime role holds DELETE on ANY of the nine catalogue tables
+      · 36 (role, catalogue table) pairs checked; DELETE granted nowhere
+
+stdout | test/catalogue/referenced-shift-type-not-deletable.test.ts > archive-not-delete, proven at the database > an attempted DELETE under app_runtime is refused 42501 INSIDE the unit of work
+      · app_runtime DELETE on shift_types → 42501, inside the wrapper
+
+stdout | test/catalogue/referenced-shift-type-not-deletable.test.ts > archive-not-delete, proven at the database > RETIREMENT is the path that works, and it keeps every reference resolvable
+      · retirement: status → retired, effective_to closed, every reference still resolvable
+
+ ✓ |api| test/catalogue/referenced-shift-type-not-deletable.test.ts (5 tests) 107ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  21:15:34
+   Duration  1.57s (transform 118ms, setup 64ms, collect 33ms, tests 107ms, environment 0ms, prepare 39ms)
+
+standalone exit=0
+==================================================================
+MODE 1 — STANDALONE: apps/api/test/catalogue/pick-position-monotonicity.test.ts
+==================================================================
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m2-002
+
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m2-002/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-1f97587ae90e3ddee0)] INFO: Completed task 1 (outbox.dispatch, 7.38ms) with success
+[worker(worker-1f97587ae90e3ddee0)] INFO: Completed task 2 (outbox.dispatch, 2.53ms) with success
+[worker(worker-1f97587ae90e3ddee0)] INFO: Completed task 3 (outbox.dispatch, 2.41ms) with success
+[worker(worker-1f97587ae90e3ddee0)] INFO: Completed task 4 (outbox.dispatch, 2.35ms) with success
+stdout | test/catalogue/pick-position-monotonicity.test.ts > pick_position_count is monotonic > CONTROL: an increase succeeds and is stored
+      · CONTROL: 0 → 3 accepted and stored
+
+stdout | test/catalogue/pick-position-monotonicity.test.ts > pick_position_count is monotonic > a DECREASE is rejected by the database, not only by the service
+      · direct UPDATE lowering the count 5 → 4 → restrict_violation; stored value unchanged at 5
+
+stdout | test/catalogue/pick-position-monotonicity.test.ts > pick_position_count is monotonic > CONCURRENT increases: the later, LOWER write is refused — the count never goes down
+      · concurrent 14 and 10 from two backends: 14 committed, 10 refused by the database; stored value 14
+
+stdout | test/catalogue/pick-position-monotonicity.test.ts > pick_position_count is monotonic > a valid combination cannot name a position above the ceiling
+      · valid combination: position 15 accepted at ceiling 15; position 16 refused
+
+ ✓ |api| test/catalogue/pick-position-monotonicity.test.ts (4 tests) 265ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  21:15:38
+   Duration  1.64s (transform 103ms, setup 63ms, collect 28ms, tests 265ms, environment 0ms, prepare 42ms)
+
+standalone exit=0
+==================================================================
+MODE 1 — STANDALONE: apps/api/test/catalogue/cross-tenant-sweep.test.ts
+==================================================================
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m2-002
+
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m2-002/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-a880f231d97b0fe158)] INFO: Completed task 1 (outbox.dispatch, 7.31ms) with success
+[worker(worker-a880f231d97b0fe158)] INFO: Completed task 2 (outbox.dispatch, 2.39ms) with success
+[worker(worker-a880f231d97b0fe158)] INFO: Completed task 3 (outbox.dispatch, 2.47ms) with success
+[worker(worker-a880f231d97b0fe158)] INFO: Completed task 4 (outbox.dispatch, 2.33ms) with success
+stdout | test/catalogue/cross-tenant-sweep.test.ts > the catalogue is invisible across both boundaries > CONTROL: both tenants really do hold catalogue rows
+      · 9 catalogue tables populated in BOTH fixture organizations
+
+stdout | test/catalogue/cross-tenant-sweep.test.ts > the catalogue is invisible across both boundaries > CONTROL: the SIBLING group holds rows in every table — the cross-group arm can fail
+      · Alpha sibling group c79fda68: shift_types=2 shift_type_weekday_demand=4 shift_groups=1 shift_group_members=2 staff_groups=1 staff_group_members=1 valid_groups=1 valid_group_shift_types=2 group_holidays=1
+
+stdout | test/catalogue/cross-tenant-sweep.test.ts > the catalogue is invisible across both boundaries > CONTROL: the SIBLING group holds rows in every table — the cross-group arm can fail
+      · Beta sibling group c9523aee: shift_types=2 shift_type_weekday_demand=4 shift_groups=1 shift_group_members=2 staff_groups=1 staff_group_members=1 valid_groups=1 valid_group_shift_types=2 group_holidays=1
+
+stdout | test/catalogue/cross-tenant-sweep.test.ts > the catalogue is invisible across both boundaries > Alpha Group One sees zero rows from Beta and zero from Alpha Group Two
+      · Alpha/GroupOne sweep: shift_types=2 shift_type_weekday_demand=6 shift_groups=1 shift_group_members=2 staff_groups=1 staff_group_members=1 valid_groups=1 valid_group_shift_types=2 group_holidays=1 — 0 wrong-organization, 0 wrong-group, with 15 sibling-group row(s) present and correctly invisible
+
+stdout | test/catalogue/cross-tenant-sweep.test.ts > the catalogue is invisible across both boundaries > Beta Group One sees zero rows from Alpha — the same sweep, from the other side
+      · Beta/GroupOne sweep: 0 wrong-organization, 0 wrong-group, every table non-vacuous
+
+stdout | test/catalogue/cross-tenant-sweep.test.ts > the catalogue is invisible across both boundaries > an ORGANIZATION-scoped context sees NO catalogue rows at all — the policy is group-only
+      · organization-scoped context: 0 rows on all nine catalogue tables (group predicate only)
+
+stdout | test/catalogue/cross-tenant-sweep.test.ts > the catalogue is invisible across both boundaries > FALSIFIABILITY: the same sweep measured against the WRONG tenant reports wrong > 0
+      · falsifiability: every catalogue table reports wrong > 0 against the wrong expectation
+
+stdout | test/catalogue/cross-tenant-sweep.test.ts > the catalogue is invisible across both boundaries > a write declaring Alpha but naming Beta's group is refused, not silently retenanted
+      · cross-group INSERT declaring Alpha/GroupOne and naming GroupTwo → 42501, nothing written
+
+ ✓ |api| test/catalogue/cross-tenant-sweep.test.ts (7 tests) 137ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  21:15:42
+   Duration  1.47s (transform 105ms, setup 65ms, collect 29ms, tests 137ms, environment 0ms, prepare 38ms)
+
+standalone exit=0
+==================================================================
+MODE 1 — STANDALONE: apps/api/test/catalogue/sweep-mutation.test.ts
+==================================================================
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m2-002
+
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m2-002/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-0e49dcc1f8246d5f79)] INFO: Completed task 1 (outbox.dispatch, 7.40ms) with success
+[worker(worker-0e49dcc1f8246d5f79)] INFO: Completed task 2 (outbox.dispatch, 2.39ms) with success
+[worker(worker-0e49dcc1f8246d5f79)] INFO: Completed task 3 (outbox.dispatch, 2.42ms) with success
+[worker(worker-0e49dcc1f8246d5f79)] INFO: Completed task 4 (outbox.dispatch, 2.26ms) with success
+stdout | test/catalogue/sweep-mutation.test.ts > the cross-group arm of the sweep can be made to fail > GREEN: unmutated, Alpha Group One sees zero rows from its sibling group
+      · GREEN: 0 wrong-group on all nine tables, every table non-vacuous
+
+stdout | test/catalogue/sweep-mutation.test.ts > the cross-group arm of the sweep can be made to fail > RED: with the group clause dropped from every policy, the sweep reports wrong-group rows
+      · RED (group clause dropped, organization clause kept): shift_types=2 shift_type_weekday_demand=4 shift_groups=1 shift_group_members=2 staff_groups=1 staff_group_members=1 valid_groups=1 valid_group_shift_types=2 group_holidays=1 — the sweep would fail, as it must
+
+stdout | test/catalogue/sweep-mutation.test.ts > the cross-group arm of the sweep can be made to fail > the rollback restored every policy — verified from a FRESH connection
+      · 9 catalogue policies intact after the rolled-back mutation
+
+ ✓ |api| test/catalogue/sweep-mutation.test.ts (4 tests) 106ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  21:15:46
+   Duration  1.54s (transform 105ms, setup 71ms, collect 32ms, tests 106ms, environment 0ms, prepare 31ms)
+
+standalone exit=0
+==================================================================
+MODE 1 — STANDALONE: apps/api/test/catalogue/review-findings.test.ts
+==================================================================
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m2-002
+
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m2-002/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-76bcc72eed6ccee6e0)] INFO: Completed task 1 (outbox.dispatch, 7.54ms) with success
+[worker(worker-76bcc72eed6ccee6e0)] INFO: Completed task 2 (outbox.dispatch, 2.61ms) with success
+[worker(worker-76bcc72eed6ccee6e0)] INFO: Completed task 3 (outbox.dispatch, 2.35ms) with success
+[worker(worker-76bcc72eed6ccee6e0)] INFO: Completed task 4 (outbox.dispatch, 2.46ms) with success
+stdout | test/catalogue/review-findings.test.ts > S-02 — pick_position_count is gated on INSERT as well as UPDATE > CONTROL: creating a group with the DEFAULT count is still ordinary group creation
+      · CONTROL: group created with the default count 0, ungated, as designed
+
+stdout | test/catalogue/review-findings.test.ts > S-02 — pick_position_count is gated on INSERT as well as UPDATE > RED (the reviewer's probe): an INSERT carrying a non-zero count is REFUSED
+      · RED: INSERT with pick_position_count = 500 → 42501, and no group was created
+
+stdout | test/catalogue/review-findings.test.ts > S-03 — the in-force window is authorable, and read filtering is M4 > a FUTURE-DATED definition round-trips: authored, stored, and read back
+      · future-dated definition 2030-01-01T00:00:00.000Z → 2031-01-01T00:00:00.000Z round-trips and stays visible for authoring
+
+stdout | test/catalogue/review-findings.test.ts > S-03 — the in-force window is authorable, and read filtering is M4 > the window can be re-authored, and an END BEFORE the START is refused by field
+      · backwards window refused: The date this definition stops applying must be after the date it starts.
+
+stdout | test/catalogue/review-findings.test.ts > S-03 — the in-force window is authorable, and read filtering is M4 > a FUTURE-DATED definition can still be RETIRED — the retirement instant is the database's
+      · future-dated definition retired: 2030-01-01T00:00:00.000Z -> 2030-01-01T00:00:00.000Z, and still editable
+
+stdout | test/catalogue/review-findings.test.ts > S-03 — the in-force window is authorable, and read filtering is M4 > `null` on effectiveTo OPENS the window; the row keeps a finite start
+      · effectiveTo: null reopens a closed window, and the start stays finite
+
+stdout | test/catalogue/review-findings.test.ts > S-03 — the in-force window is authorable, and read filtering is M4 > an INFINITE bound is refused — `null` is how a window is left open (S-22)
+      · an infinite effectiveFrom is refused with a field-addressed problem
+
+stdout | test/catalogue/review-findings.test.ts > S-04 — pick position reads and writes pin their tenant > CONTROL: under a GROUP context the count is this group's, not a sibling's
+      · group one reads 5; the sibling group holds 0
+
+stdout | test/catalogue/review-findings.test.ts > S-04 — pick position reads and writes pin their tenant > RED (the reviewer's probe): under an ORGANIZATION context the read REFUSES rather than guessing
+      · organization-scoped read → named refusal, never an arbitrary group's count
+
+stdout | test/catalogue/review-findings.test.ts > S-04 — pick position reads and writes pin their tenant > the WRITE is pinned too — a raise touches one group and no other
+      · 3 groups in the organization; exactly 1 moved
+
+stdout | test/catalogue/review-findings.test.ts > S-05 — optimistic concurrency actually prevents a lost update > RED (the reviewer's probe): app_runtime cannot set `version` at all
+      · app_runtime UPDATE naming `version` → 42501; the column is the database's
+
+stdout | test/catalogue/review-findings.test.ts > S-05 — optimistic concurrency actually prevents a lost update > the database bumps `version` on every update, without being asked
+      · version 1 → 2, assigned by app_maintain_catalogue_version
+
+stdout | test/catalogue/review-findings.test.ts > S-05 — optimistic concurrency actually prevents a lost update > RED: the SELECT-merge-UPDATE race no longer loses a write — the second is a CONFLICT
+      · A committed at version 2; B's stale predicate matched nothing and reported conflict; stored name "Written by A"
+
+stdout | test/catalogue/review-findings.test.ts > S-05 — optimistic concurrency actually prevents a lost update > CONTROL: two SEQUENTIAL updates both succeed — the predicate blocks races, not edits
+      · sequential edits: both accepted, version 1 → 2 → 3
+
+stdout | test/catalogue/review-findings.test.ts > S-05 — optimistic concurrency actually prevents a lost update > shift GROUPS carry the same predicate
+      · shift group version 1 → 2 by trigger; the update predicate is on `version`
+
+ ✓ |api| test/catalogue/review-findings.test.ts (15 tests) 412ms
+
+ Test Files  1 passed (1)
+      Tests  15 passed (15)
+   Start at  21:15:50
+   Duration  1.77s (transform 118ms, setup 69ms, collect 55ms, tests 412ms, environment 0ms, prepare 36ms)
+
+standalone exit=0
+
+==================================================================
+MODE 2 — IN-PACKAGE: the whole api project (vitest --project api)
+==================================================================
+in-package exit=0
+ ✓ |api| test/catalogue/review-findings.test.ts (15 tests) 404ms
+ ✓ |api| test/catalogue/pick-position-monotonicity.test.ts (4 tests) 328ms
+ ✓ |api| test/catalogue/cross-tenant-sweep.test.ts (7 tests) 106ms
+ ✓ |api| test/catalogue/referenced-shift-type-not-deletable.test.ts (5 tests) 79ms
+ ✓ |api| test/catalogue/sweep-mutation.test.ts (4 tests) 83ms
+ Test Files  45 passed (45)
+      Tests  565 passed (565)
+
+==================================================================
+MODE 3 — IN THE COMPLETE BATTERY (corepack pnpm check, gate: unit)
+==================================================================
+ ✓  api  test/catalogue/review-findings.test.ts (15 tests) 371ms
+ ✓  api  test/catalogue/pick-position-monotonicity.test.ts (4 tests) 247ms
+ ✓  api  test/catalogue/cross-tenant-sweep.test.ts (7 tests) 132ms
+ ✓  api  test/catalogue/referenced-shift-type-not-deletable.test.ts (5 tests) 95ms
+ ✓  api  test/catalogue/sweep-mutation.test.ts (4 tests) 99ms
+ Test Files  61 passed (61)
+      Tests  850 passed (850)

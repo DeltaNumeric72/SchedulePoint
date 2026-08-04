@@ -1,0 +1,74 @@
+$ node scripts/sbx/fixture-regression.mjs
+FAD-15 fixture-isolation regression gate
+==============================================================================
+
+1. FIXED SEED SET — file order AND test order shuffled
+PASS  seed 1                                           24.2s  565 passed (565)
+PASS  seed 7                                           25.1s  565 passed (565)
+PASS  seed 42                                          25.9s  565 passed (565)
+PASS  seed 424242                                      25.0s  565 passed (565)
+PASS  seed 20260803                                    25.2s  565 passed (565)
+PASS  seed 31337                                       24.9s  565 passed (565)
+PASS  seed 99991                                       23.6s  565 passed (565)
+PASS  seed 123456                                      22.8s  565 passed (565)
+PASS  seed 20250101                                    22.3s  565 passed (565)
+PASS  seed 8675309                                     22.4s  565 passed (565)
+PASS  seed 65339                                       23.7s  565 passed (565)
+
+2. ROTATING SEED — this run drew 648103
+   FAD-15 ruling 3: a failure here is a DEFECT TO FIX, never a flake to retry.
+   Reproduce with --sequence.seed=648103, fix it, then add the seed to FIXED_SEEDS.
+PASS  rotating seed 648103                             22.5s  565 passed (565)
+
+3. STANDALONE SWEEP — every file alone
+PASS  architecture/embedded-postgres-isolation.test.ts    1.9s  5 passed (5)
+PASS  architecture/no-tenant-access-outside-unit-of-work.test.ts    1.8s  10 passed (10)
+PASS  audit/architecture.test.ts                        1.8s  5 passed (5)
+PASS  audit/chain.test.ts                               2.0s  27 passed (27)
+PASS  audit/crash-restart.test.ts                       3.0s  4 passed (4)
+PASS  audit/emission-coverage.test.ts                   2.1s  12 passed (12)
+PASS  audit/outbox-dispatch.test.ts                     2.0s  12 passed (12)
+PASS  audit/payload-closedness.test.ts                  1.9s  5 passed (5)
+PASS  audit/periodic.test.ts                            5.1s  6 passed (6)
+PASS  authz/entitlement-in-force.test.ts                2.2s  15 passed (15)
+PASS  authz/fail-closed-guard.test.ts                   2.0s  4 passed (4)
+PASS  authz/http-authorization.test.ts                  2.2s  42 passed (42)
+PASS  authz/loader-cross-checks.test.ts                 1.9s  8 passed (8)
+PASS  authz/no-explanation-leaks.test.ts                2.1s  5 passed (5)
+PASS  authz/provisioning.test.ts                        2.1s  17 passed (17)
+PASS  authz/schema.test.ts                              2.0s  26 passed (26)
+PASS  catalogue/audit.test.ts                           2.2s  5 passed (5)
+PASS  catalogue/authorization.test.ts                   2.1s  10 passed (10)
+PASS  catalogue/cross-tenant-sweep.test.ts              2.0s  7 passed (7)
+PASS  catalogue/gate-red-cases.test.ts                  1.8s  6 passed (6)
+PASS  catalogue/pick-position-monotonicity.test.ts      2.1s  4 passed (4)
+PASS  catalogue/referenced-shift-type-not-deletable.test.ts    1.9s  5 passed (5)
+PASS  catalogue/review-findings.test.ts                 2.3s  15 passed (15)
+PASS  catalogue/schema.test.ts                          1.9s  12 passed (12)
+PASS  catalogue/service.test.ts                         2.0s  14 passed (14)
+PASS  catalogue/sweep-mutation.test.ts                  1.9s  4 passed (4)
+PASS  fixture/multi.test.ts                             2.0s  12 passed (12)
+PASS  http/context-surface.test.ts                      2.2s  24 passed (24)
+PASS  http/route-declarations.test.ts                   2.0s  15 passed (15)
+PASS  jobs/job-context.test.ts                          2.1s  18 passed (18)
+PASS  profiles/authorization.test.ts                    2.2s  25 passed (25)
+PASS  profiles/history-immutability.test.ts             2.0s  19 passed (19)
+PASS  profiles/in-force-determinism.test.ts             1.9s  7 passed (7)
+PASS  profiles/isolation.test.ts                        2.0s  8 passed (8)
+PASS  profiles/loader-is-the-only-selector.test.ts      1.9s  15 passed (15)
+PASS  profiles/loader-writer-agreement.test.ts          2.0s  4 passed (4)
+PASS  profiles/overlap-rejection.test.ts                2.1s  8 passed (8)
+PASS  profiles/round-trip.test.ts                       2.2s  24 passed (24)
+PASS  red-cases/fixture-isolation-controls.test.ts      2.0s  5 passed (5)
+PASS  red-cases/gates-fail-on-violations.test.ts        6.5s  12 passed (12)
+PASS  red-cases/probe-is-not-vacuous.test.ts            2.0s  5 passed (5)
+PASS  sbx/sbx.test.ts                                   2.9s  17 passed (17)
+PASS  server.test.ts                                    2.0s  8 passed (8)
+PASS  tenancy/roles-and-schema.test.ts                  2.0s  37 passed (37)
+PASS  tenancy/unit-of-work.test.ts                      6.7s  17 passed (17)
+
+==============================================================================
+57 run(s): 57 passed, 0 failed
+Order-independent under every seed tried.
+Every file also passes alone.
+The shared baseline was unmodified in every run (the Layer 1 control runs in each).
