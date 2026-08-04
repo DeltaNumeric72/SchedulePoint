@@ -52,7 +52,7 @@ Standing conditions unchanged by this document: external architecture re-review 
 |---|---|
 | **Task ID** | OPUS-M3-001 |
 | **Milestone / Slice** | M3 / authentication, sessions, invitation/activation (carried roadmap-M1 slice; unblocks real-session evidence for every later packet) |
-| **Status** | FINALIZED 2026-08-04 — NOT ISSUED |
+| **Status** | ISSUED 2026-08-04 (branch `opus/m3-001-authn`, worktree `.worktrees/m3-001`; issuance recorded in the task log) |
 | **Objective** | First-party email+password authentication with TOTP MFA, server-side sessions with idle and absolute lifetimes, invitation/activation separated from password reset, login-email change (CAR-027), session-epoch integration with the SPEC-06 freshness counters, break-glass session auditing (SPEC-11 §3.2), and the minimal accessible UI for sign-in, MFA enrolment/challenge, activation, and reset. Synthetic accounts only; no real notification destination |
 | **User outcome** | An invited synthetic user activates an account (single-use expiring token), sets a password, enrols TOTP, signs in and out, is signed out by idle/absolute expiry, and is immediately invalidated on suspension; an administrator changes a login email (audited, sessions invalidated, invitations reconciled) and resets MFA (X-12: audited, notified, sessions invalidated) |
 | **Engineering outcome** | SBX-005 and SBX-006 execute **in full** (no `EVIDENCE_BLOCKED(authn)` remains); SBX-001 re-runs with real sessions; every subsequent packet tests against real authenticated sessions |
