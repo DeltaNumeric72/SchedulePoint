@@ -37,12 +37,7 @@ export {
 } from './ports/unit-of-work.js';
 
 export type { AlertSeverity, AlertSink, OperationalAlert } from './ports/alerts.js';
-export type {
-  EnqueuedJob,
-  FrozenJobContext,
-  JobOutcome,
-  JobQueue,
-} from './ports/job-queue.js';
+export type { EnqueuedJob, FrozenJobContext, JobOutcome, JobQueue } from './ports/job-queue.js';
 export type { Principal, PrincipalResolution, PrincipalResolver } from './ports/principal.js';
 
 export {
@@ -147,6 +142,16 @@ export {
   type InForceSelection,
   type NoRowReason,
 } from './profiles/in-force.js';
+
+/* ── OPUS-M3-002: the typed scheduling-rule AST, validation, serialization, and
+ * compiler (CAP-015, CAP-045, CAR-006; SPEC-04 §3) ───────────────────────────
+ *
+ * The closed node set, the pure field-addressed validation, the deterministic
+ * canonical serialization, and the AST→canonical-solver-input compiler with the
+ * structural hard/soft invariant. Dependency-free, as everything here must be.
+ * There is no solver — building and solving the model is M4 (non-bypass rule 7).
+ */
+export * from './rules/index.js';
 
 /* ── OPUS-M2-002: the shift-type catalogue's pure rules (CAP-011, CAP-012) ────
  *

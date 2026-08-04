@@ -1,0 +1,4 @@
+=== standalone: compiler determinism + hard/soft invariant (proofs 2,4) ===
+ ✓ |domain| test/rules/compile.test.ts (7 tests) 3ms
+ Test Files  1 passed (1)
+      Tests  7 passed (7)

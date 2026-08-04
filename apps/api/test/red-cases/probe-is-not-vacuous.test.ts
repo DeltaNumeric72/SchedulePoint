@@ -17,6 +17,7 @@ import {
   type Runtime,
 } from '../support/harness.js';
 import { ownedMulti } from '../support/owned-multi.js';
+import { seedRulesForSweep } from '../support/rules.js';
 
 /**
  * FAD-15 Layer 2 — this file owns its tenant.
@@ -49,7 +50,6 @@ const multi = ownedMulti('red-cases-probe-is-not-vacuous', {
   seed: { staffing: true, catalogue: ['alpha'] },
 });
 
-
 /**
  * **Red case: the wrong-tenant probe must be able to fail.**
  *
@@ -79,9 +79,7 @@ const multi = ownedMulti('red-cases-probe-is-not-vacuous', {
 const ORGANIZATION_CONTEXT_ONLY = TENANT_TABLES.filter(
   (table) => table.scope === 'organization-context-only',
 );
-const GROUP_PROBABLE = TENANT_TABLES.filter(
-  (table) => table.scope !== 'organization-context-only',
-);
+const GROUP_PROBABLE = TENANT_TABLES.filter((table) => table.scope !== 'organization-context-only');
 
 let admin: pg.Client;
 let runtime: Runtime;
@@ -90,6 +88,38 @@ beforeAll(async () => {
   admin = adminClient();
   await admin.connect();
   runtime = createRuntime('app_runtime', { max: 2 });
+
+  /* ── OPUS-M3-002: rule rows, so the new tenant tables are not vacuous ──────
+   *
+   * Migration 0008 registers `rules` and `rule_sets` in `TENANT_TABLES`, and
+   * every sweep in this file iterates that registry and refuses a table it never
+   * saw a row in — "0 wrong" over an empty table means nothing, which is exactly
+   * what these probes exist to catch.
+   *
+   * Seeded here rather than in `provisionMulti` because `test/support/multi.ts`
+   * is prohibited to OPUS-M3-002 (packet 32 §4/§6); `test/support/rules.ts` is
+   * this packet's own file and the seed goes through the production write path
+   * under a capability-holding context. */
+  await seedRulesForSweep(runtime.runner, [
+    {
+      organizationId: multi().alpha.organizationId,
+      groupId: multi().alpha.groupOne.id,
+      membershipId: multi().alpha.users.scheduler.membershipId,
+      label: 'alpha_one',
+    },
+    {
+      organizationId: multi().alpha.organizationId,
+      groupId: multi().alpha.groupTwo.id,
+      membershipId: multi().alpha.users.scheduler.groupTwoMembershipId,
+      label: 'alpha_two',
+    },
+    {
+      organizationId: multi().beta.organizationId,
+      groupId: multi().beta.groupOne.id,
+      membershipId: multi().beta.users.scheduler.membershipId,
+      label: 'beta_one',
+    },
+  ]);
 }, 180_000);
 
 afterAll(async () => {
@@ -98,7 +128,7 @@ afterAll(async () => {
 });
 
 describe('the wrong-tenant probe reports a violation when one is expected', () => {
-  it('RED: probing Group One\'s rows against Group Two\'s expectation reports wrong > 0', async () => {
+  it("RED: probing Group One's rows against Group Two's expectation reports wrong > 0", async () => {
     // The unit of work is genuinely Group One's; the probe is handed Group Two's
     // coordinates. Every visible row is now "wrong", and the probe must say so
     // on every table that carries a group.
@@ -139,7 +169,7 @@ describe('the wrong-tenant probe reports a violation when one is expected', () =
     expect(reported.get('organizations')).toBe(0);
   });
 
-  it('RED: probing Alpha\'s rows against Beta\'s expectation reports wrong > 0 on every table', async () => {
+  it("RED: probing Alpha's rows against Beta's expectation reports wrong > 0 on every table", async () => {
     const realContext = groupContext(
       multi().alpha.organizationId,
       multi().alpha.groupOne.id,
@@ -170,9 +200,7 @@ describe('the wrong-tenant probe reports a violation when one is expected', () =
       }
     };
 
-    await runtime.runner.run(realContext, ({ query }) =>
-      assertReportsWrong(query, GROUP_PROBABLE),
-    );
+    await runtime.runner.run(realContext, ({ query }) => assertReportsWrong(query, GROUP_PROBABLE));
     await runtime.runner.run(
       multi.administrator(multi().alpha.organizationId, 'probe-red-organization'),
       ({ query }) => assertReportsWrong(query, ORGANIZATION_CONTEXT_ONLY),
@@ -236,7 +264,9 @@ describe('the ground-truth census reports a violation when one is planted', () =
       impossible.length,
       'the census did not flag memberships whose partition was removed from the expectation',
     ).toBeGreaterThan(0);
-    log(`census flagged ${String(impossible.length)} impossible partition(s) when one was withheld`);
+    log(
+      `census flagged ${String(impossible.length)} impossible partition(s) when one was withheld`,
+    );
   });
 
   it('GREEN: with the real partitions, the census is clean', async () => {

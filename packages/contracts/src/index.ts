@@ -78,3 +78,11 @@ export * from './identifiers.js';
  * single failure body is a control, not a simplification.
  */
 export * from './authn/index.js';
+
+/**
+ * OPUS-M3-002 — the typed scheduling-rule model's wire shapes (CAP-015, CAP-045,
+ * CAR-006; SPEC-04 §3). The predicate is a discriminated union over the closed
+ * node set — an unknown `kind` cannot parse, which is the wire half of "no
+ * escape hatch". Node kinds/enums are asserted equal to `@schedulepoint/domain`.
+ */
+export * from './rules/index.js';

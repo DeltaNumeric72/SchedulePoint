@@ -6,7 +6,8 @@ import { fileURLToPath } from 'node:url';
 /**
  * `pnpm check` — the full gate battery, in dependency order.
  *
- * One command, twelve gates, all build-failing (15-testing-strategy §4). The
+ * One command, thirteen gates, all build-failing (15-testing-strategy §4; the
+ * thirteenth is the OPUS-M3-002 rule-node → compiler-mapping closure gate). The
  * runner keeps going after a failure rather than stopping at the first one:
  * a developer fixing a broken branch wants the whole list, not one gate at a
  * time. The exit code is non-zero if any gate failed.
@@ -77,6 +78,12 @@ const GATES = [
     title: 'invariant-ID uniqueness (CAR-023)',
     command: 'pnpm',
     args: ['run', 'gate:invariant-ids'],
+  },
+  {
+    id: 'rule-node-mapping',
+    title: 'rule-node → compiler-mapping closure (SPEC-04 §3.2)',
+    command: 'pnpm',
+    args: ['run', 'gate:rule-node-mapping'],
   },
   { id: 'secret-scan', title: 'secret scan', command: 'pnpm', args: ['run', 'gate:secret-scan'] },
   {

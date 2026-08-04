@@ -149,6 +149,42 @@ const CASES = [
     ],
   },
   {
+    id: 'rule-node-mapping',
+    gate: 'rule-node → compiler-mapping closure (SPEC-04 §3.2)',
+    violation: 'an AST node kind declared with no compiler mapping',
+    // Add a node to the declared closed set without a compiler `case` for it.
+    // TypeScript exhaustiveness would also catch this, but the point of the gate
+    // is an independent build-failing check: it must fire on its own. The gate
+    // scans source, so no rebuild is needed and the red arm is self-contained.
+    patch: [
+      {
+        file: 'packages/domain/src/rules/ast.ts',
+        find: "  'ProtectedRange',\n] as const satisfies readonly RuleNodeKind[];",
+        replace:
+          "  'ProtectedRange',\n  'UnmappedProbe',\n] as const satisfies readonly RuleNodeKind[];",
+      },
+    ],
+    greenCommand: ['run', 'gate:rule-node-mapping'],
+    redCommand: ['run', 'gate:rule-node-mapping'],
+  },
+  {
+    id: 'corpus-tamper',
+    gate: 'B-* corpus regeneration byte-identity (SPEC-04 §8)',
+    violation: 'a committed corpus fixture edited away from its generated form',
+    // Tamper with a committed fixture; regeneration produces the original bytes,
+    // so the on-disk/regenerated diff must be caught. corpus:check rebuilds the
+    // domain dist first so the comparison runs against the real generator.
+    patch: [
+      {
+        file: 'solver/corpus/fixtures/B-feasible-small.json',
+        find: '"count":1',
+        replace: '"count":2',
+      },
+    ],
+    greenCommand: ['run', 'corpus:check'],
+    redCommand: ['run', 'corpus:check'],
+  },
+  {
     id: 'secret-scan',
     gate: 'secret scan',
     violation: 'AWS key, GitHub token, Stripe key and a DSN password in one file',

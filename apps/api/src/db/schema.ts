@@ -346,15 +346,7 @@ export interface QualificationHoldingsTable {
 
 export type ShiftPaletteKeyColumn = 'neutral' | 'indigo' | 'teal' | 'amber' | 'rose' | 'violet';
 export type ShiftTextStyleColumn = 'regular' | 'bold' | 'italic';
-export type CatalogueDayColumn =
-  | 'mon'
-  | 'tue'
-  | 'wed'
-  | 'thu'
-  | 'fri'
-  | 'sat'
-  | 'sun'
-  | 'holiday';
+export type CatalogueDayColumn = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun' | 'holiday';
 
 export interface ShiftTypesTable {
   id: string;
@@ -514,6 +506,60 @@ export interface GroupHolidaysTable {
   updated_at: Generated<Date>;
 }
 
+/* ── OPUS-M3-002 — the typed rule model (migration 0008, CAR-006, SPEC-04 §3) ──
+ *
+ * FAD-21: `pattern_rules`/`staff_rules` are CATEGORIES of this one model, not
+ * separate tables, so `category` is the discriminator and there are exactly two
+ * tables here.
+ */
+export interface RulesTable {
+  id: string;
+  organization_id: string;
+  group_id: string;
+  /**
+   * The STABLE identifier (non-bypass rule 13). Immutable after insert — the
+   * `rules_guard_key_immutable` trigger refuses a change, and the column is
+   * absent from the UPDATE grant so a runtime role cannot even name it.
+   */
+  rule_key: string;
+  name: string;
+  rule_schema_version: number;
+  classification: 'HARD' | 'SOFT';
+  /**
+   * `numeric` — a string on the wire, and `null` for every `HARD` rule. The
+   * `rules_hard_soft_weight` CHECK is the database half of SPEC-04 §3.3.
+   */
+  weight: string | null;
+  /** FAD-21's discriminator. `staff` iff `scope.memberships` is non-empty. */
+  category: Generated<'general' | 'pattern' | 'staff'>;
+  /** The typed `RuleScope`. Shape-constrained by CHECK, not a free-form blob. */
+  scope: Generated<unknown>;
+  /**
+   * The typed `RuleNode`. `rules_predicate_kind_is_closed` restricts the
+   * discriminant to the thirty kinds of SPEC-04 §3.1 — the storage-layer half of
+   * "the node set is closed, and there is no escape hatch".
+   */
+  predicate: unknown;
+  status: Generated<'active' | 'disabled' | 'archived'>;
+  /** Database-owned. Not in any UPDATE grant — naming it raises 42501. */
+  version: Generated<number>;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface RuleSetsTable {
+  id: string;
+  organization_id: string;
+  group_id: string;
+  name: string;
+  /** `text[]` of `rule_key`s — doc 06 §3.2's "rule id arrays", by stable key. */
+  rule_keys: Generated<string[]>;
+  status: Generated<'active' | 'archived'>;
+  version: Generated<number>;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
 export interface Database {
   organizations: OrganizationsTable;
   groups: GroupsTable;
@@ -542,6 +588,8 @@ export interface Database {
   invitations: InvitationsTable;
   password_reset_tokens: PasswordResetTokensTable;
   user_mfa: UserMfaTable;
+  rules: RulesTable;
+  rule_sets: RuleSetsTable;
 }
 
 /**
@@ -724,4 +772,31 @@ export const TENANT_TABLES: readonly TenantTable[] = [
   { name: 'invitations', scope: 'organization-only' },
   { name: 'password_reset_tokens', scope: 'organization-only' },
   { name: 'user_mfa', scope: 'organization-only' },
+
+  /* ── `migrations/0008_typed_rules.sql` (OPUS-M3-002) ────────────────────────
+   *
+   * Registered in the SAME change as the migration that creates them (packet 30
+   * §7.2). Both are `organization-and-group`: both tenant columns, V-09's
+   * conjunctive group predicate, no organization-scoped policy — rule authoring
+   * is not in SPEC-06 §1.1's organization-scoped enumeration, so an
+   * organization-scoped context sees zero rule rows.
+   *
+   * Their non-vacuity in the sweep is established by
+   * **`apps/api/test/support/rules.ts::seedRulesForSweep`**, called from the
+   * files that sweep this registry (`test/sbx/sbx.test.ts`,
+   * `test/tenancy/unit-of-work.test.ts`,
+   * `test/red-cases/probe-is-not-vacuous.test.ts`). It writes a rule and a rule
+   * set into Alpha's two groups AND into Beta through the production write path,
+   * so the cross-GROUP arm has something it could see if the group predicate
+   * were broken, not only the cross-organization one.
+   *
+   * NOT `provisionMulti`: `test/support/multi.ts` is the single fixture owner and
+   * was prohibited to OPUS-M3-002 (packet 32 §4/§6), so this packet seeds from
+   * its own support file rather than editing the shared script.
+   *
+   * `rules` additionally carries the INTERNAL capability predicate (FAD-17(2)),
+   * so `app_readonly_support` is narrowed to 42501 on it — recorded distinctly
+   * by the sweep, exactly as `qualification_holdings` is. */
+  { name: 'rules', scope: 'organization-and-group' },
+  { name: 'rule_sets', scope: 'organization-and-group' },
 ] as const;

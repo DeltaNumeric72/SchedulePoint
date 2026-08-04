@@ -1,0 +1,26 @@
+=== NAMED PROOF 3: unmapped-node CI gate — green + red (standalone) ===
+--- GREEN (clean tree) ---
+PASS  rule-node → compiler-mapping closure — 30 declared node(s) in packages/domain/src/rules/ast.ts, 30 compiler mapping(s) in packages/domain/src/rules/compile.ts
+exit: 0
+--- RED (add 'UnmappedProbe' to RULE_NODE_KINDS, no compiler case) ---
+FAIL  rule-node → compiler-mapping closure — 1 violation(s)
+  packages/domain/src/rules/ast.ts:323  AST node 'UnmappedProbe' has no compiler mapping (SPEC-04 §3.2: an unmapped node fails the build).
+      scanned: 31 declared node(s) in packages/domain/src/rules/ast.ts, 30 compiler mapping(s) in packages/domain/src/rules/compile.ts
+exit: 1
+--- ADVERSARIAL: delete ALL compiler mappings — gate must still fail (not vacuous) ---
+FAIL  rule-node → compiler-mapping closure — 30 violation(s)
+  packages/domain/src/rules/ast.ts:293  AST node 'RequiredCount' has no compiler mapping (SPEC-04 §3.2: an unmapped node fails the build).
+  packages/domain/src/rules/ast.ts:294  AST node 'MinCoverage' has no compiler mapping (SPEC-04 §3.2: an unmapped node fails the build).
+exit: 
+
+=== NAMED PROOF 5: corpus regeneration byte-identity — green + red (standalone) ===
+--- GREEN (committed == regenerated) ---
+PASS  corpus regeneration byte-identical — 6 fixture(s) + manifest
+exit: 0
+--- RED (tamper one committed fixture: count 1 -> 2) ---
+FAIL  corpus regeneration is not byte-identical:
+  B-feasible-small.json: on-disk bytes differ from regeneration
+exit: 1
+--- restored; re-verify green ---
+PASS  corpus regeneration byte-identical — 6 fixture(s) + manifest
+exit: 0

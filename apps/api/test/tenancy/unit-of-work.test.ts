@@ -11,7 +11,10 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { ProcessAlertSink } from '../../src/db/alerts.js';
 import { createPool } from '../../src/db/pool.js';
-import { assertTransactionAffinity, PoolerModeAssertionError } from '../../src/db/pooler-assertion.js';
+import {
+  assertTransactionAffinity,
+  PoolerModeAssertionError,
+} from '../../src/db/pooler-assertion.js';
 import { TENANT_TABLES } from '../../src/db/schema.js';
 import { PgUnitOfWorkRunner } from '../../src/db/unit-of-work.js';
 import { adminClient } from '../support/admin-client.js';
@@ -32,6 +35,7 @@ import {
 } from '../support/harness.js';
 import { withSimulatedPoolerFault } from '../support/pooler-simulator.js';
 import { ownedMulti } from '../support/owned-multi.js';
+import { seedRulesForSweep } from '../support/rules.js';
 
 /**
  * FAD-15 Layer 2 — this file owns its tenant.
@@ -63,7 +67,6 @@ import { ownedMulti } from '../support/owned-multi.js';
 const multi = ownedMulti('tenancy-unit-of-work', {
   seed: { staffing: true, catalogue: ['alpha'] },
 });
-
 
 /**
  * **SPEC-01 §7.2 — pooled-connection and failure-path isolation (CAR-002),
@@ -144,6 +147,38 @@ beforeAll(async () => {
   await admin.connect();
   runtime = createRuntime('app_runtime', { max: 4 });
   worker = createRuntime('app_worker', { max: 2 });
+
+  /* ── OPUS-M3-002: rule rows, so the new tenant tables are not vacuous ──────
+   *
+   * Migration 0008 registers `rules` and `rule_sets` in `TENANT_TABLES`, and
+   * every sweep in this file iterates that registry and refuses a table it never
+   * saw a row in — "0 wrong" over an empty table means nothing, which is exactly
+   * what these probes exist to catch.
+   *
+   * Seeded here rather than in `provisionMulti` because `test/support/multi.ts`
+   * is prohibited to OPUS-M3-002 (packet 32 §4/§6); `test/support/rules.ts` is
+   * this packet's own file and the seed goes through the production write path
+   * under a capability-holding context. */
+  await seedRulesForSweep(runtime.runner, [
+    {
+      organizationId: multi().alpha.organizationId,
+      groupId: multi().alpha.groupOne.id,
+      membershipId: multi().alpha.users.scheduler.membershipId,
+      label: 'alpha_one',
+    },
+    {
+      organizationId: multi().alpha.organizationId,
+      groupId: multi().alpha.groupTwo.id,
+      membershipId: multi().alpha.users.scheduler.groupTwoMembershipId,
+      label: 'alpha_two',
+    },
+    {
+      organizationId: multi().beta.organizationId,
+      groupId: multi().beta.groupOne.id,
+      membershipId: multi().beta.users.scheduler.membershipId,
+      label: 'beta_one',
+    },
+  ]);
 }, 180_000);
 
 afterAll(async () => {
@@ -166,7 +201,9 @@ describe('the wrapper establishes and confines context', () => {
     expect(observed.first?.pid).toBe(observed.second?.pid);
     expect(observed.first?.pid).toBe(observed.backendPid);
     expect(observed.first?.xid).toBe(observed.second?.xid);
-    log(`backend ${String(observed.backendPid)}, transaction ${String(observed.first?.xid)}, both statements`);
+    log(
+      `backend ${String(observed.backendPid)}, transaction ${String(observed.first?.xid)}, both statements`,
+    );
   });
 
   it('the startup pooler-mode assertion passes against the real pool', async () => {
@@ -190,7 +227,9 @@ describe('the wrapper establishes and confines context', () => {
       await expect(assertTransactionAffinity(pool)).rejects.toBeInstanceOf(
         PoolerModeAssertionError,
       );
-      log('assertTransactionAffinity threw POOLER_MODE_UNSUPPORTED on a pooler that drops set_config');
+      log(
+        'assertTransactionAffinity threw POOLER_MODE_UNSUPPORTED on a pooler that drops set_config',
+      );
     } finally {
       await pool.end();
     }
@@ -250,10 +289,7 @@ describe('SPEC-01 §7.2 — injected faults', () => {
       runtime.runner.run(alphaOrganization(), async ({ query, backendPid }) => {
         await insertMarkerGroup(query, multi().alpha.organizationId, name);
         cancelIssued = new Promise((resolve) => {
-          setTimeout(
-            () => resolve(admin.query('select pg_cancel_backend($1)', [backendPid])),
-            200,
-          );
+          setTimeout(() => resolve(admin.query('select pg_cancel_backend($1)', [backendPid])), 200);
         });
         await sql`select pg_sleep(10)`.execute(query);
       }),
@@ -315,9 +351,10 @@ describe('SPEC-01 §7.2 — injected faults', () => {
       runtime,
       `select current_setting('statement_timeout') as v`,
     );
-    expect(after.rows[0]?.v, 'a transaction-local statement_timeout leaked past the transaction').toBe(
-      '0',
-    );
+    expect(
+      after.rows[0]?.v,
+      'a transaction-local statement_timeout leaked past the transaction',
+    ).toBe('0');
     log('server timeout: 57014, rolled back, statement_timeout back to 0 afterwards');
   });
 
@@ -377,32 +414,37 @@ describe('SPEC-01 §7.2 — injected faults', () => {
     const outerName = marker('t11-outer');
     const innerName = marker('t11-inner');
 
-    const pids = await runtime.runner.run(alphaOrganization(), async ({ query, backendPid, depth }) => {
-      expect(depth).toBe(0);
-      await insertMarkerGroup(query, multi().alpha.organizationId, outerName);
+    const pids = await runtime.runner.run(
+      alphaOrganization(),
+      async ({ query, backendPid, depth }) => {
+        expect(depth).toBe(0);
+        await insertMarkerGroup(query, multi().alpha.organizationId, outerName);
 
-      let innerPid = 0;
-      await expect(
-        runtime.runner.run(alphaOrganization(), async (inner) => {
-          innerPid = inner.backendPid;
-          expect(inner.depth, 'a nested unit of work should report depth 1').toBe(1);
-          await insertMarkerGroup(inner.query, multi().alpha.organizationId, innerName);
-          throw new Error('inner failure');
-        }),
-      ).rejects.toThrow(/inner failure/);
+        let innerPid = 0;
+        await expect(
+          runtime.runner.run(alphaOrganization(), async (inner) => {
+            innerPid = inner.backendPid;
+            expect(inner.depth, 'a nested unit of work should report depth 1').toBe(1);
+            await insertMarkerGroup(inner.query, multi().alpha.organizationId, innerName);
+            throw new Error('inner failure');
+          }),
+        ).rejects.toThrow(/inner failure/);
 
-      // The outer transaction survives the inner rollback. That is the savepoint.
-      const visible = await query
-        .selectFrom('groups')
-        .select(['name'])
-        .where('name', 'in', [outerName, innerName])
-        .execute();
-      expect(visible.map((row) => row.name)).toEqual([outerName]);
+        // The outer transaction survives the inner rollback. That is the savepoint.
+        const visible = await query
+          .selectFrom('groups')
+          .select(['name'])
+          .where('name', 'in', [outerName, innerName])
+          .execute();
+        expect(visible.map((row) => row.name)).toEqual([outerName]);
 
-      return { backendPid, innerPid };
-    });
+        return { backendPid, innerPid };
+      },
+    );
 
-    expect(pids.innerPid, 'a nested unit of work must stay on the same backend').toBe(pids.backendPid);
+    expect(pids.innerPid, 'a nested unit of work must stay on the same backend').toBe(
+      pids.backendPid,
+    );
     expect(await countGroupsNamed(outerName), 'the outer write should have committed').toBe(1);
     expect(await countGroupsNamed(innerName), 'the inner write should have rolled back').toBe(0);
     log(`same backend ${String(pids.backendPid)}; outer committed, inner rolled back to savepoint`);
@@ -488,9 +530,9 @@ describe('SPEC-01 §7.2 — injected faults', () => {
       const updated = await outsideUnitOfWork(rt, `update groups set name = 'hijacked'`);
       expect(updated.rowCount, `${rt.role}: UPDATE affected rows outside the wrapper`).toBe(0);
 
-      await expect(
-        outsideUnitOfWork(rt, 'delete from memberships'),
-      ).rejects.toMatchObject({ code: '42501' });
+      await expect(outsideUnitOfWork(rt, 'delete from memberships')).rejects.toMatchObject({
+        code: '42501',
+      });
 
       log(
         `${rt.role}: 0 rows readable on all ${String(TENANT_TABLES.length)} tenant tables, INSERT 42501, UPDATE affected 0 rows, DELETE 42501 (no grant)`,
@@ -514,7 +556,9 @@ describe('SPEC-01 §7.2 — injected faults', () => {
         .selectAll()
         .where('id', '=', targetId)
         .execute();
-      expect(byId, 'a Group Two row was addressable by id under a Group One context').toHaveLength(0);
+      expect(byId, 'a Group Two row was addressable by id under a Group One context').toHaveLength(
+        0,
+      );
 
       const updated = await query
         .updateTable('memberships')
@@ -591,7 +635,8 @@ describe('SPEC-01 §7.2 T-14 — the prohibited pooling mode is detected', () =>
       const seen = new Set<number>();
       for (let round = 0; round < 4; round += 1) {
         const clients = await Promise.all([pool.connect(), pool.connect(), pool.connect()]);
-        for (const client of clients) seen.add((client as unknown as { processID: number }).processID);
+        for (const client of clients)
+          seen.add((client as unknown as { processID: number }).processID);
         for (const client of clients) client.release();
       }
       expect([...seen], 'the poisoned connection was handed back out').not.toContain(poisoned);
@@ -649,7 +694,10 @@ describe('SPEC-01 §7.2 T-14 — the prohibited pooling mode is detected', () =>
         const mismatches = (error as ContextReadbackMismatchError).mismatches;
         // Exactly ONE setting mismatched, and it is the one a naive read-back
         // would never have looked at.
-        expect(mismatches, `expected exactly one mismatch, got ${String(mismatches.length)}`).toHaveLength(1);
+        expect(
+          mismatches,
+          `expected exactly one mismatch, got ${String(mismatches.length)}`,
+        ).toHaveLength(1);
         expect(mismatches[0]?.setting).toBe('app.group_id');
         expect(mismatches[0]?.expected).toBe(multi().alpha.groupOne.id);
         // On a pristine backend the never-set GUC reads back as NULL; on a
@@ -856,7 +904,8 @@ describe('SPEC-01 §7.2 T-15 — two-organization concurrency storm', () => {
                 stats.committed += 1;
               })
               .catch((error: unknown) => {
-                if (!(error instanceof Error) || error.message !== 'injected storm fault') throw error;
+                if (!(error instanceof Error) || error.message !== 'injected storm fault')
+                  throw error;
               }),
           );
         }
@@ -897,10 +946,9 @@ describe('SPEC-01 §7.2 T-15 — two-organization concurrency storm', () => {
 
       // A probe that saw nothing reports "0 wrong" for the boring reason. Every
       // tenant table must have been observed with at least one visible row.
-      expect(
-        [...nonVacuous].sort(),
-        'the probe was vacuous on at least one tenant table',
-      ).toEqual(TENANT_TABLES.map((t) => t.name).sort());
+      expect([...nonVacuous].sort(), 'the probe was vacuous on at least one tenant table').toEqual(
+        TENANT_TABLES.map((t) => t.name).sort(),
+      );
 
       const partitions = await actualPartitions(admin);
       const organizations = await actualOrganizations(admin);
@@ -920,7 +968,7 @@ describe('SPEC-01 §7.2 T-15 — two-organization concurrency storm', () => {
       // quietly shrank would still print "0 wrong-tenant rows" and mean much less.
       expect(
         stats.tenantTableStatements,
-        'the storm did not reach SPEC-01 T-15\'s 10 000 interleaved operations',
+        "the storm did not reach SPEC-01 T-15's 10 000 interleaved operations",
       ).toBeGreaterThanOrEqual(10_000);
       log(
         `${String(stats.tenantTableStatements)} tenant-table statements (protocol overhead counted separately)`,
@@ -970,9 +1018,7 @@ describe('R-15 — a nested unit of work may not change the acting membership', 
         { ...outer, membershipId: null },
         async (inner) => inner.context.membershipId,
       );
-      expect(inherited, 'the nested call did not inherit the outer actor').toBe(
-        outer.membershipId,
-      );
+      expect(inherited, 'the nested call did not inherit the outer actor').toBe(outer.membershipId);
     });
 
     // The outer transaction was untouched by the refusal and still commits.

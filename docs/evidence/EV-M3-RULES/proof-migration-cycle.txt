@@ -1,0 +1,12 @@
+=== migration 0008 up/down/up cycle (OPUS-M3-002) — re-captured at second review ===
+migrateCycle() against the worktree's derived-port embedded cluster. up1 is
+empty because globalSetup had already applied the set before this probe ran;
+down and up2 are the proof.
+
+MIGCYCLE up1: []
+MIGCYCLE down: ["0008_typed_rules","0007_authentication_sessions_invitations","0006_shift_type_qualifications","0005_shift_catalogue","0004_work_profiles_qualifications","0003_audit_outbox","0002_authorization","0001_tenancy_core"]
+MIGCYCLE up2: ["0001_tenancy_core","0002_authorization","0003_audit_outbox","0004_work_profiles_qualifications","0005_shift_catalogue","0006_shift_type_qualifications","0007_authentication_sessions_invitations","0008_typed_rules"]
+
+0008_typed_rules appears in BOTH the down list and the up2 list, so the
+migration rolls back and re-applies cleanly with the other seven — including
+the N-2 coalesce() change to rules_staff_category_matches_scope.

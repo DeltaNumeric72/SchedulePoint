@@ -1,0 +1,6 @@
+=== NAMED PROOF 1 (DB-backed): round trip against a real database ===
+ ✓ |api| test/profiles/round-trip.test.ts (24 tests) 250ms
+ ✓ |api| test/rules/round-trip.test.ts (4 tests) 170ms
+ ✓ |api| test/rules/round-trip.test.ts (4 tests) 265ms
+ Test Files  1 passed (1)
+      Tests  4 passed (4)

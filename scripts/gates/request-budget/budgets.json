@@ -28,6 +28,24 @@
       "note": "I-10 in its strictest form. One click, one request. Any retry, revalidation, or telemetry beat would break this and is meant to."
     },
     {
+      "id": "rules-open-new-rule",
+      "description": "User clicks 'New rule' to open the rule-authoring form.",
+      "maxRequests": 0,
+      "note": "I-13, in the same strict form as catalogue-open-new-shift-type. A control labelled New must persist nothing before a completed form and an explicit Save. ZERO is the only correct number and this budget can never be raised without the invariant changing first. Measured 0 at both viewports (OPUS-M3-002)."
+    },
+    {
+      "id": "rules-save-refused",
+      "description": "User clicks 'Save rule' and the server refuses it with a 422.",
+      "maxRequests": 1,
+      "note": "One Save, one request. A refused save does NOT refetch, because nothing changed. Measured 1 at both viewports (OPUS-M3-002)."
+    },
+    {
+      "id": "rules-save-accepted",
+      "description": "User clicks 'Save rule' and the server accepts it.",
+      "maxRequests": 2,
+      "note": "The write plus ONE invalidation refetch of the rule list. Two is the measured number, not a target: the list must reflect the new rule and the client does not synthesise it from the response. Measured 2 at both viewports (OPUS-M3-002)."
+    },
+    {
       "id": "catalogue-open-new-shift-type",
       "description": "User clicks 'New shift type' to open the authoring form.",
       "maxRequests": 0,

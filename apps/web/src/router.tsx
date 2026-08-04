@@ -8,11 +8,7 @@ import {
 import type { JSX } from 'react';
 
 import { GroupSettingsPage } from './catalogue/GroupSettingsPage.js';
-import {
-  ShiftGroupsPage,
-  StaffGroupsPage,
-  ValidGroupsPage,
-} from './catalogue/GroupingPages.js';
+import { ShiftGroupsPage, StaffGroupsPage, ValidGroupsPage } from './catalogue/GroupingPages.js';
 import {
   ActivationPage,
   MfaChallengePage,
@@ -21,6 +17,7 @@ import {
   PasswordResetRequestPage,
   SignInPage,
 } from './authn/pages.js';
+import { RulesPage } from './rules/RulesPage.js';
 import { ShiftTypesPage } from './catalogue/ShiftTypesPage.js';
 import { ShellPage } from './shell/ShellPage.js';
 
@@ -99,6 +96,21 @@ const groupSettingsRoute = createRoute({
 });
 
 /**
+ * Rule authoring (OPUS-M3-002).
+ *
+ * A sibling of the catalogue sections rather than a tree of its own: doc 08 §6
+ * puts catalogue and rules on ONE row ("Author catalogue & rules"), they share a
+ * capability, and they are the same person's task in the same group. The path
+ * mirrors the API's `/organizations/:o/groups/:g/rules` with the catalogue
+ * prefix the layout supplies.
+ */
+const rulesRoute = createRoute({
+  getParentRoute: () => catalogueRoute,
+  path: 'rules',
+  component: RulesPage,
+});
+
+/**
  * The authentication surfaces (OPUS-M3-001).
  *
  * **The organization is in the PATH**, for the same reason the catalogue's is:
@@ -155,6 +167,7 @@ const routeTree = rootRoute.addChildren([
     staffGroupsRoute,
     validGroupsRoute,
     groupSettingsRoute,
+    rulesRoute,
   ]),
 ]);
 

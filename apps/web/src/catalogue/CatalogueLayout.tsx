@@ -67,6 +67,12 @@ const SECTIONS = [
     to: '/organizations/$organizationId/groups/$groupId/catalogue/group-settings',
     label: 'Group settings',
   },
+  {
+    // OPUS-M3-002. Same section list because doc 08 §6 puts catalogue and rules
+    // on one row and they share a capability.
+    to: '/organizations/$organizationId/groups/$groupId/catalogue/rules',
+    label: 'Rules',
+  },
 ] as const;
 
 export function CatalogueLayout({

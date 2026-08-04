@@ -200,6 +200,33 @@ export const AUDIT_EVENT_NAMES = [
   'security.privileged_session.opened',
   /** SPEC-11 §3.2: it closed, with the statements executed and rows touched. */
   'security.privileged_session.closed',
+
+  /* ── OPUS-M3-002 — the typed rule model (CAR-006, SPEC-04 §3) ───────────────
+   *
+   * The `rules.*` namespace, which packet 32 §6 assigns to this task alone. One
+   * name per shipped mutation and not one more, as the header requires.
+   *
+   * `rules.rule.disabled` and `rules.rule.archived` are separate names rather
+   * than one `state_changed` carrying the target, because "when did this rule
+   * stop applying to builds" and "when was it retired from authoring" are
+   * different questions asked by different investigations, and a single name
+   * makes the first unanswerable without parsing a payload. */
+  /** A rule was authored. Its `rule_key` is stable from this moment (rule 13). */
+  'rules.rule.created',
+  /** A rule's content was amended — a new version of the same `rule_key`. */
+  'rules.rule.updated',
+  /** A rule was disabled: it stays authored but no build consumes it. */
+  'rules.rule.disabled',
+  /** A rule was re-enabled after being disabled. */
+  'rules.rule.enabled',
+  /** A rule was archived. Never deleted — the key is cited by sets and builds. */
+  'rules.rule.archived',
+  /** A rule set was created. */
+  'rules.rule_set.created',
+  /** A rule set's membership or name changed. */
+  'rules.rule_set.updated',
+  /** A rule set was archived. */
+  'rules.rule_set.archived',
 ] as const;
 
 export type AuditEventName = (typeof AUDIT_EVENT_NAMES)[number];
@@ -268,6 +295,20 @@ export const AUDIT_SUBJECT_TYPES = [
   'invitation',
   'mfa_enrolment',
   'privileged_session',
+
+  /* ── OPUS-M3-002 ────────────────────────────────────────────────────────────
+   * A rule and a rule set are separate aggregates. A rule set is not filed under
+   * the rules it names, for the reason `capability_grant` is not filed under its
+   * membership: "everything that happened to this rule" must not return edits to
+   * a collection that merely cites it.
+   *
+   * The subject id for both is the ROW uuid, because `audit_events.subject_id`
+   * is a uuid column. For a rule the STABLE `rule_key` travels beside it in the
+   * closed audit payload (identifiers only — never rule content, I-07), so
+   * "everything that happened to this rule_key" stays answerable without the
+   * audit module changing. */
+  'rule',
+  'rule_set',
 ] as const;
 
 export type AuditSubjectType = (typeof AUDIT_SUBJECT_TYPES)[number];

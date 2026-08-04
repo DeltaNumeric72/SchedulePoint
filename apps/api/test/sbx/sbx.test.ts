@@ -18,6 +18,7 @@ import { API_ROOT } from '../support/env.js';
 import { log, type Runtime } from '../support/harness.js';
 import { buildHttpHarness, type HttpHarness } from '../support/http.js';
 import { ownedMulti } from '../support/owned-multi.js';
+import { seedRulesForSweep } from '../support/rules.js';
 import {
   ProbeFalsified,
   contractProblems,
@@ -93,6 +94,50 @@ beforeAll(async () => {
   ({ app, routeTable } = await buildServer());
   http = await buildHttpHarness();
   runtimes = createRuntimes();
+
+  /* ── OPUS-M3-002: rule rows for the SBX-004 sweep ────────────────────────
+   *
+   * Migration 0008 registers `rules` and `rule_sets` in `TENANT_TABLES`, and the
+   * sweep's own non-vacuity check fails when a REGISTERED table is never seen
+   * with a visible row — "0 wrong" over an empty table means nothing. So the
+   * fixture needs rule rows.
+   *
+   * Seeded HERE rather than in `provisionMulti`, deliberately: `test/support/
+   * multi.ts` is the single fixture owner and is **prohibited to this packet**
+   * (packet 32 §4/§6, and it is M3-003's window too). This file and
+   * `test/support/rules.ts` are both in OPUS-M3-002's allowed globs, so the
+   * seeding reaches the same fixture without either packet editing the shared
+   * provisioning script. If the two packets' needs ever have to meet in
+   * `multi.ts` itself, that is the integration packet's job, not a merge.
+   *
+   * Written into BOTH of Alpha's groups and into Beta, so the group predicate
+   * arm has rows it COULD see if the predicate were broken — not only the
+   * cross-organization arm. */
+  const alpha = multi().alpha;
+  const beta = multi().beta;
+  const seedRuntime = runtimes.get('app_runtime');
+  if (seedRuntime === undefined) throw new Error('no app_runtime runtime for rule seeding');
+  const seeded = await seedRulesForSweep(seedRuntime.runner, [
+    {
+      organizationId: alpha.organizationId,
+      groupId: alpha.groupOne.id,
+      membershipId: alpha.users.scheduler.membershipId,
+      label: 'alpha_one',
+    },
+    {
+      organizationId: alpha.organizationId,
+      groupId: alpha.groupTwo.id,
+      membershipId: alpha.users.scheduler.groupTwoMembershipId,
+      label: 'alpha_two',
+    },
+    {
+      organizationId: beta.organizationId,
+      groupId: beta.groupOne.id,
+      membershipId: beta.users.scheduler.membershipId,
+      label: 'beta_one',
+    },
+  ]);
+  log(`      · OPUS-M3-002: seeded ${String(seeded)} rule row(s) across three groups for SBX-004`);
 }, 240_000);
 
 afterAll(async () => {
@@ -128,9 +173,10 @@ function dependencies(): ScenarioDependencies {
 describe('SPEC-16 §1 — the contract validator', () => {
   it('every declared scenario carries all nine fields and a falsifiability probe', () => {
     for (const scenario of buildScenarios(dependencies)) {
-      expect(contractProblems(scenario), `${scenario.id}: ${contractProblems(scenario).join('; ')}`).toEqual(
-        [],
-      );
+      expect(
+        contractProblems(scenario),
+        `${scenario.id}: ${contractProblems(scenario).join('; ')}`,
+      ).toEqual([]);
     }
     log(`${String(buildScenarios(dependencies).length)} scenario(s), every contract complete`);
   });
@@ -455,16 +501,18 @@ describe('red case — SBX-004 fails when an RLS control is removed', () => {
     await client.connect();
     try {
       await client.query('begin');
-      await client.query(
-        `select set_config('app.organization_id', $1, true)`,
-        [multi().alpha.organizationId],
-      );
+      await client.query(`select set_config('app.organization_id', $1, true)`, [
+        multi().alpha.organizationId,
+      ]);
       const guarded = await client.query<{ wrong: string }>(
         `select count(*) filter (where organization_id is distinct from $1::uuid)::text as wrong
            from memberships`,
         [multi().alpha.organizationId],
       );
-      expect(Number(guarded.rows[0]?.wrong), 'the sweep saw foreign rows BEFORE the control was removed').toBe(0);
+      expect(
+        Number(guarded.rows[0]?.wrong),
+        'the sweep saw foreign rows BEFORE the control was removed',
+      ).toBe(0);
 
       await client.query('alter table memberships no force row level security');
       const unguarded = await client.query<{ wrong: string }>(
@@ -569,7 +617,12 @@ describe('the G-ARCH tenancy subset', () => {
      * fails when a REGISTERED table is never seen with a visible row. These
      * lines only confirm the sweep reported on all of them. */
     const expectedTables = TENANT_TABLES.map((table) => table.name).sort();
-    expect(expectedTables.length, 'the tenant registry shrank').toBeGreaterThanOrEqual(17);
+    // Raised 17 → 33 by OPUS-M3-002: 31 tables after migration 0007 plus `rules`
+    // and `rule_sets` from 0008. The floor is RAISED rather than left alone
+    // because a floor that lags the registry stops noticing a removal — which is
+    // the only thing it is for. Raising it strengthens the assertion; it can
+    // never be lowered.
+    expect(expectedTables.length, 'the tenant registry shrank').toBeGreaterThanOrEqual(33);
     expect(
       [...(sweep?.tables ?? [])].sort(),
       `tables exercised: ${sweep?.tables.join(', ')}`,
@@ -611,7 +664,10 @@ describe('the G-ARCH tenancy subset', () => {
           `${organizationId}: ${JSON.stringify(verification.problems)}`,
         ).toBe(0);
         expect(verification.intact, `${organizationId}: chain not intact`).toBe(true);
-        expect(Number(checkpoints.rows[0]?.n), `${organizationId}: no checkpoint signed`).toBeGreaterThan(0);
+        expect(
+          Number(checkpoints.rows[0]?.n),
+          `${organizationId}: no checkpoint signed`,
+        ).toBeGreaterThan(0);
         const shape = `0 / ${checkpoints.rows[0]?.n ?? '?'} / 0`;
         lines.push(
           `${organizationId.slice(0, 8)}: ${shape}  (${String(verification.entries)} entries, ` +
@@ -764,7 +820,8 @@ function renderArtifact(result: SbxResult): string {
 function renderReport(all: readonly SbxResult[]): string {
   const counts = {
     required: all.length,
-    executed: all.filter((r) => r.state !== 'EVIDENCE_BLOCKED' && r.state !== 'NOT_RUNNABLE').length,
+    executed: all.filter((r) => r.state !== 'EVIDENCE_BLOCKED' && r.state !== 'NOT_RUNNABLE')
+      .length,
     passed: all.filter((r) => r.state === 'PASS').length,
     failed: all.filter((r) => r.state === 'FAIL').length,
     blocked: all.filter((r) => r.state === 'EVIDENCE_BLOCKED').length,
@@ -800,7 +857,8 @@ function renderReport(all: readonly SbxResult[]): string {
       lines.push(`    ${field.padEnd(24)} ${String(value)}`);
     }
     if (result.tables.length > 0) lines.push(`  tables exercised: ${result.tables.join(', ')}`);
-    if (result.policies.length > 0) lines.push(`  policies exercised: ${result.policies.join(' | ')}`);
+    if (result.policies.length > 0)
+      lines.push(`  policies exercised: ${result.policies.join(' | ')}`);
     if (result.blocked.length > 0) {
       lines.push('  EVIDENCE_BLOCKED sub-scenarios (never a pass, never a silent skip):');
       for (const blocked of result.blocked) {
@@ -815,7 +873,9 @@ function renderReport(all: readonly SbxResult[]): string {
   lines.push('='.repeat(78));
   lines.push('vacuous assertions detected: ' + String(counts.vacuous));
   lines.push('');
-  lines.push('AUDIT CHAIN AFTER THIS RUN — chain problems / checkpoints signed / checkpoint problems');
+  lines.push(
+    'AUDIT CHAIN AFTER THIS RUN — chain problems / checkpoints signed / checkpoint problems',
+  );
   lines.push('(clean is 0 / N>=1 / 0; the middle number is reported rather than pinned, because');
   lines.push(' the periodic sweep may legitimately have signed more than one)');
   for (const line of chainVerification.length > 0 ? chainVerification : ['  (not captured)']) {

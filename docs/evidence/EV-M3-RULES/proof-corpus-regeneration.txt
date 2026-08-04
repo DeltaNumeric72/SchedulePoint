@@ -1,0 +1,9 @@
+=== corpus regeneration byte-identity (named proof 5) ===
+PASS  corpus regeneration byte-identical — 6 fixture(s) + manifest
+--- fixtures + manifest sha256 (from manifest) ---
+63729c59330ea179 feasible   B-feasible-small
+e2634daaf6e99305 feasible   B-feasible-eligibility
+aff8522d0ab15531 infeasible B-infeasible-overdemand
+0b05877b5c896d92 infeasible B-infeasible-missing-qualification
+0205ea96e1c121e8 infeasible B-infeasible-fixed-conflict
+61a66d08b55a30e7 infeasible B-infeasible-contradictory-rules

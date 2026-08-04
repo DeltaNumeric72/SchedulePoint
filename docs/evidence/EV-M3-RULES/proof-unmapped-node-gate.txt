@@ -1,0 +1,29 @@
+=== NAMED PROOF 3: unmapped-node CI gate — green + red (standalone) ===
+Regenerated at second review (N-6): the previous capture recorded a 14-case
+red-cases run, which predated this packet's own two additions. The battery is
+16/16 and the table below is the current one.
+
+--- GREEN (clean tree) ---
+PASS  rule-node → compiler-mapping closure — 30 declared node(s) in packages/domain/src/rules/ast.ts, 30 compiler mapping(s) in packages/domain/src/rules/compile.ts
+exit: 0
+
+--- red-cases harness verdicts for this packet's two cases ---
+CASE                    GREEN  RED    VERDICT
+rule-node-mapping       pass   fail   PROVEN
+corpus-tamper           pass   fail   PROVEN
+16 case(s): 16 proven, 0 not proven
+
+--- standalone RED arm: add 'UnmappedProbe' to RULE_NODE_KINDS with no compiler case ---
+FAIL  rule-node → compiler-mapping closure — 1 violation(s)
+  packages/domain/src/rules/ast.ts:325  AST node 'UnmappedProbe' has no compiler mapping (SPEC-04 §3.2: an unmapped node fails the build).
+      scanned: 31 declared node(s) in packages/domain/src/rules/ast.ts, 30 compiler mapping(s) in packages/domain/src/rules/compile.ts
+exit: 1
+
+--- ADVERSARIAL: delete ALL compiler mappings — must still fail (not vacuous) ---
+FAIL  rule-node → compiler-mapping closure — 30 violation(s)
+  packages/domain/src/rules/ast.ts:295  AST node 'RequiredCount' has no compiler mapping (SPEC-04 §3.2: an unmapped node fails the build).
+exit: 
+
+--- restored: GREEN again ---
+PASS  rule-node → compiler-mapping closure — 30 declared node(s) in packages/domain/src/rules/ast.ts, 30 compiler mapping(s) in packages/domain/src/rules/compile.ts
+exit: 0
