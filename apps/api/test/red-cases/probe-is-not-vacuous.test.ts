@@ -47,7 +47,11 @@ import { seedRulesForSweep } from '../support/rules.js';
  * belonging to anybody else would be invisible to every probe context and the
  * table would report a vacuous zero. */
 const multi = ownedMulti('red-cases-probe-is-not-vacuous', {
-  seed: { staffing: true, catalogue: ['alpha'] },
+  // `schedule: true` (OPUS-M3-003) so migration 0009's eleven tables carry
+  // visible rows: this file's probes fail a REGISTERED table that is never seen
+  // with one, because a probe over an empty table reports 0 wrong for the most
+  // boring possible reason.
+  seed: { staffing: true, catalogue: ['alpha'], schedule: true },
 });
 
 /**

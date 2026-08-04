@@ -10,6 +10,7 @@ import * as catalogue from '../../src/catalogue/service.js';
 import type { PgUnitOfWorkRunner } from '../../src/db/unit-of-work.js';
 import { seedAuthnForOrganization } from './authn.js';
 import { publishOutboxEvent } from '../../src/outbox/publisher.js';
+import { seedSchedule, type SeededSchedule } from './schedule.js';
 
 /* ────────────────────────────────────────────────────────────────────────────
  * MULTI — the multi-organization fixture, as a FACTORY (FAD-15 Layer 2, and
@@ -205,6 +206,17 @@ export interface MultiSeedOptions {
   readonly catalogue?: readonly ('alpha' | 'beta')[];
   /** Seed one work profile, its weekday targets, one qualification and one holding. */
   readonly staffing?: boolean;
+  /**
+   * Seed a published schedule history into Alpha's Group One and its sibling
+   * (OPUS-M3-003) — periods, requirements, versions, identities, snapshots,
+   * credits, conflicts, supersessions and `current_published_assignments`.
+   *
+   * Requires `catalogue` to include `'alpha'`. Opt-in for the same reason the
+   * other two are: the schedule seed publishes twice per group, and silently
+   * adding eleven tables' worth of rows to every owned fixture would change what
+   * the rest of the suite's assertions are asserting about.
+   */
+  readonly schedule?: boolean;
 }
 
 export interface MultiFixture {
@@ -229,6 +241,8 @@ export interface MultiFixture {
   };
   /** Present when `seed.staffing` was requested. */
   readonly staffing?: SeededStaffingRows;
+  /** Present when `seed.schedule` was requested (OPUS-M3-003). */
+  readonly schedule?: SeededSchedule;
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -1886,9 +1900,15 @@ export async function provisionMulti(
     catalogueSeeds[which] = await seedCatalogue(runtime, fixture, which);
   }
 
-  return {
+  const withCatalogue: MultiFixture = {
     ...fixture,
     ...(staffing === undefined ? {} : { staffing }),
     ...(Object.keys(catalogueSeeds).length === 0 ? {} : { catalogue: catalogueSeeds }),
   };
+
+  // OPUS-M3-003. Last, because it publishes through the production path and
+  // therefore needs the catalogue rows above to already exist.
+  const schedule = seed.schedule === true ? await seedSchedule(runtime, withCatalogue) : undefined;
+
+  return { ...withCatalogue, ...(schedule === undefined ? {} : { schedule }) };
 }

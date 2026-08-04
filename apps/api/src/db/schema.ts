@@ -33,6 +33,13 @@ export interface GroupsTable {
    * exactly why the rule lives in a trigger rather than in a comment.
    */
   pick_position_count: Generated<number>;
+  /**
+   * IANA-style zone the group's shift-local semantics resolve against
+   * (`migrations/0009_schedule_publication.sql`, OPUS-M3-003; doc 06 §Time).
+   * NOT NULL with a backfilling DEFAULT `'UTC'`; the administration surface is
+   * OPUS-M3-007.
+   */
+  timezone: Generated<string>;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
@@ -560,6 +567,182 @@ export interface RuleSetsTable {
   updated_at: Generated<Date>;
 }
 
+/* ── `migrations/0009_schedule_publication.sql` (OPUS-M3-003, SPEC-05) ─────────
+ *
+ * The publication spine. `publication_records` and `version_supersessions` are
+ * DELIBERATELY absent from the `Database` interface below, for the reason
+ * `audit_events` is (see `TenantTable`): they are append-only history (D-15d),
+ * and a typed `updateTable('publication_records')` would be a rewrite path the
+ * type system handed out. They are written through raw `sql` inserts and the
+ * database refuses UPDATE/DELETE (grant + `app_guard_append_only`). Their
+ * interfaces are defined here only for typing raw-SQL result rows. */
+
+export interface SchedulePeriodsTable {
+  id: string;
+  organization_id: string;
+  group_id: string;
+  name: string;
+  /** `date` — a calendar date, `YYYY-MM-DD`. */
+  start_date: string;
+  end_date: string;
+  status: Generated<'planning' | 'published' | 'closed'>;
+  period_version: Generated<string>;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface ScheduleRequirementsTable {
+  id: string;
+  organization_id: string;
+  group_id: string;
+  period_id: string;
+  date: string;
+  shift_type_id: string;
+  required_count: number;
+  requirement_version: Generated<string>;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface ScheduleVersionsTable {
+  id: string;
+  organization_id: string;
+  group_id: string;
+  period_id: string;
+  /** NULL until published; allocated gaplessly in the publication transaction (D-9). */
+  version_number: number | null;
+  source_build_id: string | null;
+  cloned_from_version_id: string | null;
+  state: Generated<
+    'draft' | 'in_review' | 'approved' | 'publishing' | 'published' | 'superseded' | 'cancelled'
+  >;
+  lock_state: Generated<'unlocked' | 'locked'>;
+  is_current: Generated<boolean>;
+  circulation_state: Generated<'not_circulated' | 'circulated'>;
+  change_summary: string | null;
+  published_at: Date | null;
+  published_by: string | null;
+  superseded_at: Date | null;
+  superseded_by_version_id: string | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface ShiftsTable {
+  id: string;
+  organization_id: string;
+  group_id: string;
+  version_id: string;
+  date: string;
+  shift_type_id: string;
+  location_id: string | null;
+  required_count: Generated<number>;
+  shift_version: Generated<string>;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface AssignmentIdentitiesTable {
+  id: string;
+  organization_id: string;
+  group_id: string;
+  period_id: string;
+  origin: Generated<'manual' | 'clone' | 'solver' | 'picklist'>;
+  created_at: Generated<Date>;
+}
+
+export interface AssignmentSnapshotsTable {
+  id: string;
+  organization_id: string;
+  group_id: string;
+  assignment_identity_id: string;
+  version_id: string;
+  membership_id: string;
+  shift_id: string;
+  date: string;
+  starts_at: Date;
+  ends_at: Date;
+  origin: Generated<'manual' | 'clone' | 'solver' | 'picklist'>;
+  pick_position: number | null;
+  is_pinned: Generated<boolean>;
+  status: Generated<'active' | 'cancelled'>;
+  supersedes_snapshot_id: string | null;
+  override_reason: string | null;
+  snapshot_version: Generated<string>;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface CreditsTable {
+  id: string;
+  organization_id: string;
+  group_id: string;
+  assignment_identity_id: string;
+  source_version_id: string;
+  source_snapshot_id: string;
+  credited_membership_id: string;
+  /** `numeric` — node-pg returns it as a string. */
+  weight: Generated<string>;
+  reason: string | null;
+  moved_by: string | null;
+  status: Generated<'active' | 'reassigned' | 'voided'>;
+  credit_version: Generated<string>;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface ScheduleConflictsTable {
+  id: string;
+  organization_id: string;
+  group_id: string;
+  version_id: string | null;
+  severity: 'hard-breach' | 'soft' | 'info';
+  refs: Generated<unknown>;
+  explanation: string | null;
+  remediation: string | null;
+  state: Generated<'open' | 'accepted' | 'resolved'>;
+  conflict_version: Generated<string>;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface CurrentPublishedAssignmentsTable {
+  id: string;
+  organization_id: string;
+  group_id: string;
+  membership_id: string;
+  period_id: string;
+  starts_at: Date;
+  ends_at: Date;
+  source_version_id: string;
+  source_snapshot_id: string;
+  assignment_identity_id: string;
+}
+
+/** Append-only (D-15d); not in `Database`. Defined for raw-SQL row typing only. */
+export interface PublicationRecordsTable {
+  id: string;
+  organization_id: string;
+  group_id: string;
+  period_id: string;
+  version_id: string;
+  publication_idempotency_key: string;
+  actor_membership_id: string | null;
+  prerequisites_snapshot: unknown;
+  outcome: 'published' | 'failed';
+  created_at: Date;
+}
+
+/** Append-only (D-15d); not in `Database`. Defined for raw-SQL row typing only. */
+export interface VersionSupersessionsTable {
+  id: string;
+  organization_id: string;
+  group_id: string;
+  superseded_version_id: string;
+  superseding_version_id: string;
+  superseded_at: Date;
+}
+
 export interface Database {
   organizations: OrganizationsTable;
   groups: GroupsTable;
@@ -590,6 +773,17 @@ export interface Database {
   user_mfa: UserMfaTable;
   rules: RulesTable;
   rule_sets: RuleSetsTable;
+  /* OPUS-M3-003 (SPEC-05). `publication_records` and `version_supersessions`
+   * are intentionally excluded — append-only history, written via raw SQL. */
+  schedule_periods: SchedulePeriodsTable;
+  schedule_requirements: ScheduleRequirementsTable;
+  schedule_versions: ScheduleVersionsTable;
+  shifts: ShiftsTable;
+  assignment_identities: AssignmentIdentitiesTable;
+  assignment_snapshots: AssignmentSnapshotsTable;
+  credits: CreditsTable;
+  schedule_conflicts: ScheduleConflictsTable;
+  current_published_assignments: CurrentPublishedAssignmentsTable;
 }
 
 /**
@@ -799,4 +993,28 @@ export const TENANT_TABLES: readonly TenantTable[] = [
    * by the sweep, exactly as `qualification_holdings` is. */
   { name: 'rules', scope: 'organization-and-group' },
   { name: 'rule_sets', scope: 'organization-and-group' },
+
+  /* ── `migrations/0009_schedule_publication.sql` (OPUS-M3-003, SPEC-05) ───────
+   *
+   * Registered in the SAME change as the migration that creates them (packet 30
+   * §7.2). Every one is `organization-and-group`: both tenant columns and V-09's
+   * conjunctive group predicate, no organization-scoped policy — so every
+   * generic assertion that iterates this registry covers them, and each is
+   * probed under a GROUP context where its policy can admit a row. Their
+   * non-vacuity in SBX-004's sweep is established by `provisionMulti`'s
+   * `schedule` seed (`apps/api/test/support/multi.ts`), which drives the
+   * production publication path so that every one of these tables — including
+   * `version_supersessions` (two publications) and `current_published_assignments`
+   * (maintained inside the publication transaction) — carries a visible row. */
+  { name: 'schedule_periods', scope: 'organization-and-group' },
+  { name: 'schedule_requirements', scope: 'organization-and-group' },
+  { name: 'schedule_versions', scope: 'organization-and-group' },
+  { name: 'shifts', scope: 'organization-and-group' },
+  { name: 'assignment_identities', scope: 'organization-and-group' },
+  { name: 'assignment_snapshots', scope: 'organization-and-group' },
+  { name: 'credits', scope: 'organization-and-group' },
+  { name: 'schedule_conflicts', scope: 'organization-and-group' },
+  { name: 'publication_records', scope: 'organization-and-group' },
+  { name: 'version_supersessions', scope: 'organization-and-group' },
+  { name: 'current_published_assignments', scope: 'organization-and-group' },
 ] as const;

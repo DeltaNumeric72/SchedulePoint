@@ -227,6 +227,66 @@ export const AUDIT_EVENT_NAMES = [
   'rules.rule_set.updated',
   /** A rule set was archived. */
   'rules.rule_set.archived',
+  /* ── OPUS-M3-003: the `schedule.*` namespace (packet 32 §5, SPEC-05) ─────────
+   *
+   * One name per mutation the schedule module actually performs. The list only
+   * grows (non-bypass rule 13), so nothing speculative is added here.
+   *
+   * **`schedule.version.state_changed` covers the lifecycle transitions**
+   * (draft ↔ in_review ↔ approved, and → cancelled), with the closed
+   * `{from,to}` pair in the payload — exactly as `authn.session.revoked` carries
+   * its cause. `published` and `superseded` are NOT folded into it: becoming
+   * authoritative (a version acquires `is_current`, a version_number, and staff
+   * visibility) and losing authority are distinct facts an incident review asks
+   * for by name, not by scanning a generic state stream.
+   *
+   * **`schedule.version.superseded` is emitted in addition to
+   * `schedule.version.published`** on the prior current version, for the same
+   * reason `staffing.work_profile.superseded` is: a publication is two facts —
+   * one version became current, a different one stopped being current.
+   *
+   * **Assignment events file under `assignment_identity`** (SPEC-05 §9): "what
+   * changed for this assignment" must be answerable across versions, which the
+   * stable identity — not the per-version snapshot — is the key for. */
+
+  /** A schedule period was created (a bounded planning date range). */
+  'schedule.period.created',
+  /** A schedule period's fields or status changed (e.g. planning → closed). */
+  'schedule.period.updated',
+  /** A draft schedule version was created — from scratch or cloned (SPEC-05 §7). */
+  'schedule.version.created',
+  /** A version's lifecycle state moved. The closed `{from,to}` pair is in the payload. */
+  'schedule.version.state_changed',
+  /** A version became the current, immutable, staff-visible schedule (I-18, D-16). */
+  'schedule.version.published',
+  /** A prior current version lost authority when a later one published (D-15b transition). */
+  'schedule.version.superseded',
+  /** A revert: a new version was published forward carrying an earlier version's content (§6.1). */
+  'schedule.version.reverted',
+  /** A publication attempt failed or was reconciled back to `approved` (V-16). No partial state. */
+  'schedule.publication.failed',
+  /** A manual assignment was added to a draft version, with origin and provenance. */
+  'schedule.assignment.added',
+  /** A manual assignment was removed (its snapshot cancelled) on a draft version. */
+  'schedule.assignment.removed',
+  /** A manual assignment was reassigned to a different membership, identity preserved. */
+  'schedule.assignment.reassigned',
+  /** A manual override was applied, carrying its required reason. */
+  'schedule.assignment.overridden',
+  /** A snapshot's fixed-assignment pin (solver input) was set or cleared on a draft. */
+  'schedule.assignment.pinned',
+  /** A fairness credit was moved to a membership that may differ from the assignee (V-23). */
+  'schedule.credit.moved',
+  /** A fairness credit was voided. */
+  'schedule.credit.voided',
+  /**
+   * A validation conflict was recorded against a draft version.
+   *
+   * Added by FAD-22(1)'s service half: `recordConflict` used to emit nothing at
+   * all, which made an `open` `hard-breach` — the thing that BLOCKS publication
+   * — the only schedule mutation with no audit trail.
+   */
+  'schedule.conflict.recorded',
 ] as const;
 
 export type AuditEventName = (typeof AUDIT_EVENT_NAMES)[number];
@@ -309,6 +369,16 @@ export const AUDIT_SUBJECT_TYPES = [
    * audit module changing. */
   'rule',
   'rule_set',
+  /* ── OPUS-M3-003 (SPEC-05) ──────────────────────────────────────────────────
+   * Each schedule concept is its own aggregate (doc 07 §1 keeps ten of them
+   * distinct). Assignment events file under `assignment_identity` — the stable
+   * thing that spans versions — not under a per-version snapshot, so "everything
+   * that happened to this assignment" is answerable across versions (SPEC-05 §9).
+   * Publication and supersession events file under `schedule_version`. */
+  'schedule_period',
+  'schedule_version',
+  'assignment_identity',
+  'credit',
 ] as const;
 
 export type AuditSubjectType = (typeof AUDIT_SUBJECT_TYPES)[number];

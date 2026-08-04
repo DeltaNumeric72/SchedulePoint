@@ -86,3 +86,9 @@ export * from './authn/index.js';
  * escape hatch". Node kinds/enums are asserted equal to `@schedulepoint/domain`.
  */
 export * from './rules/index.js';
+
+/**
+ * OPUS-M3-003 — schedule periods, versions and the publication transaction
+ * (SPEC-05, FAD-22).
+ */
+export * from './schedule/index.js';

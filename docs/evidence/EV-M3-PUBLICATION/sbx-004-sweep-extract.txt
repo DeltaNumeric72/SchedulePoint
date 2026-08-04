@@ -1,0 +1,11 @@
+SBX-004 cross-tenant sweep — extract capturing the OPUS-M3-003 tables
+Captured from a coherent battery run on branch opus/m3-003-publication.
+The full artifact lives in docs/evidence/EV-M2-SBX/sbx-004-sweep.txt, which is
+SBX-004's own declared retained artifact and regenerates on every battery run;
+it is restored per the NR-14 discipline rather than committed from this packet.
+
+tables exercised: assignment_identities, assignment_snapshots, audit_checkpoints, audit_events, capability_grants, credits, current_published_assignments, entitlements, group_holidays, group_module_availability, groups, invitations, membership_weekday_fte, membership_work_profiles, memberships, organizations, outbox_effects, outbox_events, password_reset_tokens, publication_records, qualification_holdings, qualifications, role_capabilities, roles, schedule_conflicts, schedule_periods, schedule_requirements, schedule_versions, sessions, shift_group_members, shift_groups, shift_type_qualifications, shift_type_weekday_demand, shift_types, shifts, staff_group_members, staff_groups, user_mfa, users, valid_group_shift_types, valid_groups, version_supersessions
+
+  objectiveOracle          wrong-tenant row count == 0 on EVERY (role, context, table) reading, AND every tenant table observed with at least one VISIBLE row in at least one reading — a probe over a table it cannot see reports 0 wrong for the boring reason.
+  readings:
+    287 (role, context, table) readings across 7 contexts; 0 wrong-tenant rows; 41 of 41 tables observed with visible rows

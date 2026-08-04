@@ -155,11 +155,23 @@ export const SYSTEM_ROLE_CAPABILITIES: Readonly<Record<string, readonly string[]
    * group-SETTINGS keys go to `group_admin` alone, from the "Group settings"
    * row, where scheduler is `—`. Neither is a `G` cell, so both are role-implied
    * rather than grant-only. */
-  scheduler: ['membership.touch_self', 'schedule.catalogue.administer'],
+  /* OPUS-M3-003 adds the two schedule-authoring keys (SPEC-05) to both, from
+   * doc 08 §6's "author the schedule" row (scheduler ✓, group admin ✓). They are
+   * role-implied, not `G` cells. `schedule.publish`/`schedule.revert` stay OFF
+   * every role — they are grant-only (doc 08 §4), so a scheduler drafts freely
+   * but publication is a named, granted act. */
+  scheduler: [
+    'membership.touch_self',
+    'schedule.catalogue.administer',
+    'schedule.period.administer',
+    'schedule.version.edit',
+  ],
   group_admin: [
     'membership.touch_self',
     'documents.manage',
     'schedule.catalogue.administer',
+    'schedule.period.administer',
+    'schedule.version.edit',
     'group.holiday_calendar.administer',
     'group.pick_positions.administer',
   ],

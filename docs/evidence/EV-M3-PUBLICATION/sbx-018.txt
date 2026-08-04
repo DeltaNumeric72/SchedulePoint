@@ -1,0 +1,41 @@
+SBX-018 — Publication, versioning, revision, and revert
+generated: 2026-08-04T15:13:21.126Z
+
+STATE: PASS   falsifiability probe: FALSIFIABLE   gate-required: YES
+
+SPEC-16 §1 contract
+  owner                    OPUS-M3-003 (implementer) / Fable (acceptance)
+  fixtureProvenance        MULTI `full` profile with `seed.catalogue: [alpha]` and `seed.schedule: true`, provisioned by apps/api/test/support/multi.ts from a slug — the single fixture owner. The schedule history is written through the PRODUCTION services (createPeriod, addManualAssignment, publishVersion), never by direct INSERT, so the scenario measures states the application can actually produce. Synthetic throughout; far-future 2027+ dates; every address at example.invalid.
+  deterministicSetup       One embedded PostgreSQL cluster per run, initialised from empty; migrations up -> down -> up; the fixture seeded through the unit of work. Every instant is constructed in UTC by `fixtureInstant`; no wall-clock reading and no sleep anywhere. The one concurrent arm releases two publications together and asserts on the OUTCOME SET (one fulfilled, one rejected), never on which of them won — so the result does not depend on interleaving.
+  externalDependency       None. Nothing outside this process and its local cluster.
+  faultControls            Two injected. (1) A concurrent publication of the same period, released simultaneously on two independent pooled connections, to force the step-02 period lock to arbitrate. (2) The falsifiability probe substitutes a deliberately wrong notified set (every membership, including provably unaffected ones) and requires the oracle to reject it. No delivery is attempted to any destination: notifications are outbox INTENTS only.
+  objectiveOracle          Three conjuncts, all counted rather than judged: (1) NO VERSION DESTROYED — the set of version ids observed before the revision is a subset of the set observed after, and every one still resolves to a readable row; (2) CONCURRENCY SERIALISED — of two simultaneous publications of one period exactly 1 is fulfilled and exactly 1 is rejected, and the period holds exactly 1 `is_current` version afterwards; (3) NOTIFICATION EXACTNESS — the affected-membership set from the version difference equals the notified set EXACTLY (not a superset), and no unaffected membership appears in it.
+  retainedArtifact         docs/evidence/EV-M3-PUBLICATION/sbx-018.txt
+  environment              CONC
+  earliestExecutionPoint   E0
+
+tables exercised: assignment_identities, assignment_snapshots, current_published_assignments, outbox_events, publication_records, schedule_periods, schedule_versions, shifts, version_supersessions
+policies exercised: I-11 outbox intent (no delivery attempted) | SPEC-05 §6 step-02 period lock (single-writer point) | schedule.publish (grant-only, evaluated in-transaction)
+
+OBSERVATIONS
+
+  step-1-publish:
+    V1 dfef512a-496d-4033-a151-16ab8bcd6acf published in period 2cb40d06-2b35-4ef2-bd74-3cd54e7cc883
+
+  step-2-amend:
+    V2 d6d55b3d-9d08-41ec-b122-d757f2d24148 published; V1 superseded, not modified
+
+  step-3-history:
+    2 versions retained (superseded, published); 0 destroyed
+
+  notification-exactness:
+    affected == notified == [68499170-afab-4bd5-9ce6-a82783aac693, c8435904-d13b-4ad7-864d-c94831e32439]; unaffected B not notified
+
+  step-4-5-revert:
+    revert published FORWARD as version_number=3 (b8614a99-29d1-454d-8def-7986bcd11918); V1 and V2 both retained
+
+  step-6-concurrency:
+    two simultaneous publications of one period: 1 fulfilled, 1 rejected, exactly 1 current version
+
+  probe-control:
+    the oracle accepts the correct notified set

@@ -70,7 +70,7 @@ import {
  * table would report a vacuous zero. */
 const multi = ownedMulti('sbx-harness', {
   profile: 'full',
-  seed: { staffing: true, catalogue: ['alpha'] },
+  seed: { staffing: true, catalogue: ['alpha'], schedule: true },
 });
 
 let admin: pg.Client;
@@ -617,12 +617,16 @@ describe('the G-ARCH tenancy subset', () => {
      * fails when a REGISTERED table is never seen with a visible row. These
      * lines only confirm the sweep reported on all of them. */
     const expectedTables = TENANT_TABLES.map((table) => table.name).sort();
-    // Raised 17 → 33 by OPUS-M3-002: 31 tables after migration 0007 plus `rules`
-    // and `rule_sets` from 0008. The floor is RAISED rather than left alone
-    // because a floor that lags the registry stops noticing a removal — which is
-    // the only thing it is for. Raising it strengthens the assertion; it can
-    // never be lowered.
-    expect(expectedTables.length, 'the tenant registry shrank').toBeGreaterThanOrEqual(33);
+    // Raised 17 → 33 by OPUS-M3-002 (31 after migration 0007, plus `rules` and
+    // `rule_sets` from 0008), then 33 → 44 by OPUS-M3-003 as the SECOND MERGER:
+    // migration 0009 adds the eleven publication-spine tables. The floor is
+    // RAISED rather than left alone because a floor that lags the registry stops
+    // noticing a removal — which is the only thing it is for. Raising it
+    // strengthens the assertion; it can never be lowered.
+    //
+    // Both packets' seeding runs in this file, which is what keeps all 44
+    // non-vacuous: `seedRulesForSweep` (M3-002) and `seed.schedule` (M3-003).
+    expect(expectedTables.length, 'the tenant registry shrank').toBeGreaterThanOrEqual(44);
     expect(
       [...(sweep?.tables ?? [])].sort(),
       `tables exercised: ${sweep?.tables.join(', ')}`,

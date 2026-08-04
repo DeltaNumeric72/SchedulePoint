@@ -197,6 +197,35 @@ export const CAPABILITIES: readonly CapabilityDefinition[] = [
     module: 'core_scheduling',
     description: 'Revert a published schedule version by publishing forward (I-18, doc 08 §4).',
   },
+  /* ── OPUS-M3-003 — schedule authoring (SPEC-05; CAP-014, CAP-019, CAP-020) ────
+   *
+   * Two group-scoped `core_scheduling` action keys, DISTINCT from
+   * `schedule.publish`: the packet requires "publish is a distinct capability
+   * from edit". They are role-implied for the scheduler (doc 08 §6 "author the
+   * schedule"), whereas `schedule.publish`/`schedule.revert` stay grant-only —
+   * so a scheduler drafts freely but publication is a named, granted act.
+   *
+   * **This does not expand the 58-capability baseline** — see this file's
+   * header. Routes still declare their `CAP-###` in `policy.capability`; these
+   * are ACTION keys, the unit L4 evaluates, several to one baseline capability. */
+  {
+    key: 'schedule.period.administer',
+    scope: 'group',
+    module: 'core_scheduling',
+    description:
+      'CAP-019/CAP-020: create and maintain schedule periods and their staffing requirements ' +
+      '(bounded planning ranges; no-overlap per group). Role-implied for the scheduler.',
+  },
+  {
+    key: 'schedule.version.edit',
+    scope: 'group',
+    module: 'core_scheduling',
+    description:
+      'CAP-014: author a DRAFT schedule version — create/clone, manual assignment/removal/' +
+      'reassignment, overrides with reasons, pins, credits, and lifecycle transitions short of ' +
+      'publication. Draft-only (D-15a forbids editing a published version); distinct from ' +
+      '`schedule.publish`. Role-implied for the scheduler.',
+  },
   {
     key: 'requests.batch_approve',
     scope: 'group',
