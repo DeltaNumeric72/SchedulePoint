@@ -8,6 +8,7 @@ import { recordAuditEvent } from '../../src/audit/recorder.js';
 import { provisionAuthorization } from '../../src/authz/provisioning.js';
 import * as catalogue from '../../src/catalogue/service.js';
 import type { PgUnitOfWorkRunner } from '../../src/db/unit-of-work.js';
+import { seedAuthnForOrganization } from './authn.js';
 import { publishOutboxEvent } from '../../src/outbox/publisher.js';
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -903,6 +904,63 @@ export async function seedMultiTenants(
         { moduleKey: 'organization_administration', state: 'active' },
         { moduleKey: 'entitlements', state: 'active' },
       ],
+    });
+  }
+
+  await seedAuthn(runner, fixture);
+}
+
+/**
+ * Seeds `sessions`, `invitations`, `password_reset_tokens` and `user_mfa` in
+ * EVERY organization of the fixture (OPUS-M3-001, migration 0007).
+ *
+ * Universal rather than an opt-in `MultiSeedOptions` flag, and for the same
+ * reason `seedMultiAuditAndOutbox` is universal: all four tables are in
+ * `TENANT_TABLES`, so the wrong-tenant probe, the T-15 storm, the (role, table)
+ * matrix and SBX-004's non-vacuity check iterate them for every fixture. An
+ * opt-in would leave those probes reporting "0 wrong rows" over an empty table
+ * for every fixture that did not ask — the vacuous pass the probe design exists
+ * to avoid.
+ *
+ * The user roles per organization are chosen so the three account states are
+ * all present and none of them is a state the tenancy would not really produce:
+ * one account activates, signs in and enrols; one is left holding a PENDING
+ * invitation and never activates; one ends up with an outstanding reset token.
+ * Beta and Gamma carry two users each, so their reset subject is the activated
+ * account — stated in `seedAuthnForOrganization` rather than worked around by
+ * inventing a third user this fixture does not otherwise have.
+ */
+async function seedAuthn(runner: PgUnitOfWorkRunner, fixture: MultiFixture): Promise<void> {
+  const { slug, alpha, beta, gamma } = fixture;
+
+  await seedAuthnForOrganization(runner, {
+    organizationId: alpha.organizationId,
+    adminMembershipId: alpha.users.organizationAdmin.membershipId,
+    // `member` holds an ACTIVE group membership, which `signIn` requires.
+    activatedUserId: alpha.users.member.id,
+    // `departed`'s membership is `ended`: visible through `users`' policy, so an
+    // invitation can be issued for it, and never able to sign in — which is
+    // exactly the shape a pending invitation should have.
+    invitedUserId: alpha.users.departed.id,
+    resetUserId: alpha.users.groupOnly.id,
+    slug: `${slug}-alpha`,
+  });
+
+  await seedAuthnForOrganization(runner, {
+    organizationId: beta.organizationId,
+    adminMembershipId: beta.users.organizationAdmin.membershipId,
+    activatedUserId: beta.users.scheduler.id,
+    invitedUserId: beta.users.organizationAdmin.id,
+    slug: `${slug}-beta`,
+  });
+
+  if (gamma !== undefined) {
+    await seedAuthnForOrganization(runner, {
+      organizationId: gamma.organizationId,
+      adminMembershipId: gamma.users.organizationAdmin.membershipId,
+      activatedUserId: gamma.users.scheduler.id,
+      invitedUserId: gamma.users.organizationAdmin.id,
+      slug: `${slug}-gamma`,
     });
   }
 }

@@ -220,20 +220,72 @@ describe('no ambient tenant state (SPEC-01 §3.1)', () => {
     }
   });
 
-  it('the only shipped principal resolver denies, and no header-based one exists in src', () => {
-    const findings: string[] = [];
+  it('exactly ONE shipped module constructs an authenticated principal, and it reads a session row', () => {
+    /* ────────────────────────────────────────────────────────────────────────
+     * This assertion CHANGED at OPUS-M3-001 and it did not weaken.
+     *
+     * Until authentication existed, the strongest available statement was "no
+     * module in `src/` constructs an authenticated principal at all", because
+     * the only resolver denied everything. That is no longer true and could not
+     * remain true — a session store's whole job is to construct one.
+     *
+     * What replaces it is narrower, not looser:
+     *
+     *   1. EXACTLY ONE module may do it, and it is named here. A second one
+     *      appearing is a failure, whatever it looks like.
+     *   2. That module must not read a principal from a HEADER, an ENVIRONMENT
+     *      VARIABLE or a QUERY PARAMETER — the three shapes that turn a
+     *      "development convenience" into an authentication bypass. The one
+     *      header it may read is `cookie`, and the assertion says so by name.
+     *   3. No OTHER module may read any of those three for a principal either.
+     *
+     * The test harness still injects its own header-based resolver through
+     * `buildServer`; it lives in `test/support/http.ts` and this scan covers
+     * `src/` only, which is exactly the boundary that matters.
+     * ──────────────────────────────────────────────────────────────────────── */
+    const PERMITTED = 'authn/principal-resolver.ts';
+
+    const constructors: string[] = [];
     for (const absolute of walk(SRC)) {
       if (!absolute.endsWith('.ts')) continue;
-      // A resolver that reads a principal out of a header, an environment
-      // variable or a query parameter is an authentication bypass waiting for a
-      // misconfiguration. There is none, and there must remain none.
       if (/authenticated:\s*true/.test(readFileSync(absolute, 'utf8'))) {
-        findings.push(relative(SRC, absolute));
+        constructors.push(relative(SRC, absolute).replaceAll('\\', '/'));
       }
     }
     expect(
-      findings,
-      `these modules construct an AUTHENTICATED principal: ${findings.join(', ')}`,
+      constructors,
+      `exactly one module may construct an authenticated principal; found: ${constructors.join(', ')}`,
+    ).toEqual([PERMITTED]);
+
+    const source = readFileSync(join(SRC, PERMITTED), 'utf8');
+    // The ONLY header it reads is the cookie, and it reads it through the one
+    // helper that knows the cookie's name.
+    expect(source).toContain('readSessionCookie');
+    for (const forbidden of [
+      /process\.env/,
+      /request\.query/,
+      /\.headers\s*\[/,
+      /x-[a-z-]*principal/i,
+      /x-[a-z-]*user/i,
+    ]) {
+      expect(
+        forbidden.test(source),
+        `${PERMITTED} must not derive a principal from ${String(forbidden)}`,
+      ).toBe(false);
+    }
+
+    // And nothing else in src reads a principal out of a header or the
+    // environment either.
+    const smugglers: string[] = [];
+    for (const absolute of walk(SRC)) {
+      if (!absolute.endsWith('.ts')) continue;
+      const file = relative(SRC, absolute).replaceAll('\\', '/');
+      const text = readFileSync(absolute, 'utf8');
+      if (/x-[a-z-]*(principal|user-id|as-user)/i.test(text)) smugglers.push(file);
+    }
+    expect(
+      smugglers,
+      `these modules name a principal-bearing header: ${smugglers.join(', ')}`,
     ).toEqual([]);
   });
 });

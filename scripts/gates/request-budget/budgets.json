@@ -40,6 +40,24 @@
       "note": "One Save, one request. A refused save does NOT refetch, because nothing changed and there is nothing new to fetch — which is what makes the two-request success budget below a property of the success path rather than of Save in general. Measured 1 at both viewports."
     },
     {
+      "id": "authn-fill-activation-form",
+      "description": "User fills every field on the activation form and does not submit.",
+      "maxRequests": 0,
+      "note": "I-13, on a credential-setting form. ZERO is the only correct number: a field that saved on change would put a half-typed password on the wire, and an activation form that wrote on mount would consume an invitation token nobody submitted. This budget can never be raised without the invariant changing first. Measured 0 at both viewports (OPUS-M3-001)."
+    },
+    {
+      "id": "authn-submit-activation-refused-by-client",
+      "description": "User submits an empty activation form; the CLIENT refuses it.",
+      "maxRequests": 0,
+      "note": "A client-side pre-check that still called the server would be the amplification I-10 forbids, dressed as helpfulness. Measured 0 at both viewports (OPUS-M3-001)."
+    },
+    {
+      "id": "authn-submit-password-reset-request",
+      "description": "User submits the password-reset request form.",
+      "maxRequests": 1,
+      "note": "I-10 in its strictest form: one submit, one POST. There is no read-back, because the response is deliberately identical whatever the server found — there is nothing to re-read. Measured 1 at both viewports (OPUS-M3-001)."
+    },
+    {
       "id": "catalogue-save-shift-type",
       "description": "User clicks Save and the server accepts the shift type (200).",
       "maxRequests": 2,

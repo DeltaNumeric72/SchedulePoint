@@ -1,6 +1,7 @@
 import type { JobQueue } from '@schedulepoint/domain';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 
+import { AuthnService } from '../authn/service.js';
 import { InMemoryJobQueue } from '../jobs/in-memory-queue.js';
 import { registerContextMiddleware, type TenancyRuntime } from './context/middleware.js';
 import { registerCorrelationId } from './correlation-id.js';
@@ -11,6 +12,16 @@ import { createRouteTable, type RouteTableEntry } from './route-table.js';
 declare module 'fastify' {
   interface FastifyInstance {
     jobQueue: JobQueue;
+    /**
+     * The authentication service (OPUS-M3-001).
+     *
+     * Decorated rather than imported by the route file so the CLOCK is
+     * injectable exactly once, at server construction: a test builds a server
+     * with a `ControllableClock` and every expiry decision in that process
+     * follows it. There is no module-level mutable and no environment branch —
+     * see `apps/api/src/authn/clock.ts`.
+     */
+    authn: AuthnService;
   }
 }
 
@@ -41,6 +52,14 @@ export interface BuildServerOptions {
    */
   readonly tenancy?: TenancyRuntime;
   readonly jobQueue?: JobQueue;
+  /**
+   * The authentication service.
+   *
+   * Supplied by a test that needs a controllable clock or a fixed policy;
+   * `new AuthnService()` otherwise, which takes `systemClock`. There is no way
+   * to reach a non-system clock without constructing the service yourself.
+   */
+  readonly authn?: AuthnService;
 }
 
 /**
@@ -72,6 +91,7 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Bui
   registerCorrelationId(app);
   registerErrorEnvelope(app);
   app.decorate('jobQueue', options.jobQueue ?? new InMemoryJobQueue());
+  app.decorate('authn', options.authn ?? new AuthnService());
   registerContextMiddleware(app, options.tenancy);
   await registerRoutes(app);
   await app.ready();

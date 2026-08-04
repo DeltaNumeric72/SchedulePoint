@@ -1,0 +1,41 @@
+SBX-005 — User invitation, activation, deactivation, impersonation
+generated: 2026-08-04T10:17:58.043Z
+
+STATE: PASS   falsifiability probe: FALSIFIABLE   gate-required: no
+
+SPEC-16 §1 contract
+  owner                    OPUS-M3-001 (implementer) / Fable (acceptance)
+  fixtureProvenance        MULTI `full` profile — carries suspended, invited and ended memberships, and (since OPUS-M3-001) sessions, invitations, password-reset tokens and MFA enrolments written through the production paths.
+  deterministicSetup       Every lifetime and expiry decision is taken against an INJECTED clock (`ControllableClock`, a constructor parameter of `AuthnService`), so nothing sleeps and nothing samples the wall clock. Membership transitions are database writes.
+  externalDependency       None for the intent half. Real mailbox delivery is blocked on the notification-delivery milestone (SPEC-07 adapters, TDG-06) and is declared below rather than absorbed; the outbox destination is a CONTROLLED SYNTHETIC sink and nothing leaves the machine.
+  faultControls            A replayed invitation token; a membership suspended under a live session; a raw membership UPDATE with no service method involved.
+  objectiveOracle          Each transition behaves as STM-017/STM-018 specify; an invitation token is consumed exactly once; a suspension revokes every live session in the SAME transaction as the membership change; history is retained after deactivation rather than deleted.
+  retainedArtifact         docs/evidence/EV-M3-AUTHN/sbx-005-lifecycle.txt
+  environment              MULTI
+  earliestExecutionPoint   E2
+
+tables exercised: audit_events, invitations, memberships, outbox_events, sessions, users
+policies exercised: 14 §3 suspension invalidates live sessions immediately (T-07) | I-11 notification INTENT only, synthetic destination | STM-017 invitation single use (conditional UPDATE) | membership status retention (STM-017/STM-018)
+
+EVIDENCE_BLOCKED sub-scenarios (never a pass, never a silent skip):
+  - impersonation banner, audit entry, blocked credential screens
+      EVIDENCE_BLOCKED(impersonation milestone — `identity.impersonate` exists in the SPEC-06 catalogue with no surface behind it; OPUS-M3-001 was not asked to build one (packet 32 §3))
+  - invitation email delivered to a controlled mailbox
+      EVIDENCE_BLOCKED(notification-delivery milestone (SPEC-07 adapters, TDG-06 procurement). The outbox INTENT half executes and is verified below; no delivery adapter exists and no test may reach a real person)
+
+OBSERVATIONS
+
+  membership statuses retained:
+    active=12, ended=1, invited=1, suspended=1
+
+  invitation lifecycle:
+    issued -> consumed exactly once -> replay refused with AUTHN_TOKEN_INVALID; the first activator's credential survived
+
+  notification intent:
+    12 invitation intent(s), every destination a controlled synthetic sink. DELIVERY is blocked on the notification-delivery milestone and is declared, not absorbed.
+
+  suspension:
+    a RAW membership UPDATE — no service method — revoked the live session in the same transaction, with reason `membership_suspended`
+
+  history retained:
+    67 authn.* audit events survive the lifecycle; no row is deleted by any of it

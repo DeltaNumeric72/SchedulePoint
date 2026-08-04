@@ -46,6 +46,129 @@ export interface UsersTable {
   session_epoch: Generated<string>;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
+
+  /* ── `migrations/0007_authentication_sessions_invitations.sql` (OPUS-M3-001) ─
+   *
+   * Credential and lockout state. The same warning at the top of this file
+   * applies with the most force here: these types describe the schema and
+   * enforce nothing. What refuses a bare digest is
+   * `users_password_hash_encoded`; what refuses a negative failure count is a
+   * CHECK; what keeps `session_epoch` out of reach is the absence of a grant.
+   *
+   * `password_hash` is the ENCODED form (`scrypt$N$r$p$salt$digest`), never a
+   * bare digest — see `apps/api/src/authn/passwords.ts`. It is `SECRET` in doc
+   * 06's classification and appears in no contract, no response and no log. */
+
+  /** `null` for an account that has not activated (STM-018 `invited`). */
+  password_hash: string | null;
+  password_updated_at: Date | null;
+  /** `null` until activation. With `status`, this derives STM-018's account state. */
+  activated_at: Date | null;
+  failed_sign_in_count: Generated<number>;
+  last_failed_sign_in_at: Date | null;
+  /** T-22 progressive lockout: compared against the INJECTED clock, never `now()`. */
+  locked_until: Date | null;
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * `migrations/0007_authentication_sessions_invitations.sql` — OPUS-M3-001.
+ *
+ * Four organization-tenanted tables. Three of them store `token_hash bytea` and
+ * have no column that could hold a presented token; the fourth, `user_mfa`,
+ * cannot hash its secret (a TOTP verifier has to recompute HMAC over it) and so
+ * stores it under AES-256-GCM with the nonce, tag and key version beside it.
+ *
+ * `session_epoch_at_issue` and `absolute_expires_at` are read-only after insert
+ * — a trigger says so, not a comment — and neither is in this file's power to
+ * protect.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+export type SessionRevokedReason =
+  | 'sign_out'
+  | 'privilege_change'
+  | 'membership_suspended'
+  | 'membership_ended'
+  | 'user_deactivated'
+  | 'password_changed'
+  | 'mfa_reset'
+  | 'login_email_changed'
+  | 'rotated'
+  | 'administrative';
+
+export interface SessionsTable {
+  id: string;
+  organization_id: string;
+  user_id: string;
+  /** SHA-256 of the presented secret. `bytea` — a `Buffer` on the wire. */
+  token_hash: Buffer;
+  issued_at: Generated<Date>;
+  last_seen_at: Generated<Date>;
+  /** The IDLE deadline. Slides on use. */
+  expires_at: Date;
+  /** The ABSOLUTE deadline. Frozen at issue by `sessions_guard_absolute_deadline`. */
+  absolute_expires_at: Date;
+  state: Generated<'active' | 'revoked'>;
+  revoked_at: Date | null;
+  revoked_reason: SessionRevokedReason | null;
+  mfa_satisfied: Generated<boolean>;
+  /** Assigned by `sessions_assign_epoch`; never application-supplied. */
+  session_epoch_at_issue: Generated<string>;
+  persistent: Generated<boolean>;
+  rotated_from_session_id: string | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface InvitationsTable {
+  id: string;
+  organization_id: string;
+  user_id: string;
+  email: string;
+  token_hash: Buffer;
+  expires_at: Date;
+  /** Set by a CONDITIONAL UPDATE. That statement IS the single-use mechanism. */
+  consumed_at: Date | null;
+  state: Generated<'pending' | 'accepted' | 'expired' | 'revoked'>;
+  issued_by_membership_id: string | null;
+  revoked_at: Date | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface PasswordResetTokensTable {
+  id: string;
+  organization_id: string;
+  user_id: string;
+  token_hash: Buffer;
+  expires_at: Date;
+  consumed_at: Date | null;
+  state: Generated<'pending' | 'consumed' | 'expired' | 'revoked'>;
+  revoked_at: Date | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface UserMfaTable {
+  id: string;
+  organization_id: string;
+  user_id: string;
+  method: Generated<'totp'>;
+  secret_ciphertext: Buffer;
+  secret_nonce: Buffer;
+  secret_tag: Buffer;
+  key_version: number;
+  algorithm: Generated<'SHA1' | 'SHA256'>;
+  digits: Generated<number>;
+  period_seconds: Generated<number>;
+  /** `provisioned` means the factor is NOT yet in force (14 §2). */
+  state: Generated<'provisioned' | 'active'>;
+  enrolled_at: Date | null;
+  /** Monotonic, enforced by `user_mfa_guard_step_monotonic`. RFC 6238 replay defence. */
+  last_accepted_time_step: string | null;
+  /** `[{ "h": <hex hash>, "c": <iso|null> }]`. Hashed, never the code. */
+  recovery_codes: Generated<unknown>;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
 }
 
 export interface MembershipsTable {
@@ -415,6 +538,10 @@ export interface Database {
   valid_group_shift_types: ValidGroupShiftTypesTable;
   group_holidays: GroupHolidaysTable;
   shift_type_qualifications: ShiftTypeQualificationsTable;
+  sessions: SessionsTable;
+  invitations: InvitationsTable;
+  password_reset_tokens: PasswordResetTokensTable;
+  user_mfa: UserMfaTable;
 }
 
 /**
@@ -574,4 +701,27 @@ export const TENANT_TABLES: readonly TenantTable[] = [
    * production write path — so the cross-GROUP arm has something it could see if
    * the group predicate were broken, not only the cross-organization one. */
   { name: 'shift_type_qualifications', scope: 'organization-and-group' },
+
+  /* ── `migrations/0007_authentication_sessions_invitations.sql` (OPUS-M3-001) ─
+   *
+   * Registered in the SAME change as the migration that creates them (packet 30
+   * §7.2, whose rule exists because 0003's four tenant tables were left out of
+   * this registry and stayed unprobed until OPUS-M1-004 noticed).
+   *
+   * All four are `organization-and-group` in the registry's ROW SHAPE sense —
+   * they carry `organization_id` — but note what their policies do NOT carry: a
+   * group clause. An authentication artifact belongs to an identity in an
+   * organization and has no group dimension, and it must stay resolvable while a
+   * GROUP-scoped request is being served, so `app.group_id` is deliberately
+   * absent from each predicate.
+   *
+   * That is the same shape `roles`/`role_capabilities`/`entitlements` have, and
+   * so the scope is `organization-only`: an organization column, no group
+   * column, readable under a group-scoped context because the request pipeline
+   * genuinely needs it there. Declaring them `organization-and-group` would make
+   * `wrongTenantProbe` demand a `group_id` column that does not exist. */
+  { name: 'sessions', scope: 'organization-only' },
+  { name: 'invitations', scope: 'organization-only' },
+  { name: 'password_reset_tokens', scope: 'organization-only' },
+  { name: 'user_mfa', scope: 'organization-only' },
 ] as const;

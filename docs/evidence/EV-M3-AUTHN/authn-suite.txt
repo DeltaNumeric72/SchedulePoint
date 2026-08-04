@@ -1,0 +1,208 @@
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m3-001
+
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m3-001/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-01ccc68148de6f4cd5)] INFO: Completed task 1 (outbox.dispatch, 7.22ms) with success
+[worker(worker-01ccc68148de6f4cd5)] INFO: Completed task 2 (outbox.dispatch, 2.59ms) with success
+[worker(worker-01ccc68148de6f4cd5)] INFO: Completed task 3 (outbox.dispatch, 2.22ms) with success
+[worker(worker-01ccc68148de6f4cd5)] INFO: Completed task 4 (outbox.dispatch, 2.29ms) with success
+[worker(worker-01ccc68148de6f4cd5)] INFO: Completed task 5 (outbox.dispatch, 2.38ms) with success
+[worker(worker-01ccc68148de6f4cd5)] INFO: Completed task 6 (outbox.dispatch, 2.22ms) with success
+[worker(worker-01ccc68148de6f4cd5)] INFO: Completed task 7 (outbox.dispatch, 2.22ms) with success
+[worker(worker-01ccc68148de6f4cd5)] INFO: Completed task 8 (outbox.dispatch, 2.28ms) with success
+[worker(worker-01ccc68148de6f4cd5)] INFO: Completed task 9 (outbox.dispatch, 2.23ms) with success
+[worker(worker-01ccc68148de6f4cd5)] INFO: Completed task 10 (outbox.dispatch, 2.22ms) with success
+[worker(worker-01ccc68148de6f4cd5)] INFO: Completed task 11 (outbox.dispatch, 2.22ms) with success
+stdout | test/authn/secrecy.test.ts > planted secrets appear nowhere they must not > drives a full credential lifecycle and hunts for every value it produced
+      · 7 planted secrets hunted across 1 log lines, 23 audit payloads, 8 outbox payloads and every authn row: none found
+
+stdout | test/authn/secrecy.test.ts > planted secrets appear nowhere they must not > FALSIFIABILITY — the same hunt FINDS a value deliberately written into the capture
+      · the probe found a planted needle: the "not found" result above is a measurement
+
+stdout | test/authn/secrecy.test.ts > the GENERATED evidence artifacts carry no secret material > no file under docs/evidence/EV-M3-AUTHN carries a secret-shaped value
+      · 12 evidence artifacts scanned for 2 secret shapes: none found
+
+stdout | test/authn/secrecy.test.ts > the GENERATED evidence artifacts carry no secret material > FALSIFIABILITY — the evidence scan FIRES on a secret planted in a temp artifact
+      · the evidence scan fired on a planted secret: session-cookie secret: …__Host-sp_session=00000000-0000-4000-8000-00000000a11a.Zx9kk…
+
+stdout | test/authn/secrecy.test.ts > the shipped source cannot log a secret > the error vocabulary carries no reason that could be a credential
+      · four distinguishable failures produced ONE body: AUTHN_FAILED|Those sign-in details were not accepted.
+
+ ✓ |api| test/authn/secrecy.test.ts (7 tests) 321ms
+stdout | test/authn/http-flows.test.ts > sign in, cookie posture, sign out > a successful sign-in sets a HttpOnly + Secure + SameSite=Strict __Host- cookie
+      · sign-in cookie: __Host-sp_session=017604ff-7ab5-475e-9e10-3950ded5b1cf.<redacted>; Path=/; HttpOnly; Secure; SameSite=Strict
+
+stdout | test/authn/http-flows.test.ts > sign in, cookie posture, sign out > sign-out revokes the session and clears the cookie; the token stops working
+      · sign-out revoked the session, cleared the cookie, and the token is inert afterwards
+
+stdout | test/authn/http-flows.test.ts > sign in, cookie posture, sign out > a session issued for ANOTHER organization is refused on this one
+      · a session re-labelled with another organization id resolves to nothing
+
+stdout | test/authn/http-flows.test.ts > lockout (T-22) > repeated failures lock the account, and the response NEVER says so
+      · 6 failures locked the account; every response was byte-identical and the lock is audited
+
+stdout | test/authn/http-flows.test.ts > activation and reset, over HTTP > an invited account activates, then signs in; the token is single-use at the surface too
+      · activate -> replay refused -> sign in, all over HTTP
+
+stdout | test/authn/http-flows.test.ts > activation and reset, over HTTP > a reset REQUEST acknowledges identically for a known and an unknown address
+      · three reset requests, one body: {"acknowledged":true}
+
+stdout | test/authn/http-flows.test.ts > activation and reset, over HTTP > a reset token completes over HTTP and the old password stops working
+      · a reset completed over HTTP; the old password is refused and the new one works
+
+stdout | test/authn/http-flows.test.ts > the administrative surfaces are capability-gated > a member cannot issue an invitation, reset MFA, change a login email or revoke sessions
+      · four administrative surfaces denied a plain member with no reason disclosed
+
+stdout | test/authn/http-flows.test.ts > the administrative surfaces are capability-gated > an organization administrator holding the GRANT can change a login email; sessions die and invitations reconcile
+      · login-email change: denied before the grant, allowed after; 1 invitation reconciled; audit carries the domain and a digest only
+
+stdout | test/authn/http-flows.test.ts > the MFA challenge, over HTTP > an elevated role must enrol, then challenge, before the session is fully authenticated
+      · an elevated role signed in -> enrolment required -> enrolled -> mfa_required thereafter
+
+stdout | test/authn/http-flows.test.ts > the MFA challenge, over HTTP > a session that has already satisfied its challenge cannot re-enter the challenge stage
+      · a fully authenticated session is refused by the session-partial stage
+
+ ✓ |api| test/authn/http-flows.test.ts (15 tests) 268ms
+stdout | test/authn/mfa.test.ts > RFC 6238 appendix B > reproduces the published 8-digit vectors for SHA-1
+      · 6 RFC 6238 SHA-1 vectors reproduced
+
+stdout | test/authn/mfa.test.ts > RFC 6238 appendix B > reproduces the published 8-digit vectors for SHA-256
+      · 6 RFC 6238 SHA-256 vectors reproduced
+
+stdout | test/authn/mfa.test.ts > enrolment > a provisioned factor is NOT in force until a valid code confirms it
+      · a provisioned factor is inert until confirmed; recovery codes are stored hashed only
+
+stdout | test/authn/mfa.test.ts > enrolment > the stored secret is CIPHERTEXT: the raw bytes are nowhere in the row
+      · the TOTP secret is stored as AES-256-GCM ciphertext bound to (organization, user)
+
+stdout | test/authn/mfa.test.ts > RED CASE 6 — a replayed time step is refused > the same code twice: accepted once, refused the second time, by the STATEMENT
+      · a code replayed within its time step was refused; the next step's code was accepted
+
+stdout | test/authn/mfa.test.ts > RED CASE 6 — a replayed time step is refused > the TRIGGER refuses a replayed step for the OWNER too, not only for the application
+      · the statement refuses a repeated step; the trigger refuses a regression, for the owner
+
+stdout | test/authn/mfa.test.ts > recovery codes > a recovery code works exactly once, and the second presentation is refused
+      · a recovery code is single-use under normalisation; a sibling code still works
+
+ ✓ |api| test/authn/mfa.test.ts (9 tests) 187ms
+stdout | test/authn/lifetimes.test.ts > idle lifetime > a session used within its idle window stays alive indefinitely — up to the absolute bound
+      · a session used every 29 minutes survived 5h19m of use
+
+stdout | test/authn/lifetimes.test.ts > idle lifetime > RED CASE 2 — a session left idle past its window is rejected, having worked a moment earlier
+      · idle-expired session rejected; the row records `idle_expired` and the client is told nothing
+
+stdout | test/authn/lifetimes.test.ts > absolute lifetime > RED CASE 3 — a CONTINUOUSLY used session still dies at its absolute deadline
+      · a continuously-used session died after 71 uses at its 12h absolute deadline; the row records `absolute_expired`
+
+stdout | test/authn/lifetimes.test.ts > absolute lifetime > the absolute deadline cannot be moved — TWO layers refuse, and both are checked
+      · absolute_expires_at is refused by the GRANT for app_runtime and by the TRIGGER for the owner
+
+stdout | test/authn/lifetimes.test.ts > absolute lifetime > a persistent session gets a longer IDLE window and the SAME absolute bound
+      · a persistent session's idle deadline is clamped to its absolute deadline
+
+stdout | test/authn/lifetimes.test.ts > a token that names nothing > RED CASE 1 — a forged token resolves to nothing and leaks nothing
+      · four forged tokens resolved to nothing; every one recorded as `unknown`
+
+ ✓ |api| test/authn/lifetimes.test.ts (6 tests) 201ms
+stdout | test/authn/suspension.test.ts > suspension revokes live sessions in the database > a membership moved to `suspended` by a RAW row write still kills its sessions
+      · a raw membership UPDATE revoked the live session with reason `membership_suspended`
+
+stdout | test/authn/suspension.test.ts > suspension revokes live sessions in the database > `ended` does the same, with its own reason, and every live session goes
+      · both devices were revoked with reason `membership_ended`
+
+stdout | test/authn/suspension.test.ts > RED CASE 4 — a suspended user is denied MID-FLIGHT > a suspension committed between context resolution and the command denies the request as 404
+      · mid-flight suspension: 200 before, 404 during (no disclosure), 401 after — the session was revoked by the same transaction that suspended the membership
+
+ ✓ |api| test/authn/suspension.test.ts (3 tests) 217ms
+stdout | test/authn/session-epoch-freshness.test.ts > authentication bumps the epoch, and the database is what does it > every issued session advances `users.session_epoch` by exactly one
+      · session_epoch advanced 1 -> 3 across two sign-ins
+
+stdout | test/authn/session-epoch-freshness.test.ts > authentication bumps the epoch, and the database is what does it > the application holds no UPDATE grant on the counter — the bump is not something it can fake
+      · neither runtime role holds UPDATE on users.session_epoch
+
+stdout | test/authn/session-epoch-freshness.test.ts > a stale declared epoch is refused RECOVERABLY, and the retry re-evaluates > 409 SESSION_STALE on the stale declaration, 200 after the client reloads its counters
+      · stale epoch -> 409 SESSION_STALE; the same session works again once the client reloads
+
+stdout | test/authn/session-epoch-freshness.test.ts > a credential change bumps the epoch AND revokes — two controls, both checked > a login-email change (CAR-027) advances the epoch and kills every session
+      · a login-email change advanced session_epoch and revoked every live session
+
+stdout | test/authn/session-epoch-freshness.test.ts > a credential change bumps the epoch AND revokes — two controls, both checked > a password reset does the same, through its own path
+      · a completed password reset advanced session_epoch and revoked every live session
+
+ ✓ |api| test/authn/session-epoch-freshness.test.ts (5 tests) 179ms
+stdout | test/authn/x12-mfa-reset.test.ts > SPEC-11 X-12 — MFA reset > satisfies all three obligations in ONE transaction, and destroys the secret
+      · X-12: audited (sequence 22), notified (outbox intent to a synthetic sink), 2 sessions invalidated, enrolment row deleted, chain intact
+
+stdout | test/authn/x12-mfa-reset.test.ts > SPEC-11 X-12 — MFA reset > a reset on an account with NO enrolment is still audited and still invalidates sessions
+      · a reset with nothing to reset is still audited and still notified
+
+stdout | test/authn/x12-mfa-reset.test.ts > SPEC-11 X-12 — MFA reset > after the reset the factor is genuinely gone: the old code no longer authenticates
+      · after an X-12 reset the account has no factor to challenge and the old device is inert
+
+ ✓ |api| test/authn/x12-mfa-reset.test.ts (3 tests) 151ms
+stdout | test/authn/invitation-single-use.test.ts > exactly one consumer wins > two SIMULTANEOUS activations of the same token: one succeeds, one is refused, one account activates
+      · two simultaneous activations: exactly one won, one accepted row, one activated account
+
+stdout | test/authn/invitation-single-use.test.ts > exactly one consumer wins > RED CASE 5 — the SECOND consumer of a spent token is rejected
+      · a replayed invitation token was refused and the first activator's credential survived
+
+stdout | test/authn/invitation-single-use.test.ts > expiry and revocation > an expired invitation is refused, having been usable a moment earlier on the same clock
+      · an invitation one second past its seven-day window was refused
+
+stdout | test/authn/invitation-single-use.test.ts > expiry and revocation > a revoked invitation is refused, and revocation is not reversible through the service
+      · a revoked invitation was refused; re-revoking is a no-op, not an error
+
+stdout | test/authn/invitation-single-use.test.ts > the token namespaces are separate > an invitation token presented to the password-reset flow hashes to nothing that table holds
+      · an invitation token is inert in the reset namespace, and is not consumed by the attempt
+
+ ✓ |api| test/authn/invitation-single-use.test.ts (5 tests) 134ms
+stdout | test/authn/primitives.test.ts > password hashing > MEASURES the production parameters rather than asserting a threshold
+      · scrypt N=32768 r=8 p=1: hash 39.3 ms, verify 35.9 ms, ~32 MiB working memory (FAD proposal)
+
+ ✓ |api| test/authn/primitives.test.ts (16 tests) 117ms
+stdout | test/authn/break-glass.test.ts > an audited privileged session > records the four facts SPEC-11 §3.2 names, in the same chain, as TWO events
+      · an audited break-glass session recorded open+close in the chain (11 statements) and the chain still verifies
+
+stdout | test/authn/break-glass.test.ts > an audited privileged session > refuses to run at all without an operator identity and a ticket reference
+      · an unticketed or prose-bearing privileged session is refused before anything runs
+
+stdout | test/authn/break-glass.test.ts > an audited privileged session > a rolled-back privileged transaction takes its own evidence with it — deliberately
+      · a rolled-back privileged transaction records nothing — the rollback took the evidence too
+
+stdout | test/authn/break-glass.test.ts > an UNAUDITED privileged use is detectable > RED — a raw app_breakglass connection is reported by the detector
+      · the detector reported 2 unaudited break-glass backend(s): pid 11006 (no name), pid 11008 (no name)
+
+stdout | test/authn/break-glass.test.ts > an UNAUDITED privileged use is detectable > GREEN — a session opened THROUGH the auditor carries the marker and is not reported
+      · the audited session's application_name was `sp-privileged:75f617cb-cf0e-4112-ab54-8777d8c90a6e` and it was not reported
+
+stdout | test/authn/break-glass.test.ts > an UNAUDITED privileged use is detectable > the marker is transaction-LOCAL: the next borrower of the connection does not inherit it
+      · the marker did not survive the transaction that set it
+
+ ✓ |api| test/authn/break-glass.test.ts (8 tests) 104ms
+stdout | test/authn/preauth-policy.test.ts > the gate still fails an undeclared route > RED CASE 7 — a route with no policy is a violation, with the pre-auth class present
+      · the gate reported the undeclared route: route registered without a policy declaration (config.policy)
+
+stdout | test/authn/preauth-policy.test.ts > the pre-auth class is narrow, and structurally so > no pre-auth route has a subject parameter naming another user
+      · 8 pre-auth routes, none with a subject parameter: POST /organizations/:organizationId/authn/sign-in, POST /organizations/:organizationId/authn/sign-out, POST /organizations/:organizationId/authn/mfa/enrolment, POST /organizations/:organizationId/authn/mfa/enrolment/confirmation, POST /organizations/:organizationId/authn/mfa/challenge, POST /organizations/:organizationId/authn/activation, POST /organizations/:organizationId/authn/password-reset, POST /organizations/:organizationId/authn/password-reset/completion
+
+stdout | test/authn/preauth-policy.test.ts > the pre-auth class is narrow, and structurally so > every pre-auth route declares a stage from the closed set and a written reason
+      · POST /organizations/:organizationId/authn/sign-in -> preauth/anonymous (Sign-in is what produces a principal; there is nothing yet for a capability to be evaluated against. The credential check IS the verification.)
+      · POST /organizations/:organizationId/authn/sign-out -> preauth/session-any (Sign-out acts only on the presented session and must work for one that has not satisfied its challenge — a half-authenticated session that cannot be ended is a session that has to expire instead.)
+      · POST /organizations/:organizationId/authn/mfa/enrolment -> preauth/session-partial (Enrolling one's own second factor is a step of authentication, not a tenant action: an elevated role cannot complete sign-in until it has enrolled, so requiring a capability here would be a cycle. The subject is always the session holder.)
+      · POST /organizations/:organizationId/authn/mfa/enrolment/confirmation -> preauth/session-partial (Confirms the enrolment started on this session with a valid code. Same reasoning as the enrolment route; the subject is the session holder.)
+      · POST /organizations/:organizationId/authn/mfa/challenge -> preauth/session-partial (The second factor of a sign-in in progress. The session it marks is the one that presented it; there is no parameter naming another.)
+      · POST /organizations/:organizationId/authn/activation -> preauth/anonymous (Activation is performed by somebody who has no account yet, holding a single-use token. Requiring a session would make the flow impossible.)
+      · POST /organizations/:organizationId/authn/password-reset -> preauth/anonymous (Requested by somebody who cannot sign in. The response is identical whatever the address turns out to be.)
+      · POST /organizations/:organizationId/authn/password-reset/completion -> preauth/anonymous (Completed by somebody who cannot sign in, holding a single-use token from a namespace that is not the invitation namespace.)
+
+stdout | test/authn/preauth-policy.test.ts > the pre-auth class is narrow, and structurally so > every registered route has a policy, and the four kinds are the only ones
+      · 60 registered routes; policy kinds in use: capability, preauth, public
+
+ ✓ |api| test/authn/preauth-policy.test.ts (7 tests) 26ms
+
+ Test Files  11 passed (11)
+      Tests  84 passed (84)
+   Start at  05:59:53
+   Duration  3.65s (transform 303ms, setup 138ms, collect 198ms, tests 1.91s, environment 0ms, prepare 54ms)
+

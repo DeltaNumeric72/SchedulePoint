@@ -1,0 +1,47 @@
+### STANDALONE: apps/api/test/authn/lifetimes.test.ts
+      · a session used every 29 minutes survived 5h19m of use
+      · idle-expired session rejected; the row records `idle_expired` and the client is told nothing
+      · a continuously-used session died after 71 uses at its 12h absolute deadline; the row records `absolute_expired`
+      · absolute_expires_at is refused by the GRANT for app_runtime and by the TRIGGER for the owner
+      · a persistent session's idle deadline is clamped to its absolute deadline
+      · four forged tokens resolved to nothing; every one recorded as `unknown`
+ ✓ |api| test/authn/lifetimes.test.ts (6 tests) 236ms
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+
+### STANDALONE: apps/api/test/authn/suspension.test.ts
+      · a raw membership UPDATE revoked the live session with reason `membership_suspended`
+      · both devices were revoked with reason `membership_ended`
+      · mid-flight suspension: 200 before, 404 during (no disclosure), 401 after — the session was revoked by the same transaction that suspended the membership
+ ✓ |api| test/authn/suspension.test.ts (3 tests) 265ms
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+
+### STANDALONE: apps/api/test/authn/invitation-single-use.test.ts
+      · two simultaneous activations: exactly one won, one accepted row, one activated account
+      · a replayed invitation token was refused and the first activator's credential survived
+      · an invitation one second past its seven-day window was refused
+      · a revoked invitation was refused; re-revoking is a no-op, not an error
+      · an invitation token is inert in the reset namespace, and is not consumed by the attempt
+ ✓ |api| test/authn/invitation-single-use.test.ts (5 tests) 165ms
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+
+### STANDALONE: apps/api/test/authn/x12-mfa-reset.test.ts
+      · X-12: audited (sequence 22), notified (outbox intent to a synthetic sink), 2 sessions invalidated, enrolment row deleted, chain intact
+      · a reset with nothing to reset is still audited and still notified
+      · after an X-12 reset the account has no factor to challenge and the old device is inert
+ ✓ |api| test/authn/x12-mfa-reset.test.ts (3 tests) 184ms
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+
+### STANDALONE: apps/api/test/authn/session-epoch-freshness.test.ts
+      · session_epoch advanced 1 -> 3 across two sign-ins
+      · neither runtime role holds UPDATE on users.session_epoch
+      · stale epoch -> 409 SESSION_STALE; the same session works again once the client reloads
+      · a login-email change advanced session_epoch and revoked every live session
+      · a completed password reset advanced session_epoch and revoked every live session
+ ✓ |api| test/authn/session-epoch-freshness.test.ts (5 tests) 279ms
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+

@@ -429,6 +429,41 @@ export const CAPABILITIES: readonly CapabilityDefinition[] = [
     module: 'organization_administration',
     description: 'Impersonate a user (CAP-010, SPEC-06 §3.3). Grant-only.',
   },
+  /* ── OPUS-M3-001 ────────────────────────────────────────────────────────────
+   *
+   * Two keys, and they are deliberately NOT folded into
+   * `organization.membership.administer`. That key is role-implied for an
+   * organization administrator; these two are grant-only, like their neighbours
+   * `identity.change_login_email` and `identity.impersonate`, because each is a
+   * CREDENTIAL action rather than a membership action:
+   *
+   *   MFA reset hands an account back to whoever asks for it, and T-25 (SPEC-11
+   *   §5) names MFA reset abuse as its own threat. An administrator who may
+   *   invite and end memberships does not thereby acquire the ability to strip a
+   *   second factor.
+   *
+   *   Revoking another person's sessions is an eviction. It is the right control
+   *   to have during an incident and the wrong one to have by default.
+   *
+   * **This does not expand the 58-capability baseline** — see this file's
+   * header. Both routes declare `CAP-009` (invitation and credential lifecycle)
+   * in `policy.capability`; these are ACTION keys, the unit L4 evaluates. */
+  {
+    key: 'identity.reset_mfa',
+    scope: 'organization',
+    module: 'organization_administration',
+    description:
+      "Reset a user's multi-factor enrolment (SPEC-11 X-12; T-25 MFA-reset abuse). Grant-only, " +
+      'and separate from membership administration because it is a credential action.',
+  },
+  {
+    key: 'identity.administer_sessions',
+    scope: 'organization',
+    module: 'organization_administration',
+    description:
+      "Revoke another user's live sessions (14 §3). Grant-only: an eviction is an incident " +
+      'control, not a default administrative power.',
+  },
   {
     key: 'audit.export',
     scope: 'organization',

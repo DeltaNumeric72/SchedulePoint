@@ -1,0 +1,32 @@
+SBX-006 — Session timeout and persistence
+generated: 2026-08-04T10:17:58.043Z
+
+STATE: PASS   falsifiability probe: FALSIFIABLE   gate-required: no
+
+SPEC-16 §1 contract
+  owner                    OPUS-M3-001 (implementer) / Fable (acceptance)
+  fixtureProvenance        MULTI `full` — accounts activated and signed in through the real paths.
+  deterministicSetup       SPEC-16 §4's controllable virtual clock, as a CONSTRUCTOR PARAMETER of `AuthnService` (`apps/api/src/authn/clock.ts`). Nothing sleeps and nothing samples the wall clock, so every measurement below is repeatable to the millisecond.
+  externalDependency       None.
+  faultControls            Idle simulation by clock advance; a session used continuously across its absolute deadline; two concurrent devices for one identity.
+  objectiveOracle          Measured idle and absolute lifetimes — NUMBERS, not impressions: a session used inside its idle window survives indefinitely up to the absolute bound; one left alone dies at the idle deadline; one used continuously dies at the absolute deadline; a second device does not end the first device's session.
+  retainedArtifact         docs/evidence/EV-M3-AUTHN/sbx-006-session.txt
+  environment              MULTI
+  earliestExecutionPoint   E2
+
+tables exercised: sessions
+policies exercised: 14 §3 bounded ABSOLUTE lifetime (T-07 bounds a stolen token) | 14 §3 bounded IDLE lifetime | SPEC-06 §4 session_epoch bumped by AUTHENTICATION
+
+OBSERVATIONS
+
+  idle lifetime, measured:
+    ordinary session: survived 200 minutes of use at 25-minute intervals (idle window 30 minutes, sliding), then died 31 minutes after its last use
+
+  persistence, measured:
+    "stay signed in" widens the IDLE window (14 days) and NOT the absolute one: at 45 idle minutes the persistent session is alive where an ordinary one is dead (ordinary dead: true). The issued idle deadline is CLAMPED to the absolute deadline, so "persistent" is a convenience, not a second, longer session class.
+
+  absolute lifetime, measured:
+    a session used every 10 minutes — so its idle deadline never lapsed — died after 71 uses (11.8 hours). The issued absolute window was 12.0 hours.
+
+  concurrent devices, measured — and the consequence STATED:
+    both devices hold live sessions (epochs at issue: 3 -> 4). SPEC-06 §4 bumps `session_epoch` on AUTHENTICATION, so the second sign-in makes the FIRST device's declared context stale: its next request answers `409 SESSION_STALE` and the client reloads its counters. The SESSION is untouched — that is the difference between a 409 (reload) and a 401 (sign in again), and conflating them would sign a user out of one device every time they used another.

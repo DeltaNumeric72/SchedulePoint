@@ -63,7 +63,78 @@ export interface InternalPolicy {
   readonly reason: string;
 }
 
-export type RoutePolicy = PublicPolicy | CapabilityPolicy | InternalPolicy;
+/**
+ * The authentication stage a `preauth` route requires. **Deny-by-default within
+ * the class**: there is no "any" value, and a route must name exactly one.
+ *
+ * | Stage | Requires |
+ * |---|---|
+ * | `anonymous` | nothing. Sign-in, activation, reset request/complete |
+ * | `session-partial` | a live session whose MFA challenge is NOT yet satisfied |
+ * | `session-any` | a live session, satisfied or not. Sign-out only |
+ */
+export type AuthnStage = 'anonymous' | 'session-partial' | 'session-any';
+
+/**
+ * A route that PARTICIPATES IN ESTABLISHING OR ENDING AUTHENTICATION ITSELF.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ## Why this class exists, and why it does not weaken I-02
+ *
+ * A capability route asks "may this principal perform this action in this
+ * tenant?". Sign-in has no principal yet, so it cannot ask; the MFA challenge
+ * has a partial one; sign-out acts on the presented cookie and must work for a
+ * session that is already half-dead. Declaring these `public` would be a lie —
+ * `public` means "addresses no tenant", and these address one — and giving them
+ * a capability would mean inventing a capability nobody can hold before they
+ * authenticate.
+ *
+ * **Deny-by-default is untouched.** I-02's mechanism is that a route with NO
+ * policy fails the build, and that is still exactly what happens: this is a
+ * fourth `kind` in the union `isRoutePolicy` accepts, not a bypass around it. A
+ * route that declares nothing still has `policy === undefined` and still fails
+ * `scripts/gates/route-policy-check.mjs`, which is proven by the existing red
+ * case (`apps/api/test/red-cases/fixtures/undeclared-route-entry.ts`) and by
+ * `apps/api/test/authn/preauth-policy.test.ts`, which registers an undeclared
+ * route against the SAME gate analyzer and asserts it is still rejected.
+ *
+ * **No gate script was modified.** `route-policy-check.mjs` reads
+ * `config.policy` and asks whether `isRoutePolicy` accepted it; the vocabulary
+ * of policies lives here, in `apps/api/src/http/policy.ts`, which is this
+ * packet's file. That is why the packet's escalation condition ("the gate cannot
+ * express the pre-auth class without modification") did not fire.
+ *
+ * ## Three structural constraints, each tested rather than promised
+ *
+ *  1. **No pre-auth route names another user.** Not one of them has a subject
+ *     parameter — no `:userId`, no user identifier in any body schema — so there
+ *     is no request that could act on somebody else's account. Asserted over the
+ *     REGISTERED route table, not over a list.
+ *  2. **The stage is enforced by the middleware**, from this declaration, before
+ *     the handler runs. A `session-partial` route reached without a session is a
+ *     401 and never reaches a handler.
+ *  3. **`reason` is required**, and it is reviewed on every change, exactly as
+ *     `PublicPolicy.reason` is.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+export interface PreAuthPolicy {
+  readonly kind: 'preauth';
+  /** Why this route cannot be capability-gated. Reviewed on every change. */
+  readonly reason: string;
+  readonly stage: AuthnStage;
+}
+
+export type RoutePolicy = PublicPolicy | CapabilityPolicy | InternalPolicy | PreAuthPolicy;
+
+const AUTHN_STAGES: readonly string[] = ['anonymous', 'session-partial', 'session-any'];
+
+/** Narrows a route's config to the pre-auth arm. `undefined` for anything else. */
+export function preAuthRouteConfig(config: unknown): PreAuthPolicy | undefined {
+  if (typeof config !== 'object' || config === null) return undefined;
+  const policy = (config as { policy?: unknown }).policy;
+  if (!isRoutePolicy(policy) || policy.kind !== 'preauth') return undefined;
+  return policy;
+}
 
 /**
  * The SPEC-06 action a route performs.
@@ -260,6 +331,19 @@ export function isRoutePolicy(value: unknown): value is RoutePolicy {
   if (kind === 'capability') {
     return /^CAP-\d{3}$/.test(String((value as { capability?: unknown }).capability));
   }
+  if (kind === 'preauth') {
+    // BOTH fields, and the stage from a closed set. A pre-auth route that
+    // forgot its stage would otherwise be admitted here and then have no
+    // requirement the middleware could enforce — which is the fail-open shape
+    // this whole class has to avoid.
+    const candidate = value as { reason?: unknown; stage?: unknown };
+    return (
+      typeof candidate.reason === 'string' &&
+      candidate.reason.length > 0 &&
+      typeof candidate.stage === 'string' &&
+      AUTHN_STAGES.includes(candidate.stage)
+    );
+  }
   return false;
 }
 
@@ -271,5 +355,7 @@ export function describePolicy(policy: RoutePolicy): string {
       return `internal (${policy.reason})`;
     case 'capability':
       return `capability ${policy.capability}`;
+    case 'preauth':
+      return `preauth/${policy.stage} (${policy.reason})`;
   }
 }

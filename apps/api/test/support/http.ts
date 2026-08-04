@@ -3,9 +3,12 @@ import type { PrincipalResolver } from '@schedulepoint/domain';
 import type { FastifyInstance } from 'fastify';
 import type pg from 'pg';
 
+import { SessionPrincipalResolver } from '../../src/authn/principal-resolver.js';
+import { AuthnService } from '../../src/authn/service.js';
 import { PgUnitOfWorkRunner } from '../../src/db/unit-of-work.js';
 import { InMemoryJobQueue } from '../../src/jobs/in-memory-queue.js';
 import { buildServer } from '../../src/http/server.js';
+import { FIXTURE_SCRYPT, fixtureSecretBox } from './authn.js';
 import { createRuntime, type Runtime } from './harness.js';
 
 /**
@@ -96,6 +99,8 @@ export type CapturedLog = Record<string, unknown>;
 
 export interface HttpHarness {
   readonly app: FastifyInstance;
+  /** The service the server was built with, so a test can drive its clock. */
+  readonly authn: AuthnService;
   readonly runtime: Runtime;
   readonly runner: InterleavingRunner;
   readonly jobQueue: InMemoryJobQueue;
@@ -105,7 +110,39 @@ export interface HttpHarness {
   close(): Promise<void>;
 }
 
-export async function buildHttpHarness(): Promise<HttpHarness> {
+/**
+ * The resolver the harness actually installs (OPUS-M3-001).
+ *
+ * The test header still works, because most of the suite predates
+ * authentication and asserts authorization rather than authentication. But when
+ * no test header is present it falls through to the **production** session
+ * resolver, so a test can drive the real cookie path — which is what SBX-001's
+ * real-session arm and every authn test do.
+ *
+ * The composition lives here, in `test/support`, and reaches the server only
+ * through `buildServer({ tenancy: { principals } })`. A production process
+ * cannot enable it: `apps/api/src/index.ts` constructs
+ * `SessionPrincipalResolver` alone, and
+ * `apps/api/test/architecture/no-tenant-access-outside-unit-of-work.test.ts`
+ * asserts that exactly one module under `src/` constructs an authenticated
+ * principal and that it reads a session row rather than a header.
+ */
+function harnessPrincipalResolver(session: PrincipalResolver): PrincipalResolver {
+  return {
+    resolve: async (request: unknown) => {
+      const headers = (request as { headers?: Record<string, string | string[] | undefined> })
+        .headers;
+      const raw = headers?.[TEST_PRINCIPAL_HEADER];
+      const value = Array.isArray(raw) ? raw[0] : raw;
+      if (typeof value === 'string' && value.length > 0) {
+        return testPrincipalResolver.resolve(request);
+      }
+      return session.resolve(request);
+    },
+  };
+}
+
+export async function buildHttpHarness(options: { authn?: AuthnService } = {}): Promise<HttpHarness> {
   const runtime = createRuntime('app_runtime', { max: 6 });
   const runner = new InterleavingRunner({
     role: 'app_runtime',
@@ -113,6 +150,9 @@ export async function buildHttpHarness(): Promise<HttpHarness> {
     alerts: runtime.alerts,
   });
   const jobQueue = new InMemoryJobQueue();
+  const authn =
+    options.authn ??
+    new AuthnService({ scrypt: FIXTURE_SCRYPT, secretBox: fixtureSecretBox(), totpIssuer: 'SchedulePoint-Test' });
 
   // The log is captured rather than silenced because SPEC-01 §7.1 T-04 requires
   // a forged declaration to be "logged as a security event", and the only honest
@@ -131,12 +171,19 @@ export async function buildHttpHarness(): Promise<HttpHarness> {
         },
       },
     },
-    tenancy: { runtime: runner, principals: testPrincipalResolver },
+    tenancy: {
+      runtime: runner,
+      principals: harnessPrincipalResolver(
+        new SessionPrincipalResolver({ runtime: runner, authn }),
+      ),
+    },
     jobQueue,
+    authn,
   });
 
   return {
     app,
+    authn,
     runtime,
     runner,
     jobQueue,

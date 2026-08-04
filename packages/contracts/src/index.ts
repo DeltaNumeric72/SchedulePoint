@@ -71,3 +71,10 @@ export * from './catalogue/index.js';
  * docblock for why the api cannot spell this itself.
  */
 export * from './identifiers.js';
+
+/**
+ * OPUS-M3-001 — authentication, sessions, invitation/activation, password reset
+ * and TOTP multi-factor. Read that module's header before adding to it: the
+ * single failure body is a control, not a simplification.
+ */
+export * from './authn/index.js';

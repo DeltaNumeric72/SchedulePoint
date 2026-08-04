@@ -1,10 +1,12 @@
 import { createCheckpointSigner } from './audit/checkpoint-signer.js';
+import { SessionPrincipalResolver } from './authn/principal-resolver.js';
+import { createAuthnService } from './authn/service.js';
+import { createSecretBox } from './authn/secret-box.js';
 import { ProcessAlertSink } from './db/alerts.js';
 import { createPool } from './db/pool.js';
 import { assertTransactionAffinity } from './db/pooler-assertion.js';
 import { installQueueSchema } from './db/queue-schema.js';
 import { PgUnitOfWorkRunner } from './db/unit-of-work.js';
-import { denyAllPrincipalResolver } from './http/context/principal.js';
 import { undeclaredRoutes } from './http/route-table.js';
 import { buildServer } from './http/server.js';
 import { startOutboxRunner, type OutboxRunner } from './outbox/runner.js';
@@ -26,9 +28,14 @@ import { DatabaseOutboxSink } from './outbox/sink.js';
  *     the boot check means a route that somehow reaches a running process still
  *     fails closed rather than serving unauthorized traffic.
  *
- *  3. **The principal resolver is `denyAllPrincipalResolver`.** Authentication
- *     lands in a later packet, and until it does this server serves no
- *     authenticated traffic at all rather than inventing a principal.
+ *  3. **The principal resolver is the SESSION resolver** (OPUS-M3-001). It
+ *     replaces `denyAllPrincipalResolver`, which shipped at M1 as the
+ *     fail-closed default until a session store existed. What has NOT changed is
+ *     the absence of any header-, environment- or query-parameter-based
+ *     principal: there is exactly one way to be authenticated in a production
+ *     process, and it is a cookie naming a row in `sessions`.
+ *     `denyAllPrincipalResolver` is retained in `http/context/principal.ts` and
+ *     is what a process built without a database still uses.
  *
  * ## The async kernel starts here too (OPUS-M1-003)
  *
@@ -111,9 +118,25 @@ async function main(): Promise<void> {
     );
   }
 
+  /* ── authentication (OPUS-M3-001) ─────────────────────────────────────── */
+  const authn = createAuthnService();
+  const secretBox = createSecretBox();
+  if (!secretBox.keyIsIsolated) {
+    // Logged every time, for the reason the signing-key warning above is: the
+    // TOTP secrets in `user_mfa` are encrypted with a key this process holds,
+    // so an actor who can read the process's environment can read them. Real
+    // key custody is a deployment condition (TDG-15), not a claim.
+    process.stdout.write(
+      'MFA SECRET KEY IS NOT ISOLATED: TOTP secrets are encrypted with a key held in this ' +
+        'process. A database reader without the key recovers nothing; an actor with the ' +
+        "process's environment recovers everything.\n",
+    );
+  }
+
   const { app, routeTable } = await buildServer({
     logger: true,
-    tenancy: { runtime, principals: denyAllPrincipalResolver },
+    tenancy: { runtime, principals: new SessionPrincipalResolver({ runtime, authn }) },
+    authn,
   });
 
   const undeclared = undeclaredRoutes(routeTable);

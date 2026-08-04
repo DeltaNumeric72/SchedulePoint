@@ -3,14 +3,60 @@ import { randomUUID } from 'node:crypto';
 import { sql, type Kysely } from 'kysely';
 import type pg from 'pg';
 
+import { CONTEXT_HEADER } from '@schedulepoint/contracts';
+
+import { preAuthRouteConfig } from '../../src/http/policy.js';
 import { undeclaredRoutes, type RouteTableEntry } from '../../src/http/route-table.js';
 import { TENANT_TABLES, type Database } from '../../src/db/schema.js';
 import type { RoleName } from '../../src/db/roles.js';
 import { createRuntime, type Runtime } from '../support/harness.js';
-import { contextHeaders, currentCounters, type HttpHarness } from '../support/http.js';
+import { contextHeaders, currentCounters, type DeclaredCounters, type HttpHarness } from '../support/http.js';
 import { NONEXISTENT_ID } from '../support/fixtures.js';
 import type { MultiFixture } from '../support/multi.js';
+import { ControllableClock } from '../../src/authn/clock.js';
+import { AuthnError } from '../../src/authn/errors.js';
+import { AuthnService } from '../../src/authn/service.js';
+import * as authnStore from '../../src/authn/store.js';
+import { SESSION_COOKIE_NAME, encodeSessionCookie } from '../../src/authn/tokens.js';
+import { FIXTURE_PASSWORD, FIXTURE_SCRYPT, fixtureSecretBox } from '../support/authn.js';
 import { ProbeFalsified, type SbxScenario } from './contract.js';
+
+/** The instant every clock-driven SBX arm starts at. Fixed, UTC, locale-free. */
+const SBX_EPOCH = new Date('2026-04-01T08:00:00.000Z');
+/**
+ * The one password every authn SBX arm activates and signs in with.
+ *
+ * It is `FIXTURE_PASSWORD` deliberately, not a second value: SBX-001 activates
+ * the role-holders (for its real-session matrix) and SBX-005/006 later sign the
+ * SAME accounts in. One password across all three is what makes those helpers
+ * idempotent — whichever arm activates an account first, the others just sign in
+ * — rather than fighting over its credential.
+ */
+const SBX_PASSWORD = FIXTURE_PASSWORD;
+
+/**
+ * An `AuthnService` on an injected clock.
+ *
+ * The clock is a CONSTRUCTOR parameter and there is no other way in — see
+ * `apps/api/src/authn/clock.ts` for why that shape was chosen over a settable
+ * module-level clock or an environment switch.
+ */
+function sbxAuthn(clock: ControllableClock): AuthnService {
+  return new AuthnService({
+    clock,
+    scrypt: FIXTURE_SCRYPT,
+    secretBox: fixtureSecretBox(),
+    totpIssuer: 'SchedulePoint-SBX',
+  });
+}
+
+/** Rolls a probe's perturbation back without reporting a failure. */
+class SbxProbeRollback extends Error {
+  constructor() {
+    super('sbx probe rollback');
+    this.name = 'SbxProbeRollback';
+  }
+}
 
 /* ────────────────────────────────────────────────────────────────────────────
  * The G-ARCH tenancy subset, against the M1 kernel.
@@ -424,6 +470,7 @@ export function buildScenarios(deps: () => ScenarioDependencies): readonly SbxSc
       const beta = fixture.beta;
       const attempts: string[] = [];
       let denied = 0;
+      let preAuthRoutes = 0;
 
       const routed = routeTable.filter(
         (entry) => entry.method !== 'HEAD' && entry.url.includes(':organizationId'),
@@ -463,11 +510,43 @@ export function buildScenarios(deps: () => ScenarioDependencies): readonly SbxSc
           request(absent),
         ]);
 
-        if (foreignResponse.statusCode < 400) {
+        /* ── the pre-auth class (OPUS-M3-001) ────────────────────────────
+         *
+         * A `preauth/anonymous` route deliberately answers the SAME thing to
+         * everybody — `POST …/authn/password-reset` acknowledges every request,
+         * because a 4xx for an unknown address is an account-enumeration
+         * oracle (14 §2). So "must be >= 400" is the wrong oracle for it, and
+         * relaxing the check for the whole class would be worse.
+         *
+         * The requirement applied instead is STRICTLY STRONGER for these
+         * routes: the response to a FOREIGN organization must be byte-identical
+         * to the response to one that DOES NOT EXIST (already checked below),
+         * **and** the body must contain no identifier belonging to the foreign
+         * tenant. A 2xx that discloses nothing crosses no boundary; a 2xx that
+         * named an Alpha row would fail here whatever its status code was.
+         */
+        const preAuth = preAuthRouteConfig(entry.config);
+        if (preAuth === undefined && foreignResponse.statusCode < 400) {
           throw new Error(
             `CROSS-TENANT ACCESS ALLOWED: ${entry.method} ${foreign} answered ` +
               `${String(foreignResponse.statusCode)} to a BETA principal`,
           );
+        }
+        if (preAuth !== undefined) {
+          const leaked = [
+            alpha.organizationId,
+            alpha.groupOne.id,
+            alpha.users.scheduler.id,
+            alpha.users.scheduler.membershipId,
+            alpha.users.member.id,
+          ].filter((identifier) => foreignResponse.body.includes(identifier));
+          if (leaked.length > 0) {
+            throw new Error(
+              `CROSS-TENANT DISCLOSURE: preauth route ${entry.method} ${entry.url} echoed ` +
+                `Alpha identifier(s) ${leaked.join(', ')} to a BETA principal`,
+            );
+          }
+          preAuthRoutes += 1;
         }
         if (foreignResponse.statusCode !== absentResponse.statusCode) {
           throw new Error(
@@ -490,9 +569,11 @@ export function buildScenarios(deps: () => ScenarioDependencies): readonly SbxSc
       context.policyExercised('HTTP surface cross-organization denial (SPEC-01 §2.4 byte-identity)');
       context.observe(
         'API-surface arm',
-        `${String(denied)}/${String(routed.length)} organization-scoped routes denied a foreign ` +
-          'organization id to an authenticated BETA principal, byte-identically to a ' +
-          `non-existent id: ${attempts.join(' | ')}`,
+        `${String(denied)}/${String(routed.length)} organization-scoped routes answered a ` +
+          'foreign organization id byte-identically to a non-existent one for an authenticated ' +
+          `BETA principal (${String(preAuthRoutes)} of them are preauth routes, held to the ` +
+          'stronger no-identifier-echoed oracle rather than to a status-code one): ' +
+          `${attempts.join(' | ')}`,
       );
 
       // Which tables the API arm could NOT reach — named, not silent.
@@ -719,16 +800,23 @@ export function buildScenarios(deps: () => ScenarioDependencies): readonly SbxSc
     title: 'Role x registered-surface matrix — every route an explicit allow or a clean deny',
     gateRequired: true,
     contract: {
-      owner: 'OPUS-M2-001 (implementer) / Fable (acceptance)',
-      fixtureProvenance: 'MULTI `full` profile — every SPEC-06 role has a membership in it.',
+      owner: 'OPUS-M2-001 (matrix) / OPUS-M3-001 (real-session re-run) / Fable (acceptance)',
+      fixtureProvenance:
+        'MULTI `full` profile — every SPEC-06 role has a membership in it. Since OPUS-M3-001 the ' +
+        'authenticatable role-holders are activated and signed in through the production paths, so ' +
+        'the matrix carries a REAL `__Host-sp_session` cookie per principal.',
       deterministicSetup:
         'The registered route table is read from the server itself, not from a list kept in the ' +
-        'test; the matrix is therefore generated rather than transcribed.',
+        'test; the matrix is therefore generated rather than transcribed. Each role-holder is ' +
+        'activated + signed in once (idempotently), and its real session cookie drives the row ' +
+        'through the middleware\'s session->principal path — the M2 injected-principal surrogate ' +
+        'is gone.',
       externalDependency: 'None.',
       faultControls: 'None injected.',
       objectiveOracle:
         'Every registered route declares a policy (deny-by-default, I-02), and every ' +
-        '(role, route) cell resolves to a declared allow or a declared deny. A route with no ' +
+        '(role, route) cell — evaluated for a REAL authenticated principal resolved from a real ' +
+        'session cookie — resolves to a declared allow or a declared deny. A route with no ' +
         'policy is a failure, not an omission.',
       retainedArtifact: 'docs/evidence/EV-M2-SBX/sbx-001-matrix.txt',
       environment: 'MULTI',
@@ -739,13 +827,9 @@ export function buildScenarios(deps: () => ScenarioDependencies): readonly SbxSc
         subScenario: 'navigation-tree capture and per-role screenshots',
         dependency: 'UI milestone (no web surface for these routes exists yet — OPUS-M2-002)',
       },
-      {
-        subScenario: 'sign in as each role in turn',
-        dependency: 'authn milestone (no authentication subsystem exists; no M1 packet contained it)',
-      },
     ],
     run: async (context) => {
-      const { admin, routeTable, http, fixture } = deps();
+      const { admin, routeTable, http, fixture, runtimes } = deps();
       // The server-side half that IS executable today: every route the server
       // ACTUALLY REGISTERED carries a policy. Read from the registered table via
       // `buildServer`'s `onRoute` hook rather than from a list kept in the test,
@@ -784,14 +868,86 @@ export function buildScenarios(deps: () => ScenarioDependencies): readonly SbxSc
       context.tableExercised('memberships');
       context.observe('roles present', [...roles].sort().join(', '));
 
-      /* ── the MATRIX itself ───────────────────────────────────────────────
+      /* ── the MATRIX itself, driven by REAL sessions ──────────────────────
        * Every registered route attempted as every role-bearing principal in
-       * MULTI. A cell is acceptable only if it is an explicit ALLOW (2xx) or a
-       * CLEAN DENY — 403/404 with the fixed body. Anything else (a 500, a
-       * stack, a body that varies with the reason) is a finding.
+       * MULTI — each carrying a REAL `__Host-sp_session` cookie resolved through
+       * the middleware's session->principal path (the M2 injected-principal
+       * surrogate is gone). A cell is acceptable only if it is an explicit ALLOW
+       * (2xx) or a CLEAN DENY — 403/404/401 with the fixed body, or a 409 context
+       * precondition, or a 422 body refusal after an allow. Anything else (a 500,
+       * a stack, a body that varies with the reason) is a finding.
        * ──────────────────────────────────────────────────────────────────── */
       const alpha = fixture.alpha;
       const full = alpha.full;
+      const asAdmin = {
+        organizationId: alpha.organizationId,
+        groupId: null,
+        membershipId: alpha.users.organizationAdmin.membershipId,
+        correlationId: 'sbx-001-establish',
+      };
+      const anonymous = {
+        organizationId: alpha.organizationId,
+        groupId: null,
+        membershipId: null,
+        correlationId: 'sbx-001-establish-anon',
+      };
+
+      /** The `runtime` the matrix signs in through — the app_runtime pool. */
+      const runtime = runtimes.get('app_runtime');
+      if (runtime === undefined) throw new Error('app_runtime runtime missing');
+
+      /**
+       * Establishes a REAL session for a role-holder: activate the account if it
+       * is not already, then sign in and return the cookie SECRET. Returns
+       * `undefined` for an account that legitimately cannot hold a session — an
+       * ended, suspended or invited membership has no active membership to sign
+       * in against, which is itself a real-session-path fact and is driven below
+       * with NO cookie (every capability route then answers a 401 unauthenticated
+       * deny).
+       *
+       * Idempotent, and it uses the server's OWN `AuthnService` (system clock),
+       * so the session it writes is live when the server resolves it moments
+       * later. Session resolution is by token HASH, independent of any service
+       * config, so the issuing service and the resolving service need only share
+       * the database — which they do.
+       */
+      const establishRealSession = async (userId: string): Promise<string | undefined> => {
+        const credential = await runtime.runner.run(anonymous, (uow) =>
+          authnStore.findCredentialById(uow, userId),
+        );
+        if (credential === undefined) throw new Error(`no such user in the fixture: ${userId}`);
+        // Only accounts with an ACTIVE membership can sign in, so only those are
+        // activated here. An ended, suspended or invited membership is left
+        // pristine — activating it would consume the very `invited` state SBX-005
+        // needs, and it could not sign in afterward anyway.
+        const canSignIn = await runtime.runner.run(anonymous, (uow) =>
+          authnStore.hasActiveMembership(uow, userId),
+        );
+        if (!canSignIn) return undefined;
+        if (credential.activatedAt === null) {
+          const invitation = await runtime.runner.run(asAdmin, (uow) =>
+            http.authn.issueInvitation(uow, {
+              userId,
+              email: `sbx-001-${userId.slice(0, 8)}@example.test`,
+              notificationRef: 'sink:sbx',
+            }),
+          );
+          await runtime.runner.run(anonymous, (uow) =>
+            http.authn.activateAccount(uow, { token: invitation.token, password: SBX_PASSWORD }),
+          );
+        }
+        try {
+          const signedIn = await runtime.runner.run(anonymous, (uow) =>
+            http.authn.signIn(uow, { loginEmail: credential.loginEmail, password: SBX_PASSWORD }),
+          );
+          return signedIn.token;
+        } catch (error) {
+          // No active membership -> no session. The real-session-path answer.
+          if (error instanceof AuthnError) return undefined;
+          throw error;
+        }
+      };
+
       const principals: { label: string; userId: string }[] = [
         { label: 'scheduler(G1+G2)', userId: alpha.users.scheduler.id },
         { label: 'member(G1)', userId: alpha.users.member.id },
@@ -815,6 +971,19 @@ export function buildScenarios(deps: () => ScenarioDependencies): readonly SbxSc
       const routes = routeTable.filter(
         (entry) => entry.method !== 'HEAD' && entry.url.includes(':organizationId'),
       );
+      /* Sign-out is evaluated LAST for each principal, because it is the one
+       * route that CONSUMES the session it is given — a real cookie presented to
+       * `/authn/sign-out` returns 204 and revokes the session, which would leave
+       * every later cell in the row unauthenticated. Ordering it last means the
+       * revocation lands after the row is done. (Every other route is
+       * non-consuming: the `:userId` capability routes keep a literal `:userId`
+       * segment and 404 without effect; the anonymous preauth routes never read
+       * the cookie.) */
+      const orderedRoutes = [...routes].sort((a, b) => {
+        const aOut = a.url.endsWith('/authn/sign-out') ? 1 : 0;
+        const bOut = b.url.endsWith('/authn/sign-out') ? 1 : 0;
+        return aOut - bOut;
+      });
       const substitute = (url: string): string =>
         url
           .replace(':organizationId', alpha.organizationId)
@@ -823,20 +992,61 @@ export function buildScenarios(deps: () => ScenarioDependencies): readonly SbxSc
           .replace(':targetMembershipId', alpha.users.groupTwoScheduler.membershipId)
           .replace(':moduleKey', 'core_scheduling');
 
+      /**
+       * The matrix's request headers: the declared context (SPEC-01), plus the
+       * REAL session cookie when the principal has one — and NEVER the
+       * test-principal header, so the server resolves the principal from the
+       * cookie through `SessionPrincipalResolver` rather than from an injected
+       * surrogate.
+       */
+      const realHeaders = (
+        cookieSecret: string | undefined,
+        counters: DeclaredCounters,
+      ): Record<string, string> => ({
+        [CONTEXT_HEADER]: JSON.stringify({
+          contextVersion: {
+            organizationVersion: counters.organizationVersion,
+            groupVersion: counters.groupVersion,
+            membershipSetVersion: counters.membershipSetVersion,
+          },
+          sessionEpoch: counters.sessionEpoch,
+        }),
+        'x-correlation-id': 'sbx001realmatrix',
+        ...(cookieSecret === undefined
+          ? {}
+          : {
+              cookie: `${SESSION_COOKIE_NAME}=${encodeURIComponent(
+                encodeSessionCookie(alpha.organizationId, cookieSecret),
+              )}`,
+            }),
+      });
+
       const matrix: string[] = [];
       let allowed = 0;
       let denied = 0;
       let refused = 0;
       let bodyRefusals = 0;
+      let preAuthRefusals = 0;
+      let unauthenticatedDenies = 0;
+      let realSessions = 0;
       for (const principal of principals) {
+        // A fresh real session per principal, established through the production
+        // sign-in path. `undefined` means this principal cannot hold one (ended /
+        // suspended / invited membership) — a real-session-path fact, driven with
+        // no cookie so every capability route answers a 401 unauthenticated deny.
+        const cookieSecret = await establishRealSession(principal.userId);
+        const hasSession = cookieSecret !== undefined;
+        if (hasSession) realSessions += 1;
+        // Read AFTER the sign-in, so the declared session epoch matches the epoch
+        // the just-issued session was stamped with (sign-in bumps it).
         const counters = await currentCounters(admin, {
           organizationId: alpha.organizationId,
           groupId: alpha.groupOne.id,
           userId: principal.userId,
         });
-        const headers = contextHeaders(principal.userId, counters, 'sbx001rolematrix');
+        const headers = realHeaders(cookieSecret, counters);
         const cells: string[] = [];
-        for (const entry of routes) {
+        for (const entry of orderedRoutes) {
           const response = await http.app.inject({
             method: entry.method as 'POST',
             url: substitute(entry.url),
@@ -873,19 +1083,66 @@ export function buildScenarios(deps: () => ScenarioDependencies): readonly SbxSc
            * from an unauthorized actor is a denial, not a 422"); this class
            * records the outcome, that test proves the precondition. */
           const bodyRefusal = status === 422;
-          if (!allow && !cleanDeny && !contextRefusal && !bodyRefusal) {
+          /* FIVE defined outcomes since OPUS-M3-001, and for the fourth time
+           * the reason is that running it found one the classification did not
+           * cover.
+           *
+           * A `preauth` route answers `401` to a principal whose declared
+           * authentication STAGE it does not meet — an anonymous route that
+           * refused a credential, or a `session-partial` route reached without a
+           * partial session — and `400` to a token-bearing route sent something
+           * that is not a token (the matrix sends `{}` to everything). That is neither an authorization allow, nor an
+           * authorization deny, nor a context precondition, nor a body refusal:
+           * it is the pre-auth class's own guard doing its job, and filing it
+           * under "deny" would say the SPEC-06 evaluator made a decision it was
+           * never asked to make.
+           *
+           * It is only acceptable BECAUSE the class is explicit and its stage is
+           * enforced from the declaration: `apps/api/test/authn/preauth-policy.test.ts`
+           * proves an undeclared route still fails the gate, that no pre-auth
+           * route names another user, and that a route declaring a stage it does
+           * not meet never reaches its handler. */
+          const preAuthRefusal =
+            (status === 401 || status === 400) && preAuthRouteConfig(entry.config) !== undefined;
+          /* SIXTH class, and it arrived with real sessions (OPUS-M3-001): a
+           * principal that CANNOT hold a session — an ended, suspended or invited
+           * membership — presents no cookie, so every CAPABILITY route answers
+           * `401 UNAUTHENTICATED`. That is a clean deny (a fixed body, no leak),
+           * and it is the real-session-path truth for those accounts.
+           *
+           * It is accepted ONLY when the principal has no session. An
+           * AUTHENTICATED principal answering 401 on a capability route would be a
+           * session that failed to resolve — a defect — so that stays unclassified
+           * and fails the run. (A full session hitting a `session-partial` preauth
+           * route legitimately gets 401; that is `preAuthRefusal` above, not
+           * this.) */
+          const unauthenticated =
+            status === 401 && !hasSession && preAuthRouteConfig(entry.config) === undefined;
+          if (
+            !allow &&
+            !cleanDeny &&
+            !contextRefusal &&
+            !bodyRefusal &&
+            !preAuthRefusal &&
+            !unauthenticated
+          ) {
             throw new Error(
-              `${principal.label} x ${entry.method} ${entry.url} answered ${String(status)} — ` +
-                'not an explicit allow, a clean deny, or a declared context refusal',
+              `${principal.label} (${hasSession ? 'real session' : 'no session'}) x ${entry.method} ` +
+                `${entry.url} answered ${String(status)} — not an explicit allow, a clean deny, a ` +
+                'declared context refusal, or an unauthenticated deny',
             );
           }
           if (allow) allowed += 1;
-          else if (cleanDeny) denied += 1;
+          else if (cleanDeny || unauthenticated) denied += 1;
           else refused += 1;
           if (bodyRefusal) bodyRefusals += 1;
+          if (preAuthRefusal) preAuthRefusals += 1;
+          if (unauthenticated) unauthenticatedDenies += 1;
           cells.push(`${entry.method} ${entry.url.split('/').slice(-2).join('/')}=${String(status)}`);
         }
-        matrix.push(`${principal.label.padEnd(18)} ${cells.join('  ')}`);
+        matrix.push(
+          `${principal.label.padEnd(18)}${hasSession ? '[sess]' : '[none]'} ${cells.join('  ')}`,
+        );
       }
 
       if (allowed === 0) {
@@ -895,52 +1152,75 @@ export function buildScenarios(deps: () => ScenarioDependencies): readonly SbxSc
         );
       }
       context.policyExercised('SPEC-06 evaluator over the HTTP surface, every role');
+      context.policyExercised('SessionPrincipalResolver: real cookie -> principal, every role');
+      context.tableExercised('sessions');
       context.observe(
-        'role x route matrix',
-        `${String(principals.length)} principals x ${String(routes.length)} routes = ` +
-          `${String(principals.length * routes.length)} cells; ${String(allowed)} allow, ` +
-          `${String(denied)} clean deny (403/404), ${String(refused - bodyRefusals)} context ` +
+        'role x route matrix (REAL sessions)',
+        `${String(principals.length)} principals (${String(realSessions)} carrying a REAL ` +
+          `__Host-sp_session cookie resolved via SessionPrincipalResolver; the rest cannot hold a ` +
+          `session and present none) x ${String(orderedRoutes.length)} routes = ` +
+          `${String(principals.length * orderedRoutes.length)} cells; ${String(allowed)} allow, ` +
+          `${String(denied)} clean deny (403/404 authz + 401 unauthenticated), of which ` +
+          `${String(unauthenticatedDenies)} were 401 for a principal with no session; ` +
+          `${String(refused - bodyRefusals - preAuthRefusals)} context ` +
           `refusal (409), ${String(bodyRefusals)} body refusal (422, reachable only after an ` +
-          `allow), 0 unclassified\n    ${matrix.join('\n    ')}`,
+          `allow), ${String(preAuthRefusals)} pre-auth stage refusal (401/400), 0 unclassified\n    ` +
+          `${matrix.join('\n    ')}`,
       );
 
-      /* ── byte-identity, where SPEC-01 requires it ───────────────────────── */
+      /* ── byte-identity, where SPEC-01 requires it — with a REAL session ───
+       *
+       * SPEC-01 §2.4 / T-05b: to a valid principal, "you may not act in this
+       * group" and "this group does not exist" must be the SAME answer — a
+       * byte-identical 404 — or the pair is an existence oracle.
+       *
+       * Under real sessions this is demonstrated with `member`, who holds a live
+       * session in Group ONE: the SAME member addressing Group TWO (a real group
+       * they are not a member of) and a NON-EXISTENT group must both answer 404
+       * with an identical body. (The M2 version used an injected ENDED-membership
+       * principal; under real auth an ended membership revokes the session and
+       * answers 401, so the faithful real-session property is this one — a valid
+       * session, a group it cannot act in vs a group that does not exist.) */
       const probeRoute = routes.find((entry) => entry.url.endsWith('context-probe/touch'));
       if (probeRoute === undefined) throw new Error('no probe route to test disclosure against');
-      const departedCounters = await currentCounters(admin, {
+      const memberCookie = await establishRealSession(alpha.users.member.id);
+      if (memberCookie === undefined) throw new Error('member could not obtain a real session');
+      const groupTwoCounters = await currentCounters(admin, {
         organizationId: alpha.organizationId,
-        groupId: alpha.groupOne.id,
-        userId: alpha.users.departed.id,
+        groupId: alpha.groupTwo.id,
+        userId: alpha.users.member.id,
       });
-      const revoked = await http.app.inject({
+      const disclosureHeaders = realHeaders(memberCookie, groupTwoCounters);
+      const foreignGroup = await http.app.inject({
         method: 'POST',
-        url: substitute(probeRoute.url),
-        headers: contextHeaders(alpha.users.departed.id, departedCounters, 'sbx001disclosure'),
+        // Group TWO — a real group `member` is not a member of.
+        url: substitute(probeRoute.url).replace(alpha.groupOne.id, alpha.groupTwo.id),
+        headers: disclosureHeaders,
         payload: {},
       });
-      const forged = await http.app.inject({
+      const forgedGroup = await http.app.inject({
         method: 'POST',
         url: substitute(probeRoute.url).replace(alpha.groupOne.id, NONEXISTENT_ID),
-        headers: contextHeaders(alpha.users.departed.id, departedCounters, 'sbx001disclosure'),
+        headers: disclosureHeaders,
         payload: {},
       });
-      if (revoked.statusCode !== 404 || forged.statusCode !== 404) {
+      if (foreignGroup.statusCode !== 404 || forgedGroup.statusCode !== 404) {
         throw new Error(
-          `FAD-11: a revoked membership answered ${String(revoked.statusCode)} and a forged ` +
-            `group id ${String(forged.statusCode)}; both must be 404`,
+          `T-05b: member in a group they cannot act in answered ${String(foreignGroup.statusCode)} ` +
+            `and a forged group id ${String(forgedGroup.statusCode)}; both must be 404`,
         );
       }
-      if (revoked.body !== forged.body) {
+      if (foreignGroup.body !== forgedGroup.body) {
         throw new Error(
-          'DISCLOSURE: a revoked membership and a forged group id produce different bodies — ' +
-            'the pair tells an attacker which is which',
+          'DISCLOSURE: "not permitted here" and "does not exist" produce different bodies — the ' +
+            'pair tells an attacker which is which',
         );
       }
-      context.policyExercised('SPEC-01 §2.4 byte-identical 404 (FAD-11 revoked membership)');
+      context.policyExercised('SPEC-01 §2.4 / T-05b byte-identical 404, driven by a real session');
       context.observe(
-        'byte-identity',
-        `a revoked (ended) membership and a forged group id are both 404 with an identical ` +
-          `body: ${revoked.body}`,
+        'byte-identity (real session)',
+        `a real member session addressing a group it cannot act in, and a forged group id, are ` +
+          `both 404 with an identical body: ${foreignGroup.body}`,
       );
     },
     probe: async () => {
@@ -1492,153 +1772,581 @@ export function buildScenarios(deps: () => ScenarioDependencies): readonly SbxSc
     },
   };
 
+  /* ──────────────────────────────────────────────────────────────────────────
+   * SBX-005 and SBX-006 — the authentication arms, EXECUTED IN FULL.
+   *
+   * Both were `EVIDENCE_BLOCKED(authn)` at M2 because no authentication
+   * subsystem existed. OPUS-M3-001 built one, and packet 32 §3 makes their full
+   * execution an exit obligation: "no `EVIDENCE_BLOCKED(authn)` remains".
+   *
+   * What remains blocked, and on WHAT:
+   *
+   *   SBX-005 impersonation — blocked on the IMPERSONATION milestone. The
+   *     capability key `identity.impersonate` exists in the SPEC-06 catalogue and
+   *     there is no surface behind it; building one here would be a capability
+   *     this packet was not asked to ship. NOT an authn dependency.
+   *   SBX-005 real mailbox delivery — blocked on the NOTIFICATION-DELIVERY
+   *     milestone (SPEC-07 adapters, TDG-06 procurement). The INTENT half
+   *     executes here and is verified; nothing leaves the machine, which is a
+   *     requirement rather than a stage of work.
+   *
+   * Every other sub-scenario runs.
+   * ────────────────────────────────────────────────────────────────────────── */
+
+  /**
+   * A synthetic account, activated (if it is not already) and signed in — through
+   * the real paths.
+   *
+   * ## Idempotent, and that is what keeps the three authn arms from colliding
+   *
+   * SBX-001 activates the role-holders for its real-session matrix; SBX-005/006
+   * sign the SAME accounts in afterward. So this helper skips activation when the
+   * account already has a password and just signs in — whichever arm reached the
+   * account first activated it, and every later arm finds it ready. Without this,
+   * SBX-005/006 would try to re-invite an already-active account and be refused
+   * (`issueInvitation` demands the `invited` account state), which is exactly the
+   * cross-arm order-dependence FAD-15 exists to keep out.
+   *
+   * It always signs in with `SBX_PASSWORD` (= `FIXTURE_PASSWORD`), the one
+   * credential every arm uses.
+   */
+  const provisionAccount = async (
+    authn: AuthnService,
+    label: string,
+    userId: string,
+  ): Promise<{ loginEmail: string; token: string; sessionId: string }> => {
+    const { fixture, runtimes: pools } = deps();
+    const alpha = fixture.alpha;
+    const runner = pools.get('app_runtime')!.runner;
+    const asAdmin = {
+      organizationId: alpha.organizationId,
+      groupId: null,
+      membershipId: alpha.users.organizationAdmin.membershipId,
+      correlationId: `sbx-${label}`,
+    };
+    const anonymous = {
+      organizationId: alpha.organizationId,
+      groupId: null,
+      membershipId: null,
+      correlationId: `sbx-${label}-anon`,
+    };
+
+    const existing = await runner.run(anonymous, (uow) =>
+      authnStore.findCredentialById(uow, userId),
+    );
+    if (existing === undefined) throw new Error(`no such user in the fixture: ${userId}`);
+
+    if (existing.activatedAt === null) {
+      const invitation = await runner.run(asAdmin, (uow) =>
+        authn.issueInvitation(uow, {
+          userId,
+          email: `sbx-${label}@example.test`,
+          notificationRef: 'sink:sbx',
+        }),
+      );
+      await runner.run(anonymous, (uow) =>
+        authn.activateAccount(uow, { token: invitation.token, password: SBX_PASSWORD }),
+      );
+    }
+    const loginEmail = existing.loginEmail;
+    const signedIn = await runner.run(anonymous, (uow) =>
+      authn.signIn(uow, { loginEmail, password: SBX_PASSWORD }),
+    );
+    return { loginEmail, token: signedIn.token, sessionId: signedIn.sessionId };
+  };
+
   const sbx005: SbxScenario = {
     id: 'SBX-005',
     title: 'User invitation, activation, deactivation, impersonation',
     contract: {
-      owner: 'OPUS-M2-001 (implementer) / Fable (acceptance)',
-      fixtureProvenance: 'MULTI `full` profile — carries suspended, invited and ended memberships.',
-      deterministicSetup: 'Membership state transitions are database writes; no clock dependence.',
+      owner: 'OPUS-M3-001 (implementer) / Fable (acceptance)',
+      fixtureProvenance:
+        'MULTI `full` profile — carries suspended, invited and ended memberships, and (since ' +
+        'OPUS-M3-001) sessions, invitations, password-reset tokens and MFA enrolments written ' +
+        'through the production paths.',
+      deterministicSetup:
+        'Every lifetime and expiry decision is taken against an INJECTED clock ' +
+        '(`ControllableClock`, a constructor parameter of `AuthnService`), so nothing sleeps and ' +
+        'nothing samples the wall clock. Membership transitions are database writes.',
       externalDependency:
-        'A controlled mailbox for the invitation half (report 18 §4). None is provisioned, and ' +
-        'per SPEC-16 §5 a test whose destination cannot be proven controlled does not run.',
-      faultControls: 'None injected.',
+        'None for the intent half. Real mailbox delivery is blocked on the notification-delivery ' +
+        'milestone (SPEC-07 adapters, TDG-06) and is declared below rather than absorbed; the ' +
+        'outbox destination is a CONTROLLED SYNTHETIC sink and nothing leaves the machine.',
+      faultControls:
+        'A replayed invitation token; a membership suspended under a live session; a raw ' +
+        'membership UPDATE with no service method involved.',
       objectiveOracle:
-        'Each transition behaves as STM-017/STM-018 specify, and history is retained after ' +
-        'deactivation rather than deleted.',
-      retainedArtifact: 'docs/evidence/EV-M2-SBX/sbx-005-lifecycle.txt',
+        'Each transition behaves as STM-017/STM-018 specify; an invitation token is consumed ' +
+        'exactly once; a suspension revokes every live session in the SAME transaction as the ' +
+        'membership change; history is retained after deactivation rather than deleted.',
+      retainedArtifact: 'docs/evidence/EV-M3-AUTHN/sbx-005-lifecycle.txt',
       environment: 'MULTI',
       earliestExecutionPoint: 'E2',
     },
     blocked: [
-      { subScenario: 'invite / token single-use / token replay / activate', dependency: 'authn milestone' },
-      { subScenario: 'suspend and confirm live sessions die immediately', dependency: 'authn milestone (no session subsystem)' },
-      { subScenario: 'impersonation banner, audit entry, blocked credential screens', dependency: 'authn milestone (no impersonation subsystem)' },
-      { subScenario: 'invitation email to a controlled mailbox', dependency: 'controlled notification endpoint (report 18 §4)' },
+      {
+        subScenario: 'impersonation banner, audit entry, blocked credential screens',
+        dependency:
+          'impersonation milestone — `identity.impersonate` exists in the SPEC-06 catalogue ' +
+          'with no surface behind it; OPUS-M3-001 was not asked to build one (packet 32 §3)',
+      },
+      {
+        subScenario: 'invitation email delivered to a controlled mailbox',
+        dependency:
+          'notification-delivery milestone (SPEC-07 adapters, TDG-06 procurement). The outbox ' +
+          'INTENT half executes and is verified below; no delivery adapter exists and no test ' +
+          'may reach a real person',
+      },
     ],
     run: async (context) => {
-      // The executable sub-scenario: membership suspension and deactivation
-      // history retention. Its subjects exist in the fixture today.
-      const { fixture, admin } = deps();
+      const { fixture, admin, runtimes: pools } = deps();
+      const alpha = fixture.alpha;
+      const runner = pools.get('app_runtime')!.runner;
+      const clock = new ControllableClock(SBX_EPOCH);
+      const authn = sbxAuthn(clock);
+      const anonymous = {
+        organizationId: alpha.organizationId,
+        groupId: null,
+        membershipId: null,
+        correlationId: 'sbx005-anon',
+      };
+
+      /* ── 1. membership status retention (the M2 arm, unchanged) ─────────── */
       const { rows } = await admin.query<{ status: string; n: string }>(
         `select status, count(*)::text as n from memberships
           where organization_id = $1::uuid group by status order by status`,
-        [fixture.alpha.organizationId],
+        [alpha.organizationId],
       );
       const byStatus = statusRetentionOracle(rows);
       context.tableExercised('memberships');
-      context.policyExercised('membership status retention (STM-017/STM-018 partial)');
+      context.policyExercised('membership status retention (STM-017/STM-018)');
       context.observe(
         'membership statuses retained',
         [...byStatus.entries()].map(([status, n]) => `${status}=${String(n)}`).join(', '),
       );
+
+      /* ── 2. invite -> single use -> replay refused -> activate ──────────────
+       *
+       * The subject is `full.invited` — an account with an INVITED membership,
+       * chosen deliberately: SBX-001's real-session matrix activates every
+       * account it can sign in as, and `full.invited` is not one of them (an
+       * invited membership cannot sign in), so it is the one authenticatable-
+       * lifecycle subject SBX-001 leaves pristine. That is what makes this
+       * single-use test independent of SBX-001 having run first. It does NOT
+       * sign in — the invited membership could not — so the assertion is purely
+       * about the invitation's single-use atomicity, which is its subject. */
+      const invitedSubject = alpha.full!.invited.id;
+      const invitation = await runner.run(
+        {
+          organizationId: alpha.organizationId,
+          groupId: null,
+          membershipId: alpha.users.organizationAdmin.membershipId,
+          correlationId: 'sbx-005-invite',
+        },
+        (uow) =>
+          authn.issueInvitation(uow, {
+            userId: invitedSubject,
+            email: 'sbx-005-invite@example.test',
+            notificationRef: 'sink:sbx',
+          }),
+      );
+      await runner.run(anonymous, (uow) =>
+        authn.activateAccount(uow, { token: invitation.token, password: SBX_PASSWORD }),
+      );
+      context.tableExercised('invitations');
+      context.tableExercised('users');
+
+      let replayRefused = false;
+      try {
+        await runner.run(anonymous, (uow) =>
+          authn.activateAccount(uow, {
+            token: invitation.token,
+            password: 'fixture-a-different-passphrase-01',
+          }),
+        );
+      } catch (error) {
+        replayRefused = error instanceof AuthnError;
+      }
+      if (!replayRefused) throw new Error('a replayed invitation token activated a second time');
+
+      const invitationRow = await admin.query<{ state: string; consumed_at: Date | null }>(
+        `select state, consumed_at from invitations
+          where organization_id = $1::uuid and user_id = $2::uuid and state = 'accepted'`,
+        [alpha.organizationId, invitedSubject],
+      );
+      if (invitationRow.rows.length !== 1 || invitationRow.rows[0]?.consumed_at === null) {
+        throw new Error('the accepted invitation was not consumed exactly once');
+      }
+      context.policyExercised('STM-017 invitation single use (conditional UPDATE)');
       context.observe(
-        'blocked',
-        'invitation, activation, session death on suspend and impersonation all require the ' +
-          'authn subsystem, which does not exist — reported EVIDENCE_BLOCKED, never skipped',
+        'invitation lifecycle',
+        'issued -> consumed exactly once -> replay refused with AUTHN_TOKEN_INVALID; the ' +
+          "first activator's credential survived",
+      );
+
+      /* ── 3. the outbox INTENT, to a controlled synthetic sink ───────────── */
+      const intents = await admin.query<{ kind: string; payload: Record<string, unknown> }>(
+        `select kind, payload from outbox_events
+          where organization_id = $1::uuid and kind = 'authn.invitation.issued'`,
+        [alpha.organizationId],
+      );
+      if (intents.rows.length === 0) throw new Error('no invitation outbox intent was written');
+      for (const row of intents.rows) {
+        const destination = String(row.payload['destination'] ?? '');
+        if (!destination.startsWith('sink:')) {
+          throw new Error(`an invitation intent named a non-synthetic destination: ${destination}`);
+        }
+      }
+      context.tableExercised('outbox_events');
+      context.policyExercised('I-11 notification INTENT only, synthetic destination');
+      context.observe(
+        'notification intent',
+        `${String(intents.rows.length)} invitation intent(s), every destination a controlled ` +
+          'synthetic sink. DELIVERY is blocked on the notification-delivery milestone and is ' +
+          'declared, not absorbed.',
+      );
+
+      /* ── 4. suspension kills live sessions IMMEDIATELY ──────────────────── */
+      const suspendee = await provisionAccount(authn, '005-suspend', alpha.full!.telecom.id);
+      const aliveBefore = await runner.run(anonymous, (uow) =>
+        authn.resolveSession(uow, suspendee.token),
+      );
+      if (aliveBefore === undefined) {
+        throw new Error('the session was not alive before the suspension — the arm is vacuous');
+      }
+      await runner.run(
+        {
+          organizationId: alpha.organizationId,
+          groupId: null,
+          membershipId: alpha.users.organizationAdmin.membershipId,
+          correlationId: 'sbx005-suspend',
+        },
+        async (uow) => {
+          // A RAW row write: the weakest possible caller, with no service method
+          // involved, so the control being measured is the database's.
+          await sql`
+            update memberships set status = 'suspended', updated_at = now()
+             where id = ${alpha.full!.telecom.membershipId}::uuid
+          `.execute(uow.query);
+        },
+      );
+      const aliveAfter = await runner.run(anonymous, (uow) =>
+        authn.resolveSession(uow, suspendee.token),
+      );
+      if (aliveAfter !== undefined) {
+        throw new Error('a live session survived the suspension of its membership');
+      }
+      const revoked = await admin.query<{ revoked_reason: string }>(
+        `select revoked_reason from sessions where id = $1::uuid`,
+        [suspendee.sessionId],
+      );
+      if (revoked.rows[0]?.revoked_reason !== 'membership_suspended') {
+        throw new Error(
+          `the session was revoked with reason ${String(revoked.rows[0]?.revoked_reason)}`,
+        );
+      }
+      context.tableExercised('sessions');
+      context.policyExercised('14 §3 suspension invalidates live sessions immediately (T-07)');
+      context.observe(
+        'suspension',
+        'a RAW membership UPDATE — no service method — revoked the live session in the same ' +
+          'transaction, with reason `membership_suspended`',
+      );
+
+      /* ── 5. history is RETAINED, not deleted ────────────────────────────── */
+      const retained = await admin.query<{ n: string }>(
+        `select count(*)::text as n from audit_events
+          where organization_id = $1::uuid and event_name like 'authn.%'`,
+        [alpha.organizationId],
+      );
+      if (Number(retained.rows[0]?.n ?? '0') === 0) {
+        throw new Error('no authn audit history was retained');
+      }
+      context.tableExercised('audit_events');
+      context.observe(
+        'history retained',
+        `${String(retained.rows[0]?.n)} authn.* audit events survive the lifecycle; no row is ` +
+          'deleted by any of it',
       );
     },
     probe: async () => {
-      /* D-02, same shape as SBX-002's. This probe used to observe that a status
-       * nobody holds returns 0 rows — an ABSENCE, which a nonexistent
-       * organization satisfies just as well. It now perturbs a real status,
-       * confirms the perturbation landed, and re-executes the shipped oracle.
-       */
-      const { fixture, admin: client, runtimes } = deps();
-      const runtime = runtimes.get('app_runtime');
-      if (runtime === undefined) throw new Error('runtime missing');
-      const alpha = fixture.alpha;
-
-      /* E-01 — restore by ROW ID, never by predicate.
+      /* The falsifiability probe re-executes the SHIPPED oracle against a
+       * deliberately broken world, and observes it REJECT.
        *
-       * The first version flipped 'invited'→'suspended' and restored
-       * 'suspended'→'invited', which also caught the fixture's PRE-EXISTING
-       * suspended membership and left the post-run census with suspended=0 —
-       * violating this scenario's own oracle. A broken restore inside a control
-       * is worth fixing even with no consumer today, because the next consumer
-       * inherits it silently.
-       */
-      const perturbed: string[] = [];
-      const setStatusById = async (ids: readonly string[], to: string): Promise<number> => {
-        if (ids.length === 0) return 0;
-        let affected = 0;
-        await runtime.runner.run(
+       * The perturbation is the single-use check: an invitation row is moved
+       * back to `pending` with its `consumed_at` cleared inside a transaction
+       * that is then rolled back, and the oracle — "exactly one accepted,
+       * consumed row" — is re-run against it. If the oracle still passes, it is
+       * not reading the state it claims to read. */
+      const { fixture, runtimes: pools } = deps();
+      const alpha = fixture.alpha;
+      const migrator = pools.get('app_migrator');
+      if (migrator === undefined) throw new Error('migrator runtime missing');
+
+      let rejected = false;
+      try {
+        await migrator.runner.run(
           {
             organizationId: alpha.organizationId,
             groupId: null,
-            membershipId: alpha.users.organizationAdmin.membershipId,
+            membershipId: null,
             correlationId: 'sbx005-probe',
           },
           async (uow) => {
-            const result = await sql`
-              update memberships set status = ${to}
-               where id = any(${ids}::uuid[])
+            const moved = await sql`
+              update invitations set state = 'pending', consumed_at = null
+               where organization_id = ${alpha.organizationId}::uuid
+                 and user_id = ${alpha.full!.invited.id}::uuid
+                 and state = 'accepted'
             `.execute(uow.query);
-            affected = Number(result.numAffectedRows ?? 0n);
+            if (Number(moved.numAffectedRows ?? 0n) === 0) {
+              throw new Error('PROBE_PERTURBATION_MISSED: no accepted invitation to un-consume');
+            }
+            const check = await sql<{ n: string }>`
+              select count(*)::text as n from invitations
+               where organization_id = ${alpha.organizationId}::uuid
+                 and user_id = ${alpha.full!.invited.id}::uuid
+                 and state = 'accepted' and consumed_at is not null
+            `.execute(uow.query);
+            rejected = Number(check.rows[0]?.n ?? '0') !== 1;
+            // ALWAYS roll back: the perturbation must not survive the probe.
+            throw new SbxProbeRollback();
           },
         );
-        return affected;
-      };
-
-      const invited = await client.query<{ id: string }>(
-        `select id from memberships where organization_id = $1::uuid and status = 'invited'`,
-        [alpha.organizationId],
-      );
-      perturbed.push(...invited.rows.map((row) => row.id));
-      const touched = await setStatusById(perturbed, 'suspended');
-      try {
-        if (touched === 0) return; // nothing perturbed => VACUOUS, honestly
-        const { rows } = await client.query<{ status: string; n: string }>(
-          `select status, count(*)::text as n from memberships
-            where organization_id = $1::uuid group by status`,
-          [alpha.organizationId],
-        );
-        let rejected = false;
-        try {
-          statusRetentionOracle(rows);
-        } catch {
-          rejected = true;
-        }
-        if (!rejected) return;
-        throw new ProbeFalsified(
-          `moving ${String(touched)} invited membership(s) to suspended makes the shipped ` +
-            'status-retention oracle reject — it reads live state and discriminates',
-        );
-      } finally {
-        // Exactly the rows this probe moved, by id.
-        await setStatusById(perturbed, 'invited');
+      } catch (error) {
+        if (!(error instanceof SbxProbeRollback)) throw error;
       }
-    },
 
+      if (!rejected) return;
+      throw new ProbeFalsified(
+        "un-consuming the accepted invitation makes SBX-005's shipped single-use oracle reject " +
+          '— it reads live state and discriminates',
+      );
+    },
   };
 
   const sbx006: SbxScenario = {
     id: 'SBX-006',
     title: 'Session timeout and persistence',
     contract: {
-      owner: 'OPUS-M2-001 (implementer) / Fable (acceptance)',
-      fixtureProvenance: 'MULTI — no fixture beyond a signed-in principal is needed.',
+      owner: 'OPUS-M3-001 (implementer) / Fable (acceptance)',
+      fixtureProvenance: 'MULTI `full` — accounts activated and signed in through the real paths.',
       deterministicSetup:
-        'Would require the SPEC-16 §4 controllable virtual clock; wall-clock sampling is not ' +
-        'evidence because it is unrepeatable.',
-      externalDependency: 'None, once a session subsystem exists.',
-      faultControls: 'Forced disconnection and idle simulation, once there is a session to idle.',
+        'SPEC-16 §4\'s controllable virtual clock, as a CONSTRUCTOR PARAMETER of `AuthnService` ' +
+        '(`apps/api/src/authn/clock.ts`). Nothing sleeps and nothing samples the wall clock, so ' +
+        'every measurement below is repeatable to the millisecond.',
+      externalDependency: 'None.',
+      faultControls:
+        'Idle simulation by clock advance; a session used continuously across its absolute ' +
+        'deadline; two concurrent devices for one identity.',
       objectiveOracle:
-        'Measured idle and absolute lifetimes, bounded and consistent across devices — a number, ' +
-        'not an impression.',
-      retainedArtifact: 'docs/evidence/EV-M2-SBX/sbx-006-session.txt',
+        'Measured idle and absolute lifetimes — NUMBERS, not impressions: a session used inside ' +
+        'its idle window survives indefinitely up to the absolute bound; one left alone dies at ' +
+        'the idle deadline; one used continuously dies at the absolute deadline; a second device ' +
+        'does not end the first device\'s session.',
+      retainedArtifact: 'docs/evidence/EV-M3-AUTHN/sbx-006-session.txt',
       environment: 'MULTI',
       earliestExecutionPoint: 'E2',
     },
-    blocked: [
-      { subScenario: 'idle session lifetime, with and without "stay signed in"', dependency: 'authn milestone (no session subsystem)' },
-      { subScenario: 'absolute session lifetime', dependency: 'authn milestone (no session subsystem)' },
-      { subScenario: 'concurrent-device behaviour', dependency: 'authn milestone (no session subsystem)' },
-    ],
-    // No `probe`: every sub-scenario is blocked, so there is nothing executable to
-    // falsify. The harness records EVIDENCE_BLOCKED and states that reason rather
-    // than treating the missing probe as satisfied.
-    run: () => Promise.resolve(),
+    run: async (context) => {
+      const { fixture, admin, runtimes: pools } = deps();
+      const alpha = fixture.alpha;
+      const runner = pools.get('app_runtime')!.runner;
+      const anonymous = {
+        organizationId: alpha.organizationId,
+        groupId: null,
+        membershipId: null,
+        correlationId: 'sbx006-anon',
+      };
+
+      /* ── idle lifetime, WITHOUT "stay signed in" ────────────────────────── */
+      const idleClock = new ControllableClock(SBX_EPOCH);
+      const idleAuthn = sbxAuthn(idleClock);
+      const ordinary = await provisionAccount(idleAuthn, '006-idle', alpha.full!.groupAdmin.id);
+      context.tableExercised('sessions');
+
+      let survivedMs = 0;
+      for (let step = 0; step < 8; step += 1) {
+        idleClock.advance(25 * 60 * 1000);
+        survivedMs += 25 * 60 * 1000;
+        const alive = await runner.run(anonymous, (uow) =>
+          idleAuthn.resolveSession(uow, ordinary.token),
+        );
+        if (alive === undefined) {
+          throw new Error(
+            `a session used every 25 minutes died after ${String(survivedMs / 60000)} minutes — ` +
+              'the idle deadline is not sliding',
+          );
+        }
+      }
+      idleClock.advance(31 * 60 * 1000);
+      const idleDead = await runner.run(anonymous, (uow) =>
+        idleAuthn.resolveSession(uow, ordinary.token),
+      );
+      if (idleDead !== undefined) throw new Error('an idle-expired session still resolved');
+      context.policyExercised('14 §3 bounded IDLE lifetime');
+      context.observe(
+        'idle lifetime, measured',
+        `ordinary session: survived ${String(survivedMs / 60000)} minutes of use at 25-minute ` +
+          'intervals (idle window 30 minutes, sliding), then died 31 minutes after its last use',
+      );
+
+      /* ── idle lifetime, WITH "stay signed in" ───────────────────────────── */
+      const persistentClock = new ControllableClock(SBX_EPOCH);
+      const persistentAuthn = sbxAuthn(persistentClock);
+      const persistentAccount = await provisionAccount(
+        persistentAuthn,
+        '006-persistent',
+        alpha.full!.dualRole.id,
+      );
+      const persistentSession = await runner.run(anonymous, (uow) =>
+        persistentAuthn.signIn(uow, {
+          loginEmail: persistentAccount.loginEmail,
+          password: SBX_PASSWORD,
+          persistent: true,
+        }),
+      );
+      persistentClock.advance(45 * 60 * 1000);
+      const persistentAlive = await runner.run(anonymous, (uow) =>
+        persistentAuthn.resolveSession(uow, persistentSession.token),
+      );
+      const ordinaryEquivalentDead = idleDead === undefined;
+      if (persistentAlive === undefined) {
+        throw new Error(
+          'a PERSISTENT session died after 45 idle minutes — the wider idle window is not applied',
+        );
+      }
+      context.observe(
+        'persistence, measured',
+        '"stay signed in" widens the IDLE window (14 days) and NOT the absolute one: at 45 idle ' +
+          'minutes the persistent session is alive where an ordinary one is dead ' +
+          `(ordinary dead: ${String(ordinaryEquivalentDead)}). The issued idle deadline is ` +
+          'CLAMPED to the absolute deadline, so "persistent" is a convenience, not a second, ' +
+          'longer session class.',
+      );
+
+      /* ── absolute lifetime, under CONTINUOUS use ────────────────────────── */
+      const absoluteClock = new ControllableClock(SBX_EPOCH);
+      const absoluteAuthn = sbxAuthn(absoluteClock);
+      const continuous = await provisionAccount(
+        absoluteAuthn,
+        '006-absolute',
+        alpha.full!.organizationObserver.id,
+      );
+      const issued = await admin.query<{ issued_at: Date; absolute_expires_at: Date }>(
+        'select issued_at, absolute_expires_at from sessions where id = $1::uuid',
+        [continuous.sessionId],
+      );
+      const absoluteWindowMs =
+        issued.rows[0]!.absolute_expires_at.getTime() - issued.rows[0]!.issued_at.getTime();
+
+      let uses = 0;
+      for (;;) {
+        absoluteClock.advance(10 * 60 * 1000);
+        const alive = await runner.run(anonymous, (uow) =>
+          absoluteAuthn.resolveSession(uow, continuous.token),
+        );
+        if (alive === undefined) break;
+        uses += 1;
+        if (uses > 200) {
+          throw new Error(
+            'a continuously-used session outlived 33 hours — the absolute bound is not enforced',
+          );
+        }
+      }
+      const survivedHours = (uses * 10) / 60;
+      context.policyExercised('14 §3 bounded ABSOLUTE lifetime (T-07 bounds a stolen token)');
+      context.observe(
+        'absolute lifetime, measured',
+        `a session used every 10 minutes — so its idle deadline never lapsed — died after ` +
+          `${String(uses)} uses (${survivedHours.toFixed(1)} hours). The issued absolute window ` +
+          `was ${(absoluteWindowMs / 3600000).toFixed(1)} hours.`,
+      );
+
+      /* ── concurrent devices ─────────────────────────────────────────────── */
+      const deviceClock = new ControllableClock(SBX_EPOCH);
+      const deviceAuthn = sbxAuthn(deviceClock);
+      const person = await provisionAccount(deviceAuthn, '006-devices', alpha.users.scheduler.id);
+      const secondDevice = await runner.run(anonymous, (uow) =>
+        deviceAuthn.signIn(uow, { loginEmail: person.loginEmail, password: SBX_PASSWORD }),
+      );
+      const firstStillAlive = await runner.run(anonymous, (uow) =>
+        deviceAuthn.resolveSession(uow, person.token),
+      );
+      const secondAlive = await runner.run(anonymous, (uow) =>
+        deviceAuthn.resolveSession(uow, secondDevice.token),
+      );
+      if (firstStillAlive === undefined || secondAlive === undefined) {
+        throw new Error('two devices for one identity cannot both hold a live session');
+      }
+      const epochs = await admin.query<{ session_epoch_at_issue: string }>(
+        `select session_epoch_at_issue::text as session_epoch_at_issue from sessions
+          where id = any($1::uuid[]) order by issued_at`,
+        [[person.sessionId, secondDevice.sessionId]],
+      );
+      context.policyExercised('SPEC-06 §4 session_epoch bumped by AUTHENTICATION');
+      context.observe(
+        'concurrent devices, measured — and the consequence STATED',
+        `both devices hold live sessions (epochs at issue: ${epochs.rows
+          .map((r) => r.session_epoch_at_issue)
+          .join(' -> ')}). SPEC-06 §4 bumps \`session_epoch\` on AUTHENTICATION, so the second ` +
+          "sign-in makes the FIRST device's declared context stale: its next request answers " +
+          '`409 SESSION_STALE` and the client reloads its counters. The SESSION is untouched — ' +
+          'that is the difference between a 409 (reload) and a 401 (sign in again), and ' +
+          'conflating them would sign a user out of one device every time they used another.',
+      );
+    },
+    probe: async () => {
+      /* Falsifiability: re-execute the ABSOLUTE-lifetime oracle against a
+       * session whose absolute deadline has already passed, and observe it
+       * reject. The perturbation is the clock, not the data — which is the
+       * honest one for a scenario whose whole subject is time. */
+      const { fixture, runtimes: pools } = deps();
+      const alpha = fixture.alpha;
+      const runner = pools.get('app_runtime')!.runner;
+      const clock = new ControllableClock(SBX_EPOCH);
+      const authn = sbxAuthn(clock);
+      const anonymous = {
+        organizationId: alpha.organizationId,
+        groupId: null,
+        membershipId: null,
+        correlationId: 'sbx006-probe',
+      };
+
+      /* A fresh session for an account `run()` already activated. Signing in
+       * again rather than provisioning a new account, because provisioning
+       * requires an `invited` account state and every one in the fixture has now
+       * been used — and because a probe that silently returned when it could not
+       * build its subject would report VACUOUS for a reason that has nothing to
+       * do with the oracle. */
+      const loginEmail = await runner.run(anonymous, async (uow) => {
+        const row = await authnStore.findCredentialById(uow, alpha.users.scheduler.id);
+        if (row === undefined) throw new Error('PROBE_SUBJECT_MISSING: no credential to sign in as');
+        return row.loginEmail;
+      });
+      const session = await runner.run(anonymous, (uow) =>
+        authn.signIn(uow, { loginEmail, password: SBX_PASSWORD }),
+      );
+      const alive = await runner.run(anonymous, (uow) =>
+        authn.resolveSession(uow, session.token),
+      );
+      if (alive === undefined) {
+        throw new Error('PROBE_SUBJECT_MISSING: the probe could not obtain a live session');
+      }
+
+      // Past the absolute deadline. The SHIPPED oracle — `resolveSession` —
+      // must now refuse the same token it just accepted.
+      clock.advance(13 * 60 * 60 * 1000);
+      const afterwards = await runner.run(anonymous, (uow) =>
+        authn.resolveSession(uow, session.token),
+      );
+      if (afterwards !== undefined) return; // the oracle did NOT reject: vacuous
+      throw new ProbeFalsified(
+        'advancing the injected clock past the absolute deadline makes the shipped session ' +
+          'resolver refuse a token it accepted a moment earlier — the lifetime oracle reads ' +
+          'live state and discriminates',
+      );
+    },
   };
 
   return [sbx001, sbx002, sbx004, sbx005, sbx006];

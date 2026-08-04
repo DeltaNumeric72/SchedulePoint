@@ -8,7 +8,12 @@ import {
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
 import type { PgUnitOfWorkRunner } from '../../db/unit-of-work.js';
-import { capabilityRouteConfig, declaresCapability, type CapabilityRouteConfig } from '../policy.js';
+import {
+  capabilityRouteConfig,
+  declaresCapability,
+  preAuthRouteConfig,
+  type CapabilityRouteConfig,
+} from '../policy.js';
 import { readDeclaredContext } from './declared.js';
 import {
   sendContextFailure,
@@ -61,6 +66,16 @@ declare module 'fastify' {
     /** The route's capability declaration, narrowed. */
     routeCapability?: CapabilityRouteConfig;
     /**
+     * The principal a `preauth` route's declared stage required.
+     *
+     * Set only for `session-partial` and `session-any` routes, and only after
+     * the stage was met. It is deliberately a DIFFERENT field from
+     * `tenantContext`: a pre-auth route has no verified §2.1 tuple, and giving
+     * it one would let a handler treat an unverified organization segment as
+     * though the §2.3 sequence had checked it.
+     */
+    preAuthPrincipal?: { readonly userId: string; readonly sessionEpoch: number };
+    /**
      * Set by `evaluateInTransaction`, read by the `onSend` guard below.
      *
      * I-02 says an operation with no policy "fails closed". The route-policy
@@ -97,6 +112,53 @@ export function registerContextMiddleware(
 
   app.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
     const rawConfig = routeConfigOf(request);
+
+    /* ── the pre-auth class (OPUS-M3-001) ──────────────────────────────────
+     *
+     * A `preauth` route participates in establishing or ending authentication
+     * itself, so it has no capability to evaluate — but it is NOT unguarded.
+     * Its declared `stage` is enforced here, before the handler runs, from the
+     * declaration rather than from anything the handler remembers:
+     *
+     *   anonymous        no requirement
+     *   session-partial  a live session whose MFA is NOT yet satisfied
+     *   session-any      a live session, satisfied or not
+     *
+     * A route that reaches its handler has met its stage. A route that has not
+     * is a 401 and never sees a handler. See `policy.ts` for why this class
+     * does not weaken I-02.
+     */
+    const preAuth = preAuthRouteConfig(rawConfig);
+    if (preAuth !== undefined) {
+      if (preAuth.stage === 'anonymous') return;
+      if ((app.tenancy as TenancyRuntime | undefined) === undefined) {
+        await reply.code(503).send({
+          error: {
+            code: 'TENANCY_UNAVAILABLE',
+            message: 'The request could not be completed.',
+            correlationId: request.correlationId,
+          },
+        });
+        return reply;
+      }
+      const resolution = await app.tenancy.principals.resolve(request);
+      if (!resolution.authenticated) {
+        await sendUnauthenticated(request, reply, resolution.reason);
+        return reply;
+      }
+      // `session-partial` is not "a session that happens not to have satisfied
+      // MFA yet" — it is a stage that a FULLY authenticated session must not
+      // reach. Presenting a satisfied session to the challenge endpoint would
+      // otherwise let a stolen post-MFA session re-run the challenge and
+      // re-mark itself, which is a no-op today and a footgun the moment the
+      // challenge does anything else.
+      if (preAuth.stage === 'session-partial' && request.authnSession?.mfaSatisfied === true) {
+        await sendUnauthenticated(request, reply, 'the session has already satisfied its challenge');
+        return reply;
+      }
+      request.preAuthPrincipal = resolution.principal;
+      return;
+    }
 
     // Public and internal routes address no tenant. They are still policy-
     // declared — the route-policy gate proves that — they simply have no context

@@ -13,6 +13,14 @@ import {
   StaffGroupsPage,
   ValidGroupsPage,
 } from './catalogue/GroupingPages.js';
+import {
+  ActivationPage,
+  MfaChallengePage,
+  MfaEnrolmentPage,
+  PasswordResetCompletePage,
+  PasswordResetRequestPage,
+  SignInPage,
+} from './authn/pages.js';
 import { ShiftTypesPage } from './catalogue/ShiftTypesPage.js';
 import { ShellPage } from './shell/ShellPage.js';
 
@@ -90,7 +98,56 @@ const groupSettingsRoute = createRoute({
   component: GroupSettingsPage,
 });
 
+/**
+ * The authentication surfaces (OPUS-M3-001).
+ *
+ * **The organization is in the PATH**, for the same reason the catalogue's is:
+ * SPEC-01 §2.2 requires the tenant to be declared by the client and §3 requires
+ * switching it to be explicit. It mirrors the API's own route shape exactly.
+ *
+ * **No token is in a path segment.** Activation and reset take their token in a
+ * form field: a token in a URL lands in browser history, in a `Referer` header
+ * and in every proxy log between the browser and the server, which is precisely
+ * what 14 §5's "hash-stored, never exposed" posture exists to prevent.
+ */
+const signInRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/organizations/$organizationId/sign-in',
+  component: SignInPage,
+});
+const mfaChallengeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/organizations/$organizationId/sign-in/challenge',
+  component: MfaChallengePage,
+});
+const mfaEnrolmentRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/organizations/$organizationId/sign-in/enrolment',
+  component: MfaEnrolmentPage,
+});
+const activationRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/organizations/$organizationId/activate',
+  component: ActivationPage,
+});
+const resetRequestRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/organizations/$organizationId/reset',
+  component: PasswordResetRequestPage,
+});
+const resetCompleteRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/organizations/$organizationId/reset/complete',
+  component: PasswordResetCompletePage,
+});
+
 const routeTree = rootRoute.addChildren([
+  signInRoute,
+  mfaChallengeRoute,
+  mfaEnrolmentRoute,
+  activationRoute,
+  resetRequestRoute,
+  resetCompleteRoute,
   shellRoute,
   catalogueRoute.addChildren([
     shiftTypesRoute,

@@ -47,6 +47,11 @@ import { join, relative } from 'node:path';
  */
 const FIXED_SEEDS = [
   1, 7, 42, 424242, 20260803, 31337, 99991, 123456, 20250101, 8675309, 65339, 531651,
+  // 740673 — the rotating seed that exposed OPUS-M3-001's authn-test couplings:
+  // four tests depended on a sibling having activated an account, written a
+  // capability grant, or not having reset somebody else's MFA first. FAD-15
+  // ruling 3: the exposing seed joins the fixed set rather than being retried.
+  740673,
 ];
 
 const QUICK = process.argv.includes('--quick');

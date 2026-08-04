@@ -1,0 +1,79 @@
+$ node scripts/red-cases/run.mjs
+
+=== lint — lint (eslint) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== typecheck — typecheck (tsc -b) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== unit — unit tests (vitest) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== import-boundary — import boundary (dependency-cruiser) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== route-policy — route-without-policy (I-02) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== migration-rls — migration + RLS pairing (I-15) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== invariant-ids — invariant-ID uniqueness (CAR-023) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== secret-scan — secret scan ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== network-guard-source — network-assertion guard (SP-HR-1) — source scan ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== network-guard-bundle — network-assertion guard (SP-HR-1) — built-bundle scan ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== build — production build (vite build) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== axe — axe-core via Playwright (CAP-066) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== request-budget-over — requests per interaction (SP-HR-2) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== request-budget-missing — requests per interaction (SP-HR-2) — missing measurement ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+CASE                    GREEN  RED    VERDICT
+----------------------  -----  -----  -------
+lint                    pass   fail   PROVEN
+typecheck               pass   fail   PROVEN
+unit                    pass   fail   PROVEN
+import-boundary         pass   fail   PROVEN
+route-policy            pass   fail   PROVEN
+migration-rls           pass   fail   PROVEN
+invariant-ids           pass   fail   PROVEN
+secret-scan             pass   fail   PROVEN
+network-guard-source    pass   fail   PROVEN
+network-guard-bundle    pass   fail   PROVEN
+build                   pass   fail   PROVEN
+axe                     pass   fail   PROVEN
+request-budget-over     pass   fail   PROVEN
+request-budget-missing  pass   fail   PROVEN
+----------------------  -----  -----  -------
+14 case(s): 14 proven, 0 not proven
+
+GREEN "pass" = the gate passes on the clean tree.
+RED   "fail" = the gate fails when the violation is present. That is the desired outcome.
