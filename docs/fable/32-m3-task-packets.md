@@ -234,7 +234,7 @@ M3 does not close after §§3–5: the roadmap outcome requires the experiences 
 | Budgets | `budgets.json` additive rows only, every interaction recorded |
 | Evidence | EV-M3-AUTHORING-UX (004) · EV-M3-SETTINGS (007) · EV-M3-PUBLICATION-UX (005) · EV-M3-STAFF-VIEWS (006) · EV-M3-INTEGRATION (008) |
 
-### 10b. OPUS-M3-004 — Scheduler schedule-authoring experience (wave 1) — **ISSUED 2026-08-04**
+### 10b. OPUS-M3-004 — Scheduler schedule-authoring experience (wave 1) — **ACCEPTED & MERGED 2026-08-05** (20c0c13; REVISE on 4 reviewer-probed concurrency/enforcement blockers → closed; FAD-23; task log)
 
 | Field | Content |
 |---|---|
@@ -245,7 +245,7 @@ M3 does not close after §§3–5: the roadmap outcome requires the experiences 
 | **Key proofs** | I-13 (fill-everything-don't-save = zero requests, red-cased); stale-edit CAS (concurrent editor loses explicitly, refetch shown); grid virtualization does not break the accessible alternative (both render the same data — equality asserted); every draft mutation lands audited via the existing service; denial states for a member without `schedule.version.edit`; axe both viewports; keyboard end-to-end journey (create period → author requirement → assign → save); budgets recorded |
 | **Acceptance** | check 13/13 · red-cases all proven (incl. new) · fixture-regression green · SBX battery green · e2e journeys green · evidence with INDEX · tree clean. Standalone + package + battery for named proofs. Escalation conditions per the standing list plus: any service-function gap; any schema need; the eligibility ruling contested by evidence |
 
-### 10c. OPUS-M3-007 — Group settings and site attribute (wave 1) — **ISSUED 2026-08-04**
+### 10c. OPUS-M3-007 — Group settings and site attribute (wave 1) — **ACCEPTED & MERGED 2026-08-04** (c3e1baa; review clean of blockers; FAD-24; task log)
 
 | Field | Content |
 |---|---|
@@ -255,7 +255,7 @@ M3 does not close after §§3–5: the roadmap outcome requires the experiences 
 | **Key proofs** | Settings mutations capability-gated (allow AND deny), audited, group-scoped (cross-group denial); locations swept by SBX-004 (floor raised); both-direction site fixtures round-trip; timezone change audited with the warning surfaced; migration 0010 up/down/up clean; I-13/I-10/axe/keyboard/320px on the settings UI |
 | **Acceptance** | Standing battery + the proofs above + evidence with INDEX + tree clean. Escalations: any settings shape doc 06 cannot sanction; any temptation toward a site entity; any enforcement semantics that cannot wait for M5/M9 |
 
-### 10d. OPUS-M3-005 — Publication and version-management experience (wave 2) — FINALIZED, NOT ISSUED (issues at wave-1 merge)
+### 10d. OPUS-M3-005 — Publication and version-management experience (wave 2) — **ISSUED 2026-08-05** (branch `opus/m3-005-publication-ux`, worktree `.worktrees/m3-005`; base 20c0c13)
 
 | Field | Content |
 |---|---|
@@ -264,7 +264,7 @@ M3 does not close after §§3–5: the roadmap outcome requires the experiences 
 | **Prohibited** | Everything else; no service edits; no migrations; `schedule.publish`/`schedule.revert` remain grant-only — the UI must render the deny state for a scheduler without the grant (proven) |
 | **Key proofs** | Publish requires the grant (deny rendered + server-denied, both asserted); the CAS loser's explicit failure rendered; idempotent replay (double-click, retry-after-timeout) publishes once — client-side red case; history immutability rendered truthfully (no edit affordance on published/superseded); diff display equals the pure-function diff (equality asserted); axe/keyboard/320px/budgets/I-13 |
 
-### 10e. OPUS-M3-006 — Staff-facing schedule views (wave 2) — FINALIZED, NOT ISSUED (issues at wave-1 merge)
+### 10e. OPUS-M3-006 — Staff-facing schedule views (wave 2) — **ISSUED 2026-08-05** (branch `opus/m3-006-staff-views`, worktree `.worktrees/m3-006`; base 20c0c13)
 
 | Field | Content |
 |---|---|
