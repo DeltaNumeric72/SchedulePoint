@@ -256,6 +256,72 @@ const CASES = [
     restore: [['run', 'gate:build']],
   },
   {
+    id: 'i13-schedule-authoring',
+    gate: 'I-13 zero-requests-before-Save, on the schedule surface',
+    violation: 'the "New period" control issues a request when it is clicked',
+    // I-13 exists because a control labelled New once created a live record on
+    // click. The e2e records the requests that one click produces and asserts
+    // the list is EMPTY, and the budget for the interaction is 0. This injects
+    // exactly the shape the invariant forbids — a click that talks to the
+    // server before any form is completed — and the assertion must catch it.
+    patch: [
+      {
+        file: 'apps/web/src/schedule/PeriodsPage.tsx',
+        find:
+          '            // I-13: local state only. Nothing is created, nothing is fetched.\n' +
+          '            setProblems([]);\n' +
+          '            setIsAuthoring(true);',
+        replace:
+          '            void fetch(\'/api/health\');\n' +
+          '            setProblems([]);\n' +
+          '            setIsAuthoring(true);',
+      },
+    ],
+    // The gate runs against the production build, so the violation has to be
+    // built before it can be observed.
+    prepare: [['run', 'gate:build']],
+    greenCommand: ['run', 'gate:axe'],
+    redCommand: ['run', 'gate:axe'],
+    // The RED arm leaves a VIOLATING recording on disk — the whole point is that
+    // the click issued a request — and the two request-budget cases that follow
+    // read those recordings. So the restore rebuilds the clean bundle AND
+    // re-measures, or this case silently fails the next two.
+    restore: [
+      ['run', 'gate:build'],
+      ['run', 'gate:axe'],
+    ],
+  },
+  {
+    id: 'stale-edit-cas',
+    gate: 'server-authoritative compare-and-set (PO-DEC-18)',
+    violation: 'the advisory lock removed, leaving the compare-and-set read unserialized',
+    // "A stale edit is refused and re-fetched, never silently merged."
+    //
+    // The violation targets ATOMICITY, not the comparison. An earlier version of
+    // this case disarmed the `!==` test, which a sequential test catches — and a
+    // sequential test is exactly what missed the real defect. Every unit of work
+    // is READ COMMITTED, so removing the lock leaves two concurrent writers
+    // reading the same pre-state, both finding their token current, and both
+    // writing. That is invisible to any test that does not actually race.
+    //
+    // `apps/api/test/schedule/authoring-concurrency.test.ts` is what fails here,
+    // and it fails with the reviewer's own words: "both writers were accepted".
+    patch: [
+      {
+        file: 'apps/api/src/http/routes/schedule-authoring.route.ts',
+        find: '    await lockAnchor(uow, `cell:${versionId}:${date}:${shiftTypeId}`);',
+        replace: '    // red case: the cell lock is removed, leaving the CAS read unserialized',
+      },
+      {
+        file: 'apps/api/src/http/routes/schedule-authoring.route.ts',
+        find: '    await lockAnchor(uow, `requirement:${periodId}:${date}:${shiftTypeId}`);',
+        replace: '    // red case: the requirement lock is removed',
+      },
+    ],
+    greenCommand: ['run', 'gate:unit'],
+    redCommand: ['run', 'gate:unit'],
+  },
+  {
     id: 'request-budget-over',
     gate: 'requests per interaction (SP-HR-2)',
     violation: 'one click recorded as three requests, against a budget of one',
@@ -336,7 +402,12 @@ function applyViolation(testCase) {
         `red case "${testCase.id}": anchor not found in ${patch.file}.\nLooking for: ${patch.find}`,
       );
     }
-    patchBackups.set(target, original);
+    // The FIRST reading of a file is the one restored. A case with two patches
+    // to one file used to back up the already-patched content on the second
+    // pass, so `revertViolation` wrote back a half-patched file and left the
+    // working tree dirty — observed with `stale-edit-cas`, which disarms the
+    // compare-and-set in two places.
+    if (!patchBackups.has(target)) patchBackups.set(target, original);
     writeFileSync(target, original.replace(patch.find, patch.replace), 'utf8');
   }
 }

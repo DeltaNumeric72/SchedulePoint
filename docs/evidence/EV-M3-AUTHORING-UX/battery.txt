@@ -1,0 +1,134 @@
+# OPUS-M3-004 — acceptance battery (COMPOSED, after the second-merger rebase onto c3e1baa)
+
+Worktree .worktrees/m3-004, derived DB port 55650, preview port 4191.
+Rebased onto c3e1baa (OPUS-M3-007 merged first). Every command exit 0.
+
+  check ................. 13/13 gates, 97 files, 1245 tests, e2e 241 passed
+  red-cases ............. 18/18 proven
+  fixture-regression .... 91/91, rotating seed 32596, 863 tests per run
+  sbx ................... 308 readings, 0 wrong-tenant, 44 of 44 tables, 0 vacuous
+  migration cycle ....... 0001..0010 CLEAN (up -> down -> up -> down -> up)
+  concurrency standalone  3/3, 12 rounds each
+
+The pre-rebase revision battery follows, unchanged, for comparison.
+
+
+Worktree .worktrees/m3-004, derived DB port 55650, preview port 4191.
+Re-run 2026-08-04 after the B-1..B-4 revision.
+
+## 1. corepack pnpm check — 13/13 (exit 0)
+
+ Test Files  91 passed (91)
+      Tests  1177 passed (1177)
+PASS  route-policy-check (I-02) — 73 registered route(s)
+PASS  migration-rls-pairing (I-15) — 9 migration file(s) in apps/api/migrations
+PASS  invariant-id-uniqueness (CAR-023) — 64 document(s), 22 invariant definition(s), 22 distinct ID(s) referenced
+PASS  rule-node → compiler-mapping closure — 30 declared node(s) in packages/domain/src/rules/ast.ts, 30 compiler mapping(s) in packages/domain/src/rules/compile.ts
+PASS  secret-scan — 764 file(s) under /Users/prabashan/Claude/SchedulePoint/.worktrees/m3-004, 11 detectors
+PASS  network-assertion-guard (SP-HR-1) — 30 source file(s), 3 built file(s); requestHosts allowlist: 0 (must be 0)
+  209 passed (2.1m)
+PASS  request-budget (SP-HR-2 / I-10) — 23 budgeted interaction(s), 46 recording(s) 
+13 gate(s): 13 passed, 0 failed
+
+## 2. corepack pnpm red-cases — 18/18 PROVEN (exit 0)
+
+CASE                    GREEN  RED    VERDICT
+----------------------  -----  -----  -------
+lint                    pass   fail   PROVEN
+typecheck               pass   fail   PROVEN
+unit                    pass   fail   PROVEN
+import-boundary         pass   fail   PROVEN
+route-policy            pass   fail   PROVEN
+migration-rls           pass   fail   PROVEN
+invariant-ids           pass   fail   PROVEN
+rule-node-mapping       pass   fail   PROVEN
+corpus-tamper           pass   fail   PROVEN
+secret-scan             pass   fail   PROVEN
+network-guard-source    pass   fail   PROVEN
+network-guard-bundle    pass   fail   PROVEN
+build                   pass   fail   PROVEN
+axe                     pass   fail   PROVEN
+i13-schedule-authoring  pass   fail   PROVEN
+stale-edit-cas          pass   fail   PROVEN
+request-budget-over     pass   fail   PROVEN
+request-budget-missing  pass   fail   PROVEN
+----------------------  -----  -----  -------
+18 case(s): 18 proven, 0 not proven
+
+## 3. corepack pnpm fixture-regression — 85/85 (exit 0)
+
+PASS  seed 1                                           34.7s  795 passed (795)
+PASS  seed 7                                           36.1s  795 passed (795)
+PASS  seed 42                                          34.0s  795 passed (795)
+PASS  seed 424242                                      33.7s  795 passed (795)
+PASS  seed 20260803                                    36.6s  795 passed (795)
+PASS  seed 31337                                       37.2s  795 passed (795)
+PASS  seed 99991                                       35.5s  795 passed (795)
+PASS  seed 123456                                      35.7s  795 passed (795)
+PASS  seed 20250101                                    34.1s  795 passed (795)
+PASS  seed 8675309                                     34.9s  795 passed (795)
+PASS  seed 65339                                       34.3s  795 passed (795)
+PASS  seed 531651                                      34.8s  795 passed (795)
+PASS  seed 740673                                      35.0s  795 passed (795)
+PASS  rotating seed 982699                             34.7s  795 passed (795)
+==============================================================================
+85 run(s): 85 passed, 0 failed
+Order-independent under every seed tried.
+Every file also passes alone.
+The shared baseline was unmodified in every run (the Layer 1 control runs in each).
+
+## 4. corepack pnpm sbx (exit 0)
+
+SBX-001 — Role x registered-surface matrix — every route an explicit allow or a clean deny
+SBX-002 — Capability mapping (CAP-006 / CAP-057): the grant x entitlement x role truth table, proven server-side
+SBX-004 — Cross-tenant isolation sweep — every resource type, both boundaries, every role
+  readings: 301 (role, context, table) readings across 7 contexts; 0 wrong-tenant rows; 43 of 43 tables observed with visible rows
+SBX-005 — User invitation, activation, deactivation, impersonation
+SBX-006 — Session timeout and persistence
+SBX-018 — Publication, versioning, revision, and revert
+vacuous assertions detected: 0
+
+## 5. The three concurrency probes (B-1..B-3), standalone
+
+(captured below from the standalone run)
+B-1 requirement race:
+  round 0: 200/409 stored=2
+  round 1: 200/409 stored=2
+  round 2: 200/409 stored=2
+  round 3: 409/200 stored=7
+  round 4: 200/409 stored=2
+  round 5: 200/409 stored=2
+  round 6: 409/200 stored=7
+  round 7: 200/409 stored=2
+  round 8: 200/409 stored=2
+  round 9: 200/409 stored=2
+  round 10: 409/200 stored=7
+  round 11: 200/409 stored=2
+B-2 empty-cell add race:
+  round 0: 200/409 assignments=1
+  round 1: 200/409 assignments=1
+  round 2: 200/409 assignments=1
+  round 3: 200/409 assignments=1
+  round 4: 409/200 assignments=1
+  round 5: 200/409 assignments=1
+  round 6: 409/200 assignments=1
+  round 7: 200/409 assignments=1
+  round 8: 200/409 assignments=1
+  round 9: 200/409 assignments=1
+  round 10: 409/200 assignments=1
+  round 11: 200/409 assignments=1
+B-3 add/remove race:
+  round 0: 200/409 assignments=2
+  round 1: 200/409 assignments=2
+  round 2: 200/409 assignments=2
+  round 3: 200/409 assignments=2
+  round 4: 200/409 assignments=2
+  round 5: 200/409 assignments=2
+  round 6: 200/409 assignments=2
+  round 7: 200/409 assignments=2
+  round 8: 200/409 assignments=2
+  round 9: 200/409 assignments=2
+  round 10: 200/409 assignments=2
+  round 11: 200/409 assignments=2
+ ✓ |api| test/schedule/authoring-concurrency.test.ts (3 tests) 1004ms
+      Tests  3 passed (3)

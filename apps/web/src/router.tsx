@@ -18,6 +18,8 @@ import {
   SignInPage,
 } from './authn/pages.js';
 import { RulesPage } from './rules/RulesPage.js';
+import { GridPage } from './schedule/GridPage.js';
+import { PeriodsPage } from './schedule/PeriodsPage.js';
 import { ShiftTypesPage } from './catalogue/ShiftTypesPage.js';
 import { ShellPage } from './shell/ShellPage.js';
 import { GroupSettingsPage as SettingsGroupPage } from './settings/GroupSettingsPage.js';
@@ -188,6 +190,32 @@ const resetCompleteRoute = createRoute({
   component: PasswordResetCompletePage,
 });
 
+/**
+ * The schedule-authoring routes (OPUS-M3-004).
+ *
+ * A sibling of the catalogue tree rather than a child of it: doc 08 §6 keeps
+ * "Author catalogue & rules" and "author the schedule" on separate rows, they
+ * carry different capabilities, and the schedule surface has its own navigation.
+ * The segments mirror the API's `/organizations/:o/groups/:g/schedule` exactly,
+ * so the client route tree and the server's policy-checked route table can be
+ * reconciled against each other rather than compared by eye.
+ */
+const scheduleRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/organizations/$organizationId/groups/$groupId/schedule',
+  component: RootLayout,
+});
+const schedulePeriodsRoute = createRoute({
+  getParentRoute: () => scheduleRoute,
+  path: 'periods',
+  component: PeriodsPage,
+});
+const scheduleVersionRoute = createRoute({
+  getParentRoute: () => scheduleRoute,
+  path: 'versions/$versionId',
+  component: GridPage,
+});
+
 const routeTree = rootRoute.addChildren([
   signInRoute,
   mfaChallengeRoute,
@@ -205,6 +233,7 @@ const routeTree = rootRoute.addChildren([
     rulesRoute,
   ]),
   settingsRoute.addChildren([settingsGroupRoute, settingsLocationsRoute]),
+  scheduleRoute.addChildren([schedulePeriodsRoute, scheduleVersionRoute]),
 ]);
 
 export function createAppRouter(options: { memory?: boolean } = {}) {

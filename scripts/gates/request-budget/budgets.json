@@ -46,6 +46,78 @@
       "note": "The write plus ONE invalidation refetch of the rule list. Two is the measured number, not a target: the list must reflect the new rule and the client does not synthesise it from the response. Measured 2 at both viewports (OPUS-M3-002)."
     },
     {
+      "id": "schedule-open-new-period",
+      "description": "User clicks 'New period' to open the period-authoring form.",
+      "maxRequests": 0,
+      "note": "I-13, in the same strict form as catalogue-open-new-shift-type and rules-open-new-rule. A control labelled New must persist nothing before a completed form and an explicit Save. ZERO is the only correct number and this budget can never be raised without the invariant changing first. Measured 0 at both viewports (OPUS-M3-004)."
+    },
+    {
+      "id": "schedule-fill-period-form",
+      "description": "User fills every field of the period form and does not submit.",
+      "maxRequests": 0,
+      "note": "The other half of I-13: not only does opening the form write nothing, filling it issues nothing either. A field that fetched or saved on change would put a half-entered planning window on the wire. Measured 0 at both viewports (OPUS-M3-004)."
+    },
+    {
+      "id": "schedule-save-period-refused",
+      "description": "User clicks 'Save period' and the server refuses it with a 422.",
+      "maxRequests": 1,
+      "note": "One Save, one request. A refused save does NOT refetch, because nothing changed. Measured 1 at both viewports (OPUS-M3-004)."
+    },
+    {
+      "id": "schedule-open-cell-editor",
+      "description": "User opens a grid cell to see and edit its assignments.",
+      "maxRequests": 0,
+      "note": "ZERO, and deliberately so: the cell editor renders from the grid the page already holds rather than re-reading the cell. An earlier design fetched the candidate list on open, which would have made opening a cell cost a request for information the user had not yet asked for; the candidate read moved behind 'Assign someone' instead, which is the budget below. Measured 0 at both viewports (OPUS-M3-004)."
+    },
+    {
+      "id": "schedule-open-assign-picker",
+      "description": "User clicks 'Assign someone' inside the cell editor.",
+      "maxRequests": 1,
+      "note": "I-10 in its strictest form: one action, one read. The candidate list is credential-derived and per (date, shift type), so it cannot come from the grid payload. Measured 1 at both viewports (OPUS-M3-004)."
+    },
+    {
+      "id": "schedule-save-assignment",
+      "description": "User saves a manual assignment into a cell and the server accepts it.",
+      "maxRequests": 2,
+      "note": "TWO, under the same ruling as catalogue-save-shift-type: the POST plus the server-authoritative grid re-read. PO-DEC-18 makes the server the authority on what the schedule now says, so after a mutation the client re-reads rather than patching its own cache from the response and rendering a grid no server ever produced. Amplification is N requests for one action's WORK; this is one write plus one read-back. Measured 2 at both viewports (OPUS-M3-004)."
+    },
+    {
+      "id": "schedule-create-draft-version",
+      "description": "User confirms 'New draft' and a draft version is created.",
+      "maxRequests": 2,
+      "note": "The POST plus the server-authoritative version-list re-read, under the same ruling as catalogue-save-shift-type. Measured 2 at both viewports (OPUS-M3-004, review N-7)."
+    },
+    {
+      "id": "schedule-save-requirement",
+      "description": "User saves a staffing requirement and the server accepts it.",
+      "maxRequests": 2,
+      "note": "The PUT plus the requirement-list re-read. The write carries a compare-and-set token, so the re-read is also how the author learns the new token — patching the cache from the response would leave the client holding a revision the server never issued. Measured 2 at both viewports (OPUS-M3-004, review N-7)."
+    },
+    {
+      "id": "schedule-pin-assignment",
+      "description": "User pins or unpins an assignment in the cell editor.",
+      "maxRequests": 2,
+      "note": "The PUT plus the grid re-read. A pin is a solver INPUT, not a display toggle, so the grid must show what the server stored rather than what the browser assumed. Measured 2 at both viewports (OPUS-M3-004, review N-7)."
+    },
+    {
+      "id": "schedule-remove-assignment",
+      "description": "User removes an assignment, giving a reason.",
+      "maxRequests": 2,
+      "note": "The POST plus the grid re-read. Measured 2 at both viewports (OPUS-M3-004, review N-7)."
+    },
+    {
+      "id": "rules-open-edit",
+      "description": "User clicks 'Edit' on an existing rule to open it in the form.",
+      "maxRequests": 0,
+      "note": "ZERO: the form is filled from the rule list the page already holds. A fetch here would be amplification of a control that only opens a form, and it would also make the edit round trip depend on a second read that could disagree with the row the user clicked. Measured 0 at both viewports (OPUS-M3-004, review N-7)."
+    },
+    {
+      "id": "rules-save-edit",
+      "description": "User saves changes to an existing rule.",
+      "maxRequests": 2,
+      "note": "The PUT plus the rule-list re-read. Measured 2 at both viewports (OPUS-M3-004, review N-7)."
+    },
+    {
       "id": "catalogue-open-new-shift-type",
       "description": "User clicks 'New shift type' to open the authoring form.",
       "maxRequests": 0,

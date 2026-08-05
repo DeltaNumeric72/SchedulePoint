@@ -1,8 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent, type JSX } from 'react';
 
-import { ValidationError } from '../api/catalogue.js';
+import type { RuleView } from '@schedulepoint/contracts';
+
+import { ValidationError, fetchShiftTypes } from '../api/catalogue.js';
 import { createRule, fetchRules, setRuleState } from '../api/rules.js';
+import { updateRule } from './api.js';
+import {
+  NODE_KINDS,
+  NODE_SPECS,
+  NodeParameterEditor,
+  fromPredicate,
+  initialState,
+  toPredicate,
+  type NodeFormState,
+  type RuleNodeKind,
+} from './node-editors.js';
 import { CatalogueLayout, useGroupScope } from '../catalogue/CatalogueLayout.js';
 import {
   CONTROL_CLASS,
@@ -38,14 +51,21 @@ import { useNarrowViewport } from '../components/useNarrowViewport.js';
  * `rules_predicate_kind_is_closed` CHECK make, made where the user is: there is
  * no box to type an escape hatch into.
  *
- * This slice authors **3 of the 30 node kinds** — the single-parameter coverage
- * nodes, which is the complete set whose parameters are one number. The page says
- * "3 of the 30" in as many words, so the interface is as honest as this comment. The remaining
- * twenty-seven need per-node parameter editors (segment lists, weekday sets,
- * qualification pickers) and belong with the surfaces that own those
- * vocabularies — M3-004's cell editor and validation display. **The API and the
- * model accept all thirty**; only this form's editors are staged, and it says so
- * on the page rather than leaving a user to discover it.
+ * **All thirty kinds are authorable here** (OPUS-M3-004). OPUS-M3-002 shipped
+ * three — the nodes whose only parameter is one number — and said "3 of the 30"
+ * on the page rather than leaving it to be discovered; `node-editors.tsx` adds
+ * the remaining twenty-seven, and the on-page quantification is updated in the
+ * same change. The enumerated parameters are selects and checkbox sets over the
+ * contract's own constants, so the closed set is now closed at the parameter
+ * level too.
+ *
+ * ## Editing is a round trip, and it is lossless
+ *
+ * A rule can be opened, changed and saved. `fromPredicate` reads a stored
+ * predicate into the form and `toPredicate` builds it back;
+ * `apps/web/test/node-editors.test.ts` drives one example of every kind through
+ * both and asserts equality, because the property an author depends on is that
+ * opening a rule and pressing Save does not change it.
  *
  * ## Two representations, one of them in the DOM at a time
  *
@@ -64,14 +84,27 @@ import { useNarrowViewport } from '../components/useNarrowViewport.js';
  * wrong by the dotted AST path the server returns.
  */
 
-/** The nodes this form can currently author. See the docblock. */
-const AUTHORABLE_NODES = [
-  { kind: 'RequiredCount', label: 'Required count', parameter: 'count' },
-  { kind: 'MinCoverage', label: 'Minimum coverage', parameter: 'min' },
-  { kind: 'MaxCoverage', label: 'Maximum coverage', parameter: 'max' },
-] as const;
-
-type AuthorableKind = (typeof AUTHORABLE_NODES)[number]['kind'];
+/**
+ * Every field name any node kind uses, so the validation summary's links
+ * resolve whichever kind is selected.
+ *
+ * Derived from `NODE_SPECS` rather than listed: a kind whose parameter had no id
+ * here would produce a summary entry that links nowhere, and the failure is
+ * silent — the link simply does not move the caret.
+ */
+const PREDICATE_FIELD_NAMES = [
+  ...new Set(
+    NODE_KINDS.flatMap((kind) => NODE_SPECS[kind].fields.map((field) => `predicate.${field.name}`)),
+  ),
+];
+const RULE_FIELD_NAMES = [
+  'ruleKey',
+  'name',
+  'classification',
+  'weight',
+  'predicate.kind',
+  ...PREDICATE_FIELD_NAMES,
+];
 
 export function RulesPage(): JSX.Element {
   return (
@@ -88,25 +121,26 @@ function RulesPanel(): JSX.Element {
   const scope = useGroupScope();
   const queryClient = useQueryClient();
   const narrow = useNarrowViewport();
-  const fieldIds = useFieldIds('rule', [
-    'ruleKey',
-    'name',
-    'classification',
-    'weight',
-    'predicate.kind',
-    'predicate.count',
-    'predicate.min',
-    'predicate.max',
-  ] as const);
+  const fieldIds = useFieldIds('rule', RULE_FIELD_NAMES);
+  /**
+   * `fieldIds` is now keyed by a runtime-derived list rather than a literal
+   * tuple, so indexing it yields `string | undefined` under
+   * `noUncheckedIndexedAccess`. The fallback is the field name itself, which is
+   * still a usable DOM id — a summary link that resolved to nothing would be a
+   * silent accessibility failure, and this makes that impossible.
+   */
+  const fieldId = (field: string): string => fieldIds[field] ?? `rule-${field}`;
 
   /** I-13: opening the form is local state and issues no request. */
   const [isAuthoring, setIsAuthoring] = useState(false);
+  /** Non-null when an EXISTING rule is open. Its key cannot change. */
+  const [editingKey, setEditingKey] = useState<string | null>(null);
   const [ruleKey, setRuleKey] = useState('');
   const [name, setName] = useState('');
   const [classification, setClassification] = useState<'HARD' | 'SOFT'>('HARD');
   const [weight, setWeight] = useState('');
-  const [kind, setKind] = useState<AuthorableKind>('RequiredCount');
-  const [amount, setAmount] = useState('1');
+  const [kind, setKind] = useState<RuleNodeKind>('RequiredCount');
+  const [node, setNode] = useState<NodeFormState>(() => initialState('RequiredCount'));
   const [problems, setProblems] = useState<readonly FieldProblem[]>([]);
 
   const rules = useQuery({
@@ -115,26 +149,53 @@ function RulesPanel(): JSX.Element {
     retry: false,
   });
 
-  const parameter = AUTHORABLE_NODES.find((node) => node.kind === kind)?.parameter ?? 'count';
+  /** The shift-type codes the pickers offer. A page-load read, not a per-keystroke one. */
+  const shiftTypes = useQuery({
+    queryKey: ['shift-types', scope.organizationId, scope.groupId],
+    queryFn: () => fetchShiftTypes(scope),
+    retry: false,
+  });
+  const shiftTypeCodes = (shiftTypes.data?.shiftTypes ?? []).map((shiftType) => shiftType.code);
+
+  const closeForm = (): void => {
+    setProblems([]);
+    setIsAuthoring(false);
+    setEditingKey(null);
+    setRuleKey('');
+    setName('');
+    setWeight('');
+    setKind('RequiredCount');
+    setNode(initialState('RequiredCount'));
+  };
+
+  /** Open an existing rule. Reads from the list already held — no extra request. */
+  const openForEdit = (rule: RuleView): void => {
+    setProblems([]);
+    setEditingKey(rule.ruleKey);
+    setRuleKey(rule.ruleKey);
+    setName(rule.name);
+    setClassification(rule.classification);
+    setWeight(rule.weight === null ? '' : String(rule.weight));
+    setKind(rule.predicate.kind);
+    setNode(fromPredicate(rule.predicate));
+    setIsAuthoring(true);
+  };
+
+  const body = () => ({
+    ruleKey,
+    name,
+    classification,
+    ...(classification === 'SOFT' ? { weight: Number(weight) } : {}),
+    scope: {},
+    // Assembled from the closed set and its typed parameters, never free text.
+    predicate: toPredicate(kind, node) as never,
+  });
 
   const save = useMutation({
     mutationFn: () =>
-      createRule(scope, {
-        ruleKey,
-        name,
-        classification,
-        ...(classification === 'SOFT' ? { weight: Number(weight) } : {}),
-        scope: {},
-        // The predicate is assembled from the closed list, never from free text.
-        predicate: { kind, [parameter]: Number(amount) } as never,
-      }),
+      editingKey === null ? createRule(scope, body()) : updateRule(scope, editingKey, body()),
     onSuccess: () => {
-      setProblems([]);
-      setIsAuthoring(false);
-      setRuleKey('');
-      setName('');
-      setWeight('');
-      setAmount('1');
+      closeForm();
       void queryClient.invalidateQueries({ queryKey: ['rules'] });
     },
     onError: (error: unknown) =>
@@ -157,12 +218,18 @@ function RulesPanel(): JSX.Element {
         Rules
       </h2>
 
-      {/* Stated on the page rather than left to be discovered. */}
+      {/* Stated on the page rather than left to be discovered. The number is
+          DERIVED from the node registry, so it cannot drift from what the form
+          can actually author — the previous version of this sentence was a
+          hand-written "3 of the 30" and would have had to be remembered. */}
       <p className="text-sm text-text-muted" data-testid="rules-staging-note">
-        This release authors <strong>3 of the 30 rule types</strong> — the coverage rules. The other
-        27 are authored with the scheduling surfaces that own their vocabularies (shift patterns,
-        qualifications, templates); rules of those types created elsewhere are listed below and can
-        be enabled or disabled here.
+        This release authors{' '}
+        <strong>
+          all {String(NODE_KINDS.length)} of the {String(NODE_KINDS.length)} rule types
+        </strong>
+        . Every rule is chosen from the rule language and edited here; there is no free-form rule.
+        Rules are checked against a schedule when a version is published, not while it is being
+        drafted.
       </p>
 
       {isAuthoring ? null : (
@@ -172,7 +239,7 @@ function RulesPanel(): JSX.Element {
             data-testid="rules-new"
             onClick={() => {
               // I-13: local state only. Nothing is created, nothing is fetched.
-              setProblems([]);
+              closeForm();
               setIsAuthoring(true);
             }}
             type="button"
@@ -196,7 +263,7 @@ function RulesPanel(): JSX.Element {
           <ValidationSummary problems={problems} fieldIds={fieldIds} formName="rule" />
 
           <Field
-            id={fieldIds.ruleKey}
+            id={fieldId('ruleKey')}
             label="Rule key"
             help="A stable identifier. It cannot be changed after the rule is saved."
             problem={problemFor(problems, 'ruleKey')}
@@ -205,18 +272,24 @@ function RulesPanel(): JSX.Element {
               <input
                 {...attributes}
                 className={CONTROL_CLASS}
+                data-testid="rules-key"
                 onChange={(event) => setRuleKey(event.target.value)}
+                // Non-bypass rule 13, at the surface: a stable id that silently
+                // changes meaning corrupts every reference to it. Editing a rule
+                // cannot rename its key.
+                readOnly={editingKey !== null}
                 type="text"
                 value={ruleKey}
               />
             )}
           </Field>
 
-          <Field id={fieldIds.name} label="Name" problem={problemFor(problems, 'name')}>
+          <Field id={fieldId('name')} label="Name" problem={problemFor(problems, 'name')}>
             {(attributes) => (
               <input
                 {...attributes}
                 className={CONTROL_CLASS}
+                data-testid="rules-name"
                 onChange={(event) => setName(event.target.value)}
                 type="text"
                 value={name}
@@ -225,7 +298,7 @@ function RulesPanel(): JSX.Element {
           </Field>
 
           <Field
-            id={fieldIds.classification}
+            id={fieldId('classification')}
             label="Classification"
             help="A hard rule is never relaxed. A soft rule is a preference and carries a weight."
             problem={problemFor(problems, 'classification')}
@@ -247,7 +320,7 @@ function RulesPanel(): JSX.Element {
 
           {classification === 'SOFT' ? (
             <Field
-              id={fieldIds.weight}
+              id={fieldId('weight')}
               label="Weight"
               help="Greater than zero. Higher weights are honoured first."
               problem={problemFor(problems, 'weight')}
@@ -266,7 +339,7 @@ function RulesPanel(): JSX.Element {
           ) : null}
 
           <Field
-            id={fieldIds['predicate.kind']}
+            id={fieldId('predicate.kind')}
             label="Rule type"
             help="Chosen from the rule language. There is no free-form rule."
             problem={problemFor(problems, 'predicate.kind')}
@@ -276,47 +349,40 @@ function RulesPanel(): JSX.Element {
                 {...attributes}
                 className={CONTROL_CLASS}
                 data-testid="rules-kind"
-                onChange={(event) => setKind(event.target.value as AuthorableKind)}
+                onChange={(event) => {
+                  const next = event.target.value as RuleNodeKind;
+                  setKind(next);
+                  // A kind change starts its own parameters. Carrying the old
+                  // ones over would leave fields the new node does not have,
+                  // and `.strict()` would reject the save for a reason the
+                  // author could not see.
+                  setNode(initialState(next));
+                }}
                 value={kind}
               >
-                {AUTHORABLE_NODES.map((node) => (
-                  <option key={node.kind} value={node.kind}>
-                    {node.label}
+                {NODE_KINDS.map((nodeKind) => (
+                  <option key={nodeKind} value={nodeKind}>
+                    {NODE_SPECS[nodeKind].label}
                   </option>
                 ))}
               </select>
             )}
           </Field>
 
-          <Field
-            id={fieldIds[`predicate.${parameter}` as keyof typeof fieldIds]}
-            label="Number of staff"
-            problem={problemFor(problems, `predicate.${parameter}`)}
-          >
-            {(attributes) => (
-              <input
-                {...attributes}
-                className={CONTROL_CLASS}
-                inputMode="numeric"
-                onChange={(event) => setAmount(event.target.value)}
-                type="text"
-                value={amount}
-              />
-            )}
-          </Field>
+          <NodeParameterEditor
+            fieldIds={fieldIds}
+            kind={kind}
+            onChange={setNode}
+            problemFor={(field) => problemFor(problems, field)}
+            shiftTypeCodes={shiftTypeCodes}
+            state={node}
+          />
 
           <div className="flex flex-wrap gap-sp-3">
             <button className={PRIMARY_BUTTON_CLASS} data-testid="rules-save" type="submit">
-              Save rule
+              {editingKey === null ? 'Save rule' : 'Save changes'}
             </button>
-            <button
-              className={SECONDARY_BUTTON_CLASS}
-              onClick={() => {
-                setIsAuthoring(false);
-                setProblems([]);
-              }}
-              type="button"
-            >
+            <button className={SECONDARY_BUTTON_CLASS} onClick={closeForm} type="button">
               Cancel
             </button>
           </div>
@@ -349,6 +415,12 @@ function RulesPanel(): JSX.Element {
                     <dd className="font-mono text-text">{rule.ruleKey}</dd>
                   </div>
                   <div className="flex gap-sp-2">
+                    <dt className="text-text-muted">Rule type</dt>
+                    <dd className="text-text" data-testid={`rules-kind-${rule.ruleKey}`}>
+                      {NODE_SPECS[rule.predicate.kind].label}
+                    </dd>
+                  </div>
+                  <div className="flex gap-sp-2">
                     <dt className="text-text-muted">Classification</dt>
                     <dd className="text-text">
                       {rule.classification === 'HARD' ? 'Hard' : 'Soft'}
@@ -361,7 +433,17 @@ function RulesPanel(): JSX.Element {
                   </div>
                 </dl>
                 {rule.state === 'archived' ? null : (
-                  <p className="mt-sp-3">
+                  <p className="mt-sp-3 flex flex-wrap gap-sp-2">
+                    <button
+                      className={SECONDARY_BUTTON_CLASS}
+                      data-testid={`rules-edit-${rule.ruleKey}`}
+                      // Opens from the list already held. No request (I-13/I-10).
+                      onClick={() => openForEdit(rule)}
+                      type="button"
+                    >
+                      Edit
+                      <span className="sr-only"> rule {rule.ruleKey}</span>
+                    </button>
                     <button
                       className={SECONDARY_BUTTON_CLASS}
                       data-testid={`rules-toggle-${rule.ruleKey}`}
@@ -395,6 +477,9 @@ function RulesPanel(): JSX.Element {
                   Name
                 </th>
                 <th className="border-b border-border p-sp-2" scope="col">
+                  Rule type
+                </th>
+                <th className="border-b border-border p-sp-2" scope="col">
                   Classification
                 </th>
                 <th className="border-b border-border p-sp-2" scope="col">
@@ -415,6 +500,9 @@ function RulesPanel(): JSX.Element {
                     {rule.ruleKey}
                   </th>
                   <td className="border-b border-border p-sp-2">{rule.name}</td>
+                  <td className="border-b border-border p-sp-2" data-testid={`rules-kind-${rule.ruleKey}`}>
+                    {NODE_SPECS[rule.predicate.kind].label}
+                  </td>
                   <td className="border-b border-border p-sp-2">
                     {rule.classification === 'HARD' ? 'Hard' : 'Soft'}
                   </td>
@@ -422,10 +510,20 @@ function RulesPanel(): JSX.Element {
                     {rule.weight === null ? '—' : String(rule.weight)}
                   </td>
                   <td className="border-b border-border p-sp-2">{rule.state}</td>
-                  <td className="border-b border-border p-sp-2">
+                  <td className="border-b border-border p-sp-2 flex flex-wrap gap-sp-2">
                     {rule.state === 'archived' ? (
                       '—'
                     ) : (
+                      <>
+                      <button
+                        className={SECONDARY_BUTTON_CLASS}
+                        data-testid={`rules-edit-${rule.ruleKey}`}
+                        onClick={() => openForEdit(rule)}
+                        type="button"
+                      >
+                        Edit
+                        <span className="sr-only"> rule {rule.ruleKey}</span>
+                      </button>
                       <button
                         className={SECONDARY_BUTTON_CLASS}
                         data-testid={`rules-toggle-${rule.ruleKey}`}
@@ -443,6 +541,7 @@ function RulesPanel(): JSX.Element {
                         {rule.state === 'active' ? 'Disable' : 'Enable'}
                         <span className="sr-only"> rule {rule.ruleKey}</span>
                       </button>
+                      </>
                     )}
                   </td>
                 </tr>
