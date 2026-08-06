@@ -1,0 +1,16 @@
+=== SBX battery — scenario summary (from docs/evidence/EV-M2-SBX/scenario-report.txt, this run) ===
+scenarios required 6 · executed 6 · passed 6 · failed 0 · blocked 0 · vacuous 0 · probe-error 0 · not-runnable 0
+SBX-001 — Role x registered-surface matrix — every route an explicit allow or a clean deny
+STATE: PASS   falsifiability probe: FALSIFIABLE   gate-required: YES   1297 ms
+SBX-002 — Capability mapping (CAP-006 / CAP-057): the grant x entitlement x role truth table, proven server-side
+STATE: PASS   falsifiability probe: FALSIFIABLE   gate-required: YES   41 ms
+SBX-004 — Cross-tenant isolation sweep — every resource type, both boundaries, every role
+STATE: PASS   falsifiability probe: FALSIFIABLE   gate-required: YES   219 ms
+  readings: 308 (role, context, table) readings across 7 contexts; 0 wrong-tenant rows; 44 of 44 tables observed with visible rows
+SBX-005 — User invitation, activation, deactivation, impersonation
+STATE: PASS   falsifiability probe: FALSIFIABLE   gate-required: no   11 ms
+SBX-006 — Session timeout and persistence
+STATE: PASS   falsifiability probe: FALSIFIABLE   gate-required: no   46 ms
+SBX-018 — Publication, versioning, revision, and revert
+STATE: PASS   falsifiability probe: FALSIFIABLE   gate-required: YES   38 ms
+vacuous assertions detected: 0

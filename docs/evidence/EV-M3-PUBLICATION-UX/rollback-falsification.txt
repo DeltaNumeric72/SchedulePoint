@@ -1,0 +1,48 @@
+# rollback-falsification.txt — OPUS-M3-005
+
+The ROLLBACK assertion in apps/api/test/schedule/publication-http.test.ts is
+falsified by restoring the shape it exists to forbid: mapping the frozen
+service's typed failures INSIDE the unit of work, so the runner COMMITS the
+step-04 'publishing' write instead of rolling it back.
+
+Injected into withPublication:
+      try { return await run(uow); } catch (inner) {
+        const m = outcomeOfServiceError<T>(inner); if (m !== null) return m; throw inner; }
+
+$ corepack pnpm exec vitest run apps/api/test/schedule/publication-http.test.ts -t ROLLBACK
+---------------------------------------------------------------------------
+   ↓ history, comparison, published schedule and publication records > the publication record names who published, when, and how many were affected
+   ↓ history, comparison, published schedule and publication records > comparison defaults to the version this one SUPERSEDED, and affected-staff agrees with it
+   ↓ history, comparison, published schedule and publication records > an explicit comparison against a version in ANOTHER period is not found
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |api| test/schedule/publication-http.test.ts > publication (schedule.publish — grant-only) > ROLLBACK: a prerequisite that fails AFTER step 04 leaves the version approved, not publishing
+AssertionError: expected { state: 'publishing', …(2) } to match object { state: 'approved', …(2) }
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  {[22m
+[2m    "is_current": false,[22m
+[32m-   "state": "approved",[39m
+[31m+   "state": "publishing",[39m
+[2m    "version_number": null,[22m
+[2m  }[22m
+
+ ❯ test/schedule/publication-http.test.ts:637:47
+    635|     // The whole point: NOT `publishing`. A committed `publishing` row…
+    636|     // cleared by the reconciler and blocks every later attempt.
+    637|     expect(await versionRow(draft.versionId)).toMatchObject({
+       |                                               ^
+    638|       state: 'approved',
+    639|       is_current: false,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 21 skipped (22)
+   Start at  10:04:24
+   Duration  2.57s (transform 437ms, setup 114ms, collect 124ms, tests 409ms, environment 0ms, prepare 63ms)
+

@@ -21,6 +21,10 @@ import { RulesPage } from './rules/RulesPage.js';
 import { GridPage } from './schedule/GridPage.js';
 import { PeriodsPage } from './schedule/PeriodsPage.js';
 import { ShiftTypesPage } from './catalogue/ShiftTypesPage.js';
+import { PublicationReviewPage } from './publication/PublicationReviewPage.js';
+import { PublishedSchedulePage } from './publication/PublishedSchedulePage.js';
+import { VersionComparisonPage } from './publication/VersionComparisonPage.js';
+import { VersionHistoryPage } from './publication/VersionHistoryPage.js';
 import { ShellPage } from './shell/ShellPage.js';
 import { GroupSettingsPage as SettingsGroupPage } from './settings/GroupSettingsPage.js';
 import { LocationsPage } from './settings/LocationsPage.js';
@@ -216,6 +220,44 @@ const scheduleVersionRoute = createRoute({
   component: GridPage,
 });
 
+/**
+ * The publication and version-management routes (OPUS-M3-005).
+ *
+ * A sibling TREE of the schedule's rather than a section inside it, for the same
+ * reason `settings` is a sibling of `catalogue`: publication is a distinct act
+ * under a distinct, grant-only capability (`schedule.publish`, doc 08 §4), and
+ * nesting it under the authoring path would put an irreversible act inside a
+ * section whose whole frame is about drafting. The segments mirror the API's
+ * `/organizations/:o/groups/:g/schedule/...` routes with a `publication` prefix
+ * the layout supplies, so the client route tree and the server's policy-checked
+ * route table stay reconcilable rather than compared by eye.
+ */
+const publicationRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/organizations/$organizationId/groups/$groupId/publication',
+  component: RootLayout,
+});
+const publishedScheduleRoute = createRoute({
+  getParentRoute: () => publicationRoute,
+  path: 'periods/$periodId/published',
+  component: PublishedSchedulePage,
+});
+const versionHistoryRoute = createRoute({
+  getParentRoute: () => publicationRoute,
+  path: 'periods/$periodId/history',
+  component: VersionHistoryPage,
+});
+const publicationReviewRoute = createRoute({
+  getParentRoute: () => publicationRoute,
+  path: 'versions/$versionId/review',
+  component: PublicationReviewPage,
+});
+const versionComparisonRoute = createRoute({
+  getParentRoute: () => publicationRoute,
+  path: 'versions/$versionId/comparison',
+  component: VersionComparisonPage,
+});
+
 const routeTree = rootRoute.addChildren([
   signInRoute,
   mfaChallengeRoute,
@@ -234,6 +276,12 @@ const routeTree = rootRoute.addChildren([
   ]),
   settingsRoute.addChildren([settingsGroupRoute, settingsLocationsRoute]),
   scheduleRoute.addChildren([schedulePeriodsRoute, scheduleVersionRoute]),
+  publicationRoute.addChildren([
+    publishedScheduleRoute,
+    versionHistoryRoute,
+    publicationReviewRoute,
+    versionComparisonRoute,
+  ]),
 ]);
 
 export function createAppRouter(options: { memory?: boolean } = {}) {

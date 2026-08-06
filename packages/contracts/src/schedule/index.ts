@@ -20,3 +20,12 @@ export {
   type PublicationIdempotencyKey,
   type PublishVersionRequest,
 } from './publication.js';
+
+/**
+ * OPUS-M3-005 — publication review, confirmation, version history, comparison
+ * and the affected-staff read (SPEC-05 §6/§6.1, doc 07). Re-exported wholesale
+ * for the same reason `authoring.js` is: the module is one cohesive contract
+ * surface, and an omission from a hand-written list is a compile error at the
+ * call site.
+ */
+export * from './versions.js';

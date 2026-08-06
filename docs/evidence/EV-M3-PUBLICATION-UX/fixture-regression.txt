@@ -1,0 +1,26 @@
+$ eslint .
+PASS  sbx/sbx.test.ts                                   4.6s  17 passed (17)
+PASS  schedule/authoring-concurrency.test.ts            3.6s  3 passed (3)
+PASS  schedule/authoring-http.test.ts                   2.9s  16 passed (16)
+PASS  schedule/authoring-time.test.ts                   2.3s  23 passed (23)
+PASS  schedule/publication-concurrency.test.ts          3.9s  2 passed (2)
+PASS  schedule/publication-diff-parity.test.ts          2.7s  5 passed (5)
+PASS  schedule/publication-http.test.ts                 3.5s  22 passed (22)
+PASS  schedule/publication-invariants.test.ts           2.8s  22 passed (22)
+PASS  schedule/seed-smoke.test.ts                       2.5s  2 passed (2)
+PASS  schedule/v-harness.test.ts                        2.7s  13 passed (13)
+PASS  server.test.ts                                    2.4s  8 passed (8)
+PASS  settings/audit.test.ts                            2.8s  15 passed (15)
+PASS  settings/authorization.test.ts                    2.7s  20 passed (20)
+PASS  settings/locations-isolation.test.ts              2.4s  5 passed (5)
+PASS  settings/schema.test.ts                           2.2s  13 passed (13)
+PASS  settings/site-migration-fixtures.test.ts          2.4s  9 passed (9)
+PASS  settings/timezone.test.ts                         2.8s  6 passed (6)
+PASS  tenancy/roles-and-schema.test.ts                  2.5s  37 passed (37)
+PASS  tenancy/unit-of-work.test.ts                      9.4s  17 passed (17)
+
+==============================================================================
+94 run(s): 94 passed, 0 failed
+Order-independent under every seed tried.
+Every file also passes alone.
+The shared baseline was unmodified in every run (the Layer 1 control runs in each).

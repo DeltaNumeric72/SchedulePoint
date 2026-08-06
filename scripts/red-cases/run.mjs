@@ -292,6 +292,41 @@ const CASES = [
     ],
   },
   {
+    id: 'publish-idempotency-key-retained',
+    gate: 'publish-once: the client RETAINS its idempotency key across retries (D-17)',
+    violation: 'the publication key is re-minted on every render, so a retry publishes again',
+    // A retry of a publication must carry the SAME key, so the server finds its
+    // own `publication_records` row and REPLAYS: no second outbox event, no
+    // second audit row, no second supersession. A client that mints a fresh key
+    // per attempt instead publishes a SECOND time and instantly supersedes the
+    // publication that had just happened — history gains a version nobody
+    // authored and every affected member is notified twice.
+    //
+    // The defect is invisible in the browser: both attempts return 200 and the
+    // screen looks correct. So the retention is injected-out here, and
+    // `apps/web/e2e/publication.spec.ts` ("a RETRY carries the same idempotency
+    // key") must fail. One line, in the one module that owns the decision.
+    patch: [
+      {
+        file: 'apps/web/src/publication/idempotency.ts',
+        find: '  return { key: current.key, renew };',
+        replace: '  return { key: newPublicationIdempotencyKey(), renew };',
+      },
+    ],
+    // The gate runs against the production build, so the violation has to be
+    // built before it can be observed.
+    prepare: [['run', 'gate:build']],
+    greenCommand: ['run', 'gate:axe'],
+    redCommand: ['run', 'gate:axe'],
+    // The RED arm leaves recordings from a failed run on disk, and the two
+    // request-budget cases below read them — so the restore rebuilds the clean
+    // bundle AND re-measures, exactly as `i13-schedule-authoring` does.
+    restore: [
+      ['run', 'gate:build'],
+      ['run', 'gate:axe'],
+    ],
+  },
+  {
     id: 'stale-edit-cas',
     gate: 'server-authoritative compare-and-set (PO-DEC-18)',
     violation: 'the advisory lock removed, leaving the compare-and-set read unserialized',

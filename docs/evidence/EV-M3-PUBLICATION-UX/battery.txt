@@ -1,0 +1,26 @@
+# battery.txt — OPUS-M3-005, the commands and their results
+
+Every run used SP_TEST_PREVIEW_PORT=4310 and the worktree's derived database
+port 55602 (scripts/sbx/test-port.mjs), so neither collided with the parallel
+.worktrees/m3-006 / .worktrees/m3-006-adv.
+
+corepack pnpm check         run 1  -> 13/13 gates PASS, 1274 tests / 100 files, 293 e2e passed + 5 skipped
+corepack pnpm check         run 2  -> 12/13, axe FAIL on three 30s timeouts, ALL in other packets' specs,
+                                     under measured CPU contention from .worktrees/m3-006-adv (INDEX Sec 7a)
+corepack pnpm run gate:axe  serial -> 295 passed, 5 skipped, EXIT 0, 2.8 min
+corepack pnpm run gate:request-budget -> PASS, 33 budgeted interactions, 66 recordings
+corepack pnpm check         run 3  -> 13/13 gates PASS, EXIT 0, after the review delta (N1 + N3):
+                                     1275 tests / 100 files, 297 e2e passed + 5 skipped,
+                                     34 budgeted interactions / 68 recordings (axe 2.8 min, uncontended)
+corepack pnpm run gate:axe  delta  -> 56 passed (publication.spec.ts, both viewports)
+corepack pnpm red-cases            -> 19/19 PROVEN, EXIT 0 (incl. publish-idempotency-key-retained);
+                                      re-run in full after the delta
+corepack pnpm fixture-regression   -> 94/94 runs passed, order-independent, every file passes alone
+corepack pnpm sbx                  -> 6 required / 6 executed / 6 passed / 0 failed / 0 blocked / 0 vacuous
+                                      SBX-004: 308 readings, 0 wrong-tenant rows, 44 of 44 tables observed
+pnpm --filter @schedulepoint/api migrate:cycle:embedded -> MIGRATION CYCLE CLEAN, 0001..0010
+
+Standalone (the standing verification discipline, from OPUS-M1-004):
+  publication-http.test.ts         22 passed (23 after the review delta added the N3 number arm)
+  publication-concurrency.test.ts   2 passed (12 rounds each)
+  publication-diff-parity.test.ts   5 passed

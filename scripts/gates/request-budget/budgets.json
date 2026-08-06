@@ -169,13 +169,55 @@
       "id": "settings-save-timezone-accepted",
       "description": "User acknowledges the published-schedule impact and saves a new group time zone (204).",
       "maxRequests": 2,
-      "note": "The PUT plus ONE re-read of the settings, same ruling as above \u2014 and here the read-back is load-bearing rather than cosmetic: the settings response carries the optimistic-concurrency token (groups.settings_version) that the next save must echo, so a client that patched its own cache would save against a version it invented. Measured 2 at both viewports: PUT .../settings/timezone, then GET .../settings (OPUS-M3-007)."
+      "note": "The PUT plus ONE re-read of the settings, same ruling as above — and here the read-back is load-bearing rather than cosmetic: the settings response carries the optimistic-concurrency token (groups.settings_version) that the next save must echo, so a client that patched its own cache would save against a version it invented. Measured 2 at both viewports: PUT .../settings/timezone, then GET .../settings (OPUS-M3-007)."
     },
     {
       "id": "settings-save-timezone-refused",
       "description": "User saves a time-zone change without acknowledging the published-schedule impact; the server refuses it with a 422.",
       "maxRequests": 1,
-      "note": "One Save, one request. A refused save does NOT refetch, because nothing changed and there is nothing new to read \u2014 which is what makes the two-request success budget above a property of the success path rather than of Save in general. Measured 1 at both viewports (OPUS-M3-007)."
+      "note": "One Save, one request. A refused save does NOT refetch, because nothing changed and there is nothing new to read — which is what makes the two-request success budget above a property of the success path rather than of Save in general. Measured 1 at both viewports (OPUS-M3-007)."
+    },
+    {
+      "id": "publication-open-confirm",
+      "description": "User clicks 'Publish this version…' to open the confirmation panel.",
+      "maxRequests": 0,
+      "note": "I-13, on an act that is not a create but is irreversible: publication cannot be undone, only superseded, so nothing may reach the server before an explicit confirmation. ZERO is the only correct number and this budget can never be raised without the invariant changing first. Measured 0 at both viewports (OPUS-M3-005)."
+    },
+    {
+      "id": "publication-fill-confirm",
+      "description": "User ticks the acknowledgement and types the confirmation phrase, and does not submit.",
+      "maxRequests": 0,
+      "note": "The other half of I-13: filling the confirmation issues nothing. A field that validated on the server per keystroke would also breach I-10. Measured 0 at both viewports (OPUS-M3-005)."
+    },
+    {
+      "id": "publication-publish-accepted",
+      "description": "User confirms a publication and the server accepts it.",
+      "maxRequests": 2,
+      "note": "The POST plus ONE server-authoritative re-read of the review, under the PO-DEC-18 ruling the catalogue's accepted-save budget carries: after a mutation the client re-reads what the SERVER says rather than patching its own cache. The read-back is load-bearing here rather than cosmetic — the re-read carries the new blockers (the version is now published) and the new compare-and-set token. Measured 2 at both viewports: POST .../versions/:id/publication, then GET .../versions/:id/publication-review (OPUS-M3-005)."
+    },
+    {
+      "id": "publication-publish-refused",
+      "description": "User confirms a publication and the server refuses it with a 422.",
+      "maxRequests": 1,
+      "note": "One confirmation, one request. A refused publication does NOT refetch, because nothing changed — which is what makes the two-request success budget a property of the success path rather than of the confirm control in general. Measured 1 at both viewports (OPUS-M3-005)."
+    },
+    {
+      "id": "publication-open-clone-confirm",
+      "description": "User clicks 'Clone into a new draft…' on a published version.",
+      "maxRequests": 0,
+      "note": "I-13 in its literal form: a control that creates a draft must persist nothing before an explicit confirm. ZERO is the only correct number and this budget can never be raised without the invariant changing first. Measured 0 at both viewports (OPUS-M3-005)."
+    },
+    {
+      "id": "publication-open-revert-confirm",
+      "description": "User clicks 'Revert to this version…' on a superseded version.",
+      "maxRequests": 0,
+      "note": "A revert publishes forward and changes the live schedule, so it earns the same treatment as publication: the control opens a typed confirmation and issues nothing. Measured 0 at both viewports (OPUS-M3-005)."
+    },
+    {
+      "id": "publication-change-comparison",
+      "description": "User changes 'Compare against' on the version-comparison screen.",
+      "maxRequests": 2,
+      "note": "TWO GETs, and both are load-bearing rather than amplification: the change-level comparison and the person-level affected-staff set are separate reads by design. The affected set is what a notification fan-out would use, so \"who would be told about this?\" has to be answerable on its own rather than depending on a client having fetched the whole change list first — the same reasoning the two endpoints were split under (VersionComparisonPage's docblock). One user action, one authoritative round trip per view, no third request and no re-read of the history the page already holds. Added on review finding N1: the interaction existed with no budget entry, so no gate held the count. Measured 2 at both viewports (OPUS-M3-005)."
     }
   ]
 }
