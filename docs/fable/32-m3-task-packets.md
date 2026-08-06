@@ -255,7 +255,7 @@ M3 does not close after §§3–5: the roadmap outcome requires the experiences 
 | **Key proofs** | Settings mutations capability-gated (allow AND deny), audited, group-scoped (cross-group denial); locations swept by SBX-004 (floor raised); both-direction site fixtures round-trip; timezone change audited with the warning surfaced; migration 0010 up/down/up clean; I-13/I-10/axe/keyboard/320px on the settings UI |
 | **Acceptance** | Standing battery + the proofs above + evidence with INDEX + tree clean. Escalations: any settings shape doc 06 cannot sanction; any temptation toward a site entity; any enforcement semantics that cannot wait for M5/M9 |
 
-### 10d. OPUS-M3-005 — Publication and version-management experience (wave 2) — **ISSUED 2026-08-05** (branch `opus/m3-005-publication-ux`, worktree `.worktrees/m3-005`; base 20c0c13)
+### 10d. OPUS-M3-005 — Publication and version-management experience (wave 2) — **ACCEPTED & MERGED 2026-08-05** (112b8c4; review zero-blocking; FAD-26; task log)
 
 | Field | Content |
 |---|---|
@@ -264,7 +264,7 @@ M3 does not close after §§3–5: the roadmap outcome requires the experiences 
 | **Prohibited** | Everything else; no service edits; no migrations; `schedule.publish`/`schedule.revert` remain grant-only — the UI must render the deny state for a scheduler without the grant (proven) |
 | **Key proofs** | Publish requires the grant (deny rendered + server-denied, both asserted); the CAS loser's explicit failure rendered; idempotent replay (double-click, retry-after-timeout) publishes once — client-side red case; history immutability rendered truthfully (no edit affordance on published/superseded); diff display equals the pure-function diff (equality asserted); axe/keyboard/320px/budgets/I-13 |
 
-### 10e. OPUS-M3-006 — Staff-facing schedule views (wave 2) — **ISSUED 2026-08-05** (branch `opus/m3-006-staff-views`, worktree `.worktrees/m3-006`; base 20c0c13)
+### 10e. OPUS-M3-006 — Staff-facing schedule views (wave 2) — **ACCEPTED & MERGED 2026-08-05** (57685ab; review zero-blocking; FAD-25 closes carried item §2.10; task log)
 
 | Field | Content |
 |---|---|
@@ -273,7 +273,7 @@ M3 does not close after §§3–5: the roadmap outcome requires the experiences 
 | **Prohibited** | Everything else; no service edits; no migrations; a staff member must never see another member's non-published or cross-group data (proven both at API and UI) |
 | **Key proofs** | Self-scoping (member A cannot fetch member B's view; cross-group denial byte-identical); published-only (a draft version is invisible to staff); overnight rendering correctness (fixture with a 22:00→06:00 shift asserted on both days); timezone correctness under a non-UTC group timezone fixture; axe/keyboard/320px/mobile/budgets |
 
-### 10f. OPUS-M3-008 — Integration and hardening (last, alone) — FINALIZED, NOT ISSUED (issues after wave 2 merges)
+### 10f. OPUS-M3-008 — Integration and hardening (last, alone) — **ISSUED 2026-08-05** (branch `opus/m3-008-integration`, worktree `.worktrees/m3-008`; base = the wave-2 close-out commit). **Docket accumulated during the milestone (binding, in addition to the table below):** the audit READ API + publication audit display completion (FAD-26) · the holiday-calendar read/write key split (FAD-25 / D-10) · the period-length DB CHECK (M3-004 fold-in N-4's database half, migration 0011 pre-approved for these two schema items ONLY — anything further is an escalation) · the settings-page consolidation (M3-007 note) · the preview-port worktree derivation (E-2 class) · the SBX-004 stale "coverage gap" line refresh (M3-007 NB-6) · the PostgresError→404 mapping follow-up (M3-007 NB-3) · the plain-anchor section nav (M3-005 N4)
 
 | Field | Content |
 |---|---|
