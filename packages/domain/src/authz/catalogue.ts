@@ -226,6 +226,56 @@ export const CAPABILITIES: readonly CapabilityDefinition[] = [
       'publication. Draft-only (D-15a forbids editing a published version); distinct from ' +
       '`schedule.publish`. Role-implied for the scheduler.',
   },
+  /* ── OPUS-M3-006 — the staff-facing READ surface (CAP-020, doc 07 §1) ────────
+   *
+   * Two group-scoped `core_scheduling` READ keys, proposed additively because
+   * neither existed and no shipped key could stand in for them:
+   *
+   *  - `schedule.version.edit` and `schedule.period.administer` are AUTHORING
+   *    keys held by the scheduler and the group administrator. Gating a staff
+   *    member's own rota on an authoring key would mean nobody who is scheduled
+   *    could read the schedule, and everybody who could read it could rewrite
+   *    it. That is precisely the write/read confusion the calendar-key edge
+   *    (packet 32 §2 row 10) is about, and this packet's ruling refuses it in
+   *    both directions: **a write key never implies a read, and a read key never
+   *    implies a write.** Neither key below carries any power to change
+   *    anything.
+   *  - `membership.touch_self` is a harness capability with no product action
+   *    behind it (see this file's header). Reusing it for a product read would
+   *    make the harness key load-bearing in production.
+   *
+   * `docs/fable/08-roles-and-permissions.md` §6's "View published schedules"
+   * row is what assigns them: Member ✓, Viewer ✓, Telecom —, Scheduler ✓, Group
+   * Admin ✓. They are `✓` cells, not `G` cells, so both are role-implied rather
+   * than grant-only — a person's own rota is not something they should have to
+   * be granted. (The full path is deliberate: a bare "doc 08" resolves to
+   * `docs/architecture/08` under the repo convention, which is a different
+   * document.)
+   *
+   * **This does not expand the 58-capability baseline.** Both routes declare
+   * CAP-020 in `policy.capability`; these are ACTION keys, the unit L4
+   * evaluates. */
+  {
+    key: 'schedule.own_published.read',
+    scope: 'group',
+    module: 'core_scheduling',
+    description:
+      "CAP-020: read one's OWN assignments in the group's current published schedule. " +
+      'Self-scoped through SPEC-06 L5.1 with ownership required and **no ownership override** — ' +
+      'reading a named colleague\'s personal view is not an administrative power anybody holds; ' +
+      'the daily sheet and the authoring grid are the surfaces that show other people, and each ' +
+      'is separately authorized.',
+  },
+  {
+    key: 'schedule.published.read',
+    scope: 'group',
+    module: 'core_scheduling',
+    description:
+      "CAP-020: read the group's current published schedule — the daily assignment sheet for a " +
+      'date (doc 07 §1, a read of the published master schedule; NOT the picklist ' +
+      '`daily_assignments` module, which is M9). Published content only: a draft version is ' +
+      'invisible to this key at the query level, not filtered afterwards.',
+  },
   {
     key: 'requests.batch_approve',
     scope: 'group',

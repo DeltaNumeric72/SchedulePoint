@@ -1,0 +1,36 @@
+Serial re-run of the two seeds that failed under machine contention
+===================================================================
+
+During the delta the coordinator's own verification battery was running
+concurrently in .worktrees/m3-005-rev and -adv. Two seeds failed with the
+documented contention signature (runbook standing note: "whole test FILES fail
+with tests SKIPPED and zero tests failed ... read it as contention, then re-run
+serially before concluding anything about the code").
+
+  seed 7       993.9s   887 passed | 6 skipped (893)   FAIL test/settings/timezone.test.ts
+                        (vs ~40s typical for the same seed set — a 25x slowdown)
+  seed 531651  246.4s   2 failed | 891 passed (893)    FAIL test/audit/crash-restart.test.ts
+                        "a replacement worker reclaims a dead pool's job and
+                         completes it in seconds" — the C-2 lease proof, which
+                         measures WALL-CLOCK reclaim (runbook records 574-576 ms)
+                         and is therefore the first thing to fail on a saturated
+                         machine.
+
+Neither file is in this packet's diff. Re-run SERIALLY on a quiet machine, with
+the identical invocation the harness uses:
+
+$ node node_modules/vitest/vitest.mjs run --project api --sequence.shuffle.files --sequence.shuffle.tests --sequence.seed=7
+
+ Test Files  79 passed (79)
+      Tests  893 passed (893)
+   Start at  11:45:18
+   Duration  44.18s (transform 749ms, setup 1.47s, collect 1.01s, tests 39.70s, environment 0ms, prepare 100ms)
+
+
+$ node node_modules/vitest/vitest.mjs run --project api --sequence.shuffle.files --sequence.shuffle.tests --sequence.seed=531651
+
+ Test Files  79 passed (79)
+      Tests  893 passed (893)
+   Start at  11:46:03
+   Duration  43.27s (transform 795ms, setup 1.41s, collect 1.02s, tests 38.62s, environment 0ms, prepare 39ms)
+

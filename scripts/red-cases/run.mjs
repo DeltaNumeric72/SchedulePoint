@@ -357,6 +357,34 @@ const CASES = [
     redCommand: ['run', 'gate:unit'],
   },
   {
+    id: 'draft-invisibility',
+    gate: 'a draft schedule version is invisible to staff (doc 07 §1)',
+    violation: 'the published-only predicate removed from the staff schedule read',
+    // Doc 07 §1: a draft version "is not visible to staff". The control is a
+    // two-clause predicate on the version join, so the rows are never selected
+    // — a filter applied after the read would be a line somebody can move above
+    // a `return`, and this is not.
+    //
+    // Removing the clauses makes the draft's rows selectable, which
+    // `apps/api/test/schedule/views-http.test.ts` proves directly in SQL, and
+    // then makes the read fail: a draft has no `version_number` (D-9 allocates
+    // it inside the publication transaction) and the contract requires a
+    // positive one. The suite goes red either way, which is the point; the
+    // route's docblock records that the first of the two controls is what
+    // reports.
+    patch: [
+      {
+        file: 'apps/api/src/http/routes/schedule-views.route.ts',
+        find:
+          "    .where('schedule_versions.state', '=', 'published')\n" +
+          "    .where('schedule_versions.is_current', '=', true);",
+        replace: '    ; // red case: the published-only predicate is removed',
+      },
+    ],
+    greenCommand: ['run', 'gate:unit'],
+    redCommand: ['run', 'gate:unit'],
+  },
+  {
     id: 'request-budget-over',
     gate: 'requests per interaction (SP-HR-2)',
     violation: 'one click recorded as three requests, against a budget of one',

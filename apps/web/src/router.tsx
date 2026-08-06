@@ -17,6 +17,8 @@ import {
   PasswordResetRequestPage,
   SignInPage,
 } from './authn/pages.js';
+import { DailySheetPage } from './my-schedule/DailySheetPage.js';
+import { MySchedulePage } from './my-schedule/MySchedulePage.js';
 import { RulesPage } from './rules/RulesPage.js';
 import { GridPage } from './schedule/GridPage.js';
 import { PeriodsPage } from './schedule/PeriodsPage.js';
@@ -258,7 +260,34 @@ const versionComparisonRoute = createRoute({
   component: VersionComparisonPage,
 });
 
+/**
+ * The staff-facing schedule views (OPUS-M3-006).
+ *
+ * Two sibling routes rather than a tree, because they are two different reads
+ * rather than sections of one thing: `my-schedule` is one person's own published
+ * shifts (the membership is a path parameter — see `MyScheduleLayout` for why,
+ * and note that the server answers from the verified context regardless), and
+ * `daily-sheet` is the published master schedule for a date, which is about
+ * nobody in particular.
+ *
+ * Both mirror the API's `/organizations/:o/groups/:g/published-schedule/…`
+ * shape, so the client route tree and the server's policy-checked route table
+ * can be reconciled against each other rather than compared by eye.
+ */
+const myScheduleRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/organizations/$organizationId/groups/$groupId/my-schedule/$membershipId',
+  component: MySchedulePage,
+});
+const dailySheetRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/organizations/$organizationId/groups/$groupId/daily-sheet/$date',
+  component: DailySheetPage,
+});
+
 const routeTree = rootRoute.addChildren([
+  myScheduleRoute,
+  dailySheetRoute,
   signInRoute,
   mfaChallengeRoute,
   mfaEnrolmentRoute,

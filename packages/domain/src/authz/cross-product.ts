@@ -147,8 +147,27 @@ export interface CrossProductCase {
  */
 export const SYSTEM_ROLE_CAPABILITIES: Readonly<Record<string, readonly string[]>> = {
   /* group roles */
-  member: [],
-  viewer: [],
+  /* OPUS-M3-006 adds the two staff-facing READ keys (CAP-020) from
+   * `docs/fable/08-roles-and-permissions.md` §6's "View published schedules"
+   * row — Member ✓, Viewer ✓, Telecom —, Scheduler ✓, Group Admin ✓. (The full
+   * path, not "doc 08": a bare "08" resolves to `docs/architecture/08` under the
+   * repo convention, whose §6 is Explainability.) They are `✓` cells rather than
+   * `G` cells, so they are role-implied rather than grant-only: a person's own
+   * rota is not something they should have to be granted, and a rota nobody can
+   * read is not published.
+   *
+   * **Telecom holds neither, and that is the row rather than an omission**:
+   * that document's §3 gives Telecom the on-call board only (CAP-044), and its
+   * §6 marks the "View published schedules" cell `—`. It is the deny case both
+   * keys are tested against.
+   *
+   * Neither key appears on any organization role. `org_admin` is `✓` in that
+   * same row, but a group-scoped key cannot be held through an organization role
+   * (P-10), and an organization administrator who needs to read a group's
+   * schedule holds a membership in it. This follows the precedent OPUS-M3-007
+   * set for the three group-settings keys and is recorded the same way. */
+  member: ['schedule.own_published.read', 'schedule.published.read'],
+  viewer: ['schedule.own_published.read', 'schedule.published.read'],
   telecom: [],
   /* OPUS-M2-002 adds `schedule.catalogue.administer` to both, from doc 08 §6's
    * "Author catalogue & rules" row (scheduler ✓, group admin ✓). The two
@@ -165,6 +184,8 @@ export const SYSTEM_ROLE_CAPABILITIES: Readonly<Record<string, readonly string[]
     'schedule.catalogue.administer',
     'schedule.period.administer',
     'schedule.version.edit',
+    'schedule.own_published.read',
+    'schedule.published.read',
   ],
   group_admin: [
     'membership.touch_self',
@@ -172,6 +193,8 @@ export const SYSTEM_ROLE_CAPABILITIES: Readonly<Record<string, readonly string[]
     'schedule.catalogue.administer',
     'schedule.period.administer',
     'schedule.version.edit',
+    'schedule.own_published.read',
+    'schedule.published.read',
     'group.holiday_calendar.administer',
     'group.pick_positions.administer',
     /* OPUS-M3-007 adds the three group-settings keys to `group_admin` ALONE,

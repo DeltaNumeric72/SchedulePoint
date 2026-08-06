@@ -1,0 +1,52 @@
+
+Running 46 tests using 1 worker
+
+  ✓   1 [desktop] › e2e/my-schedule.spec.ts:254:3 › my schedule — states › LOADING: the surface announces itself while it is being fetched (337ms)
+  ✓   2 [desktop] › e2e/my-schedule.spec.ts:274:3 › my schedule — states › EMPTY: a window with no shifts says so, in words (359ms)
+  ✓   3 [desktop] › e2e/my-schedule.spec.ts:299:3 › my schedule — states › ERROR: a 500 renders the fixed message and a reference, and nothing else (318ms)
+  ✓   4 [desktop] › e2e/my-schedule.spec.ts:312:3 › my schedule — states › DENIED: a 403 says "no permission" and never says why (319ms)
+  ✓   5 [desktop] › e2e/my-schedule.spec.ts:329:3 › my schedule — states › NOT FOUND: a 404 is rendered as not found, not as a permission problem (316ms)
+  ✓   6 [desktop] › e2e/my-schedule.spec.ts:352:3 › my schedule — calendar and list › the calendar is an ARIA grid with weekday headers and labelled days (455ms)
+  ✓   7 [desktop] › e2e/my-schedule.spec.ts:373:3 › my schedule — calendar and list › the list is a real table with row and column headers (383ms)
+  ✓   8 [desktop] › e2e/my-schedule.spec.ts:388:3 › my schedule — calendar and list › the calendar and the alternative render the SAME entries (146ms)
+  -   9 [desktop] › e2e/my-schedule.spec.ts:406:3 › my schedule — calendar and list › below 640px the alternative is a LIST carrying the same entries
+  ✓  10 [desktop] › e2e/my-schedule.spec.ts:426:3 › an overnight shift › appears on BOTH days, and the two days say different things (389ms)
+  ✓  11 [desktop] › e2e/my-schedule.spec.ts:443:3 › an overnight shift › the calendar marks the two days differently too (85ms)
+  ✓  12 [desktop] › e2e/my-schedule.spec.ts:459:3 › keyboard and status › arrow keys move between days and Enter opens the daily sheet (116ms)
+  ✓  13 [desktop] › e2e/my-schedule.spec.ts:488:3 › keyboard and status › the status is a live region and names the zone (87ms)
+  ✓  14 [desktop] › e2e/my-schedule.spec.ts:501:3 › keyboard and status › the page states that drafts are not shown (75ms)
+  ✓  15 [desktop] › e2e/my-schedule.spec.ts:515:3 › requests per interaction › switching between the calendar and the list issues ZERO requests (121ms)
+  ✓  16 [desktop] › e2e/my-schedule.spec.ts:530:3 › requests per interaction › moving the window issues exactly one request (217ms)
+  ✓  17 [desktop] › e2e/my-schedule.spec.ts:548:3 › requests per interaction › opening a day from the calendar issues exactly one request (199ms)
+  ✓  18 [desktop] › e2e/my-schedule.spec.ts:564:3 › requests per interaction › moving to the next day on the sheet issues exactly one request (123ms)
+  ✓  19 [desktop] › e2e/my-schedule.spec.ts:587:3 › the daily assignment sheet › shows everyone working, including a shift that began yesterday (318ms)
+  ✓  20 [desktop] › e2e/my-schedule.spec.ts:605:3 › the daily assignment sheet › EMPTY: a date nobody is working says so (298ms)
+  ✓  21 [desktop] › e2e/my-schedule.spec.ts:616:3 › the daily assignment sheet › DENIED: a 403 is a permission state, not an empty sheet (297ms)
+  -  22 [desktop] › e2e/my-schedule.spec.ts:635:3 › AC-08 — 320px › my schedule reflows with no page-level horizontal scroll
+  -  23 [desktop] › e2e/my-schedule.spec.ts:651:3 › AC-08 — 320px › the daily sheet reflows too
+  ✓  24 [mobile] › e2e/my-schedule.spec.ts:254:3 › my schedule — states › LOADING: the surface announces itself while it is being fetched (368ms)
+  ✓  25 [mobile] › e2e/my-schedule.spec.ts:274:3 › my schedule — states › EMPTY: a window with no shifts says so, in words (390ms)
+  ✓  26 [mobile] › e2e/my-schedule.spec.ts:299:3 › my schedule — states › ERROR: a 500 renders the fixed message and a reference, and nothing else (364ms)
+  ✓  27 [mobile] › e2e/my-schedule.spec.ts:312:3 › my schedule — states › DENIED: a 403 says "no permission" and never says why (346ms)
+  ✓  28 [mobile] › e2e/my-schedule.spec.ts:329:3 › my schedule — states › NOT FOUND: a 404 is rendered as not found, not as a permission problem (345ms)
+  -  29 [mobile] › e2e/my-schedule.spec.ts:352:3 › my schedule — calendar and list › the calendar is an ARIA grid with weekday headers and labelled days
+  -  30 [mobile] › e2e/my-schedule.spec.ts:373:3 › my schedule — calendar and list › the list is a real table with row and column headers
+  ✓  31 [mobile] › e2e/my-schedule.spec.ts:388:3 › my schedule — calendar and list › the calendar and the alternative render the SAME entries (145ms)
+  ✓  32 [mobile] › e2e/my-schedule.spec.ts:406:3 › my schedule — calendar and list › below 640px the alternative is a LIST carrying the same entries (397ms)
+  ✓  33 [mobile] › e2e/my-schedule.spec.ts:426:3 › an overnight shift › appears on BOTH days, and the two days say different things (447ms)
+  -  34 [mobile] › e2e/my-schedule.spec.ts:443:3 › an overnight shift › the calendar marks the two days differently too
+  -  35 [mobile] › e2e/my-schedule.spec.ts:459:3 › keyboard and status › arrow keys move between days and Enter opens the daily sheet
+  ✓  36 [mobile] › e2e/my-schedule.spec.ts:488:3 › keyboard and status › the status is a live region and names the zone (84ms)
+  ✓  37 [mobile] › e2e/my-schedule.spec.ts:501:3 › keyboard and status › the page states that drafts are not shown (80ms)
+  ✓  38 [mobile] › e2e/my-schedule.spec.ts:515:3 › requests per interaction › switching between the calendar and the list issues ZERO requests (122ms)
+  ✓  39 [mobile] › e2e/my-schedule.spec.ts:530:3 › requests per interaction › moving the window issues exactly one request (219ms)
+  -  40 [mobile] › e2e/my-schedule.spec.ts:548:3 › requests per interaction › opening a day from the calendar issues exactly one request
+  ✓  41 [mobile] › e2e/my-schedule.spec.ts:564:3 › requests per interaction › moving to the next day on the sheet issues exactly one request (113ms)
+  ✓  42 [mobile] › e2e/my-schedule.spec.ts:587:3 › the daily assignment sheet › shows everyone working, including a shift that began yesterday (357ms)
+  ✓  43 [mobile] › e2e/my-schedule.spec.ts:605:3 › the daily assignment sheet › EMPTY: a date nobody is working says so (327ms)
+  ✓  44 [mobile] › e2e/my-schedule.spec.ts:616:3 › the daily assignment sheet › DENIED: a 403 is a permission state, not an empty sheet (347ms)
+  ✓  45 [mobile] › e2e/my-schedule.spec.ts:635:3 › AC-08 — 320px › my schedule reflows with no page-level horizontal scroll (396ms)
+  ✓  46 [mobile] › e2e/my-schedule.spec.ts:651:3 › AC-08 — 320px › the daily sheet reflows too (346ms)
+
+  8 skipped
+  38 passed (11.8s)

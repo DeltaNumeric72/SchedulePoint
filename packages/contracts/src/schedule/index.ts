@@ -13,6 +13,13 @@
  */
 export * from './authoring.js';
 
+/**
+ * OPUS-M3-006 — the staff-facing READ surface (CAP-020, doc 07 §1). Re-exported
+ * wholesale for the same reason `authoring.js` is. The module ships no mutation:
+ * a published version is immutable (I-18) and staff read it.
+ */
+export * from './views.js';
+
 export {
   PUBLICATION_IDEMPOTENCY_KEY_PATTERN,
   publicationIdempotencyKeySchema,

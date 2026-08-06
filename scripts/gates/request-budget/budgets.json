@@ -118,6 +118,30 @@
       "note": "The PUT plus the rule-list re-read. Measured 2 at both viewports (OPUS-M3-004, review N-7)."
     },
     {
+      "id": "my-schedule-switch-view",
+      "description": "User switches between the calendar and the list view of their own schedule.",
+      "maxRequests": 0,
+      "note": "ZERO, and it is the whole point of the 'both first-class' requirement: the two renderings come from the data the page already holds, so choosing how to look at your rota costs nothing. A fetch here would make the accessible alternative more expensive than the calendar, which is how an alternative becomes a degraded mode. Measured 0 at both viewports (OPUS-M3-006)."
+    },
+    {
+      "id": "my-schedule-next-window",
+      "description": "User clicks 'Next four weeks' on their own schedule.",
+      "maxRequests": 1,
+      "note": "I-10 in its strictest form: one action, one read. A window the page has not seen cannot come from the cache, and nothing else is fetched — no prefetch of the window after it, no revalidation of the one behind. Measured 1 at both viewports (OPUS-M3-006)."
+    },
+    {
+      "id": "daily-sheet-open-from-calendar",
+      "description": "User presses Enter on a calendar day to open the daily assignment sheet.",
+      "maxRequests": 1,
+      "note": "One navigation, one read. The sheet is a different question from the personal schedule — everyone working that date, not this person's shifts — so it cannot be answered from the page's data, and it is not prefetched for every day the calendar shows. Measured 1 on DESKTOP ONLY: the calendar is the desktop default and the narrow viewport opens on the list, so the e2e that records this interaction is skipped on mobile and no mobile recording exists (OPUS-M3-006)."
+    },
+    {
+      "id": "daily-sheet-next-day",
+      "description": "User clicks 'Next day' on the daily assignment sheet.",
+      "maxRequests": 1,
+      "note": "One click, one read of the new date. Measured 1 at both viewports (OPUS-M3-006)."
+    },
+    {
       "id": "catalogue-open-new-shift-type",
       "description": "User clicks 'New shift type' to open the authoring form.",
       "maxRequests": 0,

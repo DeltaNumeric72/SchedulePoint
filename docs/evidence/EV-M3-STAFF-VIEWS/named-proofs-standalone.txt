@@ -1,0 +1,15 @@
+=== views-http STANDALONE (rebased) ===
+
+ Test Files  1 passed (1)
+      Tests  19 passed (19)
+   Start at  13:30:30
+   Duration  2.35s (transform 368ms, setup 115ms, collect 78ms, tests 452ms, environment 0ms, prepare 38ms)
+
+
+=== views-time STANDALONE (rebased) ===
+
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+   Start at  13:30:32
+   Duration  1.80s (transform 276ms, setup 115ms, collect 37ms, tests 37ms, environment 0ms, prepare 31ms)
+
