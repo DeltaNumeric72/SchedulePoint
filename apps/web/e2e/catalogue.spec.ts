@@ -1,11 +1,12 @@
 import { mkdirSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
 
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page, type Route } from '@playwright/test';
 
 import { recordRequests } from './support/request-budget.js';
+
+import { screenshotDir } from './support/evidence-target.js';
 
 /**
  * The catalogue surfaces: every state, both viewports, axe on each.
@@ -47,10 +48,7 @@ const GROUP = '22222222-2222-4222-8222-222222222222';
 const BASE = `/organizations/${ORGANIZATION}/groups/${GROUP}/catalogue`;
 const API = `**/api${BASE}`;
 
-const SCREENSHOTS = resolve(
-  dirname(fileURLToPath(import.meta.url)),
-  '../../../docs/evidence/EV-M2-CATALOGUE/screenshots',
-);
+const SCREENSHOTS = screenshotDir('EV-M2-CATALOGUE');
 
 /** One shift type per palette key, so axe measures all six rendered pairs. */
 const PALETTES = ['neutral', 'indigo', 'teal', 'amber', 'rose', 'violet'] as const;

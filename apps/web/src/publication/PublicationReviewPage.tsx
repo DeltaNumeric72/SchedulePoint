@@ -255,8 +255,11 @@ function ReviewPanel({
           Before publishing
         </h2>
         <p className="text-sm text-text-muted" data-testid="review-validation-scope">
-          This lists conflicts already recorded against this version and checks of the version&apos;s
-          own state. Scheduling rules are not evaluated against a draft here.
+          This lists conflicts already recorded against this version, checks of the version&apos;s
+          own state, and the group&apos;s active HARD rules evaluated against this version&apos;s
+          content. The server re-runs the rule checks inside the publication itself, so a rule can
+          still block a publication this page passed — a credential that expires in between is
+          exactly that case.
         </p>
 
         {blocked ? (
@@ -265,10 +268,18 @@ function ReviewPanel({
               <li
                 className="rounded-panel border border-danger bg-surface-raised p-sp-3"
                 data-testid={`blocker-${blocker.code}`}
-                key={`${blocker.code}:${blocker.conflictId ?? String(index)}`}
+                key={`${blocker.code}:${blocker.conflictId ?? blocker.ruleKey ?? String(index)}`}
               >
                 <span className="font-semibold text-danger">Blocked</span>
                 <span className="text-text"> — {blocker.message}</span>
+                {blocker.ruleKey === null ? null : (
+                  <span
+                    className="block text-sm text-text-muted"
+                    data-testid={`blocker-rule-${blocker.ruleKey}`}
+                  >
+                    Rule: {blocker.ruleKey}
+                  </span>
+                )}
               </li>
             ))}
           </ul>

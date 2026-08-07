@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 import { afterAll, describe, expect, it } from 'vitest';
 
+import { nestedClusterPort } from '../support/env.js';
 import { log } from '../support/harness.js';
 
 /**
@@ -466,8 +467,15 @@ describe("red case — the test runner's exit code is real", () => {
             ...process.env,
             FORCE_COLOR: '0',
             NODE_NO_WARNINGS: '1',
-            // A port of its own: this test is itself running against 55433.
-            SP_TEST_PG_PORT: '55455',
+            /* A port of its own, DERIVED per worktree (O-1).
+             *
+             * It was the fixed `55455`, which is the class E-1 closed for the
+             * main cluster and this packet closed for the preview server. Under
+             * two concurrent batteries the nested runs collided and this RED arm
+             * failed at fixed seed 8675309 — the same seed OPUS-M3-002 recorded
+             * it at, which is once too many. The assertion below is untouched;
+             * only the port it spawns on moved. */
+            SP_TEST_PG_PORT: String(nestedClusterPort()),
           },
         },
       );

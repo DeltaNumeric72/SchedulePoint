@@ -174,16 +174,28 @@ export type VersionDifferenceWire = z.infer<typeof versionDifferenceSchema>;
  * | `VERSION_ALREADY_PUBLISHED` | the same step, for a version that is already history |
  * | `VERSION_PERIOD_MISMATCH` | step 03's period check |
  *
- * **Rule execution against the draft is deliberately NOT here.** Compiled HARD
- * rules are evaluated against version content at publication time, and that join
- * is OPUS-M3-008's (packet 32 §10f, SPEC-05 §6 step 06). Displaying a rule
- * verdict on this branch would fake a capability that does not exist yet.
+ * **Rule execution against the draft arrived with OPUS-M3-008.** SPEC-05 §6 step
+ * 06 evaluates the group's active compiled HARD rules against the version's
+ * content inside the publication transaction, and this branch now predicts that
+ * refusal too:
+ *
+ * | Code | The server-side refusal it predicts |
+ * |---|---|
+ * | `HARD_RULE_BREACH` | step 06: the content breaches an active HARD rule |
+ * | `HARD_RULE_NOT_EVALUABLE` | step 06: an active HARD rule this system cannot yet decide |
+ *
+ * The second is not a euphemism for "ignored". SPEC-04 §3.3 forbids skipping a
+ * HARD rule by any code path, so a rule whose semantics SPEC-04 §3.1 does not
+ * pin blocks publication and names itself — the honest alternative to passing it
+ * over. The remaining kinds are M4's.
  */
 export const PUBLICATION_BLOCKER_CODES = [
   'OPEN_HARD_BREACH',
   'VERSION_NOT_APPROVED',
   'VERSION_ALREADY_PUBLISHED',
   'VERSION_PERIOD_MISMATCH',
+  'HARD_RULE_BREACH',
+  'HARD_RULE_NOT_EVALUABLE',
 ] as const;
 export type PublicationBlockerCode = (typeof PUBLICATION_BLOCKER_CODES)[number];
 
@@ -194,6 +206,15 @@ export const publicationBlockerSchema = z
     message: z.string().min(1).max(300),
     /** The conflict row this blocker came from, when it came from one. */
     conflictId: uuid.nullable(),
+    /**
+     * The STABLE `rule_key` (non-bypass rule 13) this blocker came from, when it
+     * came from a rule — the two `HARD_RULE_*` codes. `null` otherwise.
+     *
+     * Named rather than folded into `message` because a scheduler's next action
+     * is to open that rule, and a key buried in prose is a key a client cannot
+     * link to.
+     */
+    ruleKey: z.string().max(64).nullable(),
   })
   .strict();
 export type PublicationBlocker = z.infer<typeof publicationBlockerSchema>;

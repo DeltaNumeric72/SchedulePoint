@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 
 import type { FastifyInstance } from 'fastify';
 import PgPkg from 'pg';
@@ -15,6 +15,7 @@ import type { RouteTableEntry } from '../../src/http/route-table.js';
 import { adminClient } from '../support/admin-client.js';
 import { createPool } from '../../src/db/pool.js';
 import { API_ROOT } from '../support/env.js';
+import { isEvidenceRefresh, resolveEvidencePath } from '../support/evidence-target.js';
 import { log, type Runtime } from '../support/harness.js';
 import { buildHttpHarness, type HttpHarness } from '../support/http.js';
 import { ownedMulti } from '../support/owned-multi.js';
@@ -762,10 +763,18 @@ describe('the G-ARCH tenancy subset', () => {
       await ensureSubsetRun();
       await ensureChainVerified();
       const repoRoot = resolve(API_ROOT, '../..');
-      mkdirSync(resolve(repoRoot, 'docs/evidence/EV-M2-SBX'), { recursive: true });
+      /* NR-14 (OPUS-M3-008). A plain run writes under `.evidence-scratch/`, so
+       * the battery no longer dirties the tree and the restore-with-`git
+       * checkout --` discipline retires; `SP_EVIDENCE_REFRESH=1` writes the
+       * TRACKED paths. The DECLARED relative path is unchanged either way — it
+       * is the scenario's SPEC-16 contract value, and the manifest below keys on
+       * it — so only the root moves. */
+      const refresh = isEvidenceRefresh();
       const manifest: { path: string; bytes: number }[] = [];
       const write = (relative: string, body: string): void => {
-        writeFileSync(resolve(repoRoot, relative), body, 'utf8');
+        const target = resolveEvidencePath(repoRoot, relative, refresh);
+        mkdirSync(dirname(target), { recursive: true });
+        writeFileSync(target, body, 'utf8');
         manifest.push({ path: relative, bytes: Buffer.byteLength(body, 'utf8') });
       };
       write('docs/evidence/EV-M2-SBX/scenario-report.txt', renderReport(results));
@@ -792,12 +801,16 @@ describe('the G-ARCH tenancy subset', () => {
     // post-write tamper guard — useful, but not the thing doing the work.
     const manifest = await ensureArtifactsWritten();
     const repoRoot = resolve(API_ROOT, '../..');
+    const refresh = isEvidenceRefresh();
     const byPath = new Map(manifest.map((entry) => [entry.path, entry.bytes]));
 
     const problems: string[] = [];
     for (const result of results) {
       const relative = result.contract.retainedArtifact;
-      const path = resolve(repoRoot, relative);
+      // Resolved the way THIS run wrote it. Checking the tracked path on a
+      // scratch run would pass against the checked-in file from a previous run —
+      // precisely the Layer 4 staleness D-04 closed, reopened by the redirect.
+      const path = resolveEvidencePath(repoRoot, relative, refresh);
       const expectedBytes = byPath.get(relative);
       if (expectedBytes === undefined) {
         problems.push(`${result.id} -> ${relative}: declared but THIS run did not write it`);
@@ -826,14 +839,16 @@ describe('the G-ARCH tenancy subset', () => {
     // Green-before-red: the real scenarios above pass the same check.
     const manifest = await ensureArtifactsWritten();
     const repoRoot = resolve(API_ROOT, '../..');
+    const refresh = isEvidenceRefresh();
+    const at = (rel: string): string => resolveEvidencePath(repoRoot, rel, refresh);
     const phantom = 'docs/evidence/EV-M2-SBX/this-artifact-is-never-written.txt';
     expect(manifest.some((entry) => entry.path === phantom)).toBe(false);
     expect(
-      existsSync(resolve(repoRoot, phantom)),
+      existsSync(at(phantom)),
       'the phantom path exists, so this red case would pass vacuously',
     ).toBe(false);
     const declared = [...results.map((r) => r.contract.retainedArtifact), phantom];
-    const missing = declared.filter((rel) => !existsSync(resolve(repoRoot, rel)));
+    const missing = declared.filter((rel) => !existsSync(at(rel)));
     expect(missing, 'the meta-test failed to notice a phantom artifact').toEqual([phantom]);
     log('a declared-but-never-written artifact is detected by the meta-test');
   });

@@ -117,3 +117,84 @@ export function translatePgError(error: unknown): TranslatedPgError | null {
       return null;
   }
 }
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Distinguishing a tenant-shaped refusal from a defect (OPUS-M3-008, M3-007 NB-3)
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * What a SQLSTATE means about **this process**, for the LOG only.
+ *
+ * ## The follow-up this closes
+ *
+ * `settings.route.ts` and `schedule-publication.route.ts` both end their error
+ * handling with "if it is a PostgresError, answer 404" and one `warn` line. That
+ * disclosure posture is correct and does not change here: a caller must not be
+ * able to tell a row RLS hid from a row that does not exist, and a schema
+ * description is disclosure nobody has earned.
+ *
+ * The problem is the other side of the line. Under that mapping a genuine
+ * **defect in this process** — a malformed query (42601), a column that does not
+ * exist (42703), an undefined function (42883) — is logged with the same wording
+ * and the same level as an ordinary tenant miss, so it lands in the noise floor.
+ * The one thing that would have made it findable, an operator noticing "this is
+ * not a not-found", is exactly what the uniform handler removed.
+ *
+ * So the classification below is **log-side only**. Nothing about the response
+ * changes: the client still gets the fixed `404` body, byte-identical either way.
+ *
+ * ## The classes
+ *
+ * `tenant-shaped` — the statement was refused by a control that is *supposed* to
+ * refuse statements: RLS (42501), an integrity constraint (class 23), a bad uuid
+ * from a path parameter (22P02), a lock or cancellation (55/57). A 404 is the
+ * honest answer and there is nothing to investigate.
+ *
+ * `defect` — everything else, and in particular class 42 (syntax and access-rule
+ * errors that are not privilege), class 25 (invalid transaction state — an
+ * ordering bug), and class XX (internal). These mean the code is wrong. They are
+ * logged at `error` with `isDefect: true` so a query for real problems does not
+ * have to read every 404 in the system.
+ */
+export type PgFailureClass = 'tenant-shaped' | 'defect';
+
+/** SQLSTATE classes (the first two characters) that a correct process still provokes. */
+const TENANT_SHAPED_CLASSES = new Set([
+  '23', // integrity constraint violation
+  '22', // data exception — e.g. 22P02 from a malformed uuid in a path
+  '40', // transaction rollback / serialization failure
+  '55', // object not in prerequisite state (lock not available)
+  '57', // operator intervention (statement cancelled, admin shutdown)
+]);
+
+/** Individual codes that are tenant-shaped despite their class. */
+const TENANT_SHAPED_CODES = new Set<string>([
+  PG_ERRORS.insufficientPrivilege, // 42501 — an RLS WITH CHECK rejection
+]);
+
+export function classifyPgFailure(error: unknown): PgFailureClass {
+  if (!isPostgresError(error) || error.code === undefined) return 'defect';
+  if (TENANT_SHAPED_CODES.has(error.code)) return 'tenant-shaped';
+  return TENANT_SHAPED_CLASSES.has(error.code.slice(0, 2)) ? 'tenant-shaped' : 'defect';
+}
+
+/**
+ * The log fields for a database refusal that the edge is about to answer `404`
+ * for. **Never sent to a client**; the response is unchanged.
+ */
+export interface PgFailureLogFields {
+  readonly sqlstate: string;
+  readonly failureClass: PgFailureClass;
+  readonly isDefect: boolean;
+}
+
+export function pgFailureLogFields(error: unknown): PgFailureLogFields {
+  const failure = classifyPgFailure(error);
+  return {
+    sqlstate: (isPostgresError(error) ? error.code : undefined) ?? 'unknown',
+    failureClass: failure,
+    // The field an operator filters on. A 404 answered because of a syntax error
+    // is a bug report wearing a tenant miss's clothes.
+    isDefect: failure === 'defect',
+  };
+}

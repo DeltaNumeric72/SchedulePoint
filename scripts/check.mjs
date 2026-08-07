@@ -3,6 +3,13 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import {
+  EVIDENCE_REFRESH_ENV,
+  evidenceDestinationBanner,
+  isEvidenceRefresh,
+  resolveEvidencePath,
+} from './evidence-target.mjs';
+
 /**
  * `pnpm check` — the full gate battery, in dependency order.
  *
@@ -118,10 +125,14 @@ function stripAnsi(text) {
   return text.replace(/\[[0-9;]*[A-Za-z]/g, '');
 }
 
+/** NR-14: a plain run writes to scratch; `--refresh` updates the tracked file. */
+const REFRESH = isEvidenceRefresh();
+
 function main() {
   /** @type {{ gate: Gate, ok: boolean, ms: number, output: string }[]} */
   const results = [];
   const transcript = [`# pnpm check — ${new Date().toISOString()}`, ''];
+  process.stdout.write(`${evidenceDestinationBanner(REFRESH)}\n`);
 
   for (const gate of GATES) {
     process.stdout.write(`\n[1m=== ${gate.id} — ${gate.title} ===[0m\n`);
@@ -130,7 +141,10 @@ function main() {
     const run = spawnSync(invocation.command, invocation.args, {
       cwd: gate.cwd ?? REPO_ROOT,
       encoding: 'utf8',
-      env: { ...process.env, FORCE_COLOR: '0' },
+      // The refresh intent travels to every child, because the gates that write
+      // evidence (`unit`, which runs the SBX battery) receive an environment and
+      // not this process's argv.
+      env: { ...process.env, FORCE_COLOR: '0', ...(REFRESH ? { [EVIDENCE_REFRESH_ENV]: '1' } : {}) },
       shell: process.platform === 'win32',
     });
     const ms = Date.now() - started;
@@ -160,8 +174,10 @@ function main() {
   process.stdout.write(table);
   transcript.push('## summary', '', '```', table.trim(), '```', '');
 
-  mkdirSync(resolve(REPO_ROOT, 'scripts'), { recursive: true });
-  writeFileSync(resolve(REPO_ROOT, 'scripts/check-output.txt'), transcript.join('\n'), 'utf8');
+  const transcriptPath = resolveEvidencePath(REPO_ROOT, 'scripts/check-output.txt', REFRESH);
+  mkdirSync(dirname(transcriptPath), { recursive: true });
+  writeFileSync(transcriptPath, transcript.join('\n'), 'utf8');
+  process.stdout.write(`${evidenceDestinationBanner(REFRESH)}\n${transcriptPath}\n`);
 
   process.exit(failed.length === 0 ? 0 : 1);
 }

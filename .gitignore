@@ -9,6 +9,13 @@ dist-types/
 *.tsbuildinfo
 
 # Test and gate artifacts
+#
+# `.evidence-scratch/` is the NR-14 redesign (OPUS-M3-008): a plain `pnpm check`,
+# `pnpm red-cases` or `pnpm sbx` writes its transcripts and retained artifacts
+# here instead of over the tracked ones, so a battery run leaves the working tree
+# CLEAN. `--refresh` writes the tracked paths deliberately. The old discipline —
+# notice the churn and undo it with `git checkout --` — is retired.
+.evidence-scratch/
 coverage/
 playwright-report/
 test-results/

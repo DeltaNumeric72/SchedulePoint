@@ -17,7 +17,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
 import { recordAuditEvent } from '../../audit/recorder.js';
 import { evaluateInTransaction, respondToDenial } from '../../authz/authorize-request.js';
-import { PG_ERRORS, isPostgresError } from '../../db/pg-errors.js';
+import { PG_ERRORS, isPostgresError, pgFailureLogFields } from '../../db/pg-errors.js';
 import {
   LOCATION_CONFIG,
   PICKLIST_ACCESS_CONFIG,
@@ -156,10 +156,11 @@ async function withSettingsCommand<T>(
     } catch (error) {
       if (!isPostgresError(error)) throw error;
       if (isUniqueViolation(error)) return { kind: 'conflict' };
-      request.log.warn(
-        { correlationId: request.correlationId, sqlstate: error.code },
-        'settings statement refused by the database',
-      );
+      /* The RESPONSE is unchanged — a fixed 404, byte-identical whatever the
+       * SQLSTATE was. What changes is the LOG: a 42601 or a 42703 is a defect in
+       * this process wearing a tenant miss's clothes, and answering both at the
+       * same level buried it (M3-007 NB-3). */
+      logDatabaseRefusal(request, error, 'settings statement refused by the database');
       return { kind: 'not-found' };
     }
 
@@ -178,6 +179,19 @@ async function withSettingsCommand<T>(
   });
 }
 
+/**
+ * Log a database refusal the edge is about to answer `404` for.
+ *
+ * Disclosure is untouched: the caller's body does not vary. The LEVEL and the
+ * `isDefect` field do, so a query for real problems does not have to read every
+ * 404 in the system (`classifyPgFailure`).
+ */
+function logDatabaseRefusal(request: FastifyRequest, error: unknown, message: string): void {
+  const fields = { correlationId: request.correlationId, ...pgFailureLogFields(error) };
+  if (fields.isDefect) request.log.error(fields, message);
+  else request.log.warn(fields, message);
+}
+
 /** A read: authorize inside the unit of work, then read. No audit row for a read. */
 async function withSettingsQuery<T>(
   request: FastifyRequest,
@@ -193,10 +207,7 @@ async function withSettingsQuery<T>(
       return { kind: 'ok', value: await run(uow) };
     } catch (error) {
       if (!isPostgresError(error)) throw error;
-      request.log.warn(
-        { correlationId: request.correlationId, sqlstate: error.code },
-        'settings read refused by the database',
-      );
+      logDatabaseRefusal(request, error, 'settings read refused by the database');
       return { kind: 'not-found' };
     }
   });

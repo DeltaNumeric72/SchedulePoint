@@ -5,7 +5,15 @@ import { dirname, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
+import {
+  evidenceDestinationBanner,
+  isEvidenceRefresh,
+  resolveEvidencePath,
+} from '../evidence-target.mjs';
 import { resolveTestPgPort } from '../sbx/test-port.mjs';
+
+/** NR-14: a plain run writes to scratch; `--refresh` updates the tracked file. */
+const EVIDENCE_REFRESH = isEvidenceRefresh();
 
 /**
  * `pnpm red-cases` — proof that every gate actually fails.
@@ -166,6 +174,24 @@ const CASES = [
     ],
     greenCommand: ['run', 'gate:rule-node-mapping'],
     redCommand: ['run', 'gate:rule-node-mapping'],
+  },
+  {
+    id: 'nr14-clean-tree',
+    gate: 'NR-14 evidence destination (a plain run leaves the tree clean)',
+    violation: 'an evidence writer restored to writing its TRACKED path unconditionally',
+    /* The regression this closes, expressed exactly: `scripts/check.mjs` writing
+     * `scripts/check-output.txt` no matter what the run asked for. With the patch
+     * applied the writer bypasses the resolver, and the check must notice. */
+    patch: [
+      {
+        file: 'scripts/check.mjs',
+        find:
+          "  const transcriptPath = resolveEvidencePath(REPO_ROOT, 'scripts/check-output.txt', REFRESH);",
+        replace: "  const transcriptPath = resolve(REPO_ROOT, 'scripts/check-output.txt');",
+      },
+    ],
+    greenCommand: ['exec', 'node', 'scripts/red-cases/nr14/clean-tree.mjs'],
+    redCommand: ['exec', 'node', 'scripts/red-cases/nr14/clean-tree.mjs'],
   },
   {
     id: 'corpus-tamper',
@@ -653,7 +679,14 @@ async function main() {
   process.stdout.write(table);
   transcript.push('## summary', '', '```', table.trim(), '```', '');
 
-  writeFileSync(resolve(HERE, 'evidence-output.txt'), transcript.join('\n'), 'utf8');
+  const transcriptPath = resolveEvidencePath(
+    REPO_ROOT,
+    'scripts/red-cases/evidence-output.txt',
+    EVIDENCE_REFRESH,
+  );
+  mkdirSync(dirname(transcriptPath), { recursive: true });
+  writeFileSync(transcriptPath, transcript.join('\n'), 'utf8');
+  process.stdout.write(`${evidenceDestinationBanner(EVIDENCE_REFRESH)}\n${transcriptPath}\n`);
 
   process.exit(failures.length === 0 ? 0 : 1);
 }

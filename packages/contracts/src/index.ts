@@ -101,3 +101,11 @@ export * from './schedule/index.js';
  * deliberately not an identifier.
  */
 export * from './settings/index.js';
+
+/**
+ * OPUS-M3-008 — the audit READ surface FAD-26 recorded as missing. Read that
+ * module's header before adding to it: the closed-payload CHECK is what makes an
+ * audit payload publishable, and this surface reads the chain without ever
+ * claiming to verify it.
+ */
+export * from './audit/index.js';

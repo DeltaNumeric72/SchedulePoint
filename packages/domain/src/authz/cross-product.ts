@@ -182,6 +182,14 @@ export const SYSTEM_ROLE_CAPABILITIES: Readonly<Record<string, readonly string[]
   scheduler: [
     'membership.touch_self',
     'schedule.catalogue.administer',
+    /* OPUS-M3-008 adds the holiday-calendar READ key to scheduler AND
+     * group_admin — FAD-25's assigned split of the D-10 coupling. Reading the
+     * calendar is doc 08 §6's "Author catalogue & rules" population (both roles
+     * `✓`); WRITING it stays `group.holiday_calendar.administer` on group_admin
+     * alone, from the "Group settings" row where scheduler is `—`. That is the
+     * standing rule in one line: write never implies read, read never implies
+     * write. */
+    'group.holiday_calendar.read',
     'schedule.period.administer',
     'schedule.version.edit',
     'schedule.own_published.read',
@@ -195,6 +203,7 @@ export const SYSTEM_ROLE_CAPABILITIES: Readonly<Record<string, readonly string[]
     'schedule.version.edit',
     'schedule.own_published.read',
     'schedule.published.read',
+    'group.holiday_calendar.read',
     'group.holiday_calendar.administer',
     'group.pick_positions.administer',
     /* OPUS-M3-007 adds the three group-settings keys to `group_admin` ALONE,

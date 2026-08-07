@@ -1,11 +1,12 @@
 import { mkdirSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
 
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page, type Route } from '@playwright/test';
 
 import { recordRequests } from './support/request-budget.js';
+
+import { screenshotDir } from './support/evidence-target.js';
 
 /**
  * The schedule-authoring surface: every state, both viewports, axe on each
@@ -53,10 +54,7 @@ const PERIODS_URL = `${SCHEDULE_BASE}/periods`;
 const GRID_URL = `${SCHEDULE_BASE}/versions/${VERSION}`;
 const API = `**/api/organizations/${ORGANIZATION}/groups/${GROUP}`;
 
-const SCREENSHOTS = resolve(
-  dirname(fileURLToPath(import.meta.url)),
-  '../../../docs/evidence/EV-M3-AUTHORING-UX/screenshots',
-);
+const SCREENSHOTS = screenshotDir('EV-M3-AUTHORING-UX');
 
 /** A 60-day period, so the grid's windowing is real rather than notional. */
 const DATES = Array.from({ length: 60 }, (_, index) => {

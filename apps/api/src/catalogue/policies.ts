@@ -64,6 +64,13 @@ const HOLIDAY_ACTION = {
   requiresObjectPolicy: false,
 } as const;
 
+/** The READ half, split from the write key by FAD-25 (OPUS-M3-008). */
+const HOLIDAY_READ_ACTION = {
+  key: 'group.holiday_calendar.read',
+  moduleKey: 'core_scheduling',
+  requiresObjectPolicy: false,
+} as const;
+
 const PICK_POSITION_ACTION = {
   key: 'group.pick_positions.administer',
   moduleKey: 'core_scheduling',
@@ -107,48 +114,47 @@ export const HOLIDAY_CONFIG = {
 } as const satisfies RouteConfigWithPolicy;
 
 /**
- * Holiday **READ**, gated by the catalogue-authoring key rather than the
- * calendar-administration key (OPUS-M2-004; the S-10 / D-10 ruling).
+ * Holiday **READ**, on its own action key (OPUS-M3-008; FAD-25's assigned split
+ * of D-10).
  *
- * ## The finding
+ * ## The history in three steps, because the last one only makes sense with them
  *
- * OPUS-M2-002 gated reads by the same key as writes throughout, so
- * `GET /holidays` required `group.holiday_calendar.administer` — a group
- * ADMINISTRATOR key. A scheduler therefore authored per-shift-type `holiday`
- * demand without being able to see which dates that demand applied to. The
- * reviewer recorded it as S-10 with no fix, and the report queued it as **D-10,
- * a product question for the integration packet**, which is this one.
+ * 1. OPUS-M2-002 gated reads by the same key as writes throughout, so
+ *    `GET /holidays` required `group.holiday_calendar.administer` — a group
+ *    ADMINISTRATOR key. A scheduler therefore authored per-shift-type `holiday`
+ *    demand without being able to see which dates that demand applied to. The
+ *    reviewer recorded it as S-10; the report queued it as **D-10**.
+ * 2. OPUS-M2-004 ruled on D-10 by declaring `CATALOGUE_ACTION` on this route:
+ *    holiday READ went to holders of `schedule.catalogue.administer`. That
+ *    reached the population the ruling named, and it left a stated edge — a
+ *    principal granted ONLY the administer key could WRITE holidays and not read
+ *    them.
+ * 3. OPUS-M3-006's FAD-25 adopted the rule that produced the coupling in the
+ *    first place — **write never implies read, read never implies write** — and
+ *    assigned the split to this packet.
  *
- * ## The ruling, and how it is implemented
+ * So the read is now `group.holiday_calendar.read`, role-implied for scheduler
+ * and group administrator (doc 08 §6 "Author catalogue & rules", both `✓`). The
+ * write stays `group.holiday_calendar.administer` on group administrator alone
+ * ("Group settings", scheduler `—`). Neither key is inferred from the other in
+ * either direction, which is the whole content of the standing rule.
  *
- * Holiday READ is granted to holders of the **catalogue-authoring** capability
- * as well as to group administrators. Writes stay group-settings-gated.
+ * **The write-not-read edge closes.** A grant-holder of the administer key reads
+ * through the read key, held by the same two roles.
  *
- * Implemented by declaring `CATALOGUE_ACTION` on the read route, which is
- * *literally* the ruling's population: everyone holding
- * `schedule.catalogue.administer`, whether by role (scheduler, group admin — doc
- * 08 §6 "Author catalogue & rules") or by an explicit grant. A new
- * `group.holiday_calendar.read` key held by those two ROLES was the alternative
- * and was rejected: it would have missed a grant-holder of catalogue authoring,
- * which is a population the ruling names.
+ * **What narrows, stated rather than hidden:** a principal holding
+ * `schedule.catalogue.administer` by explicit GRANT and neither role no longer
+ * reads holidays through that grant. Nobody is constructed that way today, and
+ * leaving reads on the catalogue key is exactly what FAD-25 forbids. Recorded in
+ * `docs/evidence/EV-M3-INTEGRATION/INDEX.md`.
  *
  * The baseline capability stays **CAP-004** — the route's traceability is to the
- * holiday slice regardless of which action key gates it.
- *
- * ## The edge this leaves, stated rather than hidden
- *
- * A principal holding ONLY `group.holiday_calendar.administer` by explicit grant
- * — no catalogue key by role or grant — can now write holidays and not read
- * them. Neither population the ruling names is constructed that way (a group
- * administrator holds the catalogue key by role), so it is an artefact of a
- * grant nobody has a reason to write. It is recorded in
- * `docs/evidence/EV-M2-INTEGRATION/INDEX.md` rather than resolved by inventing a
- * second key.
+ * holiday slice regardless of which action key gates it, and no CAP-### is added.
  */
 export const HOLIDAY_READ_CONFIG = {
   policy: { kind: 'capability', capability: CAP_HOLIDAYS },
   actionScope: 'group',
-  action: CATALOGUE_ACTION,
+  action: HOLIDAY_READ_ACTION,
 } as const satisfies RouteConfigWithPolicy;
 
 /**
@@ -221,5 +227,6 @@ export const CATALOGUE_AUDIT_EVENTS = {
 export const CATALOGUE_CAPABILITY_KEYS = [
   'schedule.catalogue.administer',
   'group.holiday_calendar.administer',
+  'group.holiday_calendar.read',
   'group.pick_positions.administer',
 ] as const;

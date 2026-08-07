@@ -86,3 +86,18 @@ export {
   type CompiledRule,
   type CompiledRuleSet,
 } from './compile.js';
+
+export {
+  EVALUATED_HARD_RULE_KINDS,
+  NOT_EVALUABLE_REASONS,
+  blocksPublication,
+  dayNumber,
+  evaluateHardRules,
+  isEvaluatedHardRuleKind,
+  type CheckedAssignment,
+  type CheckedVersion,
+  type EvaluatedHardRuleKind,
+  type HardRuleFinding,
+  type HardRuleFindingKind,
+  type QualificationFacts,
+} from './hard-rule-check.js';

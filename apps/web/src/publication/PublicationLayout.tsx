@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router';
 import type { JSX, ReactNode } from 'react';
 
 import { useGroupScope } from '../catalogue/CatalogueLayout.js';
@@ -24,6 +25,19 @@ import { useGroupScope } from '../catalogue/CatalogueLayout.js';
  * lie about where the user is and would put an irreversible act inside a
  * section labelled for drafting.
  *
+ * ## The section navigation uses ROUTER links, not plain anchors (M3-005 N4)
+ *
+ * They were `<a href>`, which is a full document navigation: the SPA is torn
+ * down and rebuilt, every cached query is discarded, and the shell's health
+ * read runs again. That is an amplification an accessible-looking anchor hides
+ * (I-10), and it made moving between two publication sections cost more
+ * requests than opening the surface did. `<Link>` also gives `aria-current` from
+ * the router's own idea of the active route rather than from a boolean each page
+ * computes, so the two cannot disagree about where the user is.
+ *
+ * The "Skip to main content" anchor stays an `<a href="#main">`: it is a
+ * same-document fragment link and turning it into a router link would break it.
+ *
  * ## The immutability statement is on the screen, not only in a docblock
  *
  * I-18 and non-bypass rule 5 are the rules a reader of this surface most needs
@@ -33,7 +47,9 @@ import { useGroupScope } from '../catalogue/CatalogueLayout.js';
  */
 
 export interface PublicationSection {
-  readonly href: string;
+  /** The router path template, e.g. `/organizations/$organizationId/…/published`. */
+  readonly to: string;
+  readonly params: Record<string, string>;
   readonly label: string;
   readonly isCurrent: boolean;
 }
@@ -78,27 +94,25 @@ export function PublicationLayout({
         <nav aria-label="Publication sections">
           <ul className="flex flex-wrap gap-sp-2">
             {sections.map((section) => (
-              <li key={section.href}>
-                <a
-                  {...(section.isCurrent ? { 'aria-current': 'page' as const } : {})}
-                  className={
-                    section.isCurrent
-                      ? 'inline-flex min-h-target items-center rounded-control border border-accent px-sp-3 py-sp-2 text-accent'
-                      : 'inline-flex min-h-target items-center rounded-control border border-border px-sp-3 py-sp-2 text-text'
-                  }
-                  href={section.href}
+              <li key={section.to}>
+                <Link
+                  activeProps={{ 'aria-current': 'page', className: 'border-accent text-accent' }}
+                  className="inline-flex min-h-target items-center rounded-control border border-border px-sp-3 py-sp-2 text-text"
+                  params={section.params}
+                  to={section.to}
                 >
                   {section.label}
-                </a>
+                </Link>
               </li>
             ))}
             <li>
-              <a
+              <Link
                 className="inline-flex min-h-target items-center rounded-control border border-border px-sp-3 py-sp-2 text-text"
-                href={`/organizations/${scope.organizationId}/groups/${scope.groupId}/schedule/periods`}
+                params={{ organizationId: scope.organizationId, groupId: scope.groupId }}
+                to="/organizations/$organizationId/groups/$groupId/schedule/periods"
               >
                 Periods and drafts
-              </a>
+              </Link>
             </li>
           </ul>
         </nav>
@@ -122,9 +136,14 @@ export function publicationSections(
   current: 'published' | 'history' | 'review' | 'comparison' | null,
 ): PublicationSection[] {
   if (periodId === null) return [];
-  const base = `/organizations/${scope.organizationId}/groups/${scope.groupId}/publication/periods/${periodId}`;
+  const base = '/organizations/$organizationId/groups/$groupId/publication/periods/$periodId';
+  const params = {
+    organizationId: scope.organizationId,
+    groupId: scope.groupId,
+    periodId,
+  };
   return [
-    { href: `${base}/published`, label: 'Published schedule', isCurrent: current === 'published' },
-    { href: `${base}/history`, label: 'Version history', isCurrent: current === 'history' },
+    { to: `${base}/published`, params, label: 'Published schedule', isCurrent: current === 'published' },
+    { to: `${base}/history`, params, label: 'Version history', isCurrent: current === 'history' },
   ];
 }

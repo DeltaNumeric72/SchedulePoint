@@ -65,9 +65,36 @@ export function softRule(
   };
 }
 
-/** The canonical fixture rule every isolation test uses when the content is irrelevant. */
+/**
+ * The canonical fixture rule every isolation test uses when the content is
+ * irrelevant.
+ *
+ * ## Why it is an `AvoidDate` on 2099-12-31 and not a `RequiredCount`
+ *
+ * It was `RequiredCount`, chosen because the content genuinely does not matter
+ * to the SBX-004 sweep: the fixture's job is to put ROWS in more than one group
+ * so the cross-group arm is measurable.
+ *
+ * OPUS-M3-008 gave rule content a consequence. SPEC-05 §6 step 06 now evaluates
+ * every ACTIVE HARD rule against a version at publication, and SPEC-04 §3.3
+ * forbids skipping one — so a HARD rule of a kind whose semantics SPEC-04 §3.1
+ * does not pin (`RequiredCount` is one: it does not say what the count is over)
+ * BLOCKS publication rather than passing silently. Seeding one into every swept
+ * group made SBX-018's publication unpublishable, which is the control working
+ * on a fixture that had no opinion about rules.
+ *
+ * `AvoidDate` on a synthetic far-future date is the minimal change that keeps
+ * every property the fixture actually needs — HARD, `active`, one row per group,
+ * synthetic content — while being **evaluable and satisfied**: no fixture
+ * assignment is dated 2099-12-31, and D-2's period windows make one impossible
+ * to add by accident.
+ *
+ * The rule is deliberately still HARD and still active. Making it `SOFT` or
+ * `disabled` would have removed it from step 06's population entirely, which
+ * would have hidden the interaction rather than resolved it.
+ */
 export function coverageRule(ruleKey: string): Rule {
-  return hardRule(ruleKey, { kind: 'RequiredCount', count: 1 });
+  return hardRule(ruleKey, { kind: 'AvoidDate', date: '2099-12-31' });
 }
 
 /**

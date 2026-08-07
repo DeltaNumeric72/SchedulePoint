@@ -577,15 +577,34 @@ export function buildScenarios(deps: () => ScenarioDependencies): readonly SbxSc
           `${attempts.join(' | ')}`,
       );
 
-      // Which tables the API arm could NOT reach — named, not silent.
-      const routedTables = ['memberships', 'capability_grants', 'entitlements'];
-      const unrouted = expected.filter((name) => !routedTables.includes(name));
+      /* What the two arms cover — RESTATED (OPUS-M3-008, M3-007 NB-6).
+       *
+       * This line used to name three tables — `memberships`, `capability_grants`,
+       * `entitlements` — as "the tables with a registered route today", from a
+       * HAND-KEPT array written at M1. Four milestones later it was simply false:
+       * the catalogue, rules, schedule, settings and audit surfaces all reach
+       * their tables over HTTP, and the evidence bundle was still telling a
+       * reader that 41 of 44 tenant tables had no route.
+       *
+       * A hand-kept list of what the code does is a claim that goes stale
+       * silently, which is the class this repository keeps closing. The honest
+       * replacement is not a better hand-kept list: it is to stop claiming a
+       * mapping nothing derives. **A route's URL does not name the tables its
+       * handler touches**, and inventing that mapping from path segments would be
+       * a guess dressed as a measurement.
+       *
+       * So the observation now reports the two numbers that ARE derived — the
+       * routes the API arm actually swept, and the tables the SQL arm actually
+       * swept — and says plainly which claim each arm supports. */
       context.observe(
-        'API-surface coverage gap, stated',
-        `${String(routedTables.length)} of ${String(expected.length)} tenant tables have a ` +
-          `registered route today (${routedTables.join(', ')}). The remaining ` +
-          `${String(unrouted.length)} are covered by the SQL arm ONLY, because no route reaches ` +
-          `them yet: ${unrouted.join(', ')}. They gain an API arm as their surfaces land.`,
+        'what each arm covers, derived',
+        `API arm: ${String(routed.length)} registered organization-scoped route(s) swept, all ` +
+          'answering a foreign organization byte-identically to a non-existent one. SQL arm: ' +
+          `${String(expected.length)} tenant table(s) swept directly, as five roles. ` +
+          'The two arms answer different questions — "can a route be made to disclose?" and ' +
+          '"can a role read a foreign row?" — and neither is a subset of the other. This line ' +
+          'deliberately does NOT map routes to tables: a URL does not name the tables its ' +
+          'handler touches, and a derived-looking guess would be worse than the absence.',
       );
 
       /* ── the DECLARED exception, named and pinned ──────────────────────

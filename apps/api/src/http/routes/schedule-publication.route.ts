@@ -35,9 +35,10 @@ import {
   respondToDenial,
 } from '../../authz/authorize-request.js';
 import type { Database } from '../../db/schema.js';
-import { isPostgresError, PG_ERRORS } from '../../db/pg-errors.js';
+import { isPostgresError, PG_ERRORS, pgFailureLogFields } from '../../db/pg-errors.js';
 import { differenceByIdentity, type DiffSnapshot, type VersionDifference } from '../../schedule/diff.js';
 import { ScheduleDeniedError, SchedulePreconditionError } from '../../schedule/errors.js';
+import { findHardRuleFindings } from '../../schedule/hard-rule-revalidation.js';
 import { publishRevert, publishVersion } from '../../schedule/publication.js';
 import { calendarDate, digestRows } from '../../schedule/render.js';
 import * as schedule from '../../schedule/service.js';
@@ -266,6 +267,10 @@ const CONFLICT_CODES = new Set([
   'ILLEGAL_TRANSITION',
   'IDEMPOTENCY_KEY_REUSED_FOR_DIFFERENT_VERSION',
   'IDEMPOTENCY_KEY_INVALID',
+  // SPEC-05 §6 step 06 (OPUS-M3-008). A conflict, not a validation failure: the
+  // request was well formed and the caller authorized — the CONTENT breaches a
+  // HARD rule, or names one this system cannot decide.
+  'HARD_RULE_BREACH',
 ]);
 
 function outcomeOfServiceError<T>(error: unknown): Outcome<T> | null {
@@ -346,10 +351,13 @@ async function withPublication<T>(
       );
       return { kind: 'conflict' };
     }
-    request.log.warn(
-      { correlationId: request.correlationId, sqlstate: error.code },
-      'publication statement refused by the database',
-    );
+    /* The RESPONSE is unchanged — a fixed 404 whatever the SQLSTATE was. The LOG
+     * distinguishes a control doing its job from a defect in this process, which
+     * the uniform handler used to bury (M3-007 NB-3, applied to this surface
+     * too). */
+    const fields = { correlationId: request.correlationId, ...pgFailureLogFields(error) };
+    if (fields.isDefect) request.log.error(fields, 'publication statement refused by the database');
+    else request.log.warn(fields, 'publication statement refused by the database');
     return { kind: 'not-found' };
   }
 }
@@ -824,12 +832,14 @@ async function computeBlockers(uow: Uow, version: VersionRow): Promise<Publicati
       message:
         'This version has already been published. Amend it by cloning it into a new draft and publishing forward.',
       conflictId: null,
+      ruleKey: null,
     });
   } else if (version.state !== 'approved') {
     blockers.push({
       code: 'VERSION_NOT_APPROVED',
       message: `This version is ${version.state}. Only an approved version can be published.`,
       conflictId: null,
+      ruleKey: null,
     });
   }
 
@@ -850,6 +860,29 @@ async function computeBlockers(uow: Uow, version: VersionRow): Promise<Publicati
           ? 'An open hard-breach conflict is recorded against this version.'
           : `Open hard breach: ${conflict.explanation}`.slice(0, 300),
       conflictId: conflict.id,
+      ruleKey: null,
+    });
+  }
+
+  /* SPEC-05 §6 step 06, PREDICTED here and PERFORMED in the publication
+   * transaction (OPUS-M3-008).
+   *
+   * The review surface runs the same checker over the same content, so what a
+   * scheduler is shown before confirming is what the server will do — the
+   * property every other blocker on this branch already has. It is not the
+   * control: the control is step 06 inside the transaction, which re-runs after
+   * this read and can therefore refuse a publication this preview passed (a
+   * credential expiring between the two is exactly that case). */
+  for (const finding of await findHardRuleFindings(uow, version.id)) {
+    blockers.push({
+      code: finding.finding === 'breach' ? 'HARD_RULE_BREACH' : 'HARD_RULE_NOT_EVALUABLE',
+      message: (finding.finding === 'breach'
+        ? `HARD rule ${finding.ruleKey} (${finding.nodeKind}) is breached: ${finding.explanation}`
+        : `HARD rule ${finding.ruleKey} (${finding.nodeKind}) cannot be checked by this system: ` +
+          `${finding.explanation}. A HARD rule is never skipped, so publication is blocked.`
+      ).slice(0, 300),
+      conflictId: null,
+      ruleKey: finding.ruleKey,
     });
   }
 

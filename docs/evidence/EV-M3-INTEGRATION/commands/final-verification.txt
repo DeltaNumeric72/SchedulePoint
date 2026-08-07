@@ -1,0 +1,241 @@
+=== fixture-regression (re-run, serial) ===
+$ node scripts/sbx/fixture-regression.mjs
+FAD-15 fixture-isolation regression gate
+==============================================================================
+
+1. FIXED SEED SET — file order AND test order shuffled
+PASS  seed 1                                           38.4s  958 passed (958)
+PASS  seed 7                                           38.1s  958 passed (958)
+PASS  seed 42                                          37.2s  958 passed (958)
+PASS  seed 424242                                      38.8s  958 passed (958)
+PASS  seed 20260803                                    37.9s  958 passed (958)
+PASS  seed 31337                                       38.5s  958 passed (958)
+PASS  seed 99991                                       38.7s  958 passed (958)
+PASS  seed 123456                                      37.4s  958 passed (958)
+PASS  seed 20250101                                    37.7s  958 passed (958)
+PASS  seed 8675309                                     37.3s  958 passed (958)
+PASS  seed 65339                                       37.2s  958 passed (958)
+PASS  seed 531651                                      38.1s  958 passed (958)
+PASS  seed 740673                                      36.9s  958 passed (958)
+
+2. ROTATING SEED — this run drew 514707
+   FAD-15 ruling 3: a failure here is a DEFECT TO FIX, never a flake to retry.
+   Reproduce with --sequence.seed=514707, fix it, then add the seed to FIXED_SEEDS.
+PASS  rotating seed 514707                             37.7s  958 passed (958)
+
+3. STANDALONE SWEEP — every file alone
+PASS  architecture/derived-test-port.test.ts            2.1s  6 passed (6)
+PASS  architecture/embedded-postgres-isolation.test.ts    2.1s  5 passed (5)
+PASS  architecture/evidence-and-preview-target.test.ts    2.1s  5 passed (5)
+PASS  architecture/no-tenant-access-outside-unit-of-work.test.ts    2.2s  10 passed (10)
+PASS  audit/architecture.test.ts                        2.2s  5 passed (5)
+PASS  audit/chain.test.ts                               2.3s  27 passed (27)
+PASS  audit/crash-restart.test.ts                       3.3s  4 passed (4)
+PASS  audit/emission-coverage.test.ts                   2.4s  12 passed (12)
+PASS  audit/outbox-dispatch.test.ts                     2.2s  12 passed (12)
+PASS  audit/payload-closedness.test.ts                  2.2s  5 passed (5)
+PASS  audit/periodic.test.ts                            5.5s  6 passed (6)
+PASS  audit/problem-ordering.test.ts                    2.2s  1 passed (1)
+PASS  audit/read-surface.test.ts                        2.5s  8 passed (8)
+PASS  authn/break-glass.test.ts                         2.2s  8 passed (8)
+PASS  authn/http-flows.test.ts                          2.7s  15 passed (15)
+PASS  authn/invitation-single-use.test.ts               2.3s  5 passed (5)
+PASS  authn/lifetimes.test.ts                           2.3s  6 passed (6)
+PASS  authn/mfa.test.ts                                 2.3s  9 passed (9)
+PASS  authn/preauth-policy.test.ts                      2.3s  7 passed (7)
+PASS  authn/primitives.test.ts                          2.2s  16 passed (16)
+PASS  authn/secrecy.test.ts                             2.6s  7 passed (7)
+PASS  authn/session-epoch-freshness.test.ts             2.5s  5 passed (5)
+PASS  authn/suspension.test.ts                          2.4s  3 passed (3)
+PASS  authn/x12-mfa-reset.test.ts                       2.3s  3 passed (3)
+PASS  authz/entitlement-in-force.test.ts                2.5s  15 passed (15)
+PASS  authz/fail-closed-guard.test.ts                   2.3s  4 passed (4)
+PASS  authz/http-authorization.test.ts                  2.6s  42 passed (42)
+PASS  authz/loader-cross-checks.test.ts                 2.2s  8 passed (8)
+PASS  authz/no-explanation-leaks.test.ts                2.4s  5 passed (5)
+PASS  authz/provisioning.test.ts                        2.5s  17 passed (17)
+PASS  authz/schema.test.ts                              2.2s  26 passed (26)
+PASS  catalogue/audit.test.ts                           2.5s  5 passed (5)
+PASS  catalogue/authorization.test.ts                   2.4s  13 passed (13)
+PASS  catalogue/cross-tenant-sweep.test.ts              2.3s  7 passed (7)
+PASS  catalogue/eligibility-read.test.ts                2.5s  6 passed (6)
+PASS  catalogue/gate-red-cases.test.ts                  2.1s  6 passed (6)
+PASS  catalogue/holiday-key-split.test.ts               2.4s  5 passed (5)
+PASS  catalogue/pick-position-monotonicity.test.ts      2.4s  4 passed (4)
+PASS  catalogue/read-fault-handling.test.ts             2.4s  2 passed (2)
+PASS  catalogue/referenced-shift-type-not-deletable.test.ts    2.2s  5 passed (5)
+PASS  catalogue/review-findings.test.ts                 2.8s  15 passed (15)
+PASS  catalogue/schema.test.ts                          2.1s  12 passed (12)
+PASS  catalogue/service.test.ts                         2.2s  14 passed (14)
+PASS  catalogue/shift-type-qualifications.test.ts       2.5s  13 passed (13)
+PASS  catalogue/sweep-mutation.test.ts                  2.2s  4 passed (4)
+PASS  fixture/multi.test.ts                             2.3s  12 passed (12)
+PASS  http/context-surface.test.ts                      2.4s  24 passed (24)
+PASS  http/route-declarations.test.ts                   2.3s  15 passed (15)
+PASS  jobs/job-context.test.ts                          2.4s  18 passed (18)
+PASS  profiles/authorization.test.ts                    2.5s  25 passed (25)
+PASS  profiles/history-immutability.test.ts             2.2s  19 passed (19)
+PASS  profiles/in-force-determinism.test.ts             2.2s  7 passed (7)
+PASS  profiles/isolation.test.ts                        2.2s  8 passed (8)
+PASS  profiles/loader-is-the-only-selector.test.ts      2.1s  15 passed (15)
+PASS  profiles/loader-writer-agreement.test.ts          2.2s  4 passed (4)
+PASS  profiles/overlap-rejection.test.ts                2.4s  8 passed (8)
+PASS  profiles/round-trip.test.ts                       2.5s  24 passed (24)
+PASS  red-cases/fixture-isolation-controls.test.ts      2.2s  5 passed (5)
+PASS  red-cases/gates-fail-on-violations.test.ts        6.8s  12 passed (12)
+PASS  red-cases/probe-is-not-vacuous.test.ts            2.3s  5 passed (5)
+PASS  rules/authorization.test.ts                       2.5s  21 passed (21)
+PASS  rules/contract-parity.test.ts                     2.1s  3 passed (3)
+PASS  rules/round-trip.test.ts                          2.2s  4 passed (4)
+PASS  rules/schema.test.ts                              2.1s  8 passed (8)
+PASS  sbx/sbx.test.ts                                   4.4s  17 passed (17)
+PASS  schedule/authoring-concurrency.test.ts            3.1s  3 passed (3)
+PASS  schedule/authoring-http.test.ts                   2.7s  16 passed (16)
+PASS  schedule/authoring-time.test.ts                   2.1s  23 passed (23)
+PASS  schedule/composed-integration.test.ts             2.6s  6 passed (6)
+PASS  schedule/period-length.test.ts                    2.2s  4 passed (4)
+PASS  schedule/publication-concurrency.test.ts          3.3s  2 passed (2)
+PASS  schedule/publication-diff-parity.test.ts          2.5s  5 passed (5)
+PASS  schedule/publication-http.test.ts                 3.1s  23 passed (23)
+PASS  schedule/publication-invariants.test.ts           2.5s  22 passed (22)
+PASS  schedule/seed-smoke.test.ts                       2.3s  2 passed (2)
+PASS  schedule/step-06-hard-rules.test.ts               2.4s  7 passed (7)
+PASS  schedule/v-harness.test.ts                        2.5s  13 passed (13)
+PASS  schedule/views-http.test.ts                       2.6s  19 passed (19)
+PASS  schedule/views-time.test.ts                       2.2s  11 passed (11)
+PASS  server.test.ts                                    2.3s  8 passed (8)
+PASS  settings/audit.test.ts                            2.5s  15 passed (15)
+PASS  settings/authorization.test.ts                    2.6s  20 passed (20)
+PASS  settings/locations-isolation.test.ts              2.2s  5 passed (5)
+PASS  settings/schema.test.ts                           2.1s  13 passed (13)
+PASS  settings/site-migration-fixtures.test.ts          2.3s  9 passed (9)
+PASS  settings/timezone.test.ts                         2.6s  6 passed (6)
+PASS  tenancy/roles-and-schema.test.ts                  2.3s  37 passed (37)
+PASS  tenancy/unit-of-work.test.ts                      8.7s  17 passed (17)
+
+==============================================================================
+102 run(s): 102 passed, 0 failed
+Order-independent under every seed tried.
+Every file also passes alone.
+The shared baseline was unmodified in every run (the Layer 1 control runs in each).
+FIXREG2_EXIT=0
+=== red-cases ===
+$ node scripts/red-cases/run.mjs
+
+=== lint — lint (eslint) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== typecheck — typecheck (tsc -b) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== unit — unit tests (vitest) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== import-boundary — import boundary (dependency-cruiser) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== route-policy — route-without-policy (I-02) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== migration-rls — migration + RLS pairing (I-15) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== invariant-ids — invariant-ID uniqueness (CAR-023) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== rule-node-mapping — rule-node → compiler-mapping closure (SPEC-04 §3.2) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== nr14-clean-tree — NR-14 evidence destination (a plain run leaves the tree clean) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== corpus-tamper — B-* corpus regeneration byte-identity (SPEC-04 §8) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== secret-scan — secret scan ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== network-guard-source — network-assertion guard (SP-HR-1) — source scan ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== network-guard-bundle — network-assertion guard (SP-HR-1) — built-bundle scan ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== build — production build (vite build) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== axe — axe-core via Playwright (CAP-066) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== i13-schedule-authoring — I-13 zero-requests-before-Save, on the schedule surface ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== publish-idempotency-key-retained — publish-once: the client RETAINS its idempotency key across retries (D-17) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== stale-edit-cas — server-authoritative compare-and-set (PO-DEC-18) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== draft-invisibility — a draft schedule version is invisible to staff (doc 07 §1) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== request-budget-over — requests per interaction (SP-HR-2) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== request-budget-missing — requests per interaction (SP-HR-2) — missing measurement ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+CASE                              GREEN  RED    VERDICT
+--------------------------------  -----  -----  -------
+lint                              pass   fail   PROVEN
+typecheck                         pass   fail   PROVEN
+unit                              pass   fail   PROVEN
+import-boundary                   pass   fail   PROVEN
+route-policy                      pass   fail   PROVEN
+migration-rls                     pass   fail   PROVEN
+invariant-ids                     pass   fail   PROVEN
+rule-node-mapping                 pass   fail   PROVEN
+nr14-clean-tree                   pass   fail   PROVEN
+corpus-tamper                     pass   fail   PROVEN
+secret-scan                       pass   fail   PROVEN
+network-guard-source              pass   fail   PROVEN
+network-guard-bundle              pass   fail   PROVEN
+build                             pass   fail   PROVEN
+axe                               pass   fail   PROVEN
+i13-schedule-authoring            pass   fail   PROVEN
+publish-idempotency-key-retained  pass   fail   PROVEN
+stale-edit-cas                    pass   fail   PROVEN
+draft-invisibility                pass   fail   PROVEN
+request-budget-over               pass   fail   PROVEN
+request-budget-missing            pass   fail   PROVEN
+--------------------------------  -----  -----  -------
+21 case(s): 21 proven, 0 not proven
+
+GREEN "pass" = the gate passes on the clean tree.
+RED   "fail" = the gate fails when the violation is present. That is the desired outcome.
+evidence: scratch — writing under .evidence-scratch/ (tracked artifacts untouched; pass --refresh to update them)
+/Users/prabashan/Claude/SchedulePoint/.worktrees/m3-008/.evidence-scratch/scripts/red-cases/evidence-output.txt
+REDCASES_EXIT=0
+=== git status --porcelain ===
+FINAL_END

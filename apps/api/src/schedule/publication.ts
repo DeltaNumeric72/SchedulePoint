@@ -11,6 +11,7 @@ import { publishOutboxEvent } from '../outbox/publisher.js';
 import { requireScheduleCapability, type ScheduleActor } from './actions.js';
 import { differenceByIdentity, type DiffSnapshot, type VersionDifference } from './diff.js';
 import { SchedulePreconditionError } from './errors.js';
+import { assertHardRulesRevalidated } from './hard-rule-revalidation.js';
 import { assertNoOpenHardBreach } from './service.js';
 
 /**
@@ -277,17 +278,24 @@ export async function publishVersion(
    *      change between clicking publish and the transaction committing. */
   await assertNoOpenHardBreach(uow, input.versionId);
 
-  /* 06 — HARD-rule re-validation (SPEC-04 §3.3) is NOT performed here, and that
-   *      is deliberate rather than an omission. The typed rule model and its
-   *      compiler are OPUS-M3-002, running in parallel; packet 32 §6 states that
-   *      compiled-rule artifacts and this packet's period rows "become joint
-   *      inputs only in M4 and in M3-004's validation display — any earlier join
-   *      = integration packet". Reaching into that packet's tables here would be
-   *      exactly the unreviewed cross-packet composition §6 forbids. The
-   *      prerequisite that EXISTS today — no open hard-breach conflict — is
-   *      enforced at step 05, and the rule-driven half is carried to the
-   *      integration packet. Recorded in the evidence bundle, not silently
-   *      skipped. */
+  /* 06 — HARD-rule re-validation (SPEC-04 §3.3), landed by OPUS-M3-008.
+   *
+   *      Until this packet the step was deliberately absent: the typed rule model
+   *      was OPUS-M3-002, running in parallel, and packet 32 §6 ruled that
+   *      compiled rules and schedule content "become joint inputs only in M4 and
+   *      in M3-004's validation display — any earlier join = integration packet".
+   *      This IS the integration packet, so the join happens here and nowhere
+   *      else.
+   *
+   *      It is a CHECK over content that already exists — one bounded pass per
+   *      active HARD rule. There is no search, no objective and no assignment
+   *      generation; SPEC-04 §3.3 calls this the "independent checker" and keeps
+   *      it separate from the solver on purpose (non-bypass rule 7).
+   *
+   *      Re-checked HERE rather than only at approval for the same reason step 05
+   *      is: a credential can expire, and a rule can be authored, between the
+   *      moment a version was approved and the moment it commits. */
+  await assertHardRulesRevalidated(uow, input.versionId);
 
   /* 07 — gapless version number for the period (D-9), allocated in-transaction. */
   const highest = await uow.query

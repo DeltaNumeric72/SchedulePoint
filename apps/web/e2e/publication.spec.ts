@@ -1,11 +1,12 @@
 import { mkdirSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
 
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page, type Route } from '@playwright/test';
 
 import { recordRequests } from './support/request-budget.js';
+
+import { screenshotDir } from './support/evidence-target.js';
 
 /**
  * The publication and version-management surface: every state, both viewports,
@@ -61,10 +62,7 @@ const PUBLISHED_URL = `${PUBLICATION_BASE}/periods/${PERIOD}/published`;
 const COMPARISON_URL = `${PUBLICATION_BASE}/versions/${V2}/comparison`;
 const API = `**/api/organizations/${ORGANIZATION}/groups/${GROUP}`;
 
-const SCREENSHOTS = resolve(
-  dirname(fileURLToPath(import.meta.url)),
-  '../../../docs/evidence/EV-M3-PUBLICATION-UX/screenshots',
-);
+const SCREENSHOTS = screenshotDir('EV-M3-PUBLICATION-UX');
 
 const PERIOD_NAME = 'March authoring window';
 const DIGEST = 'a'.repeat(64);
@@ -236,6 +234,66 @@ const PUBLISHED_SCHEDULE = {
   correlationId: 'e2e-correlation-id',
 };
 
+/**
+ * The audit-chain read for the current published version (OPUS-M3-008).
+ *
+ * The two sequences are deliberately NON-CONTIGUOUS (`41` then `44`): a
+ * group-scoped read of an organization-wide sequence has gaps by construction,
+ * and the surface has to say so rather than let a reader treat one as damage.
+ */
+const AUDIT_EVENTS = {
+  events: [
+    {
+      id: 'aa000001-0000-4000-8000-000000000001',
+      sequence: '44',
+      occurredAt: '2027-03-02T09:00:00.000Z',
+      eventName: 'schedule.version.published',
+      actorKind: 'membership',
+      actorMembershipId: '99999999-9999-4999-8999-999999999999',
+      actorDisplayName: 'Synthetic Member A',
+      groupId: GROUP,
+      subjectType: 'schedule_version',
+      subjectId: V2,
+      payload: { period: 'p', number: 2, affected: 2, changes: 2 },
+      entryHash: 'ab'.repeat(32),
+      prevHash: 'cd'.repeat(32),
+    },
+    {
+      id: 'aa000001-0000-4000-8000-000000000002',
+      sequence: '41',
+      occurredAt: '2027-03-01T09:00:00.000Z',
+      eventName: 'schedule.version.created',
+      actorKind: 'membership',
+      actorMembershipId: '99999999-9999-4999-8999-999999999999',
+      actorDisplayName: 'Synthetic Member A',
+      groupId: GROUP,
+      subjectType: 'schedule_version',
+      subjectId: V2,
+      payload: { period: 'p', origin: 'clone' },
+      entryHash: 'ef'.repeat(32),
+      prevHash: '01'.repeat(32),
+    },
+  ],
+  truncated: false,
+  sequenceIsOrganizationWide: true,
+  correlationId: 'e2e-correlation-id',
+};
+
+/**
+ * The audit reply for a request, honouring its `limit` exactly as the server
+ * does: at most `limit` events, and `truncated` true when more exist.
+ */
+function auditEventsFor(url: URL): Record<string, unknown> {
+  const limit = Number(url.searchParams.get('limit') ?? '50');
+  const available = AUDIT_EVENTS.events;
+  return {
+    events: available.slice(0, limit),
+    truncated: available.length > limit,
+    sequenceIsOrganizationWide: true,
+    correlationId: 'e2e-correlation-id',
+  };
+}
+
 const RECORDS = {
   periodId: PERIOD,
   records: [
@@ -312,6 +370,16 @@ async function routeHappyPath(page: Page): Promise<void> {
   );
   await page.route(`${API}/schedule/versions/*/comparison*`, (route) => json(route, 200, COMPARISON));
   await page.route(`${API}/schedule/versions/*/affected-staff*`, (route) => json(route, 200, AFFECTED));
+  /* The audit READ surface (OPUS-M3-008). Its own base path, not under
+   * `/schedule` — it is a different capability with different scope rules.
+   *
+   * The reply is COMPUTED from the request's own `limit`, not a pinned constant
+   * (N-6): the server reads one row past the limit and reports `truncated`, and
+   * a fixture that always answered two events with `truncated: false` could never
+   * exercise the branch that says so. */
+  await page.route(`${API}/audit-events*`, (route) =>
+    json(route, 200, auditEventsFor(new URL(route.request().url()))),
+  );
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -761,6 +829,7 @@ test.describe('refusals the interface must render truthfully', () => {
               message:
                 'This version has already been published. Amend it by cloning it into a new draft and publishing forward.',
               conflictId: null,
+              ruleKey: null,
             },
           ],
         }),
@@ -777,6 +846,52 @@ test.describe('refusals the interface must render truthfully', () => {
     await capture(page, 'review-already-published', info.project.name);
   });
 
+  test('BLOCKED: a breached HARD rule blocks publication and NAMES the rule', async ({
+    page,
+  }, info) => {
+    /* SPEC-05 §6 step 06, as the review branch predicts it (OPUS-M3-008). The
+     * rule key is rendered as its own line rather than buried in the message,
+     * because the scheduler's next action is to open that rule. */
+    await routeHappyPath(page);
+    await page.route(`${API}/schedule/versions/*/publication-review`, (route) =>
+      json(
+        route,
+        200,
+        review({
+          blockers: [
+            {
+              code: 'HARD_RULE_BREACH',
+              message:
+                'HARD rule needs_acls (RequiresQualification) is breached: a member is assigned on 2033-06-17 without a valid holding on that date.',
+              conflictId: null,
+              ruleKey: 'needs_acls',
+            },
+            {
+              code: 'HARD_RULE_NOT_EVALUABLE',
+              message:
+                'HARD rule coverage_rule (RequiredCount) cannot be checked by this system. A HARD rule is never skipped, so publication is blocked.',
+              conflictId: null,
+              ruleKey: 'coverage_rule',
+            },
+          ],
+        }),
+      ),
+    );
+
+    await page.goto(REVIEW_URL);
+    await expect(page.getByTestId('blocker-HARD_RULE_BREACH')).toBeVisible();
+    await expect(page.getByTestId('blocker-rule-needs_acls')).toContainText('needs_acls');
+    // "cannot be checked" must never read as "passed".
+    await expect(page.getByTestId('blocker-HARD_RULE_NOT_EVALUABLE')).toContainText(
+      'never skipped',
+    );
+    await expect(page.getByTestId('publish-blocked')).toBeVisible();
+    await expect(page.getByTestId('publish-open-confirm')).toHaveCount(0);
+
+    await expectNoAxeViolations(page);
+    await capture(page, 'review-blocked-hard-rule', info.project.name);
+  });
+
   test('BLOCKED: an open hard breach blocks publication and the control is not offered', async ({
     page,
   }, info) => {
@@ -791,6 +906,7 @@ test.describe('refusals the interface must render truthfully', () => {
               code: 'OPEN_HARD_BREACH',
               message: 'Open hard breach: two shifts overlap for one person.',
               conflictId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+              ruleKey: null,
             },
           ],
         }),
@@ -1047,8 +1163,80 @@ test.describe('published schedule', () => {
     await expect(page.getByTestId('records-scope-note')).toContainText('not the audit chain');
     await expect(page.getByTestId('records-table')).toContainText('Synthetic Member A');
 
+    // …and the audit chain is now a SECOND table, labelled as what it is.
+    await expect(page.getByTestId('audit-table')).toContainText('schedule.version.published');
+    await expect(page.getByTestId('audit-scope-note')).toContainText('not a verification of it');
+    // The gap is stated rather than presented as damage.
+    await expect(page.getByTestId('audit-scope-note')).toContainText('gaps');
+
     await expectNoAxeViolations(page);
     await capture(page, 'published-schedule', info.project.name);
+  });
+
+  test('TRUNCATION: more history than fits says so, rather than looking complete', async ({
+    page,
+  }, info) => {
+    /* N-6. The server MEASURES truncation by reading one row past the limit. The
+     * first version of this surface computed the flag and threw it away, so a
+     * reader with more than a page of history was shown a partial list that
+     * looked whole — the one thing an audit surface must not do.
+     *
+     * 51 events against the page's limit of 50, so the branch is reached by the
+     * REAL arithmetic (`auditEventsFor` slices and compares) rather than by a
+     * hand-set boolean. */
+    await routeHappyPath(page);
+    const many = Array.from({ length: 51 }, (_, index) => ({
+      ...AUDIT_EVENTS.events[0],
+      id: `bb0000${String(index).padStart(2, '0')}-0000-4000-8000-000000000001`,
+      sequence: String(200 - index),
+    }));
+    await page.route(`${API}/audit-events*`, (route) => {
+      const limit = Number(new URL(route.request().url()).searchParams.get('limit') ?? '50');
+      return json(route, 200, {
+        events: many.slice(0, limit),
+        truncated: many.length > limit,
+        sequenceIsOrganizationWide: true,
+        correlationId: 'e2e-correlation-id',
+      });
+    });
+
+    await page.goto(PUBLISHED_URL);
+
+    await expect(page.getByTestId('audit-truncated')).toContainText('not the whole history');
+    await expect(page.getByTestId('audit-truncated')).toContainText('50 most recent');
+    await expect(page.getByTestId('audit-table').locator('tbody tr')).toHaveCount(50);
+
+    await expectNoAxeViolations(page);
+    await capture(page, 'published-audit-truncated', info.project.name);
+  });
+
+  test('…and with everything on one page the truncation affordance is ABSENT', async ({ page }) => {
+    // The control. Without it, a truncation notice that rendered unconditionally
+    // would pass the test above and lie on every other page.
+    await routeHappyPath(page);
+    await page.goto(PUBLISHED_URL);
+    await expect(page.getByTestId('audit-table')).toBeVisible();
+    await expect(page.getByTestId('audit-truncated')).toHaveCount(0);
+  });
+
+  test('DENIAL: without the audit-read grant the chain is a stated panel, not an error', async ({
+    page,
+  }, info) => {
+    await routeHappyPath(page);
+    await page.route(`${API}/audit-events*`, (route) =>
+      json(route, 403, envelope('FORBIDDEN', 'Not permitted.')),
+    );
+
+    await page.goto(PUBLISHED_URL);
+
+    await expect(page.getByTestId('audit-denied')).toContainText('audit-read permission');
+    // The rest of the page is unaffected — the point of rendering a denial
+    // rather than an error.
+    await expect(page.getByTestId('records-table')).toBeVisible();
+    await expect(page.getByTestId(`published-assignment-${IDENTITY_1}`)).toBeVisible();
+
+    await expectNoAxeViolations(page);
+    await capture(page, 'published-audit-denied', info.project.name);
   });
 });
 

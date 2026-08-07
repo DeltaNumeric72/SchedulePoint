@@ -1,11 +1,12 @@
 import { mkdirSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
 
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page, type Route } from '@playwright/test';
 
 import { recordRequests } from './support/request-budget.js';
+
+import { screenshotDir } from './support/evidence-target.js';
 
 /**
  * The settings surfaces: every state, both viewports, axe on each
@@ -52,10 +53,7 @@ const API = `**/api${BASE}`;
  */
 const API_TREE = `${API}**`;
 
-const SCREENSHOTS = resolve(
-  dirname(fileURLToPath(import.meta.url)),
-  '../../../docs/evidence/EV-M3-SETTINGS/screenshots',
-);
+const SCREENSHOTS = screenshotDir('EV-M3-SETTINGS');
 
 const SETTINGS_NO_PUBLISHED = {
   groupId: GROUP,

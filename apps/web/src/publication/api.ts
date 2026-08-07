@@ -1,5 +1,6 @@
 import {
   affectedStaffDiffSchema,
+  auditEventListSchema,
   cloneVersionRequestSchema,
   currentVersionMovedBodySchema,
   publicationRecordListSchema,
@@ -14,6 +15,7 @@ import {
   versionComparisonSchema,
   versionHistorySchema,
   type AffectedStaffDiff,
+  type AuditEventList,
   type PublicationRecordList,
   type PublicationReview,
   type PublishedSchedule,
@@ -212,6 +214,33 @@ export async function fetchPublicationRecords(
 ): Promise<PublicationRecordList> {
   return publicationRecordListSchema.parse(
     await apiRequest(`${base(scope)}/periods/${periodId}/publication-records`),
+  );
+}
+
+/**
+ * The audit CHAIN for this group, narrowed to one subject (OPUS-M3-008).
+ *
+ * A different base path from every other call in this file, and deliberately so:
+ * the audit read is its own surface with its own capability
+ * (`audit.read`, grant-only) and its own scope rules, and hanging it off
+ * `…/schedule/` would suggest it is part of the schedule module's authorization.
+ * It is not — a scheduler without the grant gets a denial here while everything
+ * else on the page loads.
+ */
+export async function fetchAuditEvents(
+  scope: GroupScope,
+  options: { subjectType?: string; subjectId?: string; limit?: number } = {},
+): Promise<AuditEventList> {
+  const search = new URLSearchParams();
+  if (options.subjectType !== undefined) search.set('subjectType', options.subjectType);
+  if (options.subjectId !== undefined) search.set('subjectId', options.subjectId);
+  if (options.limit !== undefined) search.set('limit', String(options.limit));
+  const query = search.toString();
+  return auditEventListSchema.parse(
+    await apiRequest(
+      `/organizations/${scope.organizationId}/groups/${scope.groupId}/audit-events` +
+        (query === '' ? '' : `?${query}`),
+    ),
   );
 }
 

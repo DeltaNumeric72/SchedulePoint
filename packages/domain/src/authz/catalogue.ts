@@ -435,8 +435,56 @@ export const CAPABILITIES: readonly CapabilityDefinition[] = [
     scope: 'group',
     module: 'core_scheduling',
     description:
-      'Maintain the group holiday calendar (CAR-011). A group setting rather than catalogue ' +
+      'WRITE the group holiday calendar (CAR-011). A group setting rather than catalogue ' +
       'authoring, so doc 08 §6 puts it with "Group settings" — group administrators only.',
+  },
+  /**
+   * The READ half of the holiday calendar (OPUS-M3-008; FAD-25's assigned split
+   * of the D-10 coupling).
+   *
+   * ## Why a second key rather than the M2-004 workaround
+   *
+   * D-10 was: one key gated holiday READS and WRITES, so a scheduler authoring
+   * per-shift-type `holiday` demand could not see which dates that demand
+   * applied to. OPUS-M2-004 fixed the symptom by declaring the CATALOGUE key on
+   * the read route — everyone holding `schedule.catalogue.administer` could read
+   * holidays. It worked, and it left a stated edge: a principal granted ONLY
+   * `group.holiday_calendar.administer` could write holidays and not read them.
+   *
+   * FAD-25 then adopted the standing rule that produced the edge in the first
+   * place — **write never implies read, read never implies write** — and
+   * assigned the split here. Reading the calendar is now its own action, so
+   * neither direction is inferred from the other and the write-not-read edge
+   * closes: a grant-holder of the administer key reads through this key, held by
+   * the same two roles.
+   *
+   * ## Why role-implied for scheduler AND group_admin
+   *
+   * Those are the two roles doc 08 §6's "Author catalogue & rules" row marks `✓`
+   * — the population the D-10 ruling names, and the same population M2-004's
+   * catalogue-key workaround reached by role. A `✓` is role-implied, not a `G`.
+   * Telecom, member and viewer are `—` and hold neither.
+   *
+   * ## The reachability this narrows, stated rather than hidden
+   *
+   * A principal holding `schedule.catalogue.administer` **by explicit grant** and
+   * neither role no longer reads holidays through that grant. That population is
+   * nobody today (the fixtures and both named roles hold the key by role), and
+   * the alternative — leaving reads on the catalogue key — is what FAD-25
+   * forbids. The narrowing is deliberate and is recorded in
+   * `docs/evidence/EV-M3-INTEGRATION/INDEX.md`.
+   *
+   * The baseline capability stays **CAP-004**. No CAP-### is added; this is an
+   * ACTION key, the unit L4 evaluates.
+   */
+  {
+    key: 'group.holiday_calendar.read',
+    scope: 'group',
+    module: 'core_scheduling',
+    description:
+      'READ the group holiday calendar (CAP-004, CAR-011). Split from the administer key by ' +
+      'FAD-25\'s standing rule that write never implies read — role-implied for scheduler and ' +
+      'group administrator (doc 08 §6).',
   },
   {
     key: 'group.pick_positions.administer',
@@ -627,6 +675,57 @@ export const CAPABILITIES: readonly CapabilityDefinition[] = [
     scope: 'organization',
     module: 'reporting_documents',
     description: 'Export the audit log (doc 08 §4). Grant-only.',
+  },
+  /**
+   * The audit **read** key (OPUS-M3-008; FAD-26 recorded that no read surface
+   * existed and assigned it here). **Proposed additively for FAD ratification.**
+   *
+   * ## Why not `audit.export`
+   *
+   * `audit.export` is ORGANIZATION-scoped and is the whole log. The surface this
+   * gates is a group-scoped, subject-filtered read — "what happened to this
+   * schedule version?" — which is a narrower question with a narrower blast
+   * radius, and putting it on the export key would mean that showing a
+   * publication's audit trail in a group required a grant over the entire
+   * organization's audit log. Widening a grant to fit a display is the shape of
+   * mistake `group.holiday_calendar.read` exists to undo.
+   *
+   * ## Why GRANT-ONLY, held by no role
+   *
+   * `docs/fable/08-roles-and-permissions.md` §4 lists `audit.export` among the
+   * granular grants "for actions whose blast radius exceeds their role's
+   * default", and §3 gives org-wide audit to Org Admin alone. Nothing in that
+   * document marks an audit read `✓` for a group role, so inferring one would be
+   * inventing a permission. It appears in no `SYSTEM_ROLE_CAPABILITIES` entry:
+   * a scheduler who needs the chain is granted it, and the publication surface
+   * renders the denial state honestly until then.
+   *
+   * ## Why `core_scheduling` and NOT `reporting_documents`
+   *
+   * `audit.export` is `reporting_documents` because an export is a reporting
+   * artefact — something an organization buys a reporting module to take away.
+   * This is not that. It is the audit trail OF a schedule publication, rendered
+   * on the publication surface, and putting it behind the reporting module would
+   * mean an organization that runs schedules but buys no reporting module cannot
+   * see who published its own rota. That is a packaging decision (PO-DEC-04)
+   * nobody has made, and inventing it here would be making it.
+   *
+   * The divergence from `audit.export`'s module is therefore deliberate and is
+   * disclosed for FAD ratification rather than smoothed over: the two keys gate
+   * different things — one group, one subject, read on screen, versus the whole
+   * organization's log, exported.
+   *
+   * **No CAP-### is added and the 58-capability baseline is unchanged** — this
+   * is an ACTION key, the unit L4 evaluates. The route declares CAP-014.
+   */
+  {
+    key: 'audit.read',
+    scope: 'group',
+    module: 'core_scheduling',
+    description:
+      'READ the audit chain for a group, filtered by subject (OPUS-M3-008, FAD-26). Grant-only ' +
+      'and held by no role. Reading is not verifying: chain verification is organization-scoped ' +
+      'and lives in the maintenance plane.',
   },
 ];
 

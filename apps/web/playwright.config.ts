@@ -1,3 +1,7 @@
+import { createHash } from 'node:crypto';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { defineConfig, devices } from '@playwright/test';
 
 /**
@@ -8,7 +12,7 @@ import { defineConfig, devices } from '@playwright/test';
  * accessibility tree's stability and the request count. The gates that matter
  * (axe, request budget) must see what a user sees.
  *
- * ## The preview port is overridable (OPUS-M2-004, finding E-2)
+ * ## The preview port is DERIVED per worktree (OPUS-M3-008, closing E-2)
  *
  * It was hard-coded at `4173` with `--strictPort` and `reuseExistingServer:
  * false`, so **two concurrent worktrees could not both run the `axe` gate** and
@@ -16,29 +20,48 @@ import { defineConfig, devices } from '@playwright/test';
  * OPUS-M2-003 ran in parallel (`docs/evidence/EV-M2-PROFILES/INDEX.md` §1a E-2).
  * The same diagnosis turned up a `vite preview` still holding 4173 from a
  * worktree deleted two days earlier, which is why the runbook's port-hygiene
- * discipline now covers the preview server as well as the database cluster.
+ * discipline covers the preview server as well as the database cluster.
  *
- * `SP_TEST_PREVIEW_PORT` moves it. The **default stays 4173**, and the reason is
- * not the one an earlier version of this comment gave. That version said the
- * committed request-budget recordings carry the preview origin, so a derived
- * default would dirty the tree — which is simply untrue: `.gitignore:15` ignores
- * `scripts/gates/request-budget/recordings/` entirely. They are run artifacts.
+ * OPUS-M2-004 answered E-2 with `SP_TEST_PREVIEW_PORT` and kept `4173` as the
+ * default, arguing that a preview collision is loud and harmless while a
+ * database collision is silent and destructive. **The argument held and the
+ * conclusion still failed**: OPUS-M3-004 recorded two red-case arms as "not
+ * proven", and the cause was this collision. The failure IS loud — in the
+ * preview server's own output — and by the time it reaches a red-case summary
+ * line it is indistinguishable from the gate under test not firing, which is
+ * how an agent ends up debugging the wrong thing for an hour.
  *
- * The real reason is the difference in FAILURE MODE. A database-port collision
- * is silent and destructive: two worktrees derived the same port AND the same
- * data directory, and each agent's suite deleted the other's cluster while
- * reporting whole files failing with **zero tests failed** (E-1). A preview-port
- * collision is loud and harmless — `--strictPort` refuses to start and says so.
- * Deriving the database port removes a trap; deriving this one would only change
- * a number that appears in `apps/web/package.json`, in this file, and in
- * everyone's habits, to prevent a failure that already announces itself. An
- * override is the proportionate fix, and it is what E-2 asked for.
+ * So the default is now derived from the worktree path, exactly as the database
+ * port is, by `scripts/sbx/test-port.mjs`'s `deriveTestPreviewPort`. The
+ * arithmetic is mirrored below because `scripts/` is outside every TypeScript
+ * project here; `apps/api/test/architecture/derived-test-port.test.ts` executes
+ * the JavaScript module and fails if the two ever disagree.
+ *
+ * `SP_TEST_PREVIEW_PORT` still wins, and a malformed value still throws rather
+ * than falling back — a typo that silently pointed a run at another worktree's
+ * server is the failure mode this module exists to remove.
  */
 
-/** `SP_TEST_PREVIEW_PORT`, or 4173. A malformed value throws rather than falling back. */
+/** Mirrors `scripts/sbx/test-port.mjs`. See the note above. */
+const DERIVED_PREVIEW_PORT_BASE = 41730;
+/** Mirrors `scripts/sbx/test-port.mjs`. See the note above. */
+const DERIVED_PREVIEW_PORT_SPAN = 400;
+
+/** This worktree's root, resolved from this config file's own location. */
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+
+function derivePreviewPort(root: string): number {
+  const digest = createHash('sha256').update(`sp.test.preview.port.v1:${root}`).digest('hex');
+  return (
+    DERIVED_PREVIEW_PORT_BASE +
+    (Number.parseInt(digest.slice(0, 8), 16) % DERIVED_PREVIEW_PORT_SPAN)
+  );
+}
+
+/** `SP_TEST_PREVIEW_PORT`, or the per-worktree derivation. Malformed throws. */
 function previewPort(): number {
   const override = process.env['SP_TEST_PREVIEW_PORT'];
-  if (override === undefined || override.trim() === '') return 4173;
+  if (override === undefined || override.trim() === '') return derivePreviewPort(REPO_ROOT);
   const parsed = Number.parseInt(override, 10);
   if (!Number.isInteger(parsed) || parsed < 1024 || parsed > 65535) {
     throw new Error(

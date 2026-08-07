@@ -611,3 +611,37 @@ now waits for the port to be released first (up to 30s). It **waits rather than 
 retrying the gate would mask a genuine GREEN failure, which is the one thing that runner
 exists to detect. If the budget runs out it continues anyway and says so, so a genuinely
 stuck cluster surfaces as a failure rather than as a hang.
+
+### Migration `0011` may be **recorded but not applied** in a long-lived dev database
+
+If you have a development database that ran migrations between the merge of
+`0011_period_length_and_audit_scope.sql` and its fix, that migration is recorded in
+`pgmigrations` while having executed **nothing**. The file shipped without an
+`-- Up Migration` marker, so `node-pg-migrate` took the up section to be empty, applied it
+successfully, and wrote the row. There is no error and no warning: the migration table says
+the schema is current, and it is not.
+
+Two things are missing in such a database:
+
+- the `schedule_periods_length` CHECK — so a period longer than 366 days is refused by the
+  contract and accepted by the table;
+- `app_verify_audit_chain`'s group-scope guard — so a group-scoped call walks a subset of
+  the chain and reports gaps that are not there (the N-8 false alarm).
+
+The test harness is unaffected: it destroys and recreates its cluster on every run and runs
+the full cycle, which is why this surfaced as a test failing to be *rejected* rather than as
+a broken schema. **Only a long-lived database is at risk.** Check and repair with:
+
+```bash
+# does the guard exist?
+psql -c "select pg_get_functiondef(oid) ~ 'v_session_group' as has_guard
+           from pg_proc where proname = 'app_verify_audit_chain'"
+# does the CHECK exist?
+psql -c "select count(*) from pg_constraint where conname = 'schedule_periods_length'"
+```
+
+If either answers `false` / `0`, re-apply the migration by hand: `node-pg-migrate` will not
+re-run a migration it has already recorded, so take `0011`'s up section down to `-- Down
+Migration` and execute it as `app_migrator`. Both statements are idempotent in effect —
+`CREATE OR REPLACE FUNCTION` and an `ADD CONSTRAINT` that fails loudly if it is already
+there. A throwaway development database is quicker to recreate than to repair.
