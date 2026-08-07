@@ -1,6 +1,11 @@
 # PROJECT-STATUS
 
-**As of 2026-08-04 (M3 authorized and underway).**
+**As of 2026-08-05 (M3 COMPLETE).**
+
+- **Milestone M3 COMPLETE — 8/8 tasks ACCEPTED and merged** (authorized 2026-08-04 against `e476573`): 001 authn (6a01196) · 002 rules (7dd37dc) · 003 publication core (e275597) · 007 settings/site (c3e1baa) · 004 authoring UX (20c0c13) · 005 publication UX (112b8c4) · 006 staff views (57685ab) · 008 integration (dfa717f). Exit report: [../33-m3-exit-report.md](../33-m3-exit-report.md). Frozen M3 checkpoint = the exit report's commit, tagged `milestone/M3`.
+- On main at close: **1384 tests / 109 files, 13/13 gates, 21/21 red cases, fixture-regression 102/102, SBX 6/6 with the 44-table sweep at 0 wrong-tenant, migrations 0001..0011 cycle clean, NR-14 zero-modification tree.** Parity: 14 verified · 3 in-progress · 41 not-started; none dropped. FADs 18–27 recorded. V-01..V-19 green; SBX-018 filed; QA-SCH 9 PASS / 6 PARTIAL (owned) / 1 N-A; SPEC-14 A-cells executed, 10 M-cells honestly unclaimed (EV-8 → M6).
+- **NR-14 retired** (the redesign proves itself); NR-4 stays elevated through M4; E-2 fully closed.
+- **M4 NOT authorized — awaiting the owner.** Proposed M4 packets and the exact authorization prompt are in the exit report. Manual scheduling remains override/recovery/fixed-input/development-stage only; M4 automated scheduling remains mandatory for production.
 
 - **M3 AUTHORIZED by the owner 2026-08-04** against frozen M2 checkpoint `e476573` (tag `milestone/M2`). Entry verification PASSED (checkpoint/tag/tree/branches confirmed; validators 36/36 · 95/95 · PASS; gates 12/12; red cases all proven — exit codes checked; record in [../32-m3-task-packets.md](../32-m3-task-packets.md) §1). Packets finalized: OPUS-M3-001 (authn/sessions/invitation — issued alone first), OPUS-M3-002 (rules/AST/corpus), OPUS-M3-003 (periods/publication SPEC-05 core); further families M3-004..008 pre-declared in §8 and finalized before their own issuance. All M2 carried items dispositioned with owners in §2. **M4 NOT authorized — M3 ends with a frozen checkpoint and exit report; work stops there.**
 - Sequencing: M3-001 first and alone; 002/003 issue only after M3-001 acceptance and the §7 revalidation note; serialized merges; OPUS-M3-008 integration packet mandatory.
