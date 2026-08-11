@@ -42,6 +42,8 @@ The mandatory packet sequence is **M4-000 → M4-001 → M4-002 → M4-003 → M
 
 Every entry below is a functional prerequisite the solver pipeline directly consumes. Current state was verified against the tree at `7b579f2` before authoring the packets. Entries marked ⚑ are places where the current implementation is known to fall short of the required behaviour; unmarked entries need verification and proof rather than repair.
 
+**Closure record (2026-08-10):** entries **A** and **B** are CLOSED by OPUS-M4-000A (accepted & merged `94af3c5`, evidence EV-M4-INPUT-A, rulings FAD-28/29/30; migrations 0012+0013). The verdict's solver-input and independent-validation consumers land in M4-001/002 against the frozen `packages/domain/src/eligibility` module. Entries C–H remain open, owned by 000B (C, E, F) and 000C (D, G, H).
+
 ### A. Weekday demand
 Current state: `shift_type_weekday_demand` (catalogue defaults, PUT whole-set per shift type) and `schedule_requirements` (period instances, PUT whole-set per period). ⚑ Neither editor exposes an aggregate consistency mechanism (`expectedVersion`); concurrent replacements can interleave; the editors do not prove load-before-edit; a no-op save's audit posture must match FAD-24 (no-op writes unaudited, with a control). Required: true atomic whole-set replacement; one documented canonical rule for omitted entries; concurrency-controlled replacement that cannot produce an unintended union; open-then-save-unchanged never resets values; no-op not recorded as a change; I-10 preserved.
 
