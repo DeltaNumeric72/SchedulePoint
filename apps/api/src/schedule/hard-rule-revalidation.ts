@@ -1,15 +1,17 @@
 import {
   compileRule,
   evaluateHardRules,
-  isEligibleAt,
+  qualificationOutcome,
   type CheckedAssignment,
   type CheckedVersion,
   type CompiledRule,
   type HardRuleFinding,
+  type QualificationLifecycle,
+  type QualificationOutcome,
   type Rule,
   type UnitOfWork,
 } from '@schedulepoint/domain';
-import type { Kysely } from 'kysely';
+import { sql, type Kysely } from 'kysely';
 
 import type { Database } from '../db/schema.js';
 import { loadHoldings, type HoldingRow } from '../profiles/in-force-loader.js';
@@ -82,6 +84,49 @@ type Uow = UnitOfWork<Kysely<Database>>;
  */
 export function instantOfDate(date: string): Date {
   return new Date(`${date}T12:00:00.000Z`);
+}
+
+/**
+ * Load the ENFORCEMENT view of a set of memberships' holdings
+ * (OPUS-M4-000A; migration 0012's `qualification_holdings_enforcement_read`).
+ *
+ * An enforcement computation cannot run on caller-visible data: a publisher
+ * without `staffing.qualification_holding.read_any` sees only their OWN
+ * holdings, and the gate would refuse valid schedules for everybody else —
+ * FAD-23's access-control-artefact warning, in the blocking direction. The
+ * transaction-local purpose token below opens the additive enforcement policy
+ * for EXACTLY the span of these reads and is cleared before returning,
+ * whatever happens — the reads still go through the one loader, the tenant
+ * predicates are unchanged, and nothing read here leaves this module except
+ * as a verdict.
+ *
+ * `set_config(name, value, true)` is the sole permitted spelling (non-bypass
+ * rule 2) — transaction-local, never session-scoped.
+ */
+async function loadHoldingsForEnforcement(
+  uow: Uow,
+  membershipIds: ReadonlySet<string>,
+): Promise<Map<string, readonly HoldingRow[]>> {
+  const holdingsByMembership = new Map<string, readonly HoldingRow[]>();
+  await sql`select set_config('app.enforcement_read', 'qualification_requirements', true)`.execute(
+    uow.query as Kysely<Database>,
+  );
+  try {
+    for (const membershipId of membershipIds) {
+      holdingsByMembership.set(
+        membershipId,
+        await loadHoldings(uow.query as Kysely<Database>, {
+          organizationId: uow.context.organizationId,
+          membershipId,
+        }),
+      );
+    }
+  } finally {
+    await sql`select set_config('app.enforcement_read', '', true)`.execute(
+      uow.query as Kysely<Database>,
+    );
+  }
+  return holdingsByMembership;
 }
 
 interface HardRuleRow {
@@ -194,23 +239,24 @@ export async function loadCheckedVersion(uow: Uow, versionId: string): Promise<C
   const memberships = await uow.query.selectFrom('memberships').select('id').execute();
   const qualifications = (await uow.query
     .selectFrom('qualifications')
-    .select(['id', 'key'])
-    .execute()) as unknown as { id: string; key: string }[];
+    .select(['id', 'key', 'status'])
+    .execute()) as unknown as { id: string; key: string; status: QualificationLifecycle }[];
 
   const keyById = new Map(qualifications.map((row) => [row.id, row.key]));
+  const lifecycleById = new Map<string, QualificationLifecycle>(
+    qualifications.map((row) => [row.id, row.status]),
+  );
+  const idByKey = new Map(qualifications.map((row) => [row.key, row.id]));
 
   /* Holdings for the memberships that actually APPEAR in this version — not for
-   * the whole group. A publication reads what it is about to publish. */
-  const holdingsByMembership = new Map<string, readonly HoldingRow[]>();
-  for (const membershipId of new Set(assignments.map((assignment) => assignment.membershipId))) {
-    holdingsByMembership.set(
-      membershipId,
-      await loadHoldings(uow.query, {
-        organizationId: uow.context.organizationId,
-        membershipId,
-      }),
-    );
-  }
+   * the whole group. A publication reads what it is about to publish, through
+   * the ENFORCEMENT read plane: this is a gate, and a gate that computes on
+   * caller-visible SENSITIVE-PII rows blocks or passes depending on the
+   * PUBLISHER's read capability rather than on the schedule's truth. */
+  const holdingsByMembership = await loadHoldingsForEnforcement(
+    uow,
+    new Set(assignments.map((assignment) => assignment.membershipId)),
+  );
 
   return {
     assignments,
@@ -219,14 +265,163 @@ export async function loadCheckedVersion(uow: Uow, versionId: string): Promise<C
     qualifications: {
       knownQualificationKeys: new Set(keyById.values()),
       heldOn(membershipId, qualificationKey, date) {
+        /* CONVERGED on the shared verdict (OPUS-M4-000A): "held" means the
+         * verdict's `satisfied`, computed by the SAME `qualificationOutcome`
+         * the manual-path eligibility read and the structural check below
+         * use — including the retirement rule a bare window-and-status check
+         * cannot see. One function, three consumers, no second answer. */
         const held = holdingsByMembership.get(membershipId) ?? [];
-        const forKey = held.filter(
-          (holding) => keyById.get(holding.qualificationId) === qualificationKey,
+        const qualificationId = idByKey.get(qualificationKey);
+        if (qualificationId === undefined) return false;
+        return (
+          qualificationOutcome(
+            qualificationId,
+            lifecycleById.get(qualificationId),
+            held,
+            instantOfDate(date),
+          ) === 'satisfied'
         );
-        return isEligibleAt(forKey, instantOfDate(date));
       },
     },
   };
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Shift-type qualification requirements — enforced STRUCTURALLY
+ * (OPUS-M4-000A; doc 34 §4-B: "shift-type qualification requirements enforced
+ * even without a duplicate authored rule")
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+export interface QualificationRequirementFinding {
+  readonly snapshotId: string;
+  readonly membershipId: string;
+  readonly date: string;
+  readonly shiftTypeId: string;
+  readonly qualificationId: string;
+  /** The shared verdict's non-satisfied outcome — expired / future / revoked / retired / missing. */
+  readonly outcome: QualificationOutcome;
+}
+
+/**
+ * Every assignment in the version whose shift type's ACTIVE requirement set is
+ * not satisfied by the shared verdict at the shift date's instant.
+ *
+ * Before this existed, `shift_type_qualifications` was enforced at publication
+ * ONLY where a scheduler had also authored a `RequiresQualification` rule —
+ * the requirement edge the catalogue calls "the M4 engine's input" silently
+ * did nothing on the publication path unless duplicated by hand. The check is
+ * the same `evaluateEligibility` call the manual-path read makes, on rows
+ * loaded through the same loaders, at the same midday-UTC instant convention —
+ * asserted equal in `apps/api/test/profiles/verdict-convergence.test.ts`.
+ */
+export async function findQualificationRequirementFindings(
+  uow: Uow,
+  versionId: string,
+): Promise<readonly QualificationRequirementFinding[]> {
+  const snapshots = (await uow.query
+    .selectFrom('assignment_snapshots as s')
+    .innerJoin('shifts as sh', (join) =>
+      join
+        .onRef('sh.id', '=', 's.shift_id')
+        .onRef('sh.organization_id', '=', 's.organization_id')
+        .onRef('sh.group_id', '=', 's.group_id'),
+    )
+    .where('s.version_id', '=', versionId)
+    .where('s.status', '=', 'active')
+    .select([
+      's.id as id',
+      's.membership_id as membership_id',
+      's.date as date',
+      'sh.shift_type_id as shift_type_id',
+    ])
+    .orderBy('s.date')
+    .orderBy('s.id')
+    .execute()) as unknown as {
+    id: string;
+    membership_id: string;
+    date: string | Date;
+    shift_type_id: string;
+  }[];
+  if (snapshots.length === 0) return [];
+
+  const requirements = (await uow.query
+    .selectFrom('shift_type_qualifications')
+    .select(['shift_type_id', 'qualification_id'])
+    .where('status', '=', 'active')
+    .execute()) as unknown as { shift_type_id: string; qualification_id: string }[];
+  if (requirements.length === 0) return [];
+
+  const requiredByShiftType = new Map<string, string[]>();
+  for (const row of requirements) {
+    const list = requiredByShiftType.get(row.shift_type_id) ?? [];
+    list.push(row.qualification_id);
+    requiredByShiftType.set(row.shift_type_id, list);
+  }
+
+  const lifecycles = new Map<string, QualificationLifecycle>(
+    (
+      (await uow.query
+        .selectFrom('qualifications')
+        .select(['id', 'status'])
+        .execute()) as unknown as { id: string; status: QualificationLifecycle }[]
+    ).map((row) => [row.id, row.status]),
+  );
+
+  const holdingsByMembership = await loadHoldingsForEnforcement(
+    uow,
+    new Set(snapshots.map((row) => row.membership_id)),
+  );
+
+  const findings: QualificationRequirementFinding[] = [];
+  for (const snapshot of snapshots) {
+    const required = requiredByShiftType.get(snapshot.shift_type_id);
+    if (required === undefined) continue;
+    const date = calendarDate(snapshot.date);
+    const at = instantOfDate(date);
+    for (const qualificationId of [...required].sort()) {
+      const outcome = qualificationOutcome(
+        qualificationId,
+        lifecycles.get(qualificationId),
+        holdingsByMembership.get(snapshot.membership_id) ?? [],
+        at,
+      );
+      if (outcome !== 'satisfied') {
+        findings.push({
+          snapshotId: snapshot.id,
+          membershipId: snapshot.membership_id,
+          date,
+          shiftTypeId: snapshot.shift_type_id,
+          qualificationId,
+          outcome,
+        });
+      }
+    }
+  }
+  return findings;
+}
+
+/**
+ * The structural refusal — the same `SchedulePreconditionError` family as the
+ * step-06 breach, so the publication route's map-outside-the-transaction
+ * discipline applies unchanged and the refusal rolls the whole publication
+ * back. Distinct code, because "an authored rule is breached" and "the
+ * catalogue's requirement edge is unmet" are different findings with
+ * different fixes.
+ */
+export class QualificationRequirementBreachError extends SchedulePreconditionError {
+  readonly findings: readonly QualificationRequirementFinding[];
+
+  constructor(findings: readonly QualificationRequirementFinding[]) {
+    const first = findings[0];
+    super(
+      'QUALIFICATION_REQUIREMENT_BREACH',
+      `publication is blocked by ${String(findings.length)} unmet shift-type qualification ` +
+        `requirement(s); the first names qualification ${first?.qualificationId ?? '(none)'} ` +
+        `(${first?.outcome ?? 'missing'}) on ${first?.date ?? '(no date)'}`,
+    );
+    this.name = 'QualificationRequirementBreachError';
+    this.findings = findings;
+  }
 }
 
 /** Every step-06 finding for a version, in the checker's deterministic order. */
@@ -277,4 +472,11 @@ export class HardRuleBreachError extends SchedulePreconditionError {
 export async function assertHardRulesRevalidated(uow: Uow, versionId: string): Promise<void> {
   const findings = await findHardRuleFindings(uow, versionId);
   if (findings.length > 0) throw new HardRuleBreachError(findings);
+
+  /* OPUS-M4-000A: the catalogue's requirement edge is enforced here even when
+   * no duplicate authored rule exists. AFTER the rule findings so an authored
+   * rule's richer explanation wins where both would fire; the structural check
+   * still refuses on its own whenever no rule was authored at all. */
+  const structural = await findQualificationRequirementFindings(uow, versionId);
+  if (structural.length > 0) throw new QualificationRequirementBreachError(structural);
 }

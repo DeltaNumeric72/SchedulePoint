@@ -50,6 +50,8 @@ export interface QualificationRow {
   readonly requiresExpiry: boolean;
   readonly issuingBody: string | null;
   readonly status: 'active' | 'retired';
+  /** Row CAS counter (OPUS-M4-000A, migration 0012). What a mutation presents back. */
+  readonly version: number;
 }
 
 interface RawQualificationRow {
@@ -59,7 +61,18 @@ interface RawQualificationRow {
   requires_expiry: boolean;
   issuing_body: string | null;
   status: 'active' | 'retired';
+  version: number;
 }
+
+const QUALIFICATION_COLUMNS = [
+  'id',
+  'key',
+  'name',
+  'requires_expiry',
+  'issuing_body',
+  'status',
+  'version',
+] as const;
 
 function toQualification(row: RawQualificationRow): QualificationRow {
   return {
@@ -69,7 +82,41 @@ function toQualification(row: RawQualificationRow): QualificationRow {
     requiresExpiry: row.requires_expiry,
     issuingBody: row.issuing_body,
     status: row.status,
+    version: row.version,
   };
+}
+
+/**
+ * A mutation presented a stale row version (OPUS-M4-000A).
+ *
+ * The row exists — the caller could read it — but it has moved since the
+ * caller read it. The route maps this to the same `409` a unique-key conflict
+ * gets; the message carries no schema detail. Distinguished from "not found"
+ * because a caller told "gone" would recreate what merely moved.
+ */
+export class StaleRowVersionError extends Error {
+  readonly code = 'STALE_ROW_VERSION';
+
+  constructor(subject: string) {
+    super(`STALE_ROW_VERSION: the ${subject} changed since it was read; re-read and decide again`);
+    this.name = 'StaleRowVersionError';
+  }
+}
+
+/**
+ * The SERVICE half of a database rule (OPUS-M4-000A packet clause 2/3): the
+ * caller typed something the rule refuses, so the answer is a field-addressed
+ * 422 *before any statement*, and the 0012 trigger refuses the same shape
+ * independently for every writer that is not this service.
+ */
+export class QualificationRuleError extends Error {
+  readonly code: 'QUALIFICATION_REQUIRES_EXPIRY' | 'QUALIFICATION_RETIRED';
+
+  constructor(code: 'QUALIFICATION_REQUIRES_EXPIRY' | 'QUALIFICATION_RETIRED', message: string) {
+    super(`${code}: ${message}`);
+    this.code = code;
+    this.name = 'QualificationRuleError';
+  }
 }
 
 /** Create a qualification in the acting group's vocabulary. */
@@ -98,7 +145,7 @@ export async function createQualification(
 
   const rows = (await query
     .selectFrom('qualifications')
-    .select(['id', 'key', 'name', 'requires_expiry', 'issuing_body', 'status'])
+    .select(QUALIFICATION_COLUMNS)
     .where('organization_id', '=', organizationId)
     .where('id', '=', id)
     .execute()) as unknown as RawQualificationRow[];
@@ -152,7 +199,11 @@ export async function createQualification(
  */
 export async function setQualificationStatus(
   uow: UnitOfWork<Kysely<Database>>,
-  input: { readonly qualificationId: string; readonly status: 'active' | 'retired' },
+  input: {
+    readonly qualificationId: string;
+    readonly status: 'active' | 'retired';
+    readonly expectedVersion: number;
+  },
 ): Promise<QualificationRow | null> {
   const { query } = uow;
   const organizationId = uow.context.organizationId;
@@ -162,23 +213,37 @@ export async function setQualificationStatus(
   // "when was this retired" answerable and "was it ever reinstated" not.
   const existing = (await query
     .selectFrom('qualifications')
-    .select(['id', 'key', 'name', 'requires_expiry', 'issuing_body', 'status'])
+    .select(QUALIFICATION_COLUMNS)
     .where('organization_id', '=', organizationId)
     .where('id', '=', input.qualificationId)
     .execute()) as unknown as RawQualificationRow[];
   const before = existing[0];
   if (before === undefined) return null;
 
+  /* ── the row CAS (OPUS-M4-000A) ────────────────────────────────────────────
+   *
+   * The predicate is `version = <what this transaction just read>`, so the CAS
+   * refuses whenever the row moved between the CALLER's read (the form load)
+   * and this write — `expectedVersion` is compared against the fresh read
+   * first so the refusal happens before any statement, and the WHERE clause
+   * repeats it so a racing writer inside this window loses at the database.
+   * The counter itself is DB-owned (`qualifications_maintain_version`); this
+   * predicate is the application's half, exactly the 0005 shape. */
+  if (before.version !== input.expectedVersion) {
+    throw new StaleRowVersionError('qualification');
+  }
+
   const updated = (await query
     .updateTable('qualifications')
     .set({ status: input.status, updated_at: sql<Date>`now()` })
     .where('organization_id', '=', organizationId)
     .where('id', '=', input.qualificationId)
-    .returning(['id', 'key', 'name', 'requires_expiry', 'issuing_body', 'status'])
+    .where('version', '=', input.expectedVersion)
+    .returning([...QUALIFICATION_COLUMNS])
     .execute()) as unknown as RawQualificationRow[];
 
   const row = updated[0];
-  if (row === undefined) return null;
+  if (row === undefined) throw new StaleRowVersionError('qualification');
 
   await recordAuditEvent(uow, {
     eventName: 'staffing.qualification.written',
@@ -212,7 +277,27 @@ export interface GrantHoldingInput {
   readonly status?: 'pending' | 'valid' | undefined;
 }
 
-/** Issue a credential to a membership. PO-DEC-12: administrator-granted. */
+/**
+ * Issue a credential to a membership. PO-DEC-12: administrator-granted.
+ *
+ * Two OPUS-M4-000A rules are enforced HERE as well as by the 0012 trigger
+ * (`qualification_holdings_guard_expiry_retirement`) — the service check is
+ * what turns them into a 422 the form can address; the trigger is what binds
+ * every writer that is not this function:
+ *
+ *   - `requires_expiry`: a holding of a requires-expiry qualification must
+ *     carry `validUntil`.
+ *   - retirement: a retired qualification cannot be NEWLY held. Existing
+ *     holdings are untouched by retirement — their status machine keeps
+ *     working, and their verdict reflects retirement through the shared
+ *     eligibility function rather than through any rewrite.
+ *
+ * There is deliberately NO `expectedVersion` on a grant: nothing mutable is
+ * read to become stale — the identity is new, duplicates are refused by the
+ * `(membership, qualification, valid_from)` unique key, and the
+ * granted-while-retiring race is closed by the trigger inside the same
+ * transaction as the retirement's committed state.
+ */
 export async function grantHolding(
   uow: UnitOfWork<Kysely<Database>>,
   input: GrantHoldingInput,
@@ -221,6 +306,34 @@ export async function grantHolding(
   const organizationId = uow.context.organizationId;
   const groupId = uow.context.groupId;
   if (groupId === null) throw new Error('a qualification holding requires a group-scoped unit of work');
+
+  const qualification = (await query
+    .selectFrom('qualifications')
+    .select(['id', 'requires_expiry', 'status'])
+    .where('organization_id', '=', organizationId)
+    .where('id', '=', input.qualificationId)
+    .executeTakeFirst()) as unknown as
+    | { id: string; requires_expiry: boolean; status: 'active' | 'retired' }
+    | undefined;
+  // An invisible qualification falls through to the composite FK / trigger,
+  // whose refusal the route maps to the same 404 an RLS-hidden row gets.
+  if (qualification !== undefined) {
+    if (qualification.status === 'retired') {
+      throw new QualificationRuleError(
+        'QUALIFICATION_RETIRED',
+        'a retired qualification cannot be newly held; reinstate it first',
+      );
+    }
+    if (
+      qualification.requires_expiry &&
+      (input.validUntil === undefined || input.validUntil === null)
+    ) {
+      throw new QualificationRuleError(
+        'QUALIFICATION_REQUIRES_EXPIRY',
+        'this qualification requires an expiry; the holding must carry validUntil',
+      );
+    }
+  }
 
   const id = randomUUID();
   await query
@@ -286,6 +399,7 @@ export async function changeHoldingStatus(
   input: {
     readonly holdingId: string;
     readonly status: 'valid' | 'expiring' | 'expired' | 'revoked';
+    readonly expectedVersion: number;
   },
 ): Promise<HoldingRow | null> {
   const { query } = uow;
@@ -296,16 +410,28 @@ export async function changeHoldingStatus(
   const before = await loadHolding(query, { organizationId, holdingId: input.holdingId });
   if (before === null) return null;
 
+  /* ── the row CAS (OPUS-M4-000A) ────────────────────────────────────────────
+   *
+   * A status decision made against a holding that has since moved — revoked by
+   * a colleague, expired by the periodic job — must be refused, not layered on
+   * whatever the transition table happens to admit from the NEW state. The
+   * counter is DB-owned (`qualification_holdings_maintain_version`); this is
+   * the application's predicate half. */
+  if (before.version !== input.expectedVersion) {
+    throw new StaleRowVersionError('qualification holding');
+  }
+
   const updated = (await query
     .updateTable('qualification_holdings')
     .set({ status: input.status, updated_at: sql<Date>`now()` })
     .where('organization_id', '=', organizationId)
     .where('id', '=', input.holdingId)
+    .where('version', '=', input.expectedVersion)
     .returning(['id'])
     .execute()) as unknown as { id: string }[];
 
   const row = updated[0];
-  if (row === undefined) return null;
+  if (row === undefined) throw new StaleRowVersionError('qualification holding');
 
   const after = await loadHolding(query, { organizationId, holdingId: row.id });
   if (after === null) throw new Error('the holding was not readable after its status changed');

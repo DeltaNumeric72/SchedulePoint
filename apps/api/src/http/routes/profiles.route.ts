@@ -1,6 +1,7 @@
 import {
   authorWorkProfileRequestSchema,
   authorWorkProfileResultSchema,
+  cancelWorkProfileResultSchema,
   changeHoldingStatusRequestSchema,
   changeHoldingStatusResultSchema,
   conflictBodySchema,
@@ -33,6 +34,8 @@ import {
   type WorkProfileRow,
 } from '../../profiles/in-force-loader.js';
 import {
+  QualificationRuleError,
+  StaleRowVersionError,
   changeHoldingStatus,
   createQualification,
   grantHolding,
@@ -40,7 +43,9 @@ import {
 } from '../../profiles/qualifications.js';
 import {
   RetroactiveEffectiveFromError,
+  WorkProfileNotFutureError,
   authorWorkProfile,
+  cancelFutureWorkProfile,
   transactionNow,
 } from '../../profiles/work-profiles.js';
 import { requireTenantContext } from '../context/middleware.js';
@@ -218,6 +223,20 @@ function classify(error: unknown, request: FastifyRequest): Outcome<never> {
   if (error instanceof RetroactiveEffectiveFromError) {
     return { kind: 'unprocessable' };
   }
+  /* OPUS-M4-000A. Three new refusals, each already enforced a second time at
+   * the database (migration 0012), each mapped to the status its class has
+   * always had on this surface:
+   *
+   *   stale row version        -> 409, the same answer every CAS refusal gets
+   *   requires-expiry/retired  -> 422, a rule the caller's own data tripped
+   *   cancel of a non-future   -> 422, same class as a history rewrite
+   */
+  if (error instanceof StaleRowVersionError) {
+    return { kind: 'conflict' };
+  }
+  if (error instanceof QualificationRuleError || error instanceof WorkProfileNotFutureError) {
+    return { kind: 'unprocessable' };
+  }
   if (error instanceof AmbiguousInForceError) {
     // The EXCLUDE constraint has been dropped or bypassed. The transaction is
     // already rolling back; this is logged as a security-relevant event because
@@ -297,6 +316,7 @@ function toWireHolding(holding: HoldingRow): Holding {
     validUntil: holding.effectiveTo,
     evidenceRef: holding.evidenceRef,
     status: holding.status,
+    version: holding.version,
   };
 }
 
@@ -368,6 +388,52 @@ export default function profileRoutes(app: FastifyInstance): void {
 
     return respond(request, reply, outcome);
   });
+
+  /* ── cancel a FUTURE-EFFECTIVE profile row ──── CAP-013, OPUS-M4-000A ────
+   *
+   * The explicit correction path for a scheduled change (doc 34 §4-B). Only a
+   * row whose window has not begun may be targeted — the service refuses
+   * everything else with a 422 and migration 0012's guard refuses the DELETE
+   * independently. The in-force row is never mutated: continuity, where the
+   * cancelled row had superseded a predecessor, is restored by AUTHORING a
+   * continuation row, which the response returns. A verb-shaped POST rather
+   * than a DELETE on the collection, because the operation is a domain act
+   * with an audit identity, not a generic resource removal.
+   */
+  app.post(
+    `${base}/work-profiles/:workProfileId/cancel`,
+    { config: AUTHOR_WORK_PROFILE_CONFIG },
+    async (request, reply) => {
+      const { context, command, route } = requireTenantContext(request);
+      const workProfileId = (request.params as { workProfileId?: string }).workProfileId;
+      if (workProfileId === undefined) return sendNotFound(request, reply);
+
+      const outcome = await request.server.tenancy.runtime.run(command, async (uow) => {
+        const { decision } = await evaluateInTransaction(uow.query, { request, context, route });
+        if (!decision.allowed) return { kind: 'denied', decision } as const;
+
+        try {
+          const cancelled = await cancelFutureWorkProfile(uow, { workProfileId });
+          if (cancelled === null) return { kind: 'not-found' } as const;
+          return {
+            kind: 'ok',
+            value: cancelWorkProfileResultSchema.parse({
+              cancelledProfileId: cancelled.cancelledProfileId,
+              continuationProfile:
+                cancelled.continuationProfile === null
+                  ? null
+                  : toWireProfile(cancelled.continuationProfile, cancelled.continuationTargets),
+              correlationId: context.correlationId,
+            }),
+          } as const;
+        } catch (error) {
+          return classify(error, request);
+        }
+      });
+
+      return respond(request, reply, outcome);
+    },
+  );
 
   /* ── the profile IN FORCE at an instant ─────────────────────── CAP-013 ── */
   app.get(
@@ -531,6 +597,7 @@ export default function profileRoutes(app: FastifyInstance): void {
           const qualification = await setQualificationStatus(uow, {
             qualificationId,
             status: parsed.data.status,
+            expectedVersion: parsed.data.expectedVersion,
           });
           if (qualification === null) return { kind: 'not-found' } as const;
           return {
@@ -613,6 +680,7 @@ export default function profileRoutes(app: FastifyInstance): void {
           const holding = await changeHoldingStatus(uow, {
             holdingId,
             status: parsed.data.status,
+            expectedVersion: parsed.data.expectedVersion,
           });
           if (holding === null) return { kind: 'not-found' } as const;
           return {

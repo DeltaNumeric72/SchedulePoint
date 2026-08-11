@@ -7,6 +7,7 @@ import { recordAuditEvent } from '../audit/recorder.js';
 import type { Database } from '../db/schema.js';
 import {
   loadWeekdayTargets,
+  loadWorkProfileIdentity,
   loadWorkProfiles,
   workProfileWriteContext,
   type WeekdayTargetRow,
@@ -414,4 +415,220 @@ export async function authorWorkProfile(
   });
 
   return { profile: written, weekdayTargets, supersededProfileId: superseded?.id ?? null };
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Cancelling a future-effective row (OPUS-M4-000A; doc 34 §4-B)
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** Thrown when the cancellation names a row whose window has already begun. */
+export class WorkProfileNotFutureError extends Error {
+  readonly code = 'WORK_PROFILE_NOT_FUTURE';
+
+  constructor(profileId: string) {
+    super(
+      `WORK_PROFILE_NOT_FUTURE: work profile ${profileId} is in force or elapsed and cannot be ` +
+        'cancelled; supersede it instead',
+    );
+    this.name = 'WorkProfileNotFutureError';
+  }
+}
+
+export interface CancelledWorkProfile {
+  readonly cancelledProfileId: string;
+  readonly continuationProfile: WorkProfileRow | null;
+  readonly continuationTargets: readonly WeekdayTargetRow[];
+}
+
+/**
+ * Cancel a work-profile row that is NOT YET IN FORCE — the explicit
+ * correction path for a scheduled change (packet clause 5).
+ *
+ * ## The guard, twice
+ *
+ * Only a row whose `effective_from` is strictly after the transaction instant
+ * may be targeted. The service refuses everything else with
+ * `WORK_PROFILE_NOT_FUTURE` (422), and migration 0012's narrowed
+ * `app_guard_work_profile_delete` refuses the DELETE independently for every
+ * writer including the table owner — an in-force or elapsed window keeps
+ * 0004's unconditional retention.
+ *
+ * ## The in-force row is never mutated
+ *
+ * Literally: this function issues no UPDATE at all. When the cancelled row had
+ * superseded a predecessor at its start instant (the predecessor's
+ * `effective_to` equals the cancelled row's `effective_from`), continuity is
+ * restored by AUTHORING a continuation row over the cancelled window carrying
+ * the predecessor's values and weekday targets — a new row, exactly the verb
+ * this schema has always had, bounded by whatever came next so an already-
+ * scheduled later change still takes effect exactly when it was scheduled to.
+ * The predecessor's recorded end stands: it is the true record that a change
+ * WAS scheduled at that instant, and the audit trail links the cancellation
+ * to the continuation that answered it.
+ *
+ * A future row with no adjacent predecessor (a gap, or a member's first-ever
+ * profile scheduled ahead) cancels to nothing: there is nothing to continue.
+ *
+ * ## Audited as two facts
+ *
+ * `staffing.work_profile.cancelled` on the cancelled row (with the window it
+ * would have occupied), and the ordinary `staffing.work_profile.authored`
+ * (mechanism `continuation`) on the continuation where one is created. Both
+ * are new-name-free except `cancelled`, proposed for FAD ratification in the
+ * return report.
+ */
+export async function cancelFutureWorkProfile(
+  uow: UnitOfWork<Kysely<Database>>,
+  input: { readonly workProfileId: string },
+): Promise<CancelledWorkProfile | null> {
+  const { query } = uow;
+  const organizationId = uow.context.organizationId;
+  const groupId = uow.context.groupId;
+  if (groupId === null) {
+    throw new Error('a work-profile cancellation requires a group-scoped unit of work');
+  }
+
+  const targetRow = await loadWorkProfileIdentity(query, {
+    organizationId,
+    workProfileId: input.workProfileId,
+  });
+  if (targetRow === null) return null;
+
+  // ONE load of the history, through the one loader — the same rows every
+  // other decision on this table is made from (S-01).
+  const rows = await loadWorkProfiles(query, {
+    organizationId,
+    membershipId: targetRow.membershipId,
+  });
+  const target = rows.find((row) => row.id === input.workProfileId);
+  if (target === undefined) return null;
+
+  const now = await transactionNow(query);
+  const from = new Date(target.effectiveFrom);
+  if (!(from.getTime() > now.getTime())) {
+    throw new WorkProfileNotFutureError(target.id);
+  }
+
+  // The adjacent predecessor: the row whose window this future row bounded
+  // when it was authored. Identified by exact bound equality — half-open
+  // windows make the two instants the same value.
+  const predecessor = rows.find(
+    (row) => row.id !== target.id && row.effectiveTo === target.effectiveFrom,
+  );
+  const predecessorTargets =
+    predecessor === undefined
+      ? []
+      : await loadWeekdayTargets(query, { organizationId, workProfileIds: [predecessor.id] });
+
+  /* ── remove the future row: targets first, then the profile ────────────────
+   *
+   * Child rows first because the FK restricts, and each DELETE is admitted by
+   * the 0012 guards ONLY because the parent's window is strictly future — the
+   * same predicate the service just checked, evaluated independently. */
+  await query
+    .deleteFrom('membership_weekday_fte')
+    .where('organization_id', '=', organizationId)
+    .where('work_profile_id', '=', target.id)
+    .execute();
+  const deleted = await query
+    .deleteFrom('membership_work_profiles')
+    .where('organization_id', '=', organizationId)
+    .where('id', '=', target.id)
+    .returning(['id'])
+    .execute();
+  if (deleted.length !== 1) {
+    throw new Error('WORK_PROFILE_CANCEL_LOST: the future row was not deletable after it was read');
+  }
+
+  /* ── the continuation, where there is a predecessor to continue ──────────── */
+  let continuation: WorkProfileRow | null = null;
+  let continuationTargets: readonly WeekdayTargetRow[] = [];
+  if (predecessor !== undefined) {
+    const continuationId = randomUUID();
+    await query
+      .insertInto('membership_work_profiles')
+      .values({
+        id: continuationId,
+        organization_id: organizationId,
+        group_id: groupId,
+        membership_id: targetRow.membershipId,
+        effective_from: new Date(target.effectiveFrom),
+        // Bounded by whatever the cancelled row was bounded by: an already-
+        // scheduled LATER change still takes effect exactly on time.
+        effective_to: target.effectiveTo === null ? null : new Date(target.effectiveTo),
+        work_percentage: predecessor.workPercentage.toFixed(2),
+        max_assignments_per_week: predecessor.maxAssignmentsPerWeek,
+        max_assignments_per_period: predecessor.maxAssignmentsPerPeriod,
+        max_consecutive_days: predecessor.maxConsecutiveDays,
+      })
+      .execute();
+
+    if (predecessorTargets.length > 0) {
+      await query
+        .insertInto('membership_weekday_fte')
+        .values(
+          predecessorTargets.map((entry) => ({
+            id: randomUUID(),
+            organization_id: organizationId,
+            group_id: groupId,
+            work_profile_id: continuationId,
+            day: entry.day,
+            fte_fraction: entry.fteFraction.toFixed(3),
+            max_assignments: entry.maxAssignments,
+          })),
+        )
+        .execute();
+    }
+
+    const after = await loadWorkProfiles(query, {
+      organizationId,
+      membershipId: targetRow.membershipId,
+    });
+    continuation = after.find((row) => row.id === continuationId) ?? null;
+    if (continuation === null) {
+      throw new Error('the continuation row was not readable after it was written');
+    }
+    continuationTargets = await loadWeekdayTargets(query, {
+      organizationId,
+      workProfileIds: [continuationId],
+    });
+  }
+
+  await recordAuditEvent(uow, {
+    eventName: 'staffing.work_profile.cancelled',
+    subjectType: 'work_profile',
+    subjectId: target.id,
+    payload: {
+      mechanism: 'cancel_future',
+      membershipId: targetRow.membershipId,
+      cancelledEffectiveFrom: target.effectiveFrom,
+      cancelledEffectiveTo: target.effectiveTo ?? 'open',
+      cancelledWorkPercentage: target.workPercentage,
+      continuationProfileId: continuation?.id ?? 'none',
+    },
+  });
+  if (continuation !== null) {
+    await recordAuditEvent(uow, {
+      eventName: 'staffing.work_profile.authored',
+      subjectType: 'work_profile',
+      subjectId: continuation.id,
+      payload: {
+        mechanism: 'continuation',
+        membershipId: targetRow.membershipId,
+        beforeProfileId: target.id,
+        beforeWorkPercentage: target.workPercentage,
+        afterWorkPercentage: continuation.workPercentage,
+        afterEffectiveFrom: continuation.effectiveFrom,
+        afterEffectiveTo: continuation.effectiveTo ?? 'open',
+        afterWeekdayTargetCount: continuationTargets.length,
+        weekdayTargetsCarriedForward: true,
+      },
+    });
+  }
+
+  return {
+    cancelledProfileId: target.id,
+    continuationProfile: continuation,
+    continuationTargets,
+  };
 }

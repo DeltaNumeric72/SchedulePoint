@@ -374,9 +374,16 @@ const CASES = [
         replace: '    // red case: the cell lock is removed, leaving the CAS read unserialized',
       },
       {
-        file: 'apps/api/src/http/routes/schedule-authoring.route.ts',
-        find: '    await lockAnchor(uow, `requirement:${periodId}:${date}:${shiftTypeId}`);',
-        replace: '    // red case: the requirement lock is removed',
+        // OPUS-M4-000A: the requirement editor's CAS moved from a per-cell
+        // lock in the route to the AGGREGATE lock in `acquireStaffingSet`
+        // (the whole-set replacement's serialization point, shared by the
+        // demand editors). Removing it leaves the aggregate compare-and-set
+        // read unserialized, and the 12-round races in
+        // `apps/api/test/catalogue/demand-replacement.test.ts` and
+        // `apps/api/test/schedule/authoring-concurrency.test.ts` (B-1) must fail.
+        file: 'apps/api/src/catalogue/staffing-set-version.ts',
+        find: '  await sql`select pg_advisory_xact_lock(${key}::bigint)`.execute(uow.query);',
+        replace: '  // red case: the aggregate lock is removed, leaving the CAS read unserialized',
       },
     ],
     greenCommand: ['run', 'gate:unit'],
@@ -409,6 +416,184 @@ const CASES = [
     ],
     greenCommand: ['run', 'gate:unit'],
     redCommand: ['run', 'gate:unit'],
+  },
+  {
+    id: 'noop-audit-emission',
+    gate: 'FAD-24: a no-op demand save emits NO audit event (OPUS-M4-000A)',
+    violation: 'the changed-only condition removed, so every save is audited as a change',
+    // The load-bearing emission control: open-then-save-unchanged must emit
+    // nothing, and a real save must still emit. This patch makes the route
+    // emit UNCONDITIONALLY, and the emission-control test in
+    // `demand-replacement.test.ts` — which counts audit rows after the exact
+    // editor round trip — must fail on its no-op arm.
+    patch: [
+      {
+        file: 'apps/api/src/http/routes/catalogue.route.ts',
+        find:
+          '        (result) =>\n' +
+          '          result.changed\n' +
+          '            ? {\n' +
+          '                eventName: CATALOGUE_AUDIT_EVENTS.shiftTypeDemandSet,',
+        replace:
+          '        (result) =>\n' +
+          '          true // red case: the no-op condition is removed\n' +
+          '            ? {\n' +
+          '                eventName: CATALOGUE_AUDIT_EVENTS.shiftTypeDemandSet,',
+      },
+    ],
+    greenCommand: ['exec', 'vitest', 'run', 'apps/api/test/catalogue/demand-replacement.test.ts'],
+    redCommand: ['exec', 'vitest', 'run', 'apps/api/test/catalogue/demand-replacement.test.ts'],
+  },
+  {
+    id: 'requires-expiry-service',
+    gate: 'requires_expiry enforced at the SERVICE layer (OPUS-M4-000A)',
+    violation: 'the service-side requires-expiry refusal removed, leaving only the trigger',
+    // The packet requires enforcement at the service AND the database, each
+    // red-cased. The DB trigger's red case suspends the trigger; this one
+    // removes the SERVICE check and the service-layer test — which asserts the
+    // TYPED error class, not merely "some refusal" — must fail, because the
+    // refusal now arrives as a raw SQLSTATE from the trigger instead.
+    patch: [
+      {
+        file: 'apps/api/src/profiles/qualifications.ts',
+        find:
+          '    if (\n' +
+          '      qualification.requires_expiry &&\n' +
+          '      (input.validUntil === undefined || input.validUntil === null)\n' +
+          '    ) {\n' +
+          "      throw new QualificationRuleError(\n" +
+          "        'QUALIFICATION_REQUIRES_EXPIRY',\n" +
+          "        'this qualification requires an expiry; the holding must carry validUntil',\n" +
+          '      );\n' +
+          '    }',
+        replace: '    // red case: the service-side requires-expiry refusal is removed',
+      },
+    ],
+    greenCommand: [
+      'exec',
+      'vitest',
+      'run',
+      'apps/api/test/profiles/staffing-integrity-red-cases.test.ts',
+    ],
+    redCommand: [
+      'exec',
+      'vitest',
+      'run',
+      'apps/api/test/profiles/staffing-integrity-red-cases.test.ts',
+    ],
+  },
+  {
+    id: 'retired-verdict',
+    gate: 'the shared verdict: retirement confers nothing (OPUS-M4-000A)',
+    violation: 'the retirement-first rule removed — a retired qualification evaluates as active',
+    // The verdict's rule 1 (fail-closed retirement) is what makes "existing
+    // holdings retained, verdict reflecting retirement" true on every
+    // consumer at once. Removing it must fail the domain property tests AND
+    // the manual-vs-publication convergence proof.
+    patch: [
+      {
+        file: 'packages/domain/src/eligibility/verdict.ts',
+        find: "  if (lifecycle !== 'active') return 'retired';",
+        replace: '  // red case: the retirement-first rule is removed',
+      },
+    ],
+    greenCommand: [
+      'exec',
+      'vitest',
+      'run',
+      'packages/domain/test/eligibility/verdict.test.ts',
+      'apps/api/test/profiles/verdict-convergence.test.ts',
+    ],
+    redCommand: [
+      'exec',
+      'vitest',
+      'run',
+      'packages/domain/test/eligibility/verdict.test.ts',
+      'apps/api/test/profiles/verdict-convergence.test.ts',
+    ],
+  },
+  {
+    id: 'enforcement-read-plane',
+    gate: 'the publication gate computes on the TRUTH, not the publisher\'s visibility (OPUS-M4-000A)',
+    violation: 'the enforcement-read purpose token misspelled, so the gate under-reads holdings',
+    // Migration 0012's `qualification_holdings_enforcement_read` policy opens
+    // for exactly the span of the verdict computation. With the token wrong,
+    // the gate sees a credentialed member as `missing` and refuses a valid
+    // publication — `qualification-requirement-gate.test.ts`'s read-plane arm
+    // must fail.
+    patch: [
+      {
+        file: 'apps/api/src/schedule/hard-rule-revalidation.ts',
+        find:
+          "  await sql`select set_config('app.enforcement_read', 'qualification_requirements', true)`.execute(",
+        replace:
+          "  await sql`select set_config('app.enforcement_read', 'red_case_wrong_token', true)`.execute(",
+      },
+    ],
+    greenCommand: [
+      'exec',
+      'vitest',
+      'run',
+      'apps/api/test/schedule/qualification-requirement-gate.test.ts',
+    ],
+    redCommand: [
+      'exec',
+      'vitest',
+      'run',
+      'apps/api/test/schedule/qualification-requirement-gate.test.ts',
+    ],
+  },
+  {
+    id: 'work-profile-delete-capability',
+    gate: 'a work-profile cancellation is capability-gated at the DATABASE (OPUS-M4-000A C1 / F-1)',
+    violation: 'the capability check removed from both 0013 delete guards, leaving futureness alone',
+    // The independent review's finding F-1: 0012 narrowed the two work-profile
+    // DELETE guards to admit a strictly-future cancellation and granted
+    // `app_runtime` the DELETE to carry it, but the narrowed bodies asked only
+    // whether the window was future. Migration 0013 adds
+    // `app_require_capability('staffing.work_profile.administer', …)` — the
+    // same capability `AUTHOR_WORK_PROFILE_CONFIG` makes the cancel route
+    // require — to both bodies, AFTER the retention check so 0012's
+    // owner-bound `WORK_PROFILE_RETAINED` proof stays observable.
+    //
+    // The violation is applied to the MIGRATION, and the api project's global
+    // setup runs the migration cycle against a freshly initialised cluster on
+    // every `vitest run` — so the guards under test are literally the patched
+    // ones. With the two `PERFORM` lines gone, an `app_runtime` principal
+    // holding no staffing capability deletes a strictly-future row and its
+    // weekday target, and the 0013 arms of
+    // `apps/api/test/profiles/staffing-integrity-red-cases.test.ts` must fail.
+    patch: [
+      {
+        file: 'apps/api/migrations/0013_work_profile_delete_capability.sql',
+        find:
+          '    -- F-1, the parent half: cancelling a strictly-future window is a WRITE on\n' +
+          '    -- this table and is gated like every other write on it (0004).\n' +
+          "    PERFORM app_require_capability('staffing.work_profile.administer', OLD.organization_id);",
+        replace: '    -- red case: the parent guard no longer asks the capability question',
+      },
+      {
+        file: 'apps/api/migrations/0013_work_profile_delete_capability.sql',
+        find:
+          "    -- F-1, the child half: the same gate, on the child's own tenant column.\n" +
+          "    PERFORM app_require_capability('staffing.work_profile.administer', OLD.organization_id);",
+        replace: '    -- red case: the child guard no longer asks the capability question',
+      },
+    ],
+    greenCommand: [
+      'exec',
+      'vitest',
+      'run',
+      'apps/api/test/profiles/staffing-integrity-red-cases.test.ts',
+      'apps/api/test/profiles/work-profile-cancellation.test.ts',
+    ],
+    redCommand: [
+      'exec',
+      'vitest',
+      'run',
+      'apps/api/test/profiles/staffing-integrity-red-cases.test.ts',
+      'apps/api/test/profiles/work-profile-cancellation.test.ts',
+    ],
   },
   {
     id: 'request-budget-over',

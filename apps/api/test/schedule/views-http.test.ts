@@ -55,7 +55,7 @@ const multi = ownedMulti('schedule-views', {
   // instants and the zone are exactly what the assertions need. `schedule: true`
   // would add a second history whose intervals this file would then have to
   // avoid — D-1b's exclusion is global per membership across periods.
-  seed: { catalogue: ['alpha'] },
+  seed: { catalogue: ['alpha'], scheduleCredentials: true },
 });
 
 let harness: HttpHarness;

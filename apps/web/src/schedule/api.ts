@@ -11,11 +11,12 @@ import {
   scheduleGridSchema,
   schedulePeriodListSchema,
   schedulePeriodResultSchema,
-  scheduleRequirementListSchema,
+  replaceRequirementsRequestSchema,
+  scheduleRequirementSetSchema,
   scheduleVersionListSchema,
   scheduleVersionResultSchema,
   setPinRequestSchema,
-  setRequirementRequestSchema,
+  staleSetVersionBodySchema,
   staleEditBodySchema,
   voidCreditRequestSchema,
   type AddAssignmentRequest,
@@ -29,9 +30,9 @@ import {
   type ScheduleGrid,
   type SchedulePeriodList,
   type SchedulePeriodResult,
-  type ScheduleRequirementList,
+  type ScheduleRequirementSet,
   type SetPinRequest,
-  type SetRequirementRequest,
+  type ReplaceRequirementsRequest,
   type ScheduleVersionList,
   type ScheduleVersionResult,
 } from '@schedulepoint/contracts';
@@ -79,6 +80,23 @@ export class StaleEditError extends Error {
   }
 }
 
+/**
+ * The aggregate cousin of `StaleEditError` (OPUS-M4-000A): a whole-set save
+ * presented a stale `expectedVersion`. Carries the CURRENT version — the
+ * refetch hint the explicit-refusal flow requires; nothing is merged.
+ */
+export class StaleSetVersionError extends Error {
+  readonly currentVersion: number;
+  readonly correlationId: string;
+
+  constructor(message: string, currentVersion: number, correlationId: string) {
+    super(message);
+    this.name = 'StaleSetVersionError';
+    this.currentVersion = currentVersion;
+    this.correlationId = correlationId;
+  }
+}
+
 export interface GroupScope {
   readonly organizationId: string;
   readonly groupId: string;
@@ -103,6 +121,14 @@ function asTypedError(error: unknown): never {
         stale.data.error.message,
         stale.data.error.currentRevision,
         stale.data.error.correlationId,
+      );
+    }
+    const staleSet = staleSetVersionBodySchema.safeParse(error.body);
+    if (staleSet.success) {
+      throw new StaleSetVersionError(
+        staleSet.data.error.message,
+        staleSet.data.error.currentVersion,
+        staleSet.data.error.correlationId,
       );
     }
     const validation = (
@@ -171,26 +197,33 @@ export async function createPeriod(
 
 /* ── requirements ────────────────────────────────────────────────────────── */
 
+/** The load-before-edit read (OPUS-M4-000A): the rows plus the aggregate set version. */
 export async function fetchRequirements(
   scope: GroupScope,
   periodId: string,
-): Promise<ScheduleRequirementList> {
-  return scheduleRequirementListSchema.parse(
+): Promise<ScheduleRequirementSet> {
+  return scheduleRequirementSetSchema.parse(
     await apiRequest(`${base(scope)}/periods/${periodId}/requirements`),
   );
 }
 
-export async function setRequirement(
+/**
+ * The atomic whole-set replacement (OPUS-M4-000A). Saving produces exactly
+ * the presented set; an entry omitted from the request is DELETED — the
+ * canonical rule, stated here and on the page. Stale `expectedVersion` →
+ * `StaleSetVersionError`, never a merge.
+ */
+export async function replaceRequirements(
   scope: GroupScope,
   periodId: string,
-  body: SetRequirementRequest,
-): Promise<ScheduleRequirementList> {
+  body: ReplaceRequirementsRequest,
+): Promise<ScheduleRequirementSet> {
   return write(
     `${base(scope)}/periods/${periodId}/requirements`,
     'PUT',
-    setRequirementRequestSchema,
+    replaceRequirementsRequestSchema,
     body,
-    (value) => scheduleRequirementListSchema.parse(value),
+    (value) => scheduleRequirementSetSchema.parse(value),
   );
 }
 

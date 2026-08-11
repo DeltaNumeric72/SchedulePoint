@@ -260,4 +260,62 @@ export const weekdayDemandSchema = z
   })
   .strict();
 
+/* ────────────────────────────────────────────────────────────────────────────
+ * The atomic whole-set demand replacement (OPUS-M4-000A; doc 34 §4-A)
+ *
+ * `setWeekdayDemandRequestSchema` / `weekdayDemandSchema` above are SUPERSEDED
+ * on the wire by the aggregate form below and retained for additive-contract
+ * discipline. The canonical omitted-entry rule, stated once here and mirrored
+ * on the page:
+ *
+ *   **Saving produces exactly the presented set. A day omitted from the
+ *   request — or presented with a count of zero — has its row DELETED.**
+ *
+ * The zero half of the rule is what the catalogue read has said since FAD-16:
+ * "an absent row means no demand declared, which is zero demand". Because
+ * absent and zero are the SAME reading on this surface, storing a zero row
+ * would create two spellings of one fact — and would break the open-then-
+ * save-unchanged no-op, since the eight-field form always presents eight
+ * entries while the table holds only the positive ones.
+ *
+ * `expectedVersion` is the AGGREGATE demand version for the shift type
+ * (`staffing_set_versions`, scope `weekday_demand`; never-written presents 1).
+ * Stale → explicit `409 STALE_SET_VERSION` with the current version; nothing
+ * merges, so two concurrent replacements can never combine into a union.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+export const replaceWeekdayDemandRequestSchema = z
+  .object({
+    demand: z
+      .array(
+        z
+          .object({
+            day: catalogueDaySchema,
+            demandCount: z.number().int().min(0).max(999),
+          })
+          .strict(),
+      )
+      .max(8),
+    expectedVersion: z.number().int().min(1),
+  })
+  .strict();
+export type ReplaceWeekdayDemandRequest = z.infer<typeof replaceWeekdayDemandRequestSchema>;
+
+/**
+ * The read AND the save result: always all eight days (absent rows as zero),
+ * plus the aggregate version the next save must present. Editors load this
+ * before opening — the version is the load-before-edit token.
+ */
+export const weekdayDemandSetSchema = z
+  .object({
+    shiftTypeId: uuid,
+    demand: z.array(
+      z.object({ day: catalogueDaySchema, demandCount: z.number().int().min(0) }).strict(),
+    ),
+    version: z.number().int().min(1),
+    correlationId: z.string().min(1),
+  })
+  .strict();
+export type WeekdayDemandSet = z.infer<typeof weekdayDemandSetSchema>;
+
 export type WeekdayDemand = z.infer<typeof weekdayDemandSchema>;

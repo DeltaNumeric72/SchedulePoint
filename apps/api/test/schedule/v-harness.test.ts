@@ -65,7 +65,7 @@ import {
 
 const multi = ownedMulti('schedule-v-harness', {
   profile: 'core',
-  seed: { catalogue: ['alpha'] },
+  seed: { catalogue: ['alpha'], scheduleCredentials: true },
 });
 
 /** Every row's verdict, printed at the end so a reviewer reads 19 lines. */

@@ -226,6 +226,11 @@ export const qualificationSchema = z
     requiresExpiry: z.boolean(),
     issuingBody: z.string().nullable(),
     status: z.enum(['active', 'retired']),
+    /**
+     * Row CAS counter (OPUS-M4-000A, migration 0012). Database-owned; the
+     * value a mutation must present as `expectedVersion`.
+     */
+    version: z.number().int().min(1),
   })
   .strict();
 
@@ -239,7 +244,16 @@ export const createQualificationResultSchema = z
  * change is reversible where a delete is not.
  */
 export const setQualificationStatusRequestSchema = z
-  .object({ status: z.enum(['active', 'retired']) })
+  .object({
+    status: z.enum(['active', 'retired']),
+    /**
+     * The row version this decision was made against (OPUS-M4-000A). Retiring
+     * a qualification someone else just renamed or reinstated is exactly the
+     * lost-update shape FAD-24's counter exists for: stale → explicit `409`,
+     * never last-write-wins.
+     */
+    expectedVersion: z.number().int().min(1),
+  })
   .strict();
 
 export const grantHoldingRequestSchema = z
@@ -263,6 +277,8 @@ export const holdingSchema = z
     validUntil: instantSchema.nullable(),
     evidenceRef: z.string().nullable(),
     status: holdingStatusSchema,
+    /** Row CAS counter (OPUS-M4-000A, migration 0012). Database-owned. */
+    version: z.number().int().min(1),
   })
   .strict();
 
@@ -278,12 +294,50 @@ export const changeHoldingStatusRequestSchema = z
      * database admits the transition.
      */
     status: z.enum(['valid', 'expiring', 'expired', 'revoked']),
+    /**
+     * The holding-row version this decision was made against (OPUS-M4-000A).
+     * Stale → explicit `409`; a status machine with last-write-wins is a
+     * status machine only on quiet days.
+     */
+    expectedVersion: z.number().int().min(1),
   })
   .strict();
 
 export const changeHoldingStatusResultSchema = z
   .object({ holding: holdingSchema, correlationId: z.string() })
   .strict();
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Future-effective work-profile cancellation (OPUS-M4-000A; doc 34 §4-B)
+ *
+ * The explicit correction path for a scheduled change: a work-profile row
+ * whose window has NOT begun may be cancelled. The row is removed (a future
+ * window is not history — nothing was ever worked under it), the operation is
+ * audited, and where the cancelled row had superseded a predecessor at its
+ * start instant, a CONTINUATION row carrying the predecessor's values is
+ * authored over the cancelled window so the in-force answer is seamless. The
+ * in-force row itself is NEVER touched — its recorded end stands as the
+ * record of what was once scheduled, and continuity is restored by authoring
+ * forward, which is this schema's one verb (0004's discipline unchanged).
+ *
+ * A row already in force — or elapsed — is refused, at the service AND by the
+ * database guard, with a 422. A correction to the PRESENT is what
+ * supersession is for.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+export const cancelWorkProfileResultSchema = z
+  .object({
+    /** The cancelled (deleted) future row's id — the audit subject. */
+    cancelledProfileId: z.string().uuid(),
+    /**
+     * The continuation row authored over the cancelled window, or `null` when
+     * the cancelled row had no adjacent predecessor to continue.
+     */
+    continuationProfile: workProfileSchema.nullable(),
+    correlationId: z.string(),
+  })
+  .strict();
+export type CancelWorkProfileResult = z.infer<typeof cancelWorkProfileResultSchema>;
 
 export const membershipHoldingsResultSchema = z
   .object({

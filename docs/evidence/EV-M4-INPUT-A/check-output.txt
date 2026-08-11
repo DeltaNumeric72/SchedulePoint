@@ -1,0 +1,65 @@
+=== corepack pnpm check — OPUS-M4-000A acceptance re-run, after the FAD-15 isolation repair (commit 6a6a0ea) ===
+exit code 0. Unit gate: 115 files / 1444 tests. Playwright/axe: 343 passed, 13 skipped.
+Tail of the run; the complete log is retained by the runner under .evidence-scratch/.
+
+  ✓  324 [mobile] › e2e/schedule.spec.ts:730:3 › the grid and its accessible alternative › DENIED: the grid surface renders no-permission and never says why (354ms)
+  ✓  325 [mobile] › e2e/schedule.spec.ts:746:3 › the grid and its accessible alternative › AC-08: no page-level horizontal scroll at the narrow viewport (3.5s)
+  ✓  326 [mobile] › e2e/schedule.spec.ts:762:3 › the grid and its accessible alternative › AC-08: the periods surface reflows at 320px too (168ms)
+  ✓  327 [mobile] › e2e/schedule.spec.ts:791:3 › the cell editor › I-13: opening a cell issues ZERO requests and shows provenance (3.6s)
+  ✓  328 [mobile] › e2e/schedule.spec.ts:810:3 › the cell editor › I-10: opening the assign picker issues exactly one request (3.7s)
+  ✓  329 [mobile] › e2e/schedule.spec.ts:823:3 › the cell editor › I-10: a successful Save issues one write and one re-read (361ms)
+  ✓  330 [mobile] › e2e/schedule.spec.ts:849:3 › the cell editor › PO-DEC-18: a stale cell edit is refused explicitly, with a refetch control (3.8s)
+  ✓  331 [mobile] › e2e/schedule.spec.ts:875:3 › the cell editor › the eligibility ABSENT arm says it is about permission, not about the person (3.7s)
+  ✓  332 [mobile] › e2e/schedule.spec.ts:902:3 › the cell editor › the NOBODY-ELIGIBLE arm is a different message from the absent one (4.1s)
+  ✓  333 [mobile] › e2e/schedule.spec.ts:925:3 › the cell editor › B-4: a KNOWN-ineligible choice blocks Save until a reason is given (3.6s)
+  ✓  334 [mobile] › e2e/schedule.spec.ts:952:3 › the cell editor › B-4: an ABSENT-eligibility choice demands no reason at all (228ms)
+  ✓  335 [mobile] › e2e/schedule.spec.ts:972:3 › the cell editor › I-10: pinning issues one write and one re-read (212ms)
+  ✓  336 [mobile] › e2e/schedule.spec.ts:995:3 › the cell editor › I-10: removing issues one write and one re-read (335ms)
+  ✓  337 [mobile] › e2e/schedule.spec.ts:1019:3 › the cell editor › the candidate read failing renders an error, not an empty picker (312ms)
+  ✓  338 [mobile] › e2e/settings.spec.ts:156:3 › settings — the group settings page › LOADING: each panel announces itself while the read is in flight (492ms)
+  ✓  339 [mobile] › e2e/settings.spec.ts:177:3 › settings — the group settings page › POPULATED: all three panels render, and the two stored-only ones say so (464ms)
+  ✓  340 [mobile] › e2e/settings.spec.ts:206:3 › settings — the group settings page › the published-schedule warning is on the page BEFORE the administrator acts (463ms)
+  ✓  341 [mobile] › e2e/settings.spec.ts:225:3 › settings — the group settings page › with no published schedules there is no warning and no acknowledgement (409ms)
+  ✓  342 [mobile] › e2e/settings.spec.ts:236:3 › settings — the group settings page › PERMISSION DENIED: a 403 says so, and does not say why (410ms)
+  ✓  343 [mobile] › e2e/settings.spec.ts:250:3 › settings — the group settings page › NOT FOUND: a 404 renders as not found, never as a permission problem (389ms)
+  ✓  344 [mobile] › e2e/settings.spec.ts:264:3 › settings — the group settings page › I-10: an accepted timezone save is one write and one authoritative re-read (680ms)
+  ✓  345 [mobile] › e2e/settings.spec.ts:293:3 › settings — the group settings page › AC-11: a refused save focuses the summary and issues exactly one request (1.2s)
+  ✓  346 [mobile] › e2e/settings.spec.ts:329:3 › settings — the group settings page › AC-02: the timezone panel is completable by keyboard alone (108ms)
+  ✓  347 [mobile] › e2e/settings.spec.ts:369:3 › settings — locations › EMPTY: the empty state says what a location IS, not "no data" (325ms)
+  ✓  348 [mobile] › e2e/settings.spec.ts:382:3 › settings — locations › POPULATED: the table renders, archived rows are marked in WORDS (378ms)
+  ✓  349 [mobile] › e2e/settings.spec.ts:409:3 › settings — locations › PO-DEC-01: there is no site picker, no site list, and no site link anywhere (142ms)
+  ✓  350 [mobile] › e2e/settings.spec.ts:433:3 › settings — locations › I-13: opening the location form issues ZERO requests (621ms)
+  ✓  351 [mobile] › e2e/settings.spec.ts:457:3 › settings — locations › a location saves, and the client re-reads what the server says the list is (786ms)
+  ✓  352 [mobile] › e2e/settings.spec.ts:479:3 › settings — locations › AC-08 / AC-09: no page-level horizontal scroll at 320px, and every target is ≥44×44 (512ms)
+  ✓  353 [mobile] › e2e/settings.spec.ts:543:3 › settings — locations › PERMISSION DENIED on locations renders the denial state (338ms)
+  ✓  354 [mobile] › e2e/shell.spec.ts:21:3 › application shell › renders the shell structure (83ms)
+  ✓  355 [mobile] › e2e/shell.spec.ts:42:3 › application shell › has no axe-core violations (246ms)
+  ✓  356 [mobile] › e2e/shell.spec.ts:59:3 › application shell › keeps the shell within its request budget (621ms)
+
+  13 skipped
+  343 passed (3.0m)
+$ node scripts/run-in-workspace.mjs apps/web playwright test
+
+[1m=== request-budget — requests per interaction (SP-HR-2) ===[0m
+PASS  request-budget (SP-HR-2 / I-10) — 38 budgeted interaction(s), 75 recording(s) [authn-fill-activation-form.desktop.json, authn-fill-activation-form.mobile.json, authn-submit-activation-refused-by-client.desktop.json, authn-submit-activation-refused-by-client.mobile.json, authn-submit-password-reset-request.desktop.json, authn-submit-password-reset-request.mobile.json, catalogue-open-new-shift-type.desktop.json, catalogue-open-new-shift-type.mobile.json, catalogue-save-shift-type-refused.desktop.json, catalogue-save-shift-type-refused.mobile.json, catalogue-save-shift-type.desktop.json, catalogue-save-shift-type.mobile.json, daily-sheet-next-day.desktop.json, daily-sheet-next-day.mobile.json, daily-sheet-open-from-calendar.desktop.json, health-retry-click.desktop.json, health-retry-click.mobile.json, my-schedule-next-window.desktop.json, my-schedule-next-window.mobile.json, my-schedule-switch-view.desktop.json, my-schedule-switch-view.mobile.json, publication-change-comparison.desktop.json, publication-change-comparison.mobile.json, publication-fill-confirm.desktop.json, publication-fill-confirm.mobile.json, publication-open-clone-confirm.desktop.json, publication-open-clone-confirm.mobile.json, publication-open-confirm.desktop.json, publication-open-confirm.mobile.json, publication-open-revert-confirm.desktop.json, publication-open-revert-confirm.mobile.json, publication-publish-accepted.desktop.json, publication-publish-accepted.mobile.json, publication-publish-refused.desktop.json, publication-publish-refused.mobile.json, rules-open-edit.desktop.json, rules-open-edit.mobile.json, rules-open-new-rule.desktop.json, rules-open-new-rule.mobile.json, rules-save-accepted.desktop.json, rules-save-accepted.mobile.json, rules-save-edit.desktop.json, rules-save-edit.mobile.json, rules-save-refused.desktop.json, rules-save-refused.mobile.json, schedule-create-draft-version.desktop.json, schedule-create-draft-version.mobile.json, schedule-fill-period-form.desktop.json, schedule-fill-period-form.mobile.json, schedule-open-assign-picker.desktop.json, schedule-open-assign-picker.mobile.json, schedule-open-cell-editor.desktop.json, schedule-open-cell-editor.mobile.json, schedule-open-new-period.desktop.json, schedule-open-new-period.mobile.json, schedule-pin-assignment.desktop.json, schedule-pin-assignment.mobile.json, schedule-remove-assignment.desktop.json, schedule-remove-assignment.mobile.json, schedule-save-assignment.desktop.json, schedule-save-assignment.mobile.json, schedule-save-period-refused.desktop.json, schedule-save-period-refused.mobile.json, schedule-save-requirement.desktop.json, schedule-save-requirement.mobile.json, settings-open-new-location.desktop.json, settings-open-new-location.mobile.json, settings-save-location-accepted.desktop.json, settings-save-location-accepted.mobile.json, settings-save-timezone-accepted.desktop.json, settings-save-timezone-accepted.mobile.json, settings-save-timezone-refused.desktop.json, settings-save-timezone-refused.mobile.json, shell-initial-load.desktop.json, shell-initial-load.mobile.json]
+$ node scripts/gates/request-budget.mjs
+
+GATE                     RESULT   TIME
+------------------------ -------- --------
+lint                     PASS       2266ms
+typecheck                PASS       5297ms
+unit                     PASS      86038ms
+import-boundary          PASS        818ms
+route-policy             PASS        597ms
+migration-rls            PASS        224ms
+invariant-ids            PASS        215ms
+rule-node-mapping        PASS        213ms
+secret-scan              PASS        430ms
+build                    PASS       1275ms
+network-guard            PASS        210ms
+axe                      PASS     181240ms
+request-budget           PASS        224ms
+------------------------ -------- --------
+13 gate(s): 13 passed, 0 failed
+evidence: scratch — writing under .evidence-scratch/ (tracked artifacts untouched; pass --refresh to update them)
+/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-000a/.evidence-scratch/scripts/check-output.txt

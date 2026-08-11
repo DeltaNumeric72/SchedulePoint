@@ -144,9 +144,12 @@ interface Draft {
   readonly periodId: string;
   readonly versionId: string;
   readonly date: string;
+  /** A second date inside the same period — the disjoint-set race needs one. */
+  readonly secondDate: string;
   readonly shiftTypeId: string;
   readonly emptyCellRevision: string;
-  readonly absentRequirementRevision: string;
+  /** The requirement AGGREGATE's set version (OPUS-M4-000A). */
+  readonly requirementSetVersion: number;
 }
 
 async function createDraft(): Promise<Draft> {
@@ -194,10 +197,10 @@ async function createDraft(): Promise<Draft> {
     periodId,
     versionId,
     date: window.startDate,
+    secondDate: window.endDate,
     shiftTypeId,
     emptyCellRevision: (grid.body as { emptyCellRevision: string }).emptyCellRevision,
-    absentRequirementRevision: (requirements.body as { absentRequirementRevision: string })
-      .absentRequirementRevision,
+    requirementSetVersion: (requirements.body as { version: number }).version,
   };
 }
 
@@ -226,7 +229,9 @@ async function readCellAssignments(
   );
 }
 
-async function storedRequirement(draft: Draft): Promise<number | undefined> {
+async function storedRequirements(
+  draft: Draft,
+): Promise<{ date: string; requiredCount: number }[]> {
   const list = parse(
     await harness.app.inject({
       method: 'GET',
@@ -234,9 +239,9 @@ async function storedRequirement(draft: Draft): Promise<number | undefined> {
       headers: schedulerHeaders,
     }),
   );
-  return (list.body as { requirements: { date: string; requiredCount: number }[] }).requirements.find(
-    (row) => row.date === draft.date,
-  )?.requiredCount;
+  return (
+    list.body as { requirements: { date: string; requiredCount: number }[] }
+  ).requirements.map((row) => ({ date: row.date, requiredCount: row.requiredCount }));
 }
 
 /** Enough rounds that an 11-in-12 failure rate cannot pass by luck. */
@@ -251,44 +256,61 @@ beforeAll(async () => {
  * ──────────────────────────────────────────────────────────────────────────── */
 
 describe('B-1: concurrent requirement writes carrying the SAME revision', () => {
-  it(`over ${String(ROUNDS)} rounds, exactly one wins and the loser's value is never stored`, async () => {
+  /* OPUS-M4-000A: the requirement editor is a WHOLE-SET replacement under the
+   * aggregate CAS, so the race is raced on the aggregate — two writers, the
+   * SAME loaded `expectedVersion`, DISJOINT presented sets. The forbidden
+   * outcome is the UNION (both writers' rows in the database); the required
+   * outcome is exactly one winner's set, byte for byte, and an explicit
+   * `409 STALE_SET_VERSION` for the loser. Asserted against the DATABASE
+   * state, not the status codes, twelve rounds. */
+  it(`over ${String(ROUNDS)} rounds, exactly one set wins whole and the union never appears`, async () => {
     const results: string[] = [];
 
     for (let round = 0; round < ROUNDS; round += 1) {
       const draft = await createDraft();
       const url = `${schedulePath()}/periods/${draft.periodId}/requirements`;
-      const body = (count: number): string =>
+      // Disjoint sets: writer A presents ONLY the start date, writer B ONLY
+      // the end date. A merge of any kind produces two rows.
+      const body = (date: string, count: number): string =>
         JSON.stringify({
-          date: draft.date,
-          shiftTypeId: draft.shiftTypeId,
-          requiredCount: count,
-          expectedRevision: draft.absentRequirementRevision,
+          requirements: [{ date, shiftTypeId: draft.shiftTypeId, requiredCount: count }],
+          expectedVersion: draft.requirementSetVersion,
         });
 
       const replies = await race(
-        { method: 'PUT', url, payload: body(2) },
-        { method: 'PUT', url, payload: body(7) },
+        { method: 'PUT', url, payload: body(draft.date, 2) },
+        { method: 'PUT', url, payload: body(draft.secondDate, 7) },
       );
       const { won, lost } = outcomes(replies);
-      const stored = await storedRequirement(draft);
+      const stored = await storedRequirements(draft);
 
       results.push(
-        `round ${String(round)}: ${replies.map((r) => String(r.statusCode)).join('/')} stored=${String(stored)}`,
+        `round ${String(round)}: ${replies.map((r) => String(r.statusCode)).join('/')} stored=${JSON.stringify(stored)}`,
       );
 
       expect(won, `round ${String(round)}: both writers were accepted`).toHaveLength(1);
       expect(lost).toHaveLength(1);
       expect(lost[0]?.statusCode).toBe(409);
-      expect((lost[0]?.body as { error: { code: string } }).error.code).toBe('STALE_EDIT');
+      expect((lost[0]?.body as { error: { code: string } }).error.code).toBe('STALE_SET_VERSION');
+      // The refusal carries the CURRENT version — the refetch hint, present
+      // and newer than what the loser presented.
+      expect(
+        (lost[0]?.body as { error: { currentVersion: number } }).error.currentVersion,
+      ).toBeGreaterThan(draft.requirementSetVersion);
 
-      // The decisive assertion: the DATABASE holds the winner's number, and the
-      // loser's number is nowhere. A CAS that answered 409 after writing would
-      // pass the status-code check and fail this one.
-      const winner = won[0] === replies[0] ? 2 : 7;
-      expect(stored, `round ${String(round)}: the stored value is not the winner's`).toBe(winner);
+      /* The decisive assertion: the DATABASE holds exactly the winner's set.
+       * One row, the winner's date, the winner's count — never two rows, which
+       * is what a union or any silent merge would produce, and never the
+       * loser's row alone. */
+      const winnerWasA = won[0] === replies[0];
+      expect(stored, `round ${String(round)}: the stored set is not exactly the winner's`).toEqual([
+        winnerWasA
+          ? { date: draft.date, requiredCount: 2 }
+          : { date: draft.secondDate, requiredCount: 7 },
+      ]);
     }
 
-    console.log(`B-1 requirement race:\n  ${results.join('\n  ')}`);
+    console.log(`B-1 requirement whole-set race:\n  ${results.join('\n  ')}`);
   }, 240_000);
 });
 

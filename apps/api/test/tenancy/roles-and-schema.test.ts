@@ -917,8 +917,26 @@ describe('R-05 — app_runtime\'s DML envelope is bounded by grants, not by conv
     log('role change bumps membership_set_version; last_active_at does not');
   });
 
-  it('F/B: DELETE is granted to no runtime role on any tenant table', () => {
+  it('F/B: DELETE grants on tenant tables are exactly the declared OPUS-M4-000A set', () => {
     return (async () => {
+      /* Migration 0012's four declared exceptions, each behind a database
+       * guard, each with its rationale in the migration:
+       *
+       *   shift_type_weekday_demand / schedule_requirements — delete-absent,
+       *     the demand editors' canonical omitted-entry rule; pure quantities,
+       *     capability-gated DELETE triggers.
+       *   membership_work_profiles / membership_weekday_fte — the future-row
+       *     cancellation path; the guards refuse any row whose window has
+       *     begun, for the OWNER as well.
+       *
+       * Everything else keeps doc 09 §4's no-hard-delete posture, asserted
+       * pair by pair exactly as before. */
+      const DELETE_ALLOWED = new Map<string, ReadonlySet<string>>([
+        ['shift_type_weekday_demand', new Set(['app_runtime', 'app_worker'])],
+        ['schedule_requirements', new Set(['app_runtime', 'app_worker'])],
+        ['membership_work_profiles', new Set(['app_runtime'])],
+        ['membership_weekday_fte', new Set(['app_runtime'])],
+      ]);
       let pairs = 0;
       for (const role of ['app_runtime', 'app_worker', 'app_readonly_support', 'app_breakglass']) {
         for (const table of TENANT_TABLES) {
@@ -926,14 +944,20 @@ describe('R-05 — app_runtime\'s DML envelope is bounded by grants, not by conv
             `select has_table_privilege($1, $2, 'DELETE') as allowed`,
             [role, table.name],
           );
+          const expected = DELETE_ALLOWED.get(table.name)?.has(role) ?? false;
           expect(
             result.rows[0]?.allowed,
-            `${role} holds DELETE on ${table.name} — doc 09 §4 permits no hard delete of tenant data`,
-          ).toBe(false);
+            expected
+              ? `${role} lost the declared 0012 DELETE on ${table.name}`
+              : `${role} holds DELETE on ${table.name} — doc 09 §4 permits no hard delete of tenant data`,
+          ).toBe(expected);
           pairs += 1;
         }
       }
-      log(`${String(pairs)} (role, table) pairs checked; DELETE granted nowhere`);
+      log(
+        `${String(pairs)} (role, table) pairs checked; DELETE granted only on the four ` +
+          'declared 0012 tables, only to the declared roles',
+      );
     })();
   });
 

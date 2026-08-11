@@ -271,6 +271,11 @@ const CONFLICT_CODES = new Set([
   // request was well formed and the caller authorized — the CONTENT breaches a
   // HARD rule, or names one this system cannot decide.
   'HARD_RULE_BREACH',
+  // OPUS-M4-000A: the catalogue's shift-type qualification requirement edge is
+  // unmet by an assignment in the version — enforced structurally, whether or
+  // not a duplicate authored rule exists. Same class as HARD_RULE_BREACH for
+  // the same reason.
+  'QUALIFICATION_REQUIREMENT_BREACH',
 ]);
 
 function outcomeOfServiceError<T>(error: unknown): Outcome<T> | null {

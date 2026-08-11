@@ -381,6 +381,8 @@ export interface QualificationsTable {
   requires_expiry: Generated<boolean>;
   issuing_body: string | null;
   status: Generated<'active' | 'retired'>;
+  /** Row CAS counter (migration 0012, the 0005 pattern). DB-owned; absent from every grant. */
+  version: Generated<number>;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
@@ -396,6 +398,33 @@ export interface QualificationHoldingsTable {
   /** An opaque REFERENCE to a document held elsewhere. Never free text (I-07). */
   evidence_ref: string | null;
   status: Generated<'pending' | 'valid' | 'expiring' | 'expired' | 'revoked'>;
+  /** Row CAS counter (migration 0012, the 0005 pattern). DB-owned; absent from every grant. */
+  version: Generated<number>;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+/**
+ * `staffing_set_versions` (migration 0012, OPUS-M4-000A).
+ *
+ * The aggregate consistency counter behind the whole-set staffing editors:
+ * per-shift-type weekday demand, per-period requirements, and the per-shift-
+ * type qualification-requirement set. One row per aggregate, created lazily by
+ * the first content write; **an absent row means version 1**.
+ *
+ * DATABASE-OWNED on FAD-24's `settings_version` terms: no runtime role holds
+ * INSERT or UPDATE — `app_bump_staffing_set_version` (SECURITY DEFINER, fired
+ * by the content tables' triggers) is the only writer, and the monotonic guard
+ * binds the owner too. The application reads it under a tenant-qualified
+ * advisory lock and refuses a stale `expectedVersion` with an explicit 409.
+ */
+export interface StaffingSetVersionsTable {
+  id: Generated<string>;
+  organization_id: string;
+  group_id: string;
+  scope: 'weekday_demand' | 'period_requirements' | 'qualification_requirements';
+  scope_id: string;
+  version: Generated<number>;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
@@ -850,6 +879,8 @@ export interface Database {
   current_published_assignments: CurrentPublishedAssignmentsTable;
   /* OPUS-M3-007 (`migrations/0010_group_settings_locations.sql`). */
   locations: LocationsTable;
+  /* OPUS-M4-000A (`migrations/0012_staffing_input_integrity.sql`). */
+  staffing_set_versions: StaffingSetVersionsTable;
 }
 
 /**
@@ -1111,4 +1142,14 @@ export const TENANT_TABLES: readonly TenantTable[] = [
    * the seeding reaches the same fixture without editing the shared script —
    * exactly as OPUS-M3-002 did for `rules`. */
   { name: 'locations', scope: 'organization-and-group' },
+
+  /* ── `migrations/0012_staffing_input_integrity.sql` (OPUS-M4-000A) ──────────
+   *
+   * Registered in the SAME change as the migration that creates it (packet 30
+   * §7.2's rule, still binding). `organization-and-group`: both tenant columns,
+   * V-09's conjunctive group predicate, no organization-scoped policy. Its
+   * non-vacuity in the sweeps is established by `provisionMulti`'s catalogue
+   * seeding: the demand writes it already performs fire the bump trigger,
+   * which upserts a counter row through the production mechanism. */
+  { name: 'staffing_set_versions', scope: 'organization-and-group' },
 ] as const;

@@ -155,7 +155,10 @@ describe('every catalogue mutation emits, and emits exactly once', () => {
     expect(
       (
         await request('PUT', scheduler, `/shift-types/${shiftTypeId}/weekday-demand`, {
+          // OPUS-M4-000A: the whole-set replacement carries the aggregate CAS;
+          // a fresh shift type's never-written aggregate presents version 1.
           demand: [{ day: 'wed', demandCount: 2 }],
+          expectedVersion: 1,
         })
       ).statusCode,
     ).toBe(200);
@@ -201,7 +204,8 @@ describe('every catalogue mutation emits, and emits exactly once', () => {
       'PUT',
       scheduler,
       `/shift-types/${shiftTypeId}/qualifications`,
-      { qualificationIds: [multi().staffing?.qualificationId] },
+      // OPUS-M4-000A: the aggregate CAS; a fresh shift type presents 1.
+      { qualificationIds: [multi().staffing?.qualificationId], expectedVersion: 1 },
     );
     expect(requirements.statusCode, requirements.body).toBe(200);
 

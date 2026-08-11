@@ -4,9 +4,14 @@ import type { TenantContext, UnitOfWork } from '@schedulepoint/domain';
 import type { Kysely } from 'kysely';
 
 import { recordAuditEvent } from '../audit/recorder.js';
+import {
+  acquireStaffingSet,
+  readStaffingSetVersion,
+} from '../catalogue/staffing-set-version.js';
 import type { Database } from '../db/schema.js';
 import { requireScheduleCapability, type ScheduleActor } from './actions.js';
 import { SchedulePreconditionError, ScheduleTransitionError } from './errors.js';
+import { calendarDate } from './render.js';
 
 /**
  * The schedule module's domain services (SPEC-05).
@@ -200,6 +205,223 @@ export async function setRequirement(
     payload: { requirement: inserted.id, required: input.requiredCount },
   });
   return inserted.id;
+}
+
+export interface RequirementSetEntry {
+  readonly date: string;
+  readonly shiftTypeId: string;
+  readonly requiredCount: number;
+}
+
+export interface RequirementRowView {
+  readonly id: string;
+  readonly date: string;
+  readonly shiftTypeId: string;
+  readonly requiredCount: number;
+}
+
+export interface RequirementReplacement {
+  readonly requirements: readonly RequirementRowView[];
+  /** The aggregate version AFTER this save — what the next save presents. */
+  readonly version: number;
+  /** `false` iff the presented set equalled the stored one (FAD-24: no audit event). */
+  readonly changed: boolean;
+  readonly addedCount: number;
+  readonly updatedCount: number;
+  readonly deletedCount: number;
+}
+
+export type RequirementReplaceOutcome =
+  | { readonly kind: 'ok'; readonly value: RequirementReplacement }
+  | { readonly kind: 'stale-set'; readonly currentVersion: number }
+  | { readonly kind: 'invalid'; readonly problems: readonly { field: string; message: string }[] };
+
+/** One period's requirement rows, with the aggregate version — the editor's load. */
+export async function readRequirementSet(
+  uow: Uow,
+  periodId: string,
+): Promise<{ requirements: readonly RequirementRowView[]; version: number }> {
+  const rows = (await uow.query
+    .selectFrom('schedule_requirements')
+    .select(['id', 'date', 'shift_type_id', 'required_count'])
+    .where('period_id', '=', periodId)
+    .orderBy('date')
+    .orderBy('shift_type_id')
+    .execute()) as unknown as {
+    id: string;
+    date: string | Date;
+    shift_type_id: string;
+    required_count: number;
+  }[];
+  return {
+    requirements: rows.map((row) => ({
+      id: row.id,
+      date: calendarDate(row.date),
+      shiftTypeId: row.shift_type_id,
+      requiredCount: row.required_count,
+    })),
+    version: await readStaffingSetVersion(uow, 'period_requirements', periodId),
+  };
+}
+
+/**
+ * Replace a period's WHOLE requirement set — the atomic aggregate
+ * (OPUS-M4-000A; doc 34 §4-A). The canonical omitted-entry rule, stated in
+ * the contract and on the page: **saving produces exactly the presented set;
+ * an entry omitted from the request is DELETED.** An explicit zero is a real
+ * entry and is STORED — on this surface, unlike the catalogue's weekday grid,
+ * absent and zero are different statements (a period-dated zero overrides
+ * whatever a weekday default would imply, doc 07 §1's default-vs-instance
+ * distinction), so no zero-normalisation happens here.
+ *
+ * Concurrency: `acquireStaffingSet` (the M3-004 lock-then-read shape, on the
+ * aggregate) serializes writers per period and refuses a stale
+ * `expectedVersion` with the current version. Two concurrent replacements can
+ * never combine into a union — proven by the 12-round DB-asserted race in
+ * `apps/api/test/schedule/authoring-concurrency.test.ts` (B-1).
+ *
+ * The no-op is a byte-level no-op: an identical presented set issues no
+ * statement, bumps nothing, and is not audited as a change (FAD-24, with the
+ * emission control in the same test file).
+ */
+export async function replaceRequirements(
+  uow: Uow,
+  actor: ScheduleActor,
+  periodId: string,
+  body: { readonly requirements: readonly RequirementSetEntry[]; readonly expectedVersion: number },
+): Promise<RequirementReplaceOutcome> {
+  await requireScheduleCapability(uow, actor, 'periodAdminister');
+  const tenant = tenantOf(uow.context);
+
+  const seen = new Set<string>();
+  for (const entry of body.requirements) {
+    const key = `${entry.date}|${entry.shiftTypeId}`;
+    if (seen.has(key)) {
+      return {
+        kind: 'invalid',
+        problems: [
+          {
+            field: 'requirements',
+            message: `The set names ${entry.date} × ${entry.shiftTypeId} more than once.`,
+          },
+        ],
+      };
+    }
+    seen.add(key);
+  }
+
+  // Serialize FIRST, before any read the diff is computed from (the M3-004
+  // lesson: an unlocked CAS read under READ COMMITTED protects nothing).
+  const acquisition = await acquireStaffingSet(
+    uow,
+    'period_requirements',
+    periodId,
+    body.expectedVersion,
+  );
+  if (acquisition.kind === 'stale') {
+    return { kind: 'stale-set', currentVersion: acquisition.currentVersion };
+  }
+
+  const existing = (await uow.query
+    .selectFrom('schedule_requirements')
+    .select(['id', 'date', 'shift_type_id', 'required_count'])
+    .where('period_id', '=', periodId)
+    .execute()) as unknown as {
+    id: string;
+    date: string | Date;
+    shift_type_id: string;
+    required_count: number;
+  }[];
+  const existingByKey = new Map(
+    existing.map((row) => [`${calendarDate(row.date)}|${row.shift_type_id}`, row]),
+  );
+
+  const desired = new Map(
+    body.requirements.map((entry) => [`${entry.date}|${entry.shiftTypeId}`, entry]),
+  );
+
+  const toInsert = [...desired.values()].filter(
+    (entry) => !existingByKey.has(`${entry.date}|${entry.shiftTypeId}`),
+  );
+  const toUpdate = [...desired.values()]
+    .map((entry) => ({ entry, row: existingByKey.get(`${entry.date}|${entry.shiftTypeId}`) }))
+    .filter(
+      (pair): pair is { entry: RequirementSetEntry; row: (typeof existing)[number] } =>
+        pair.row !== undefined && pair.row.required_count !== pair.entry.requiredCount,
+    );
+  const toDelete = existing.filter(
+    (row) => !desired.has(`${calendarDate(row.date)}|${row.shift_type_id}`),
+  );
+
+  const changed = toInsert.length > 0 || toUpdate.length > 0 || toDelete.length > 0;
+
+  if (toInsert.length > 0) {
+    await uow.query
+      .insertInto('schedule_requirements')
+      .values(
+        toInsert.map((entry) => ({
+          id: randomUUID(),
+          ...tenant,
+          period_id: periodId,
+          date: entry.date,
+          shift_type_id: entry.shiftTypeId,
+          required_count: entry.requiredCount,
+        })),
+      )
+      .execute();
+  }
+
+  // By ROW ID: the row this transaction read is the row it acts on.
+  for (const { entry, row } of toUpdate) {
+    await uow.query
+      .updateTable('schedule_requirements')
+      .set({ required_count: entry.requiredCount, updated_at: new Date() })
+      .where('id', '=', row.id)
+      .execute();
+  }
+
+  if (toDelete.length > 0) {
+    await uow.query
+      .deleteFrom('schedule_requirements')
+      .where(
+        'id',
+        'in',
+        toDelete.map((row) => row.id),
+      )
+      .execute();
+  }
+
+  const after = await readRequirementSet(uow, periodId);
+
+  if (changed) {
+    // ONE event for one user action (I-10's audit shadow): the aggregate save
+    // is a single administrative act, and its record carries the counts and
+    // the resulting set version. NOT emitted for a no-op (FAD-24).
+    await recordAuditEvent(uow, {
+      eventName: 'schedule.period.updated',
+      subjectType: 'schedule_period',
+      subjectId: periodId,
+      payload: {
+        mechanism: 'requirements_replaced',
+        added: toInsert.length,
+        updated: toUpdate.length,
+        deleted: toDelete.length,
+        setVersion: after.version,
+      },
+    });
+  }
+
+  return {
+    kind: 'ok',
+    value: {
+      requirements: after.requirements,
+      version: after.version,
+      changed,
+      addedCount: toInsert.length,
+      updatedCount: toUpdate.length,
+      deletedCount: toDelete.length,
+    },
+  };
 }
 
 /* ────────────────────────────────────────────────────────────────────────────

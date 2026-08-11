@@ -217,6 +217,21 @@ export interface MultiSeedOptions {
    * the rest of the suite's assertions are asserting about.
    */
   readonly schedule?: boolean;
+  /**
+   * Grant every Alpha Group One membership a VALID open-ended holding of the
+   * catalogue's required credential (OPUS-M4-000A).
+   *
+   * Publication now enforces the shift-type qualification requirement edge
+   * STRUCTURALLY (the shared eligibility verdict), and `shiftTypeIds[0]`
+   * carries a requirement — so a fixture that publishes assignments on it
+   * must credential its assignees, exactly as production would. Opt-IN,
+   * because the eligibility proofs (`test/catalogue/eligibility-read.test.ts`)
+   * depend on `member` holding NOTHING; a file takes the flag or the
+   * uncredentialed member, never both.
+   *
+   * Requires `catalogue` to include `'alpha'`.
+   */
+  readonly scheduleCredentials?: boolean;
 }
 
 export interface MultiFixture {
@@ -1303,12 +1318,15 @@ async function seedCatalogue(
 
       // `shift_type_weekday_demand` needs rows of its own, or the probe over it
       // is the vacuous one this seeding exists to prevent.
-      const demand = await catalogue.setWeekdayDemand(uow, created.value.shiftTypeId, {
+      // OPUS-M4-000A: the whole-set replacement with the aggregate CAS. A
+      // fresh shift type's never-written aggregate presents version 1.
+      const demand = await catalogue.replaceWeekdayDemand(uow, created.value.shiftTypeId, {
         demand: [
           { day: 'mon', demandCount: 2 },
           { day: 'sat', demandCount: 1 },
           { day: 'holiday', demandCount: 1 },
         ],
+        expectedVersion: 1,
       });
       if (demand.kind !== 'ok') {
         throw new Error(`catalogue fixture: setting demand reported ${demand.kind}`);
@@ -1487,8 +1505,9 @@ async function seedCatalogue(
       })
       .execute();
 
-    const requirements = await catalogue.setShiftTypeQualifications(uow, shiftTypeIds[0] as string, {
+    const requirements = await catalogue.replaceShiftTypeQualifications(uow, shiftTypeIds[0] as string, {
       qualificationIds: [qualificationId],
+      expectedVersion: 1,
     });
     if (requirements.kind !== 'ok') {
       throw new Error(`catalogue fixture: setting requirements reported ${requirements.kind}`);
@@ -1540,11 +1559,12 @@ async function seedCatalogue(
       }
       siblingShiftTypeIds.push(created.value.shiftTypeId);
 
-      const demand = await catalogue.setWeekdayDemand(uow, created.value.shiftTypeId, {
+      const demand = await catalogue.replaceWeekdayDemand(uow, created.value.shiftTypeId, {
         demand: [
           { day: 'tue', demandCount: 1 },
           { day: 'holiday', demandCount: 2 },
         ],
+        expectedVersion: 1,
       });
       if (demand.kind !== 'ok') {
         throw new Error(`catalogue fixture (sibling): demand reported ${demand.kind}`);
@@ -1604,10 +1624,10 @@ async function seedCatalogue(
       })
       .execute();
 
-    const siblingRequirements = await catalogue.setShiftTypeQualifications(
+    const siblingRequirements = await catalogue.replaceShiftTypeQualifications(
       uow,
       siblingShiftTypeIds[0] as string,
-      { qualificationIds: [siblingQualificationId] },
+      { qualificationIds: [siblingQualificationId], expectedVersion: 1 },
     );
     if (siblingRequirements.kind !== 'ok') {
       throw new Error(
@@ -1875,6 +1895,130 @@ async function seedStaffing(
 }
 
 /**
+ * `seed.scheduleCredentials` (OPUS-M4-000A): a VALID open-ended holding of the
+ * catalogue's required credential, for every Group One membership.
+ *
+ * The same grant-act-close shape as `seedStaffing`, for the same SBX-001
+ * reason: the seeding capability is granted through the administrator,
+ * exercised, and closed again by row id, so no principal is left holding a
+ * staffing key the role matrix does not model. The credential's qualification
+ * has `requires_expiry = false`, so an open-ended holding is legal — and the
+ * open end is what lets fixtures publish for any future date.
+ */
+async function seedScheduleCredentials(
+  runtime: PgUnitOfWorkRunner,
+  fixture: MultiFixture,
+  catalogue: SeededCatalogue,
+): Promise<void> {
+  const alpha = fixture.alpha;
+
+  /* The memberships come from the FIXTURE, not from a query: `memberships`'
+   * SELECT policies deliberately narrow what a non-administrative context can
+   * enumerate, so a query under the seeding actor would silently credential a
+   * SUBSET and leave the publication gate firing on whichever assignee the
+   * policy hid — which is exactly how this seeder failed on its first run. */
+  const groupOneMembers = [
+    alpha.users.scheduler.membershipId,
+    alpha.users.member.membershipId,
+    alpha.users.groupOnly.membershipId,
+    alpha.users.departed.membershipId,
+    ...(alpha.full === undefined
+      ? []
+      : [
+          alpha.full.viewer.membershipId,
+          alpha.full.telecom.membershipId,
+          alpha.full.groupAdmin.membershipId,
+          alpha.full.dualRole.membershipId,
+        ]),
+  ];
+  const groupTwoMembers = [
+    alpha.users.scheduler.groupTwoMembershipId,
+    alpha.users.groupTwoScheduler.membershipId,
+    ...(alpha.full === undefined
+      ? []
+      : [
+          alpha.full.suspended.membershipId,
+          alpha.full.invited.membershipId,
+          alpha.full.dualRole.groupTwoMembershipId,
+        ]),
+  ];
+
+  const arms: readonly {
+    groupId: string;
+    actor: string;
+    qualificationId: string;
+    members: readonly string[];
+  }[] = [
+    {
+      groupId: alpha.groupOne.id,
+      actor: alpha.users.groupOnly.membershipId,
+      qualificationId: catalogue.qualificationId,
+      members: [...new Set(groupOneMembers)],
+    },
+    {
+      groupId: catalogue.sibling.groupId,
+      actor: alpha.users.groupTwoScheduler.membershipId,
+      qualificationId: catalogue.sibling.qualificationId,
+      members: [...new Set(groupTwoMembers)],
+    },
+  ];
+
+  for (const arm of arms) {
+    const grantIds = await grantThroughAdministrator(
+      runtime,
+      alpha.users.organizationAdmin.membershipId,
+      {
+        organizationId: alpha.organizationId,
+        groupId: arm.groupId,
+        membershipId: arm.actor,
+        capabilities: ['staffing.qualification_holding.administer'],
+      },
+    );
+
+    await runtime.run(
+      {
+        organizationId: alpha.organizationId,
+        groupId: arm.groupId,
+        membershipId: arm.actor,
+        correlationId: 'schedule-credentials-seed',
+      },
+      async ({ query }) => {
+        await query
+          .insertInto('qualification_holdings')
+          .values(
+            arm.members.map((membershipId) => ({
+              id: randomUUID(),
+              organization_id: alpha.organizationId,
+              group_id: arm.groupId,
+              membership_id: membershipId,
+              qualification_id: arm.qualificationId,
+              status: 'valid' as const,
+            })),
+          )
+          .execute();
+      },
+    );
+
+    await runtime.run(
+      {
+        organizationId: alpha.organizationId,
+        groupId: null,
+        membershipId: alpha.users.organizationAdmin.membershipId,
+        correlationId: 'schedule-credentials-revoke',
+      },
+      async ({ query }) => {
+        await query
+          .updateTable('capability_grants')
+          .set({ granted: false })
+          .where('organization_id', '=', alpha.organizationId)
+          .where('id', 'in', [...grantIds])
+          .execute();
+      },
+    );
+  }
+}
+
+/**
  * Build, seed and return one complete MULTI fixture.
  *
  * `seed` selects the optional feature rows — see `MultiSeedOptions` for why they
@@ -1905,6 +2049,16 @@ export async function provisionMulti(
     ...(staffing === undefined ? {} : { staffing }),
     ...(Object.keys(catalogueSeeds).length === 0 ? {} : { catalogue: catalogueSeeds }),
   };
+
+  // OPUS-M4-000A. Before the schedule seed, because credentials must exist
+  // before any publication that assigns to the requirement-bearing shift type.
+  if (seed.scheduleCredentials === true) {
+    const alphaCatalogue = catalogueSeeds.alpha;
+    if (alphaCatalogue === undefined) {
+      throw new Error('seed.scheduleCredentials requires seed.catalogue to include alpha');
+    }
+    await seedScheduleCredentials(runtime, withCatalogue, alphaCatalogue);
+  }
 
   // OPUS-M3-003. Last, because it publishes through the production path and
   // therefore needs the catalogue rows above to already exist.

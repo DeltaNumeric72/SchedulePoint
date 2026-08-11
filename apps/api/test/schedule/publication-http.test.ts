@@ -40,7 +40,7 @@ import { grantScheduleCapabilities } from '../support/schedule.js';
 
 const multi = ownedMulti('schedule-publication', {
   profile: 'full',
-  seed: { catalogue: ['alpha'], schedule: true },
+  seed: { catalogue: ['alpha'], scheduleCredentials: true, schedule: true },
 });
 
 let harness: HttpHarness;

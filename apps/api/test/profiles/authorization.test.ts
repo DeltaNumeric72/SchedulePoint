@@ -187,7 +187,9 @@ describe('allow and deny for every new capability', () => {
       request: () => ({
         method: 'PATCH',
         url: `${base()}/qualifications/${qualificationId}`,
-        payload: { status: 'active' },
+        // OPUS-M4-000A: the row CAS. This file's qualification is created in
+        // beforeAll and nothing else updates it, so its version is still 1.
+        payload: { status: 'active', expectedVersion: 1 },
       }),
     },
     {

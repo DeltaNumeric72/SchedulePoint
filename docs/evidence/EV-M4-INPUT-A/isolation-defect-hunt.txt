@@ -1,0 +1,140 @@
+=== the fixture-regression failures, what they were, and the ONE that is still open ===
+
+-- A. the three test-order couplings (CLOSED, commit 6a6a0ea) ---------------
+
+Run 1 of the gate failed 12 of its 14 shuffled runs. The three couplings, with
+the exact assertion each produced (captured by re-running the failing seeds
+with the full reporter, which the gate itself truncates):
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |api| test/profiles/history-immutability.test.ts > T-01 — history is not AUTHORED either > RED — an instant BEFORE the first window is refused with no row and no audit row
+AssertionError: the retro-dated row landed anyway: expected '1' to be '0' // Object.is equality
+
+Expected: "0"
+Received: "1"
+
+ ❯ test/profiles/history-immutability.test.ts:374:66
+    372|       [org(), inGroupOne],
+    373|     );
+    374|     expect(rows.rows[0]?.n, 'the retro-dated row landed anyway').toBe(…
+       |                                                                  ^
+    375|     expect(await auditRowsFor(inGroupOne), 'a refused authoring left a…
+    376|     log('a retro-dated authoring before the first window: 0 rows writt…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  |api| test/profiles/work-profile-cancellation.test.ts > cancel a scheduled change > the cancellation is audited as two facts, and the instant is the transaction clock
+AssertionError: expected 1 to be 3 // Object.is equality
+
+- Expected
++ Received
+
+- 3
++ 1
+
+ ❯ test/profiles/work-profile-cancellation.test.ts:245:36
+    243|     );
+    244|     // Three cancellations above, three cancelled events.
+    245|     expect(cancelledEvents.length).toBe(3);
+       |                                    ^
+    246|     for (const event of cancelledEvents) {
+    247|       expect(event.payload['mechanism']).toBe('cancel_future');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  2 failed | 91 passed (93)
+      Tests  2 failed | 998 passed (1000)
+
+-- and seed 8675309, the same tree, showing the third one --------------------
+
+- 3
++ 0
+
+ ❯ test/profiles/work-profile-cancellation.test.ts:245:36
+    243|     );
+    244|     // Three cancellations above, three cancelled events.
+    245|     expect(cancelledEvents.length).toBe(3);
+       |                                    ^
+    246|     for (const event of cancelledEvents) {
+    247|       expect(event.payload['mechanism']).toBe('cancel_future');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  |api| test/schedule/qualification-requirement-gate.test.ts > the gate, with no authored rule anywhere > an uncredentialed assignee BLOCKS publication with the distinct outcome named
+AssertionError: expected undefined to be an instance of QualificationRequirementBreachError
+ ❯ test/schedule/qualification-requirement-gate.test.ts:173:19
+    171|       error = caught;
+    172|     }
+    173|     expect(error).toBeInstanceOf(QualificationRequirementBreachError);
+       |                   ^
+    174|     const breach = error as QualificationRequirementBreachError;
+    175|     expect(breach.findings).toHaveLength(1);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+
+-- B. the intermittent that is STILL OPEN ------------------------------------
+
+Run 2 of the gate (tree at 6a6a0ea, the repair in place) failed exactly one of
+its 14 shuffled runs:
+
+FAIL  seed 20250101                                    40.3s  1 failed | 999 passed (1000)
+        FAIL  |api| test/profiles/loader-writer-agreement.test.ts > the writer supersedes exactly the row the reader reports > an actual supersession closes the row the precondition named, and no other
+
+It is in apps/api/test/profiles/loader-writer-agreement.test.ts, a file this
+packet does not modify, and it does not reproduce. The same failure had
+appeared once before, at a DIFFERENT seed (8675309) in run 1 — and 8675309 has
+since passed repeatedly. So it is not seed-determined and it is not test-order
+determined; both observations were inside a back-to-back gate run.
+
+The gate prints only the failing test NAME, so the assertion behind it has
+never been captured. Reproduction attempts, all after the repair, all
+`vitest run --project api --sequence.shuffle.files --sequence.shuffle.tests`:
+
+  seed                               result
+  ----                               ------
+  1 (gate order, back to back)       1000 passed (1000)
+  123456 (gate order, back to back)  1000 passed (1000)
+  20250101 (gate order, back to back) 1000 passed (1000)
+  20260803 (gate order, back to back) 1000 passed (1000)
+  31337 (gate order, back to back)   1000 passed (1000)
+  42 (gate order, back to back)      1000 passed (1000)
+  424242 (gate order, back to back)  1000 passed (1000)
+  531651 (gate order, back to back)  1000 passed (1000)
+  65339 (gate order, back to back)   1000 passed (1000)
+  7 (gate order, back to back)       1000 passed (1000)
+  740673 (gate order, back to back)  1000 passed (1000)
+  8675309 (gate order, back to back) 1000 passed (1000)
+  99991 (gate order, back to back)   1000 passed (1000)
+  1                                  1000 passed (1000)
+  123456                             1000 passed (1000)
+  20250101                           1000 passed (1000)
+  20260803                           1000 passed (1000)
+  31337                              1000 passed (1000)
+  42                                 1000 passed (1000)
+  7                                  1000 passed (1000)
+  99991                              1000 passed (1000)
+  20250101 (direct re-run)           1000 passed (1000)
+
+  A further 12 runs on random seeds (826647, 671369, 125305, 255878, 579488,
+  284028, 341224, 623976, 336111, 415782, 251483, 233504) each exited 0; that
+  loop overwrote one log per iteration, so only the exit codes are retained,
+  and they are reported as exit codes rather than as attached output.
+
+  Run 3 of the gate then passed all 14 shuffled runs and all 93 standalone
+  runs (fixture-regression.txt).
+
+TOTAL after the repair: 47 full shuffled api-suite runs, 0 reproductions.
+
+NOT CLOSED, and deliberately not called a flake. FAD-15 ruling 3 says a
+shuffled-seed failure is a defect to fix, never a flake to retry, and this one
+has been neither fixed nor understood — only not reproduced. It is reported
+to the orchestrator as an open finding. What is known: the file is untouched
+by this packet; `authorWorkProfile`, the function under test, is byte-identical
+to 666d15a (this packet only ADDS `cancelFutureWorkProfile` after it); both
+sightings were inside a gate run, i.e. under sustained back-to-back cluster
+creation and teardown, which is the one condition the 47 clean runs also
+covered but only 27 of them under that exact churn.

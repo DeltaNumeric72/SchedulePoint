@@ -37,7 +37,7 @@ import { ownedMulti } from '../support/owned-multi.js';
 
 const multi = ownedMulti('composed-integration', {
   profile: 'full',
-  seed: { catalogue: ['alpha'], schedule: true },
+  seed: { catalogue: ['alpha'], scheduleCredentials: true, schedule: true },
 });
 
 let harness: HttpHarness;

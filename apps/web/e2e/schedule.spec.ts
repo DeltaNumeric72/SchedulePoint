@@ -277,7 +277,7 @@ async function routeHappyPath(page: Page): Promise<void> {
     json(route, 200, {
       periodId: PERIOD,
       requirements: [],
-      absentRequirementRevision: EMPTY_REVISION,
+      version: 1,
       correlationId: 'e2e-correlation-id',
     }),
   );
@@ -508,10 +508,9 @@ test.describe('periods — states', () => {
               date: DATES[0],
               shiftTypeId: SHIFT_DAY,
               requiredCount: 2,
-              revision: FILLED_REVISION,
             },
           ],
-          absentRequirementRevision: EMPTY_REVISION,
+          version: 2,
           correlationId: 'e2e-correlation-id',
         });
         return;
@@ -519,7 +518,7 @@ test.describe('periods — states', () => {
       await json(route, 200, {
         periodId: PERIOD,
         requirements: [],
-        absentRequirementRevision: EMPTY_REVISION,
+        version: 1,
         correlationId: 'e2e-correlation-id',
       });
     });
@@ -551,11 +550,11 @@ test.describe('periods — states', () => {
       if (route.request().method() === 'PUT') {
         await json(route, 409, {
           error: {
-            code: 'STALE_EDIT',
+            code: 'STALE_SET_VERSION',
             message:
-              'Somebody else changed this while you were editing. Your change was not applied — reload and try again.',
+              'The set changed since it was loaded. Re-read it and decide again.',
             correlationId: 'e2e-correlation-id',
-            currentRevision: MOVED_REVISION,
+            currentVersion: 2,
           },
         });
         return;
@@ -563,7 +562,7 @@ test.describe('periods — states', () => {
       await json(route, 200, {
         periodId: PERIOD,
         requirements: [],
-        absentRequirementRevision: EMPTY_REVISION,
+        version: 1,
         correlationId: 'e2e-correlation-id',
       });
     });
@@ -579,7 +578,7 @@ test.describe('periods — states', () => {
     const stale = page.getByTestId('requirements-stale');
     await expect(stale).toBeVisible();
     await expect(stale).toHaveAttribute('role', 'alert');
-    await expect(stale).toContainText('was not applied');
+    await expect(stale).toContainText('Re-read it and decide again');
     await expectNoAxeViolations(page);
     await capture(page, 'requirements-stale', info.project.name);
   });

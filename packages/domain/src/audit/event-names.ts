@@ -77,6 +77,14 @@ export const AUDIT_EVENT_NAMES = [
   'staffing.work_profile.authored',
   /** An in-force work profile's window was closed by its successor. */
   'staffing.work_profile.superseded',
+  /**
+   * A FUTURE-EFFECTIVE work profile was cancelled before its window began
+   * (OPUS-M4-000A; doc 34 §4-B's explicit correction path). Additive name,
+   * proposed in the return report for FAD ratification. The continuation row
+   * a cancellation may author is filed under `…authored` with mechanism
+   * `continuation` — a cancellation is at most two facts, and each has a name.
+   */
+  'staffing.work_profile.cancelled',
   /** A qualification was added to the group's vocabulary, or retired. */
   'staffing.qualification.written',
   /** A credential was issued to a membership. */

@@ -5,6 +5,7 @@ export {
   catalogueDaySchema,
   createShiftTypeRequestSchema,
   fieldProblemSchema,
+  replaceWeekdayDemandRequestSchema,
   setWeekdayDemandRequestSchema,
   shiftPaletteKeySchema,
   shiftTextStyleSchema,
@@ -14,8 +15,10 @@ export {
   updateShiftTypeRequestSchema,
   validationProblemBodySchema,
   weekdayDemandSchema,
+  weekdayDemandSetSchema,
   type CreateShiftTypeRequest,
   type FieldProblemWire,
+  type ReplaceWeekdayDemandRequest,
   type SetWeekdayDemandRequest,
   type ShiftType,
   type ShiftTypeList,
@@ -23,6 +26,7 @@ export {
   type UpdateShiftTypeRequest,
   type ValidationProblemBody,
   type WeekdayDemand,
+  type WeekdayDemandSet,
 } from './shift-types.js';
 
 export {
@@ -72,13 +76,21 @@ export {
 
 export {
   membershipEligibilitySchema,
+  qualificationOutcomeSchema,
+  qualificationVerdictWireSchema,
+  replaceShiftTypeQualificationsRequestSchema,
   setShiftTypeQualificationsRequestSchema,
   shiftTypeEligibilitySchema,
   shiftTypeQualificationListSchema,
   shiftTypeQualificationSchema,
+  shiftTypeQualificationSetSchema,
   type MembershipEligibility,
+  type QualificationOutcomeWire,
+  type QualificationVerdictWire,
+  type ReplaceShiftTypeQualificationsRequest,
   type SetShiftTypeQualificationsRequest,
   type ShiftTypeEligibility,
   type ShiftTypeQualification,
   type ShiftTypeQualificationList,
+  type ShiftTypeQualificationSet,
 } from './qualification-requirements.js';

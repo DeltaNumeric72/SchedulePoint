@@ -237,8 +237,15 @@ export async function seedSchedule(
   }
 
   const organization = fixture.alpha;
-  const shiftTypeId = catalogue.shiftTypeIds[0];
-  const siblingShiftTypeId = catalogue.sibling.shiftTypeIds[0];
+  /* Index 1, not 0, since OPUS-M4-000A: the catalogue seeding attaches a
+   * qualification REQUIREMENT to `shiftTypeIds[0]`, and publication now
+   * enforces requirement satisfaction structurally (the shared verdict) —
+   * so a fixture that assigns credential-less members to the constrained
+   * type could never publish. The schedule fixture's job is the schedule
+   * spine, not the credential path; the structural enforcement has its own
+   * dedicated proofs in `test/schedule/qualification-requirement-gate.test.ts`. */
+  const shiftTypeId = catalogue.shiftTypeIds[1];
+  const siblingShiftTypeId = catalogue.sibling.shiftTypeIds[1];
   if (shiftTypeId === undefined || siblingShiftTypeId === undefined) {
     throw new Error('seedSchedule: the catalogue seed produced no shift type');
   }

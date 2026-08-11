@@ -507,12 +507,22 @@ describe('archive, never delete', () => {
      * another test's side effect, which is the coupling class FAD-15 exists to
      * remove.
      *
-     * `telecom` owns no profile whatever the order: the only other case that
-     * names it is T-01's `before-first`, whose authoring is REFUSED. And the
-     * window is far-future, so it cannot overlap anything this file plants and the
-     * weekday guard — which refuses targets on a window that has already ended —
-     * is satisfied. */
-    const subject = fullUser('telecom');
+     * The window is IN FORCE (opened far in the past, open-ended) — since
+     * OPUS-M4-000A a strictly-FUTURE window is legitimately deletable (the
+     * cancellation path, migration 0012), so this case plants a window whose
+     * time has begun, which is exactly the class the retention rule still
+     * refuses unconditionally. The weekday guard — which refuses targets on a
+     * window that has already ended — is satisfied because the window is open.
+     *
+     * The subject is `groupOnly`, which owns no profile anywhere in this file.
+     * It was `telecom` until the window became a past-dated one, and
+     * `fixture-regression` caught what that did: T-01's `before-first` case
+     * counts `telecom`'s rows with `effective_from < 2010` to prove its
+     * retro-dated authoring wrote nothing, so whenever this case ran first it
+     * supplied the row T-01 then blamed on the service. `telecom` was only
+     * ever safe here while the planted window was FUTURE-dated; a subject no
+     * other case names is safe whatever the window and whatever the order. */
+    const subject = multi().alpha.users.groupOnly.membershipId;
     const profileId = randomUUID();
     const weekdayId = randomUUID();
     await runtime.runner.run(context('delete-guard-seed'), async ({ query }) => {
@@ -523,8 +533,8 @@ describe('archive, never delete', () => {
           organization_id: org(),
           group_id: group(),
           membership_id: subject,
-          effective_from: new Date('2090-01-01T00:00:00.000Z'),
-          effective_to: new Date('2091-01-01T00:00:00.000Z'),
+          effective_from: new Date('2001-01-01T00:00:00.000Z'),
+          effective_to: null,
           work_percentage: '30.00',
         })
         .execute();
@@ -574,7 +584,7 @@ describe('archive, never delete', () => {
       );
       expect(rows.rows[0]?.n, `${table}: the row went anyway`).toBe('1');
     }
-    log('owner DELETE refused with 23001 on all four staffing tables');
+    log('owner DELETE refused with 23001 on all four staffing tables (in-force/elapsed rows)');
   });
 
   it('RED — deleting a qualification HOLDING is refused unconditionally (retained for audit)', async () => {

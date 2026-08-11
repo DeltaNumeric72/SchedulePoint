@@ -1,0 +1,356 @@
+# The named proofs, each run STANDALONE (own vitest invocation, own embedded cluster)
+# OPUS-M4-000A review-condition closure — 2026-08-11T03:17:20Z
+# The packet's seven, plus the C1 arm (inside staffing-integrity-red-cases) and the C4 case (inside verdict-convergence).
+
+================================================================
+$ corepack pnpm exec vitest run apps/api/test/catalogue/demand-replacement.test.ts
+================================================================
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-000a
+
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-000a/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-2ac03fa9857b72b965)] INFO: Completed task 1 (outbox.dispatch, 6.91ms) with success
+[worker(worker-2ac03fa9857b72b965)] INFO: Completed task 2 (outbox.dispatch, 2.49ms) with success
+[worker(worker-2ac03fa9857b72b965)] INFO: Completed task 3 (outbox.dispatch, 2.13ms) with success
+[worker(worker-2ac03fa9857b72b965)] INFO: Completed task 4 (outbox.dispatch, 2.27ms) with success
+[worker(worker-2ac03fa9857b72b965)] INFO: Completed task 5 (outbox.dispatch, 2.33ms) with success
+[worker(worker-2ac03fa9857b72b965)] INFO: Completed task 6 (outbox.dispatch, 2.15ms) with success
+[worker(worker-2ac03fa9857b72b965)] INFO: Completed task 7 (outbox.dispatch, 2.16ms) with success
+[worker(worker-2ac03fa9857b72b965)] INFO: Completed task 8 (outbox.dispatch, 2.15ms) with success
+[worker(worker-2ac03fa9857b72b965)] INFO: Completed task 9 (outbox.dispatch, 2.10ms) with success
+[worker(worker-2ac03fa9857b72b965)] INFO: Completed task 10 (outbox.dispatch, 2.40ms) with success
+[worker(worker-2ac03fa9857b72b965)] INFO: Completed task 11 (outbox.dispatch, 2.26ms) with success
+stdout | test/catalogue/demand-replacement.test.ts > the 12-round whole-set race — no union, ever > two replacements, same expectedVersion, disjoint sets: one whole winner, one explicit refusal
+      · demand whole-set race:
+  round 0: ok/stale-set stored=[{"day":"mon","demand_count":2}]
+  round 1: ok/stale-set stored=[{"day":"mon","demand_count":2}]
+  round 2: ok/stale-set stored=[{"day":"mon","demand_count":2}]
+  round 3: ok/stale-set stored=[{"day":"mon","demand_count":2}]
+  round 4: ok/stale-set stored=[{"day":"mon","demand_count":2}]
+  round 5: ok/stale-set stored=[{"day":"mon","demand_count":2}]
+  round 6: ok/stale-set stored=[{"day":"mon","demand_count":2}]
+  round 7: ok/stale-set stored=[{"day":"mon","demand_count":2}]
+  round 8: ok/stale-set stored=[{"day":"mon","demand_count":2}]
+  round 9: stale-set/ok stored=[{"day":"fri","demand_count":7}]
+  round 10: ok/stale-set stored=[{"day":"mon","demand_count":2}]
+  round 11: ok/stale-set stored=[{"day":"mon","demand_count":2}]
+
+stdout | test/catalogue/demand-replacement.test.ts > the 12-round whole-set race — no union, ever > MUTATION CONTROL: the union oracle detects a planted union
+      · union control: the planted two-row union is visibly NOT the winner-only shape
+
+stdout | test/catalogue/demand-replacement.test.ts > lock-key parity > staffingAdvisoryLockKey and the schedule surface derive identical keys
+      · the two sha-256→int64 derivations agree on shared vectors — no silent drift
+
+stdout | test/catalogue/demand-replacement.test.ts > FAD-24 emission control — both directions, over the real route > a REAL save emits exactly one event; the byte-identical re-save emits none
+      · emission: change→1 event, no-op→0 events, change→1 event. Both directions live
+
+ ✓ |api| test/catalogue/demand-replacement.test.ts (4 tests) 313ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  23:17:20
+   Duration  2.19s (transform 412ms, setup 144ms, collect 100ms, tests 313ms, environment 0ms, prepare 56ms)
+
+EXIT=0  (apps/api/test/catalogue/demand-replacement.test.ts)
+
+================================================================
+$ corepack pnpm exec vitest run apps/api/test/schedule/authoring-concurrency.test.ts
+================================================================
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-000a
+
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-000a/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-449b7bd9cba9a3e5a2)] INFO: Completed task 1 (outbox.dispatch, 7.13ms) with success
+[worker(worker-449b7bd9cba9a3e5a2)] INFO: Completed task 2 (outbox.dispatch, 2.40ms) with success
+[worker(worker-449b7bd9cba9a3e5a2)] INFO: Completed task 3 (outbox.dispatch, 2.26ms) with success
+[worker(worker-449b7bd9cba9a3e5a2)] INFO: Completed task 4 (outbox.dispatch, 2.18ms) with success
+[worker(worker-449b7bd9cba9a3e5a2)] INFO: Completed task 5 (outbox.dispatch, 2.18ms) with success
+[worker(worker-449b7bd9cba9a3e5a2)] INFO: Completed task 6 (outbox.dispatch, 2.25ms) with success
+[worker(worker-449b7bd9cba9a3e5a2)] INFO: Completed task 7 (outbox.dispatch, 2.18ms) with success
+[worker(worker-449b7bd9cba9a3e5a2)] INFO: Completed task 8 (outbox.dispatch, 2.20ms) with success
+[worker(worker-449b7bd9cba9a3e5a2)] INFO: Completed task 9 (outbox.dispatch, 2.20ms) with success
+[worker(worker-449b7bd9cba9a3e5a2)] INFO: Completed task 10 (outbox.dispatch, 2.33ms) with success
+[worker(worker-449b7bd9cba9a3e5a2)] INFO: Completed task 11 (outbox.dispatch, 2.13ms) with success
+stdout | test/schedule/authoring-concurrency.test.ts > B-1: concurrent requirement writes carrying the SAME revision > over 12 rounds, exactly one set wins whole and the union never appears
+B-1 requirement whole-set race:
+  round 0: 200/409 stored=[{"date":"2030-01-02","requiredCount":2}]
+  round 1: 200/409 stored=[{"date":"2030-02-02","requiredCount":2}]
+  round 2: 200/409 stored=[{"date":"2030-03-02","requiredCount":2}]
+  round 3: 200/409 stored=[{"date":"2030-04-02","requiredCount":2}]
+  round 4: 200/409 stored=[{"date":"2030-05-02","requiredCount":2}]
+  round 5: 200/409 stored=[{"date":"2030-06-02","requiredCount":2}]
+  round 6: 200/409 stored=[{"date":"2030-07-02","requiredCount":2}]
+  round 7: 200/409 stored=[{"date":"2030-08-02","requiredCount":2}]
+  round 8: 200/409 stored=[{"date":"2030-09-02","requiredCount":2}]
+  round 9: 200/409 stored=[{"date":"2030-10-02","requiredCount":2}]
+  round 10: 200/409 stored=[{"date":"2030-11-02","requiredCount":2}]
+  round 11: 200/409 stored=[{"date":"2030-12-02","requiredCount":2}]
+
+stdout | test/schedule/authoring-concurrency.test.ts > B-2: concurrent adds into one empty cell > over 12 rounds, one lands and the other gets an explicit 409
+B-2 empty-cell add race:
+  round 0: 200/409 assignments=1
+  round 1: 200/409 assignments=1
+  round 2: 200/409 assignments=1
+  round 3: 409/200 assignments=1
+  round 4: 200/409 assignments=1
+  round 5: 200/409 assignments=1
+  round 6: 200/409 assignments=1
+  round 7: 200/409 assignments=1
+  round 8: 200/409 assignments=1
+  round 9: 200/409 assignments=1
+  round 10: 200/409 assignments=1
+  round 11: 200/409 assignments=1
+
+stdout | test/schedule/authoring-concurrency.test.ts > B-3: a concurrent add and remove in one cell > over 12 rounds, one wins and no merged state is ever produced
+B-3 add/remove race:
+  round 0: 200/409 assignments=2
+  round 1: 200/409 assignments=2
+  round 2: 200/409 assignments=2
+  round 3: 200/409 assignments=2
+  round 4: 200/409 assignments=2
+  round 5: 200/409 assignments=2
+  round 6: 200/409 assignments=2
+  round 7: 200/409 assignments=2
+  round 8: 200/409 assignments=2
+  round 9: 200/409 assignments=2
+  round 10: 200/409 assignments=2
+  round 11: 200/409 assignments=2
+
+ ✓ |api| test/schedule/authoring-concurrency.test.ts (3 tests) 949ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  23:17:23
+   Duration  2.75s (transform 362ms, setup 147ms, collect 74ms, tests 949ms, environment 0ms, prepare 81ms)
+
+EXIT=0  (apps/api/test/schedule/authoring-concurrency.test.ts)
+
+================================================================
+$ corepack pnpm exec vitest run apps/api/test/profiles/staffing-integrity-red-cases.test.ts
+================================================================
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-000a
+
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-000a/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-6253092b4ccb2df2dd)] INFO: Completed task 1 (outbox.dispatch, 7.07ms) with success
+[worker(worker-6253092b4ccb2df2dd)] INFO: Completed task 2 (outbox.dispatch, 2.57ms) with success
+[worker(worker-6253092b4ccb2df2dd)] INFO: Completed task 3 (outbox.dispatch, 2.18ms) with success
+[worker(worker-6253092b4ccb2df2dd)] INFO: Completed task 4 (outbox.dispatch, 2.19ms) with success
+[worker(worker-6253092b4ccb2df2dd)] INFO: Completed task 5 (outbox.dispatch, 2.32ms) with success
+[worker(worker-6253092b4ccb2df2dd)] INFO: Completed task 6 (outbox.dispatch, 2.19ms) with success
+[worker(worker-6253092b4ccb2df2dd)] INFO: Completed task 7 (outbox.dispatch, 2.24ms) with success
+[worker(worker-6253092b4ccb2df2dd)] INFO: Completed task 8 (outbox.dispatch, 2.16ms) with success
+[worker(worker-6253092b4ccb2df2dd)] INFO: Completed task 9 (outbox.dispatch, 2.13ms) with success
+[worker(worker-6253092b4ccb2df2dd)] INFO: Completed task 10 (outbox.dispatch, 2.43ms) with success
+[worker(worker-6253092b4ccb2df2dd)] INFO: Completed task 11 (outbox.dispatch, 2.20ms) with success
+stdout | test/profiles/staffing-integrity-red-cases.test.ts > requires_expiry, at both layers > SERVICE: an open-ended holding of a requires-expiry qualification is refused, typed, with nothing written
+      · service: QUALIFICATION_REQUIRES_EXPIRY before any statement
+
+stdout | test/profiles/staffing-integrity-red-cases.test.ts > requires_expiry, at both layers > DATABASE: the same raw INSERT, service bypassed, is refused by the trigger, 23001
+      · database: raw INSERT without valid_until → restrict_violation
+
+stdout | test/profiles/staffing-integrity-red-cases.test.ts > requires_expiry, at both layers > DATABASE: flipping requires_expiry ON over live open-ended holdings is refused
+      · database: requires_expiry flip over open-ended live holdings → 23001
+
+stdout | test/profiles/staffing-integrity-red-cases.test.ts > requires_expiry, at both layers > MUTATION CONTROL: with the trigger suspended, the violation SUCCEEDS (rolled back)
+      · mutation control: trigger suspended → violation lands; rolled back clean
+
+stdout | test/profiles/staffing-integrity-red-cases.test.ts > retired qualifications, at both layers > SERVICE: a NEW holding naming a retired qualification is refused, typed
+      · service: QUALIFICATION_RETIRED on a new holding
+
+stdout | test/profiles/staffing-integrity-red-cases.test.ts > retired qualifications, at both layers > DATABASE: the same raw INSERT, service bypassed, is refused, 23001
+      · database: raw INSERT of a retired-qualification holding → 23001
+
+stdout | test/profiles/staffing-integrity-red-cases.test.ts > retired qualifications, at both layers > EXISTING holdings are retained, readable, and their status machine keeps working
+      · retirement retains holdings and leaves their status machine live
+
+stdout | test/profiles/staffing-integrity-red-cases.test.ts > retired qualifications, at both layers > DATABASE: a NEW shift_type_qualifications row naming a retired qualification is refused
+      · database: new requirement edge to a retired qualification → 23001
+
+stdout | test/profiles/staffing-integrity-red-cases.test.ts > retired qualifications, at both layers > DATABASE: REACTIVATING an archived requirement of a now-retired qualification is refused
+      · database: archived→active reactivation naming a retired qualification → 23001
+
+stdout | test/profiles/staffing-integrity-red-cases.test.ts > retired qualifications, at both layers > MUTATION CONTROL: with the trigger suspended the retired INSERT lands (rolled back)
+      · mutation control: the retired refusal is the trigger, and only the trigger
+
+stdout | test/profiles/staffing-integrity-red-cases.test.ts > row-version CAS on qualification and holding mutations > a stale expectedVersion is refused, typed, and the row does not move
+      · row CAS: stale expectedVersion → StaleRowVersionError, no movement
+
+stdout | test/profiles/staffing-integrity-red-cases.test.ts > row-version CAS on qualification and holding mutations > the counters are DATABASE-owned: naming version in an UPDATE raises 42501 for the runtime
+      · qualifications.version / qualification_holdings.version: outside every UPDATE grant
+
+stdout | test/profiles/staffing-integrity-red-cases.test.ts > staffing_set_versions is database-owned and monotonic > no runtime role holds INSERT, UPDATE or DELETE on the counter
+      · the trigger is the only writer of staffing_set_versions
+
+stdout | test/profiles/staffing-integrity-red-cases.test.ts > staffing_set_versions is database-owned and monotonic > the OWNER cannot rewind a counter — 23001
+      · owner UPDATE lowering an aggregate version → restrict_violation
+
+stdout | test/profiles/staffing-integrity-red-cases.test.ts > work-profile deletion is future-only > an IN-FORCE row is refused (23001, owner too) and a strictly-FUTURE row is admitted
+      · delete guard: in-force refused (runtime AND owner); strictly-future admitted
+
+stdout | test/profiles/staffing-integrity-red-cases.test.ts > work-profile deletion is capability-gated (0013) > an UNCAPABILITIED runtime principal is refused 42501 on a strictly-future row and its weekday target; the granted one still cancels
+      · 0013: future-row DELETE without staffing.work_profile.administer → 42501; granted → accepted
+
+stdout | test/profiles/staffing-integrity-red-cases.test.ts > work-profile deletion is capability-gated (0013) > the RETENTION rule still answers FIRST: an in-force row is 23001, not 42501, for the owner too
+      · 0013 ordering: retention (23001) before capability (42501), owner included
+
+stdout | test/profiles/staffing-integrity-red-cases.test.ts > work-profile deletion is capability-gated (0013) > MUTATION CONTROL: with the guards suspended, the uncapabilitied DELETE SUCCEEDS (rolled back)
+      · mutation control: guards suspended → the delete lands; rolled back clean
+
+ ✓ |api| test/profiles/staffing-integrity-red-cases.test.ts (18 tests) 220ms
+
+ Test Files  1 passed (1)
+      Tests  18 passed (18)
+   Start at  23:17:26
+   Duration  1.96s (transform 274ms, setup 138ms, collect 27ms, tests 220ms, environment 0ms, prepare 60ms)
+
+EXIT=0  (apps/api/test/profiles/staffing-integrity-red-cases.test.ts)
+
+================================================================
+$ corepack pnpm exec vitest run packages/domain/test/eligibility/verdict.test.ts
+================================================================
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-000a
+
+ ✓ |domain| test/eligibility/verdict.test.ts (25 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  25 passed (25)
+   Start at  23:17:29
+   Duration  298ms (transform 23ms, setup 0ms, collect 25ms, tests 2ms, environment 0ms, prepare 142ms)
+
+EXIT=0  (packages/domain/test/eligibility/verdict.test.ts)
+
+================================================================
+$ corepack pnpm exec vitest run apps/api/test/profiles/verdict-convergence.test.ts
+================================================================
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-000a
+
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-000a/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-37d64c728a245ffeec)] INFO: Completed task 1 (outbox.dispatch, 6.91ms) with success
+[worker(worker-37d64c728a245ffeec)] INFO: Completed task 2 (outbox.dispatch, 2.53ms) with success
+[worker(worker-37d64c728a245ffeec)] INFO: Completed task 3 (outbox.dispatch, 2.17ms) with success
+[worker(worker-37d64c728a245ffeec)] INFO: Completed task 4 (outbox.dispatch, 2.15ms) with success
+[worker(worker-37d64c728a245ffeec)] INFO: Completed task 5 (outbox.dispatch, 2.23ms) with success
+[worker(worker-37d64c728a245ffeec)] INFO: Completed task 6 (outbox.dispatch, 2.15ms) with success
+[worker(worker-37d64c728a245ffeec)] INFO: Completed task 7 (outbox.dispatch, 2.09ms) with success
+[worker(worker-37d64c728a245ffeec)] INFO: Completed task 8 (outbox.dispatch, 2.18ms) with success
+[worker(worker-37d64c728a245ffeec)] INFO: Completed task 9 (outbox.dispatch, 2.09ms) with success
+[worker(worker-37d64c728a245ffeec)] INFO: Completed task 10 (outbox.dispatch, 2.31ms) with success
+[worker(worker-37d64c728a245ffeec)] INFO: Completed task 11 (outbox.dispatch, 2.21ms) with success
+stdout | test/profiles/verdict-convergence.test.ts > one fixture, one instant, one verdict > satisfied / boundary-expired / expired agree across both consumers, per date
+      · satisfied/expired boundary: manual and publication verdicts identical per date
+
+stdout | test/profiles/verdict-convergence.test.ts > one fixture, one instant, one verdict > MISSING agrees across both consumers
+      · missing: manual and publication verdicts identical
+
+stdout | test/profiles/verdict-convergence.test.ts > one fixture, one instant, one verdict > REVOKED agrees across both consumers
+      · revoked: manual and publication verdicts identical
+
+stdout | test/profiles/verdict-convergence.test.ts > one fixture, one instant, one verdict > FUTURE agrees across both consumers
+      · future: manual and publication verdicts identical
+
+stdout | test/profiles/verdict-convergence.test.ts > one fixture, one instant, one verdict > RETIRED agrees across both consumers, and outranks the holding
+      · retired: manual and publication verdicts identical, lifecycle first
+
+stdout | test/profiles/verdict-convergence.test.ts > one fixture, one instant, one verdict > AGGREGATE PRECEDENCE over several holdings of ONE qualification agrees across both consumers
+      · aggregate precedence over three holdings of one qualification: expired > future, revoked > expired, both consumers
+
+stdout | test/profiles/verdict-convergence.test.ts > one fixture, one instant, one verdict > MUTATION CONTROL: an off-by-one-day manual instant breaks the equality
+      · mutation control: shifting the instant one day flips the verdict — the equality is live
+
+ ✓ |api| test/profiles/verdict-convergence.test.ts (7 tests) 287ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  23:17:30
+   Duration  2.05s (transform 277ms, setup 119ms, collect 28ms, tests 287ms, environment 1ms, prepare 37ms)
+
+EXIT=0  (apps/api/test/profiles/verdict-convergence.test.ts)
+
+================================================================
+$ corepack pnpm exec vitest run apps/api/test/profiles/work-profile-cancellation.test.ts
+================================================================
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-000a
+
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-000a/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-db8805ad31c342a234)] INFO: Completed task 1 (outbox.dispatch, 6.93ms) with success
+[worker(worker-db8805ad31c342a234)] INFO: Completed task 2 (outbox.dispatch, 2.57ms) with success
+[worker(worker-db8805ad31c342a234)] INFO: Completed task 3 (outbox.dispatch, 2.32ms) with success
+[worker(worker-db8805ad31c342a234)] INFO: Completed task 4 (outbox.dispatch, 2.14ms) with success
+[worker(worker-db8805ad31c342a234)] INFO: Completed task 5 (outbox.dispatch, 2.21ms) with success
+[worker(worker-db8805ad31c342a234)] INFO: Completed task 6 (outbox.dispatch, 2.21ms) with success
+[worker(worker-db8805ad31c342a234)] INFO: Completed task 7 (outbox.dispatch, 2.20ms) with success
+[worker(worker-db8805ad31c342a234)] INFO: Completed task 8 (outbox.dispatch, 2.63ms) with success
+[worker(worker-db8805ad31c342a234)] INFO: Completed task 9 (outbox.dispatch, 2.05ms) with success
+[worker(worker-db8805ad31c342a234)] INFO: Completed task 10 (outbox.dispatch, 2.20ms) with success
+[worker(worker-db8805ad31c342a234)] INFO: Completed task 11 (outbox.dispatch, 2.30ms) with success
+stdout | test/profiles/work-profile-cancellation.test.ts > cancel a scheduled change > the future row goes, the in-force row is untouched, and a continuation restores the values
+      · cancellation: future row deleted, continuation carries 60% + targets, in-force row untouched
+
+stdout | test/profiles/work-profile-cancellation.test.ts > cancel a scheduled change > a LATER scheduled change still takes effect on time after cancelling the middle one
+      · cancelling the middle change: 50% continues 2090→2091, the 90% change lands on time
+
+stdout | test/profiles/work-profile-cancellation.test.ts > cancel a scheduled change > a future FIRST-EVER row cancels to nothing — no predecessor, no continuation
+      · first-ever future row: cancelled to nothing, no continuation invented
+
+stdout | test/profiles/work-profile-cancellation.test.ts > cancel a scheduled change > an IN-FORCE row is refused with WORK_PROFILE_NOT_FUTURE and nothing changes
+      · in-force row: WORK_PROFILE_NOT_FUTURE, row intact
+
+stdout | test/profiles/work-profile-cancellation.test.ts > cancel a scheduled change > the cancellation is audited as two facts, and the instant is the transaction clock
+      · audit: 2× cancelled (cancel_future), 1× authored (continuation); clock is the DB's
+
+ ✓ |api| test/profiles/work-profile-cancellation.test.ts (5 tests) 206ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  23:17:32
+   Duration  1.95s (transform 287ms, setup 135ms, collect 26ms, tests 206ms, environment 0ms, prepare 54ms)
+
+EXIT=0  (apps/api/test/profiles/work-profile-cancellation.test.ts)
+
+================================================================
+$ corepack pnpm exec vitest run apps/api/test/schedule/qualification-requirement-gate.test.ts
+================================================================
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-000a
+
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-000a/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-bd064047c50099dcac)] INFO: Completed task 1 (outbox.dispatch, 6.96ms) with success
+[worker(worker-bd064047c50099dcac)] INFO: Completed task 2 (outbox.dispatch, 2.47ms) with success
+[worker(worker-bd064047c50099dcac)] INFO: Completed task 3 (outbox.dispatch, 2.22ms) with success
+[worker(worker-bd064047c50099dcac)] INFO: Completed task 4 (outbox.dispatch, 2.53ms) with success
+[worker(worker-bd064047c50099dcac)] INFO: Completed task 5 (outbox.dispatch, 2.19ms) with success
+[worker(worker-bd064047c50099dcac)] INFO: Completed task 6 (outbox.dispatch, 2.09ms) with success
+[worker(worker-bd064047c50099dcac)] INFO: Completed task 7 (outbox.dispatch, 2.22ms) with success
+[worker(worker-bd064047c50099dcac)] INFO: Completed task 8 (outbox.dispatch, 2.31ms) with success
+[worker(worker-bd064047c50099dcac)] INFO: Completed task 9 (outbox.dispatch, 2.13ms) with success
+[worker(worker-bd064047c50099dcac)] INFO: Completed task 10 (outbox.dispatch, 2.33ms) with success
+[worker(worker-bd064047c50099dcac)] INFO: Completed task 11 (outbox.dispatch, 2.15ms) with success
+stdout | test/schedule/qualification-requirement-gate.test.ts > the gate, with no authored rule anywhere > an uncredentialed assignee BLOCKS publication with the distinct outcome named
+      · uncredentialed assignee → QUALIFICATION_REQUIREMENT_BREACH (missing), version unmoved
+
+stdout | test/schedule/qualification-requirement-gate.test.ts > the gate, with no authored rule anywhere > the ENFORCEMENT read plane: the publisher cannot see the holding, and the gate still can
+      · holder invisible to the publisher, visible to the gate: published. The plane is load-bearing
+
+stdout | test/schedule/qualification-requirement-gate.test.ts > the gate, with no authored rule anywhere > MUTATION CONTROL: without the purpose token, the same computation under-reads
+      · mutation control: the holding exists, and the token-less publisher read is empty
+
+ ✓ |api| test/schedule/qualification-requirement-gate.test.ts (3 tests) 207ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  23:17:35
+   Duration  1.98s (transform 268ms, setup 123ms, collect 21ms, tests 207ms, environment 0ms, prepare 48ms)
+
+EXIT=0  (apps/api/test/schedule/qualification-requirement-gate.test.ts)
+
+ALL_PROOFS_FAILED_FLAG=0

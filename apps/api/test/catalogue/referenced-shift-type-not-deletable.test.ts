@@ -152,7 +152,19 @@ describe('archive-not-delete, proven at the database', () => {
     );
   });
 
-  it('no runtime role holds DELETE on ANY of the nine catalogue tables', async () => {
+  it('DELETE grants on the catalogue tables are exactly the declared delete-absent set', async () => {
+    /* OPUS-M4-000A: `shift_type_weekday_demand` is the ONE catalogue table
+     * with a DELETE grant, and only for the two application roles —
+     * migration 0012's delete-absent rule for the demand editors. Demand rows
+     * are pure quantities (a day and a count), not history; the record of what
+     * demand WAS lives in the audit chain. The statement class is still gated:
+     * `shift_type_weekday_demand_guard_delete` requires the catalogue
+     * capability for every deleting role, and every OTHER catalogue table
+     * keeps doc 06 §1's no-hard-delete posture, asserted below exactly as
+     * before. */
+    const DELETE_ALLOWED = new Map<string, ReadonlySet<string>>([
+      ['shift_type_weekday_demand', new Set(['app_runtime', 'app_worker'])],
+    ]);
     const catalogueTables = TENANT_TABLES.filter((table) =>
       [
         'shift_types',
@@ -175,14 +187,20 @@ describe('archive-not-delete, proven at the database', () => {
           'select has_table_privilege($1, $2, $3) as allowed',
           [role, table.name, 'DELETE'],
         );
+        const expected = DELETE_ALLOWED.get(table.name)?.has(role) ?? false;
         expect(
           result.rows[0]?.allowed,
-          `${role} holds DELETE on ${table.name} — doc 06 §1 permits no hard delete of tenant data`,
-        ).toBe(false);
+          expected
+            ? `${role} lost the declared delete-absent DELETE on ${table.name} (migration 0012)`
+            : `${role} holds DELETE on ${table.name} — doc 06 §1 permits no hard delete of tenant data`,
+        ).toBe(expected);
         pairs += 1;
       }
     }
-    log(`${String(pairs)} (role, catalogue table) pairs checked; DELETE granted nowhere`);
+    log(
+      `${String(pairs)} (role, catalogue table) pairs checked; DELETE granted only for the ` +
+        'declared delete-absent pair on shift_type_weekday_demand',
+    );
   });
 
   it('an attempted DELETE under app_runtime is refused 42501 INSIDE the unit of work', async () => {

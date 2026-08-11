@@ -14,12 +14,13 @@ import {
   scheduleGridSchema,
   schedulePeriodListSchema,
   schedulePeriodResultSchema,
-  scheduleRequirementListSchema,
+  replaceRequirementsRequestSchema,
+  scheduleRequirementSetSchema,
   scheduleVersionListSchema,
   scheduleVersionResultSchema,
   setPinRequestSchema,
-  setRequirementRequestSchema,
   staleEditBodySchema,
+  staleSetVersionBodySchema,
   validationProblemBodySchema,
   voidCreditRequestSchema,
   type Candidate,
@@ -211,6 +212,8 @@ type Outcome<T> =
   | { readonly kind: 'conflict' }
   /** PO-DEC-18: the caller's revision is not the server's. Never merged. */
   | { readonly kind: 'stale'; readonly currentRevision: string }
+  /** OPUS-M4-000A: a whole-set replacement's aggregate `expectedVersion` is stale. */
+  | { readonly kind: 'stale-set'; readonly currentVersion: number }
   | { readonly kind: 'invalid'; readonly problems: readonly FieldProblem[] };
 
 const MAX_PROBLEM_MESSAGE = 300;
@@ -323,6 +326,21 @@ function respond<T>(
             'Somebody else changed this while you were editing. Your change was not applied — reload and try again.',
           correlationId: request.correlationId,
           currentRevision: outcome.currentRevision,
+        },
+      }),
+    );
+  }
+  if (outcome.kind === 'stale-set') {
+    /* The aggregate cousin of STALE_EDIT (OPUS-M4-000A): the whole-set save is
+     * refused WITH the current set version, so the client re-reads the set and
+     * decides again. Never merged, never retried blind. */
+    return reply.code(409).send(
+      staleSetVersionBodySchema.parse({
+        error: {
+          code: 'STALE_SET_VERSION',
+          message: 'The set changed since it was loaded. Re-read it and decide again.',
+          currentVersion: outcome.currentVersion,
+          correlationId: request.correlationId,
         },
       }),
     );
@@ -517,10 +535,9 @@ export function cellRevision(assignments: readonly GridAssignment[]): string {
   );
 }
 
-/** The revision of a requirement cell — the count, or its absence. */
-function requirementRevision(row: { id: string; requiredCount: number } | null): string {
-  return digestRows(row === null ? [] : [{ id: row.id, requiredCount: row.requiredCount }]);
-}
+/* The per-cell `requirementRevision` digest that lived here is retired with
+ * the per-cell requirement PUT (OPUS-M4-000A): the aggregate set version in
+ * `staffing_set_versions` is the requirement editor's one CAS token now. */
 
 /* ────────────────────────────────────────────────────────────────────────────
  * Reads
@@ -876,6 +893,13 @@ export default function scheduleAuthoringRoutes(app: FastifyInstance): void {
 
   /* ── requirements ───────────────────────────────── CAP-019 / CAP-020 ──── */
 
+  /**
+   * The load-before-edit read (OPUS-M4-000A): the period's requirement rows
+   * PLUS the aggregate set version the whole-set save must present. The
+   * per-row revision tokens the pre-M4 editor carried are gone from this wire
+   * shape — the aggregate version subsumes them, and two tokens for one edit
+   * would be two answers to "what did I read".
+   */
   app.get(
     `${base}/periods/:periodId/requirements`,
     { config: PERIOD_ADMINISTER_CONFIG },
@@ -883,41 +907,32 @@ export default function scheduleAuthoringRoutes(app: FastifyInstance): void {
       const { periodId } = request.params as { periodId?: string };
       const outcome = await withSchedule(request, async (uow) => {
         if (periodId === undefined || !isUuid(periodId)) return { kind: 'not-found' as const };
-        const query = uow.query as Kysely<Database>;
-        const rows = (await query
-          .selectFrom('schedule_requirements')
-          .select(['id', 'date', 'shift_type_id', 'required_count'])
-          .where('period_id', '=', periodId)
-          .execute()) as unknown as {
-          id: string;
-          date: string | Date;
-          shift_type_id: string;
-          required_count: number;
-        }[];
-
-        return {
-          kind: 'ok' as const,
-          value: rows.map((row) => ({
-            id: row.id,
-            date: calendarDate(row.date),
-            shiftTypeId: row.shift_type_id,
-            requiredCount: row.required_count,
-            revision: requirementRevision({ id: row.id, requiredCount: row.required_count }),
-          })),
-        };
+        return { kind: 'ok' as const, value: await schedule.readRequirementSet(uow, periodId) };
       });
 
-      return respond(request, reply, outcome, (requirements) =>
-        scheduleRequirementListSchema.parse({
+      return respond(request, reply, outcome, (set) =>
+        scheduleRequirementSetSchema.parse({
           periodId,
-          requirements,
-          absentRequirementRevision: requirementRevision(null),
+          requirements: set.requirements,
+          version: set.version,
           correlationId: request.correlationId,
         }),
       );
     },
   );
 
+  /**
+   * The WHOLE-SET requirements replacement (OPUS-M4-000A; doc 34 §4-A).
+   *
+   * Saving produces exactly the presented set; an omitted entry is DELETED
+   * (the canonical rule, stated in the contract and on the page). The
+   * aggregate `expectedVersion` CAS refuses interleaving — the service takes
+   * the advisory lock BEFORE its reads, so two concurrent replacements can
+   * never combine into a union. A stale save answers `409 STALE_SET_VERSION`
+   * with the current version (PO-DEC-18's explicit refetch flow). One user
+   * action, one request, one audit event when — and only when — something
+   * moved (I-10; FAD-24).
+   */
   app.put(
     `${base}/periods/:periodId/requirements`,
     { config: PERIOD_ADMINISTER_CONFIG },
@@ -925,44 +940,33 @@ export default function scheduleAuthoringRoutes(app: FastifyInstance): void {
       const { periodId } = request.params as { periodId?: string };
       const outcome = await withSchedule(request, async (uow) => {
         if (periodId === undefined || !isUuid(periodId)) return { kind: 'not-found' as const };
-        const parsed = parseBody(setRequirementRequestSchema, request.body);
+        const period = await loadPeriod(uow, periodId);
+        if (period === undefined) return { kind: 'not-found' as const };
+        const parsed = parseBody(replaceRequirementsRequestSchema, request.body);
         if (parsed.kind !== 'ok') return parsed;
 
-        const cas = await compareAndSetRequirement(
-          uow,
-          periodId,
-          parsed.value.date,
-          parsed.value.shiftTypeId,
-          parsed.value.expectedRevision,
-        );
-        if (cas.kind === 'stale') return cas;
-
-        const id = await schedule.setRequirement(uow, actorOf(request), {
-          periodId,
-          date: parsed.value.date,
-          shiftTypeId: parsed.value.shiftTypeId,
-          requiredCount: parsed.value.requiredCount,
+        const result = await schedule.replaceRequirements(uow, actorOf(request), periodId, {
+          requirements: parsed.value.requirements,
+          expectedVersion: parsed.value.expectedVersion,
         });
-
-        return {
-          kind: 'ok' as const,
-          value: [
-            {
-              id,
-              date: parsed.value.date,
-              shiftTypeId: parsed.value.shiftTypeId,
-              requiredCount: parsed.value.requiredCount,
-              revision: requirementRevision({ id, requiredCount: parsed.value.requiredCount }),
-            },
-          ],
-        };
+        if (result.kind === 'stale-set') return result;
+        if (result.kind === 'invalid') {
+          return {
+            kind: 'invalid' as const,
+            problems: result.problems.map((problem) => ({
+              field: problem.field,
+              message: problem.message,
+            })),
+          };
+        }
+        return { kind: 'ok' as const, value: result.value };
       });
 
-      return respond(request, reply, outcome, (requirements) =>
-        scheduleRequirementListSchema.parse({
+      return respond(request, reply, outcome, (result) =>
+        scheduleRequirementSetSchema.parse({
           periodId,
-          requirements,
-          absentRequirementRevision: requirementRevision(null),
+          requirements: result.requirements,
+          version: result.version,
           correlationId: request.correlationId,
         }),
       );
@@ -1287,39 +1291,13 @@ export default function scheduleAuthoringRoutes(app: FastifyInstance): void {
     },
   );
 
-  /* ── cell mutations. Draft-only, compare-and-set, service-owned audit ───── */
-
-  /**
-   * The requirement compare-and-set, with the same lock-then-read discipline.
+  /* ── cell mutations. Draft-only, compare-and-set, service-owned audit ─────
    *
-   * `setRequirement` UPSERTS on (period, date, shift type), so without this a
-   * second author's number silently replaces a first's. The lock is what makes
-   * the comparison mean anything: measured before it existed, two concurrent
-   * writes carrying the same token both returned 200 in 11 of 12 rounds.
-   */
-  async function compareAndSetRequirement(
-    uow: Uow,
-    periodId: string,
-    date: string,
-    shiftTypeId: string,
-    expected: string,
-  ): Promise<{ kind: 'ok' } | { kind: 'stale'; currentRevision: string }> {
-    await lockAnchor(uow, `requirement:${periodId}:${date}:${shiftTypeId}`);
-    const query = uow.query as Kysely<Database>;
-    const existing = (await query
-      .selectFrom('schedule_requirements')
-      .select(['id', 'required_count'])
-      .where('period_id', '=', periodId)
-      .where('date', '=', date)
-      .where('shift_type_id', '=', shiftTypeId)
-      .executeTakeFirst()) as unknown as { id: string; required_count: number } | undefined;
-
-    const current = requirementRevision(
-      existing === undefined ? null : { id: existing.id, requiredCount: existing.required_count },
-    );
-    if (current !== expected) return { kind: 'stale', currentRevision: current };
-    return { kind: 'ok' };
-  }
+   * The requirement editor's per-cell compare-and-set that used to live here
+   * (`compareAndSetRequirement`) is SUPERSEDED by the whole-set aggregate CAS
+   * in `schedule/service.ts` `replaceRequirements` (OPUS-M4-000A): the same
+   * lock-then-read discipline, on the aggregate the editor actually presents.
+   * The cell CAS below is unchanged. */
 
   /**
    * Re-read one cell and compare it against what the caller believed.

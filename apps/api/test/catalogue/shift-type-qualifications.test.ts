@@ -238,8 +238,15 @@ describe('shift_type_qualifications — the schema', () => {
     } catch (error) {
       code = (error as { code?: string }).code;
     }
-    expect(code, 'a cross-group requirement was accepted').toBe('23503');
-    log('a requirement pointing at another group\'s qualification is refused 23503');
+    /* 42501, not 23503, since OPUS-M4-000A: migration 0012's
+     * `shift_type_qualifications_guard_retirement` looks the qualification up
+     * BEFORE the FK is checked, and a cross-group parent is invisible under
+     * RLS — so the guard's insufficient_privilege refusal (the 0004 guards'
+     * convention for an invisible parent) preempts the FK's 23503. The FK is
+     * still there as the constraint backstop; the statement is refused either
+     * way, one trigger earlier than before. */
+    expect(code, 'a cross-group requirement was accepted').toBe('42501');
+    log('a requirement pointing at another group\'s qualification is refused 42501 (guard) with the FK behind it');
   });
 });
 
@@ -347,8 +354,10 @@ describe('the requirement set, through the route', () => {
     ).toContain(qualificationId);
 
     // Remove it: the row must survive with `active: false`.
+    const loadedVersion = (JSON.parse(before.body) as { version: number }).version;
     const emptied = await call('PUT', scheduler, `/shift-types/${shiftTypeId}/qualifications`, {
       qualificationIds: [],
+      expectedVersion: loadedVersion,
     });
     expect(emptied.statusCode, emptied.body).toBe(200);
     const archived = JSON.parse(emptied.body).requirements as {
@@ -372,6 +381,7 @@ describe('the requirement set, through the route', () => {
     // shift type require X?" a question with more than one answer.
     const restored = await call('PUT', scheduler, `/shift-types/${shiftTypeId}/qualifications`, {
       qualificationIds: [qualificationId],
+      expectedVersion: (JSON.parse(emptied.body) as { version: number }).version,
     });
     expect(restored.statusCode, restored.body).toBe(200);
 
@@ -395,6 +405,7 @@ describe('the requirement set, through the route', () => {
 
     const write = await call('PUT', member, `/shift-types/${shiftTypeId}/qualifications`, {
       qualificationIds: [],
+      expectedVersion: 1,
     });
     expect(write.statusCode).toBe(403);
 
@@ -530,8 +541,11 @@ describe('the requirement set, through the route', () => {
     );
     const marker = BigInt(head.rows[0]?.seq ?? '0');
 
+    const loaded = await call('GET', scheduler, `/shift-types/${shiftTypeId}/qualifications`);
+    expect(loaded.statusCode, loaded.body).toBe(200);
     const response = await call('PUT', scheduler, `/shift-types/${shiftTypeId}/qualifications`, {
       qualificationIds: [multi.catalogue().qualificationId],
+      expectedVersion: (JSON.parse(loaded.body) as { version: number }).version,
     });
     expect(response.statusCode, response.body).toBe(200);
 

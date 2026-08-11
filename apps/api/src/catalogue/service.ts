@@ -7,8 +7,6 @@ import type {
   CreateStaffGroupRequest,
   CreateValidGroupRequest,
   GroupHoliday,
-  SetShiftTypeQualificationsRequest,
-  SetWeekdayDemandRequest,
   ShiftGroup,
   ShiftType,
   ShiftTypeEligibility,
@@ -23,12 +21,13 @@ import {
   canonicalPickPositions,
   crossesMidnight,
   effectiveWindowProblems,
-  isEligibleAt,
+  evaluateEligibility,
   pickPositionIncreaseProblems,
   pickPositionProblems,
   shiftTypeProblems,
   type CatalogueDay,
   type FieldProblem,
+  type QualificationLifecycle,
   type TenantContext,
   type UnitOfWork,
 } from '@schedulepoint/domain';
@@ -36,6 +35,7 @@ import { sql, type Kysely } from 'kysely';
 
 import type { Database } from '../db/schema.js';
 import { loadHoldings } from '../profiles/in-force-loader.js';
+import { acquireStaffingSet, readStaffingSetVersion } from './staffing-set-version.js';
 import {
   shiftGroupToWire,
   shiftTypeToWire,
@@ -81,7 +81,14 @@ export type CatalogueOutcome<T> =
   | { readonly kind: 'ok'; readonly value: T }
   | { readonly kind: 'invalid'; readonly problems: readonly FieldProblem[] }
   | { readonly kind: 'not-found' }
-  | { readonly kind: 'conflict' };
+  | { readonly kind: 'conflict' }
+  /**
+   * A whole-set replacement presented a stale aggregate `expectedVersion`
+   * (OPUS-M4-000A). Distinct from `conflict` because PO-DEC-18's refetch flow
+   * needs the CURRENT version on the wire — a disclosure only a caller who
+   * already passed the evaluator can reach.
+   */
+  | { readonly kind: 'stale-set'; readonly currentVersion: number };
 
 type Uow = UnitOfWork<Kysely<Database>>;
 
@@ -393,17 +400,54 @@ export interface DemandEntry {
   readonly demandCount: number;
 }
 
+export interface DemandSet {
+  readonly demand: readonly DemandEntry[];
+  /** The aggregate version AFTER this read/save — what the next save presents. */
+  readonly version: number;
+}
+
+export interface DemandReplacement extends DemandSet {
+  /** `false` iff the presented set equalled the stored one — the FAD-24 no-op. */
+  readonly changed: boolean;
+  readonly addedCount: number;
+  readonly updatedCount: number;
+  readonly deletedCount: number;
+}
+
 /**
- * Replaces the whole demand set for one shift type, in one statement per day.
+ * Replaces the whole demand set for one shift type — the ATOMIC aggregate
+ * (OPUS-M4-000A; doc 34 §4-A).
  *
- * One request, not eight (I-10): a demand form is one user action with eight
- * fields, and eight PATCHes would be request amplification in REST costume.
+ * One request, not eight (I-10), and one canonical omitted-entry rule, stated
+ * in the contract and on the page: **saving produces exactly the presented
+ * set; a day omitted — or presented as zero — has its row deleted.** The zero
+ * half exists because this surface's read has always defined an absent row AS
+ * zero demand (FAD-16), so storing a zero row would be a second spelling of
+ * one fact, and the eight-field form could never no-op.
+ *
+ * ## Concurrency (the M3-004 shape, on the aggregate)
+ *
+ * `acquireStaffingSet` serializes writers on this shift type's demand
+ * aggregate and refuses a stale `expectedVersion` with the current version.
+ * Two concurrent replacements can therefore never combine into a union: the
+ * loser blocks on the advisory lock, re-reads the counter the winner's writes
+ * bumped, and is told to re-read. Proven by the 12-round race in
+ * `apps/api/test/catalogue/demand-replacement.test.ts`, which asserts the
+ * DATABASE state, not the responses.
+ *
+ * ## The no-op is a byte-level no-op
+ *
+ * The diff below issues NO statement when the presented set equals the stored
+ * one: nothing moves, the version does not bump (the trigger only sees
+ * writes), and the route emits NO audit event (`changed: false` — FAD-24,
+ * with the load-bearing emission control in the tests). Open-then-save-
+ * unchanged can therefore never reset values, and never manufactures history.
  */
-export async function setWeekdayDemand(
+export async function replaceWeekdayDemand(
   uow: Uow,
   shiftTypeId: string,
-  body: SetWeekdayDemandRequest,
-): Promise<CatalogueOutcome<readonly DemandEntry[]>> {
+  body: { readonly demand: readonly DemandEntry[]; readonly expectedVersion: number },
+): Promise<CatalogueOutcome<DemandReplacement>> {
   const seen = new Set<string>();
   for (const entry of body.demand) {
     if (seen.has(entry.day)) {
@@ -422,31 +466,92 @@ export async function setWeekdayDemand(
     .execute()) as unknown as { id: string }[];
   if (owner[0] === undefined) return { kind: 'not-found' };
 
-  const tenant = tenantOf(uow.context);
-  const now = new Date();
+  // Serialize FIRST, before any read the diff is computed from. The rows read
+  // below are rows no concurrent replacement can be mutating.
+  const acquisition = await acquireStaffingSet(
+    uow,
+    'weekday_demand',
+    shiftTypeId,
+    body.expectedVersion,
+  );
+  if (acquisition.kind === 'stale') {
+    return { kind: 'stale-set', currentVersion: acquisition.currentVersion };
+  }
 
-  for (const entry of body.demand) {
+  const existing = (await uow.query
+    .selectFrom('shift_type_weekday_demand')
+    .select(['id', 'day', 'demand_count'])
+    .where('shift_type_id', '=', shiftTypeId)
+    .execute()) as unknown as { id: string; day: CatalogueDay; demand_count: number }[];
+  const existingByDay = new Map(existing.map((row) => [row.day, row]));
+
+  // The canonical rule's zero half: a zero entry is the same statement as an
+  // omitted one, because the read defines absence as zero.
+  const desired = new Map(
+    body.demand
+      .filter((entry) => entry.demandCount > 0)
+      .map((entry) => [entry.day, entry.demandCount]),
+  );
+
+  const toInsert = [...desired].filter(([day]) => !existingByDay.has(day));
+  const toUpdate = [...desired].filter(([day, count]) => {
+    const row = existingByDay.get(day);
+    return row !== undefined && row.demand_count !== count;
+  });
+  const toDelete = existing.filter((row) => !desired.has(row.day));
+
+  const tenant = tenantOf(uow.context);
+  const changed = toInsert.length > 0 || toUpdate.length > 0 || toDelete.length > 0;
+
+  if (toInsert.length > 0) {
     await uow.query
       .insertInto('shift_type_weekday_demand')
-      .values({
-        id: randomUUID(),
-        ...tenant,
-        shift_type_id: shiftTypeId,
-        day: entry.day,
-        demand_count: entry.demandCount,
-      })
-      // The tenant-qualified unique key is the conflict target, so the upsert can
-      // only ever match a row in the caller's own group. `(shift_type_id, day)`
-      // alone would be a target the RLS predicate does not cover.
-      .onConflict((oc) =>
-        oc
-          .columns(['organization_id', 'group_id', 'shift_type_id', 'day'])
-          .doUpdateSet({ demand_count: entry.demandCount, updated_at: now }),
+      .values(
+        toInsert.map(([day, count]) => ({
+          id: randomUUID(),
+          ...tenant,
+          shift_type_id: shiftTypeId,
+          day,
+          demand_count: count,
+        })),
       )
       .execute();
   }
 
-  return { kind: 'ok', value: await readWeekdayDemand(uow, shiftTypeId) };
+  // By ROW ID, not by day predicate: the row this transaction read is the row
+  // it acts on (the M1 S-01 lesson, restated at every write in this file).
+  for (const [day, count] of toUpdate) {
+    const row = existingByDay.get(day);
+    if (row === undefined) continue;
+    await uow.query
+      .updateTable('shift_type_weekday_demand')
+      .set({ demand_count: count, updated_at: new Date() })
+      .where('id', '=', row.id)
+      .execute();
+  }
+
+  if (toDelete.length > 0) {
+    await uow.query
+      .deleteFrom('shift_type_weekday_demand')
+      .where(
+        'id',
+        'in',
+        toDelete.map((row) => row.id),
+      )
+      .execute();
+  }
+
+  const set = await readWeekdayDemandSet(uow, shiftTypeId);
+  return {
+    kind: 'ok',
+    value: {
+      ...set,
+      changed,
+      addedCount: toInsert.length,
+      updatedCount: toUpdate.length,
+      deletedCount: toDelete.length,
+    },
+  };
 }
 
 export async function readWeekdayDemand(
@@ -463,6 +568,25 @@ export async function readWeekdayDemand(
   // form renders eight controls whether or not eight rows exist. An absent row
   // means "no demand declared", which is zero demand.
   return CATALOGUE_DAYS.map((day) => ({ day, demandCount: byDay.get(day) ?? 0 }));
+}
+
+/**
+ * The demand set WITH its aggregate version — what an editor loads before it
+ * opens (doc 34 §4-A's load-before-edit requirement) and what a save returns.
+ */
+export async function readWeekdayDemandSet(uow: Uow, shiftTypeId: string): Promise<DemandSet> {
+  return {
+    demand: await readWeekdayDemand(uow, shiftTypeId),
+    version: await readStaffingSetVersion(uow, 'weekday_demand', shiftTypeId),
+  };
+}
+
+/** The qualification-requirement aggregate's load-before-edit token. */
+export async function readShiftTypeQualificationSetVersion(
+  uow: Uow,
+  shiftTypeId: string,
+): Promise<number> {
+  return readStaffingSetVersion(uow, 'qualification_requirements', shiftTypeId);
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -1082,6 +1206,10 @@ export async function listShiftTypeQualifications(
  */
 export interface RequirementSetResult {
   readonly requirements: readonly ShiftTypeQualification[];
+  /** The aggregate version AFTER this save — what the next save presents. */
+  readonly version: number;
+  /** `false` iff the presented set equalled the stored one (FAD-24: no audit event). */
+  readonly changed: boolean;
   /**
    * The before/after summary the audit row carries.
    *
@@ -1102,10 +1230,29 @@ export interface RequirementSetResult {
   readonly archivedCount: number;
 }
 
-export async function setShiftTypeQualifications(
+/**
+ * Replaces a shift type's requirement set — consistency-controlled
+ * (OPUS-M4-000A; doc 34 §4-B).
+ *
+ * The omitted-entry rule here is ARCHIVE-absent, unchanged from 0006: these
+ * rows are structure with history, not pure quantities, and the database
+ * refuses their deletion for the owner too. What is new:
+ *
+ *   - `expectedVersion` — the aggregate CAS (`staffing_set_versions`, scope
+ *     `qualification_requirements`), serialized exactly as the demand editors
+ *     are, so two concurrent replacements can never interleave into a union
+ *     of requirement sets.
+ *   - **A retired qualification cannot enter the set.** A NEW row, or the
+ *     reactivation of an archived one, naming a retired qualification is
+ *     refused here with a field-addressed 422 and independently by
+ *     `shift_type_qualifications_guard_retirement` (migration 0012). A row
+ *     that is ALREADY active and stays in the presented set is retained —
+ *     retirement never rewrites existing requirements.
+ */
+export async function replaceShiftTypeQualifications(
   uow: Uow,
   shiftTypeId: string,
-  body: SetShiftTypeQualificationsRequest,
+  body: { readonly qualificationIds: readonly string[]; readonly expectedVersion: number },
 ): Promise<CatalogueOutcome<RequirementSetResult>> {
   const wanted = [...new Set(body.qualificationIds)];
   if (wanted.length !== body.qualificationIds.length) {
@@ -1130,6 +1277,17 @@ export async function setShiftTypeQualifications(
     .executeTakeFirst();
   if (subject === undefined) return { kind: 'not-found' };
 
+  // Serialize on the aggregate BEFORE the reads the diff is computed from.
+  const acquisition = await acquireStaffingSet(
+    uow,
+    'qualification_requirements',
+    shiftTypeId,
+    body.expectedVersion,
+  );
+  if (acquisition.kind === 'stale') {
+    return { kind: 'stale-set', currentVersion: acquisition.currentVersion };
+  }
+
   const existing = (await uow.query
     .selectFrom('shift_type_qualifications')
     .select(['id', 'qualification_id', 'status'])
@@ -1145,6 +1303,37 @@ export async function setShiftTypeQualifications(
   const toArchive = existing
     .filter((row) => !wanted.includes(row.qualification_id) && row.status !== 'archived')
     .map((row) => row.id);
+
+  /* ── the retirement gate, for the two "new requirement" shapes ─────────────
+   *
+   * Only ids that would ENTER the active set are examined: a fresh insert, or
+   * the reactivation of an archived row. An id whose row is already active is
+   * retained whatever the qualification's lifecycle says — the packet's
+   * "existing retained" ruling, mirrored by the 0012 trigger, which admits an
+   * UPDATE that leaves an active row active. An id that resolves to no
+   * visible qualification at all is left to the composite FK / trigger, whose
+   * refusal the route maps to the same 404 an RLS-hidden row gets (T-05b). */
+  const enteringIds = new Set<string>(toInsert);
+  for (const row of existing) {
+    if (toActivate.includes(row.id)) enteringIds.add(row.qualification_id);
+  }
+  if (enteringIds.size > 0) {
+    const lifecycles = (await uow.query
+      .selectFrom('qualifications')
+      .select(['id', 'status'])
+      .where('id', 'in', [...enteringIds])
+      .execute()) as unknown as { id: string; status: 'active' | 'retired' }[];
+    const retired = lifecycles.filter((row) => row.status === 'retired');
+    if (retired.length > 0) {
+      return {
+        kind: 'invalid',
+        problems: retired.map((row) => ({
+          field: 'qualificationIds',
+          message: `Qualification ${row.id} is retired and cannot gain new requirements. Reinstate it first.`,
+        })),
+      };
+    }
+  }
 
   if (toInsert.length > 0) {
     await uow.query
@@ -1183,6 +1372,8 @@ export async function setShiftTypeQualifications(
     kind: 'ok',
     value: {
       requirements: await listShiftTypeQualifications(uow, shiftTypeId),
+      version: await readStaffingSetVersion(uow, 'qualification_requirements', shiftTypeId),
+      changed: toInsert.length > 0 || toActivate.length > 0 || toArchive.length > 0,
       beforeActiveCount: existing.filter((row) => row.status === 'active').length,
       addedCount: toInsert.length,
       reactivatedCount: toActivate.length,
@@ -1257,20 +1448,33 @@ export async function listMembershipEligibility(
    * `ELIGIBLE_HOLDING_STATUSES` does not, and its window comparison was a third
    * spelling of a boundary rule that already has one.
    *
-   * `loadHoldings` selects; `isEligibleAt` decides. Both are the shipped
-   * implementations, so a change to either reaches this read too. */
+   * `loadHoldings` selects; the shared verdict (which itself builds on the
+   * same `containsInstant`/`ELIGIBLE_HOLDING_STATUSES` rules `isEligibleAt`
+   * uses) decides. Both are the shipped implementations, so a change to
+   * either reaches this read too. */
   const holdings = await loadHoldings(uow.query, {
     organizationId: uow.context.organizationId,
     membershipId,
   });
 
-  const heldIds = new Set(
-    [...new Set(holdings.map((holding) => holding.qualificationId))].filter((qualificationId) =>
-      isEligibleAt(
-        holdings.filter((holding) => holding.qualificationId === qualificationId),
-        instant,
-      ),
-    ),
+  /* ── the SHARED verdict decides (OPUS-M4-000A) ─────────────────────────────
+   *
+   * `evaluateEligibility` in `packages/domain/src/eligibility` is the one
+   * implementation of "does this membership satisfy this requirement set at
+   * this instant" — the same function the publication-time check calls, which
+   * is what makes the manual path and the publication path provably unable to
+   * disagree (`apps/api/test/profiles/verdict-convergence.test.ts` asserts
+   * equality on a shared fixture). It consumes the qualification LIFECYCLES
+   * too: a retired qualification confers nothing, with the distinct `retired`
+   * outcome, where the pre-M4 arithmetic here silently treated a retired
+   * credential as live. */
+  const lifecycles = new Map<string, QualificationLifecycle>(
+    (
+      (await uow.query
+        .selectFrom('qualifications')
+        .select(['id', 'status'])
+        .execute()) as unknown as { id: string; status: QualificationLifecycle }[]
+    ).map((row) => [row.id, row.status]),
   );
 
   const byShiftType = new Map<string, string[]>();
@@ -1282,13 +1486,24 @@ export async function listMembershipEligibility(
 
   return shiftTypes.map((shiftType) => {
     const required = [...(byShiftType.get(shiftType.id) ?? [])].sort();
-    const missing = required.filter((qualificationId) => !heldIds.has(qualificationId));
+    const verdict = evaluateEligibility({
+      requiredQualificationIds: required,
+      holdings,
+      qualificationLifecycles: lifecycles,
+      at: instant,
+    });
     return {
       shiftTypeId: shiftType.id,
       shiftTypeCode: shiftType.code,
       requiredQualificationIds: required,
-      missingQualificationIds: missing,
-      eligible: missing.length === 0,
+      missingQualificationIds: verdict.qualifications
+        .filter((entry) => entry.outcome !== 'satisfied')
+        .map((entry) => entry.qualificationId),
+      eligible: verdict.qualificationsSatisfied,
+      qualificationOutcomes: verdict.qualifications.map((entry) => ({
+        qualificationId: entry.qualificationId,
+        outcome: entry.outcome,
+      })),
     };
   });
 }

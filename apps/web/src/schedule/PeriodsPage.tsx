@@ -3,14 +3,14 @@ import { useState, type FormEvent, type JSX } from 'react';
 
 import { ValidationError, fetchShiftTypes } from '../api/catalogue.js';
 import {
-  StaleEditError,
+  StaleSetVersionError,
   cloneVersion,
   createDraftVersion,
   createPeriod,
   fetchPeriods,
   fetchRequirements,
   fetchVersions,
-  setRequirement,
+  replaceRequirements,
 } from './api.js';
 import { useGroupScope } from '../catalogue/CatalogueLayout.js';
 import {
@@ -45,7 +45,7 @@ import { ScheduleLayout } from './ScheduleLayout.js';
  *
  * The server upserts a requirement on (period, date, shift type). Without a
  * revision token a second author's number would silently replace a first's, so
- * every Save sends the revision the form was opened with and a `StaleEditError`
+ * every Save sends the aggregate set version the list was loaded with and a `StaleSetVersionError`
  * renders an explicit refetch prompt — never a silent retry (PO-DEC-18,
  * SP-E §1.4).
  */
@@ -514,26 +514,38 @@ function RequirementsPanel({ periodId }: { periodId: string }): JSX.Element {
 
   const list = requirements.data?.requirements ?? [];
 
-  /**
-   * The revision the Save will send.
-   *
-   * Read from the LIST the form was opened against, so it is the token for the
-   * state the author actually saw. A token computed at submit time would always
-   * match and the compare-and-set would be decorative.
-   */
-  const revisionFor = (forDate: string, forShiftType: string): string =>
-    list.find((row) => row.date === forDate && row.shiftTypeId === forShiftType)?.revision ??
-    requirements.data?.absentRequirementRevision ??
-    '';
-
+  /* The save presents the WHOLE SET (OPUS-M4-000A): every row the author was
+   * looking at, plus the entry the form adds or amends, under the aggregate
+   * `expectedVersion` the list was LOADED with. Loaded, not read at submit —
+   * a version read at submit time would always match and the compare-and-set
+   * would be decorative. Saving produces exactly this presented set; a row
+   * omitted from it would be deleted, which is why the set is built from the
+   * loaded list rather than from the one field the form shows. */
   const save = useMutation({
-    mutationFn: () =>
-      setRequirement(scope, periodId, {
-        date,
-        shiftTypeId,
-        requiredCount: Number(requiredCount),
-        expectedRevision: revisionFor(date, shiftTypeId),
-      }),
+    mutationFn: () => {
+      const loaded = requirements.data;
+      if (loaded === undefined) {
+        return Promise.reject(
+          new ValidationError('The current requirements have not loaded yet.', [
+            { field: 'form', message: 'The current requirements have not loaded yet.' },
+          ]),
+        );
+      }
+      const presented = [
+        ...loaded.requirements
+          .filter((row) => !(row.date === date && row.shiftTypeId === shiftTypeId))
+          .map((row) => ({
+            date: row.date,
+            shiftTypeId: row.shiftTypeId,
+            requiredCount: row.requiredCount,
+          })),
+        { date, shiftTypeId, requiredCount: Number(requiredCount) },
+      ];
+      return replaceRequirements(scope, periodId, {
+        requirements: presented,
+        expectedVersion: loaded.version,
+      });
+    },
     onSuccess: () => {
       setProblems([]);
       setStaleNotice(null);
@@ -541,8 +553,10 @@ function RequirementsPanel({ periodId }: { periodId: string }): JSX.Element {
       void queryClient.invalidateQueries({ queryKey: ['schedule-requirements'] });
     },
     onError: (error: unknown) => {
-      if (error instanceof StaleEditError) {
-        // Never merged, never retried silently (PO-DEC-18).
+      if (error instanceof StaleSetVersionError) {
+        // Never merged, never retried silently (PO-DEC-18): the set moved
+        // since it was loaded, so the list is re-read and the author decides
+        // again against the current truth.
         setStaleNotice(error.message);
         setProblems([]);
         void queryClient.invalidateQueries({ queryKey: ['schedule-requirements'] });

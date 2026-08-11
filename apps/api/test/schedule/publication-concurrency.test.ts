@@ -48,7 +48,7 @@ import { ownedMulti } from '../support/owned-multi.js';
 
 const multi = ownedMulti('schedule-publication-concurrency', {
   profile: 'full',
-  seed: { catalogue: ['alpha'] },
+  seed: { catalogue: ['alpha'], scheduleCredentials: true },
 });
 
 let harness: HttpHarness;

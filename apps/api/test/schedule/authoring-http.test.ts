@@ -418,7 +418,8 @@ describe('stale-edit handling is server-authoritative and never merges', () => {
       scheduler,
     );
     expect(list.statusCode, list.raw).toBe(200);
-    const absent = (list.body as { absentRequirementRevision: string }).absentRequirementRevision;
+    // OPUS-M4-000A: the editor's token is the AGGREGATE set version.
+    const loadedVersion = (list.body as { version: number }).version;
 
     const first = await call(
       'PUT',
@@ -426,31 +427,32 @@ describe('stale-edit handling is server-authoritative and never merges', () => {
       scheduler,
       {
         body: {
-          date: draft.startDate,
-          shiftTypeId: draft.shiftTypeId,
-          requiredCount: 2,
-          expectedRevision: absent,
+          requirements: [
+            { date: draft.startDate, shiftTypeId: draft.shiftTypeId, requiredCount: 2 },
+          ],
+          expectedVersion: loadedVersion,
         },
       },
     );
     expect(first.statusCode, first.raw).toBe(200);
 
-    // The upsert would silently replace the 2 with a 7 without the CAS.
+    // Without the aggregate CAS the replacement would silently replace the 2
+    // with a 7 — the second writer presents the version the first consumed.
     const second = await call(
       'PUT',
       `${schedulePath()}/periods/${draft.periodId}/requirements`,
       scheduler,
       {
         body: {
-          date: draft.startDate,
-          shiftTypeId: draft.shiftTypeId,
-          requiredCount: 7,
-          expectedRevision: absent,
+          requirements: [
+            { date: draft.startDate, shiftTypeId: draft.shiftTypeId, requiredCount: 7 },
+          ],
+          expectedVersion: loadedVersion,
         },
       },
     );
     expect(second.statusCode, second.raw).toBe(409);
-    expect((second.body as { error: { code: string } }).error.code).toBe('STALE_EDIT');
+    expect((second.body as { error: { code: string } }).error.code).toBe('STALE_SET_VERSION');
 
     const after = await call(
       'GET',

@@ -44,7 +44,7 @@ import { fixtureInstant, publicationKey, scheduleActor } from '../support/schedu
 
 const multi = ownedMulti('step-06-hard-rules', {
   profile: 'core',
-  seed: { catalogue: ['alpha'] },
+  seed: { catalogue: ['alpha'], scheduleCredentials: true },
 });
 
 let runtime: Runtime;
@@ -427,6 +427,31 @@ describe('qualification expiry against the ASSIGNMENT DATE (packet 32 §10f deli
     expect(granted.grantIds).toHaveLength(1);
 
     const subject = context.membershipId ?? '';
+
+    /* OPUS-M4-000A: this file opts into `scheduleCredentials`, which seeds an
+     * OPEN-ENDED valid holding of this very qualification for the scheduler so
+     * the structural publication gate admits the file's other fixtures. An
+     * open-ended holding would satisfy every date and dissolve the boundary
+     * this test exists to pin — so it is REVOKED first, through the production
+     * status machine. A revoked holding confers nothing (the verdict's rule 4),
+     * and the dated holdings below then carry the boundary alone. */
+    await run(async (uow) => {
+      const seeded = (await uow.query
+        .selectFrom('qualification_holdings')
+        .select(['id', 'version'])
+        .where('membership_id', '=', subject)
+        .where('qualification_id', '=', qualificationId)
+        .where('valid_until', 'is', null)
+        .execute()) as unknown as { id: string; version: number }[];
+      const { changeHoldingStatus } = await import('../../src/profiles/qualifications.js');
+      for (const row of seeded) {
+        await changeHoldingStatus(uow, {
+          holdingId: row.id,
+          status: 'revoked',
+          expectedVersion: row.version,
+        });
+      }
+    });
 
     await run(async (uow) => {
       const holding = await grantHolding(uow, {

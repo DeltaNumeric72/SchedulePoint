@@ -667,11 +667,20 @@ describe('qualifications: define -> issue -> revoke -> retire, all retained', ()
         },
       });
 
+      // OPUS-M4-000A: holding mutations carry the row CAS. The current version
+      // is read from the database rather than assumed, so this flow survives
+      // test-order shuffle.
+      const revokeVersion = (
+        await admin.query<{ version: number }>(
+          'select version from qualification_holdings where id = $1::uuid',
+          [holdingId],
+        )
+      ).rows[0]?.version;
       const revoked = await harness.app.inject({
         method: 'PATCH',
         url: `${base()}/qualification-holdings/${holdingId}`,
         headers: await headers(),
-        payload: { status: 'revoked' },
+        payload: { status: 'revoked', expectedVersion: revokeVersion },
       });
       expect(revoked.statusCode, revoked.body).toBe(200);
 
@@ -681,18 +690,30 @@ describe('qualifications: define -> issue -> revoke -> retire, all retained', ()
         headers: await headers(),
       });
 
+      const reinstateVersion = (
+        await admin.query<{ version: number }>(
+          'select version from qualification_holdings where id = $1::uuid',
+          [holdingId],
+        )
+      ).rows[0]?.version;
       const reinstate = await harness.app.inject({
         method: 'PATCH',
         url: `${base()}/qualification-holdings/${holdingId}`,
         headers: await headers(),
-        payload: { status: 'valid' },
+        payload: { status: 'valid', expectedVersion: reinstateVersion },
       });
 
+      const retireVersion = (
+        await admin.query<{ version: number }>(
+          'select version from qualifications where id = $1::uuid',
+          [qualificationId],
+        )
+      ).rows[0]?.version;
       const retired = await harness.app.inject({
         method: 'PATCH',
         url: `${base()}/qualifications/${qualificationId}`,
         headers: await headers(),
-        payload: { status: 'retired' },
+        payload: { status: 'retired', expectedVersion: retireVersion },
       });
       expect(retired.statusCode, retired.body).toBe(200);
 

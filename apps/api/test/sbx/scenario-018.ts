@@ -120,7 +120,12 @@ export function buildScenario018(deps: () => ScenarioDependencies): SbxScenario 
       const alpha = fixture.alpha;
       const catalogue = fixture.catalogue?.alpha;
       if (catalogue === undefined) throw new Error('SBX-018 needs seed.catalogue: [alpha]');
-      const shiftTypeId = catalogue.shiftTypeIds[0];
+      /* Index 1 since OPUS-M4-000A: publication enforces the shift-type
+       * qualification requirement edge structurally, `shiftTypeIds[0]` carries
+       * a requirement, and this scenario's assignees are deliberately
+       * uncredentialed — the unencumbered type keeps SBX-018 a publication
+       * scenario rather than a qualification one. */
+      const shiftTypeId = catalogue.shiftTypeIds[1];
       if (shiftTypeId === undefined) throw new Error('no shift type seeded');
 
       const actor = scheduleActor(alpha.users.scheduler.id);

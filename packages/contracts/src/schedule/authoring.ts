@@ -190,6 +190,94 @@ export const setRequirementRequestSchema = z
 export type SetRequirementRequest = z.infer<typeof setRequirementRequestSchema>;
 
 /* ────────────────────────────────────────────────────────────────────────────
+ * The whole-set requirements replacement (OPUS-M4-000A; doc 34 §4-A)
+ *
+ * The per-cell PUT above is SUPERSEDED on the wire by the aggregate form
+ * below; the schemas are retained (additive contract discipline) but the
+ * route now speaks the aggregate. Rationale, and the canonical omitted-entry
+ * rule, stated once here and mirrored on the page:
+ *
+ *   **Saving produces exactly the presented set. An entry omitted from the
+ *   request is DELETED.** No merge, no union: the requirement set after a
+ *   successful save is the request's set, byte for byte.
+ *
+ * A `requiredCount` of zero is a REAL entry and is stored: an explicit zero
+ * on a date is a statement (it overrides whatever a weekday default would
+ * have implied), which is precisely why the period editor does NOT normalise
+ * zero to absent while the catalogue's weekday grid does — the catalogue read
+ * defines an absent day AS zero, and this one does not.
+ *
+ * `expectedVersion` is the AGGREGATE set version (`staffing_set_versions`,
+ * scope `period_requirements`; an aggregate never written presents 1). A
+ * stale value is refused with an explicit `409` carrying the current version;
+ * nothing is merged. Two concurrent replacements can therefore never combine
+ * into a union — the loser is told, re-reads, and decides again.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+export const requirementEntrySchema = z
+  .object({
+    date: isoDate,
+    shiftTypeId: uuid,
+    requiredCount: z.number().int().nonnegative().max(999),
+  })
+  .strict();
+export type RequirementEntry = z.infer<typeof requirementEntrySchema>;
+
+/**
+ * The whole set, one request (I-10). The ceiling is deliberate: a period is at
+ * most 366 days (contract + `schedule_periods_length`), and 4000 entries is
+ * more date×shift-type cells than any observed group authors while still being
+ * a bounded statement.
+ */
+export const replaceRequirementsRequestSchema = z
+  .object({
+    requirements: z.array(requirementEntrySchema).max(4000),
+    expectedVersion: z.number().int().min(1),
+  })
+  .strict();
+export type ReplaceRequirementsRequest = z.infer<typeof replaceRequirementsRequestSchema>;
+
+export const scheduleRequirementSetViewSchema = z
+  .object({
+    id: uuid,
+    date: isoDate,
+    shiftTypeId: uuid,
+    requiredCount: z.number().int().nonnegative(),
+  })
+  .strict();
+export type ScheduleRequirementSetView = z.infer<typeof scheduleRequirementSetViewSchema>;
+
+export const scheduleRequirementSetSchema = z
+  .object({
+    periodId: uuid,
+    requirements: z.array(scheduleRequirementSetViewSchema),
+    /** The aggregate set version AFTER this read/save — what the next save presents. */
+    version: z.number().int().min(1),
+    correlationId: z.string().min(1),
+  })
+  .strict();
+export type ScheduleRequirementSet = z.infer<typeof scheduleRequirementSetSchema>;
+
+/**
+ * The stale-aggregate refusal body. `currentVersion` is disclosed because the
+ * caller has already proven they may edit this set — it is the refetch hint
+ * PO-DEC-18's explicit-refusal flow requires, never an authorization signal.
+ */
+export const staleSetVersionBodySchema = z
+  .object({
+    error: z
+      .object({
+        code: z.literal('STALE_SET_VERSION'),
+        message: z.string().min(1),
+        currentVersion: z.number().int().min(1),
+        correlationId: z.string().min(1),
+      })
+      .strict(),
+  })
+  .strict();
+export type StaleSetVersionBody = z.infer<typeof staleSetVersionBodySchema>;
+
+/* ────────────────────────────────────────────────────────────────────────────
  * Versions (CAP-014 — `schedule.version.edit`)
  * ──────────────────────────────────────────────────────────────────────────── */
 

@@ -201,7 +201,7 @@ describe('shift types', () => {
 });
 
 describe('per-weekday and holiday demand', () => {
-  it('a set replaces, and an absent day reads as zero rather than as missing', async () => {
+  it('the save produces exactly the presented set: omitted days are DELETED, absent reads zero', async () => {
     const created = await runtime.runner.run(author('demand-create'), (uow) =>
       catalogue.createShiftType(uow, draft()),
     );
@@ -210,34 +210,124 @@ describe('per-weekday and holiday demand', () => {
     const shiftTypeId = created.value.shiftTypeId;
 
     const first = await runtime.runner.run(author('demand-set-1'), (uow) =>
-      catalogue.setWeekdayDemand(uow, shiftTypeId, {
+      catalogue.replaceWeekdayDemand(uow, shiftTypeId, {
         demand: [
           { day: 'mon', demandCount: 3 },
           { day: 'holiday', demandCount: 1 },
         ],
+        expectedVersion: 1,
       }),
     );
     expect(first.kind).toBe('ok');
     if (first.kind !== 'ok') return;
-    expect(first.value).toHaveLength(8);
-    expect(first.value.find((entry) => entry.day === 'mon')?.demandCount).toBe(3);
-    expect(first.value.find((entry) => entry.day === 'tue')?.demandCount).toBe(0);
-    expect(first.value.find((entry) => entry.day === 'holiday')?.demandCount).toBe(1);
+    expect(first.value.demand).toHaveLength(8);
+    expect(first.value.demand.find((entry) => entry.day === 'mon')?.demandCount).toBe(3);
+    expect(first.value.demand.find((entry) => entry.day === 'tue')?.demandCount).toBe(0);
+    expect(first.value.demand.find((entry) => entry.day === 'holiday')?.demandCount).toBe(1);
+    expect(first.value.changed).toBe(true);
+    expect(first.value.version).toBeGreaterThan(1);
 
-    // UPSERT, not insert: the same day again updates rather than raising 23505.
+    // The canonical omitted-entry rule (OPUS-M4-000A): the second save presents
+    // ONLY Monday, so the holiday row is deleted — no merge, no union.
     const second = await runtime.runner.run(author('demand-set-2'), (uow) =>
-      catalogue.setWeekdayDemand(uow, shiftTypeId, { demand: [{ day: 'mon', demandCount: 5 }] }),
+      catalogue.replaceWeekdayDemand(uow, shiftTypeId, {
+        demand: [{ day: 'mon', demandCount: 5 }],
+        expectedVersion: first.value.version,
+      }),
     );
     expect(second.kind).toBe('ok');
     if (second.kind !== 'ok') return;
-    expect(second.value.find((entry) => entry.day === 'mon')?.demandCount).toBe(5);
+    expect(second.value.demand.find((entry) => entry.day === 'mon')?.demandCount).toBe(5);
+    expect(second.value.demand.find((entry) => entry.day === 'holiday')?.demandCount).toBe(0);
 
     const stored = await admin.query<{ n: number }>(
       'select count(*)::int as n from shift_type_weekday_demand where shift_type_id = $1',
       [shiftTypeId],
     );
-    expect(stored.rows[0]?.n, 'the upsert inserted a second Monday row').toBe(2);
-    log('demand upsert: Monday 3 → 5 in place; eight days always returned; absent days read 0');
+    expect(stored.rows[0]?.n, 'the saved set is exactly the presented set').toBe(1);
+    log('demand replacement: Monday 3 → 5 in place; omitted holiday DELETED; absent days read 0');
+  });
+
+  it('a stale expectedVersion is refused with the current version and writes nothing', async () => {
+    const created = await runtime.runner.run(author('demand-stale-create'), (uow) =>
+      catalogue.createShiftType(uow, draft()),
+    );
+    if (created.kind !== 'ok') throw new Error('setup failed');
+    const shiftTypeId = created.value.shiftTypeId;
+
+    const first = await runtime.runner.run(author('demand-stale-1'), (uow) =>
+      catalogue.replaceWeekdayDemand(uow, shiftTypeId, {
+        demand: [{ day: 'mon', demandCount: 2 }],
+        expectedVersion: 1,
+      }),
+    );
+    if (first.kind !== 'ok') throw new Error('setup save failed');
+
+    // A second writer presenting the version the FIRST writer consumed.
+    const stale = await runtime.runner.run(author('demand-stale-2'), (uow) =>
+      catalogue.replaceWeekdayDemand(uow, shiftTypeId, {
+        demand: [{ day: 'tue', demandCount: 9 }],
+        expectedVersion: 1,
+      }),
+    );
+    expect(stale.kind).toBe('stale-set');
+    if (stale.kind !== 'stale-set') return;
+    expect(stale.currentVersion).toBe(first.value.version);
+
+    const stored = await admin.query<{ day: string; demand_count: number }>(
+      'select day, demand_count from shift_type_weekday_demand where shift_type_id = $1',
+      [shiftTypeId],
+    );
+    // The stale writer's Tuesday never landed and Monday survives: refused, not merged.
+    expect(stored.rows).toEqual([{ day: 'mon', demand_count: 2 }]);
+    log('stale expectedVersion → stale-set with the current version, and the DB is untouched');
+  });
+
+  it('open-then-save-unchanged is a byte-level no-op: no writes, no version bump', async () => {
+    const created = await runtime.runner.run(author('demand-noop-create'), (uow) =>
+      catalogue.createShiftType(uow, draft()),
+    );
+    if (created.kind !== 'ok') throw new Error('setup failed');
+    const shiftTypeId = created.value.shiftTypeId;
+
+    const first = await runtime.runner.run(author('demand-noop-1'), (uow) =>
+      catalogue.replaceWeekdayDemand(uow, shiftTypeId, {
+        demand: [
+          { day: 'mon', demandCount: 4 },
+          { day: 'sun', demandCount: 2 },
+        ],
+        expectedVersion: 1,
+      }),
+    );
+    if (first.kind !== 'ok') throw new Error('setup save failed');
+
+    // The editor's exact round trip: load the set (all eight days, zeros
+    // filled), save it back unchanged with the loaded version.
+    const loaded = await runtime.runner.run(author('demand-noop-load'), (uow) =>
+      catalogue.readWeekdayDemandSet(uow, shiftTypeId),
+    );
+    const noop = await runtime.runner.run(author('demand-noop-2'), (uow) =>
+      catalogue.replaceWeekdayDemand(uow, shiftTypeId, {
+        demand: [...loaded.demand],
+        expectedVersion: loaded.version,
+      }),
+    );
+    expect(noop.kind).toBe('ok');
+    if (noop.kind !== 'ok') return;
+    expect(noop.value.changed).toBe(false);
+    expect(noop.value.version, 'a no-op save must not move the aggregate version').toBe(
+      loaded.version,
+    );
+    expect(noop.value.demand).toEqual(loaded.demand);
+
+    const rows = await admin.query<{ updated_at: string; created_at: string }>(
+      'select created_at::text as created_at, updated_at::text as updated_at from shift_type_weekday_demand where shift_type_id = $1',
+      [shiftTypeId],
+    );
+    for (const row of rows.rows) {
+      expect(row.updated_at, 'a no-op save touched a row').toBe(row.created_at);
+    }
+    log('open-then-save-unchanged: zero statements, version unmoved, rows untouched');
   });
 
   it('the same day twice in one request is refused before any statement', async () => {
@@ -247,11 +337,12 @@ describe('per-weekday and holiday demand', () => {
     if (created.kind !== 'ok') throw new Error('setup failed');
 
     const outcome = await runtime.runner.run(author('demand-dup'), (uow) =>
-      catalogue.setWeekdayDemand(uow, created.value.shiftTypeId, {
+      catalogue.replaceWeekdayDemand(uow, created.value.shiftTypeId, {
         demand: [
           { day: 'mon', demandCount: 1 },
           { day: 'mon', demandCount: 2 },
         ],
+        expectedVersion: 1,
       }),
     );
     expect(outcome.kind).toBe('invalid');
@@ -277,8 +368,9 @@ describe('per-weekday and holiday demand', () => {
     if (other.kind !== 'ok') throw new Error('setup failed');
 
     const outcome = await runtime.runner.run(author('demand-cross'), (uow) =>
-      catalogue.setWeekdayDemand(uow, other.value.shiftTypeId, {
+      catalogue.replaceWeekdayDemand(uow, other.value.shiftTypeId, {
         demand: [{ day: 'mon', demandCount: 1 }],
+        expectedVersion: 1,
       }),
     );
     // RLS made it invisible, so "not visible" and "does not exist" are the same

@@ -10,14 +10,15 @@ import {
   isUuid,
   membershipEligibilitySchema,
   pickPositionCountSchema,
+  replaceShiftTypeQualificationsRequestSchema,
+  replaceWeekdayDemandRequestSchema,
   setPickPositionCountRequestSchema,
-  setShiftTypeQualificationsRequestSchema,
-  setWeekdayDemandRequestSchema,
   shiftGroupListSchema,
   shiftGroupResultSchema,
   shiftTypeListSchema,
-  shiftTypeQualificationListSchema,
+  shiftTypeQualificationSetSchema,
   shiftTypeResultSchema,
+  staleSetVersionBodySchema,
   staffGroupListSchema,
   staffGroupResultSchema,
   updateShiftGroupRequestSchema,
@@ -25,7 +26,7 @@ import {
   validGroupListSchema,
   validGroupResultSchema,
   validationProblemBodySchema,
-  weekdayDemandSchema,
+  weekdayDemandSetSchema,
   type ConflictBody,
 } from '@schedulepoint/contracts';
 import type { AuditEventName, AuditPayload, Decision, FieldProblem } from '@schedulepoint/domain';
@@ -102,7 +103,9 @@ type Outcome<T> =
   | { readonly kind: 'denied'; readonly decision: Decision }
   | { readonly kind: 'not-found' }
   | { readonly kind: 'conflict' }
-  | { readonly kind: 'invalid'; readonly problems: readonly FieldProblem[] };
+  | { readonly kind: 'invalid'; readonly problems: readonly FieldProblem[] }
+  /** A whole-set replacement's aggregate `expectedVersion` is stale (OPUS-M4-000A). */
+  | { readonly kind: 'stale-set'; readonly currentVersion: number };
 
 /**
  * Parses a request body into the catalogue outcome shape.
@@ -357,6 +360,22 @@ function respond<T>(
       }),
     );
   }
+  if (outcome.kind === 'stale-set') {
+    /* PO-DEC-18's explicit-refusal flow: the stale aggregate save is refused
+     * WITH the current version, so the client re-reads and re-decides rather
+     * than retrying blind. `currentVersion` is reachable only by a caller the
+     * evaluator already admitted — it is a refetch hint, not a disclosure. */
+    return reply.code(409).send(
+      staleSetVersionBodySchema.parse({
+        error: {
+          code: 'STALE_SET_VERSION',
+          message: 'The set changed since it was loaded. Re-read it and decide again.',
+          currentVersion: outcome.currentVersion,
+          correlationId: request.correlationId,
+        },
+      }),
+    );
+  }
   return body(outcome.value);
 }
 
@@ -430,6 +449,40 @@ export default function catalogueRoutes(app: FastifyInstance): void {
     },
   );
 
+  /**
+   * The load-before-edit read (OPUS-M4-000A). The demand editor opens FROM
+   * this response — current values plus the aggregate version the save must
+   * present — never from an empty form that would "save" zeros over live data.
+   */
+  app.get(
+    `${base}/shift-types/:shiftTypeId/weekday-demand`,
+    { config: SHIFT_TYPE_CONFIG },
+    async (request, reply) => {
+      const shiftTypeId = (request.params as { shiftTypeId?: string }).shiftTypeId;
+      if (shiftTypeId === undefined || !isUuid(shiftTypeId)) return sendNotFound(request, reply);
+
+      const outcome = await withCatalogueQuery(request, async (uow) => {
+        const owner = await uow.query
+          .selectFrom('shift_types')
+          .select('id')
+          .where('id', '=', shiftTypeId)
+          .executeTakeFirst();
+        if (owner === undefined) return null;
+        return catalogue.readWeekdayDemandSet(uow, shiftTypeId);
+      });
+      if (outcome.kind === 'ok' && outcome.value === null) return sendNotFound(request, reply);
+
+      return respond(request, reply, outcome, (set) =>
+        weekdayDemandSetSchema.parse({
+          shiftTypeId,
+          demand: set?.demand,
+          version: set?.version,
+          correlationId: request.correlationId,
+        }),
+      );
+    },
+  );
+
   app.put(
     `${base}/shift-types/:shiftTypeId/weekday-demand`,
     { config: SHIFT_TYPE_CONFIG },
@@ -443,22 +496,38 @@ export default function catalogueRoutes(app: FastifyInstance): void {
         async (uow) => {
         const malformed = requireUuid(shiftTypeId);
         if (malformed !== null) return malformed;
-        const parsed = parseBody(setWeekdayDemandRequestSchema, request.body);
+        const parsed = parseBody(replaceWeekdayDemandRequestSchema, request.body);
         if (parsed.kind !== 'ok') return parsed;
-        return catalogue.setWeekdayDemand(uow, shiftTypeId, parsed.value);
+        return catalogue.replaceWeekdayDemand(uow, shiftTypeId, parsed.value);
       },
         // Filed under the shift type, not under a subject type of its own:
         // demand has no life apart from the type it belongs to, and "everything
         // that happened to this shift type" must return its demand changes.
-        () => ({
-          eventName: CATALOGUE_AUDIT_EVENTS.shiftTypeDemandSet,
-          subjectType: 'shift_type',
-          subjectId: shiftTypeId,
-        }),
+        //
+        // NULL — no event — when nothing moved (FAD-24): an open-then-save-
+        // unchanged is a byte-level no-op and must not manufacture an audit
+        // row claiming a change. The emission control in
+        // `apps/api/test/catalogue/demand-replacement.test.ts` proves the
+        // event still fires when something DOES move.
+        (result) =>
+          result.changed
+            ? {
+                eventName: CATALOGUE_AUDIT_EVENTS.shiftTypeDemandSet,
+                subjectType: 'shift_type',
+                subjectId: shiftTypeId,
+                payload: {
+                  added: result.addedCount,
+                  updated: result.updatedCount,
+                  deleted: result.deletedCount,
+                  setVersion: result.version,
+                },
+              }
+            : null,
       );
-      return respond(request, reply, outcome, (demand) => weekdayDemandSchema.parse({
+      return respond(request, reply, outcome, (result) => weekdayDemandSetSchema.parse({
         shiftTypeId,
-        demand,
+        demand: result.demand,
+        version: result.version,
         correlationId: request.correlationId,
       }));
     },
@@ -674,13 +743,22 @@ export default function catalogueRoutes(app: FastifyInstance): void {
 
       const outcome = await withCatalogueQuery(
         request,
-        (uow) => catalogue.listShiftTypeQualifications(uow, shiftTypeId as string),
+        async (uow) => ({
+          requirements: await catalogue.listShiftTypeQualifications(uow, shiftTypeId as string),
+          // The load-before-edit token (OPUS-M4-000A): the aggregate version
+          // the next whole-set save must present.
+          version: await catalogue.readShiftTypeQualificationSetVersion(
+            uow,
+            shiftTypeId as string,
+          ),
+        }),
         () => requireUuid(shiftTypeId),
       );
-      return respond(request, reply, outcome, (requirements) =>
-        shiftTypeQualificationListSchema.parse({
+      return respond(request, reply, outcome, (result) =>
+        shiftTypeQualificationSetSchema.parse({
           shiftTypeId,
-          requirements,
+          requirements: result.requirements,
+          version: result.version,
           correlationId: request.correlationId,
         }),
       );
@@ -707,32 +785,40 @@ export default function catalogueRoutes(app: FastifyInstance): void {
         async (uow) => {
           const malformed = requireUuid(shiftTypeId);
           if (malformed !== null) return malformed;
-          const parsed = parseBody(setShiftTypeQualificationsRequestSchema, request.body);
+          const parsed = parseBody(replaceShiftTypeQualificationsRequestSchema, request.body);
           if (parsed.kind !== 'ok') return parsed;
-          return catalogue.setShiftTypeQualifications(uow, shiftTypeId, parsed.value);
+          return catalogue.replaceShiftTypeQualifications(uow, shiftTypeId, parsed.value);
         },
         // Filed under the SHIFT TYPE, not under a subject type of its own: a
         // requirement has no life apart from the shift type it constrains, and
         // "everything that happened to this shift type" must return its
         // requirement changes.
-        (result) => ({
-          eventName: CATALOGUE_AUDIT_EVENTS.shiftTypeQualificationsSet,
-          subjectType: 'shift_type',
-          subjectId: shiftTypeId,
-          payload: {
-            mechanism: 'set',
-            beforeActiveCount: result.beforeActiveCount,
-            afterActiveCount: result.requirements.filter((r) => r.active).length,
-            addedCount: result.addedCount,
-            reactivatedCount: result.reactivatedCount,
-            archivedCount: result.archivedCount,
-          },
-        }),
+        //
+        // NULL — no event — when nothing moved (FAD-24, OPUS-M4-000A): a save
+        // that presents the stored set is a byte-level no-op.
+        (result) =>
+          result.changed
+            ? {
+                eventName: CATALOGUE_AUDIT_EVENTS.shiftTypeQualificationsSet,
+                subjectType: 'shift_type',
+                subjectId: shiftTypeId,
+                payload: {
+                  mechanism: 'set',
+                  beforeActiveCount: result.beforeActiveCount,
+                  afterActiveCount: result.requirements.filter((r) => r.active).length,
+                  addedCount: result.addedCount,
+                  reactivatedCount: result.reactivatedCount,
+                  archivedCount: result.archivedCount,
+                  setVersion: result.version,
+                },
+              }
+            : null,
       );
       return respond(request, reply, outcome, (result) =>
-        shiftTypeQualificationListSchema.parse({
+        shiftTypeQualificationSetSchema.parse({
           shiftTypeId,
           requirements: result.requirements,
+          version: result.version,
           correlationId: request.correlationId,
         }),
       );

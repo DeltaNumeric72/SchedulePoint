@@ -143,6 +143,17 @@ export {
   type NoRowReason,
 } from './profiles/in-force.js';
 
+/* ── OPUS-M4-000A: the shared eligibility verdict (doc 34 §4-B) ───────────────
+ *
+ * One pure function answering "may this membership work this shift type at
+ * this instant", with the five distinct non-satisfied outcomes the packet
+ * requires (expired / future / revoked / retired / missing). Manual
+ * scheduling, publication validation, and — from M4-001 — solver input and
+ * independent output validation all converge on it. Frozen to M4-000B/C,
+ * which consume it read-only (doc 35 §2).
+ */
+export * from './eligibility/index.js';
+
 /* ── OPUS-M3-002: the typed scheduling-rule AST, validation, serialization, and
  * compiler (CAP-015, CAP-045, CAR-006; SPEC-04 §3) ───────────────────────────
  *

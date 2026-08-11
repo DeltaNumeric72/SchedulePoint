@@ -75,6 +75,64 @@ export type SetShiftTypeQualificationsRequest = z.infer<
   typeof setShiftTypeQualificationsRequestSchema
 >;
 
+/* ────────────────────────────────────────────────────────────────────────────
+ * The consistency-controlled set replacement (OPUS-M4-000A; doc 34 §4-B)
+ *
+ * `setShiftTypeQualificationsRequestSchema` above is SUPERSEDED on the wire
+ * and retained for additive-contract discipline. The replacement carries the
+ * AGGREGATE set version (`staffing_set_versions`, scope
+ * `qualification_requirements`; a set never written presents 1): a stale
+ * value is refused with an explicit `409 STALE_SET_VERSION`, never merged.
+ *
+ * Removal remains ARCHIVING (0006 refuses the DELETE for the owner too) — the
+ * omitted-entry rule here is archive-absent, the retention this table has
+ * always had; delete-absent belongs to the pure-quantity demand tables.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+export const replaceShiftTypeQualificationsRequestSchema = z
+  .object({
+    qualificationIds: z.array(uuid).max(20),
+    expectedVersion: z.number().int().min(1),
+  })
+  .strict();
+export type ReplaceShiftTypeQualificationsRequest = z.infer<
+  typeof replaceShiftTypeQualificationsRequestSchema
+>;
+
+export const shiftTypeQualificationSetSchema = z
+  .object({
+    shiftTypeId: uuid,
+    requirements: z.array(shiftTypeQualificationSchema),
+    /** The aggregate set version AFTER this read/save — what the next save presents. */
+    version: z.number().int().min(1),
+    correlationId: z.string(),
+  })
+  .strict();
+export type ShiftTypeQualificationSet = z.infer<typeof shiftTypeQualificationSetSchema>;
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * The shared verdict on the wire (packages/domain/src/eligibility)
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** The closed outcome set of the shared eligibility verdict. */
+export const qualificationOutcomeSchema = z.enum([
+  'satisfied',
+  'missing',
+  'expired',
+  'future',
+  'revoked',
+  'retired',
+]);
+export type QualificationOutcomeWire = z.infer<typeof qualificationOutcomeSchema>;
+
+export const qualificationVerdictWireSchema = z
+  .object({
+    qualificationId: uuid,
+    outcome: qualificationOutcomeSchema,
+  })
+  .strict();
+export type QualificationVerdictWire = z.infer<typeof qualificationVerdictWireSchema>;
+
 /**
  * One shift type, from the member-eligibility direction.
  *
@@ -95,6 +153,15 @@ export const shiftTypeEligibilitySchema = z
      * engine; this says what the requirement data currently implies.
      */
     eligible: z.boolean(),
+    /**
+     * The shared verdict's per-requirement outcomes (OPUS-M4-000A): why a
+     * requirement is not satisfied, with the five distinct non-satisfied
+     * outcomes (`missing` / `expired` / `future` / `revoked` / `retired`)
+     * rather than the flat "missing" the pre-M4 read collapsed them into.
+     * `missingQualificationIds` is retained and equals the ids whose outcome
+     * is not `satisfied`.
+     */
+    qualificationOutcomes: z.array(qualificationVerdictWireSchema),
   })
   .strict();
 

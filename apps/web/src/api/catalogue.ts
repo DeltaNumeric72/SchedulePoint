@@ -7,7 +7,7 @@ import {
   groupHolidayListSchema,
   pickPositionCountSchema,
   setPickPositionCountRequestSchema,
-  setWeekdayDemandRequestSchema,
+  replaceWeekdayDemandRequestSchema,
   shiftGroupListSchema,
   shiftTypeListSchema,
   shiftTypeResultSchema,
@@ -15,7 +15,7 @@ import {
   updateShiftTypeRequestSchema,
   validGroupListSchema,
   validationProblemBodySchema,
-  weekdayDemandSchema,
+  weekdayDemandSetSchema,
   type CreateGroupHolidayRequest,
   type CreateShiftGroupRequest,
   type CreateShiftTypeRequest,
@@ -24,14 +24,14 @@ import {
   type FieldProblemWire,
   type GroupHolidayList,
   type PickPositionCount,
-  type SetWeekdayDemandRequest,
+  type ReplaceWeekdayDemandRequest,
   type ShiftGroupList,
   type ShiftTypeList,
   type ShiftTypeResult,
   type StaffGroupList,
   type UpdateShiftTypeRequest,
   type ValidGroupList,
-  type WeekdayDemand,
+  type WeekdayDemandSet,
 } from '@schedulepoint/contracts';
 
 import { ApiError, apiRequest } from './client.js';
@@ -204,16 +204,38 @@ export async function updateShiftType(
   );
 }
 
+/**
+ * The load-before-edit read (OPUS-M4-000A): the demand editor opens FROM this
+ * response — the current eight-day set plus the aggregate version the save
+ * must present — never from a form of zeros that would "save" zeros over live
+ * data.
+ */
+export async function fetchWeekdayDemand(
+  scope: GroupScope,
+  shiftTypeId: string,
+): Promise<WeekdayDemandSet> {
+  return weekdayDemandSetSchema.parse(
+    await catalogueRequest(`${base(scope)}/shift-types/${shiftTypeId}/weekday-demand`),
+  );
+}
+
+/**
+ * The atomic whole-set replacement (OPUS-M4-000A). The canonical omitted-entry
+ * rule — saving produces exactly the presented set; a day omitted or zero has
+ * its row deleted — is the server's and is stated on the page. A stale
+ * `expectedVersion` answers `409 STALE_SET_VERSION`; the form tells the
+ * scheduler to reload, and nothing is merged.
+ */
 export async function setWeekdayDemand(
   scope: GroupScope,
   shiftTypeId: string,
-  body: SetWeekdayDemandRequest,
-): Promise<WeekdayDemand> {
-  return weekdayDemandSchema.parse(
+  body: ReplaceWeekdayDemandRequest,
+): Promise<WeekdayDemandSet> {
+  return weekdayDemandSetSchema.parse(
     await catalogueRequest(`${base(scope)}/shift-types/${shiftTypeId}/weekday-demand`, {
       method: 'PUT',
       headers: JSON_HEADERS,
-      body: JSON.stringify(parseRequest(setWeekdayDemandRequestSchema, body)),
+      body: JSON.stringify(parseRequest(replaceWeekdayDemandRequestSchema, body)),
     }),
   );
 }

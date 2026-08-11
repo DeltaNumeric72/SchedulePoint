@@ -38,7 +38,7 @@ import { revokeGrantsById } from '../support/staffing.js';
 
 const multi = ownedMulti('schedule-invariants', {
   profile: 'core',
-  seed: { catalogue: ['alpha'] },
+  seed: { catalogue: ['alpha'], scheduleCredentials: true },
 });
 
 let runtime: Runtime;
@@ -962,7 +962,13 @@ describe('D-1b after tenant-qualification (N-5)', () => {
       membershipId: fixture.alpha.users.groupTwoScheduler.membershipId,
     };
     const siblingActor = scheduleActor(fixture.alpha.users.groupTwoScheduler.id);
-    const siblingShiftType = fixture.catalogue?.alpha?.sibling.shiftTypeIds[0] as string;
+    /* Index 1 since OPUS-M4-000A: this arm assigns a GROUP-ONE membership
+     * inside the sibling group, and a group-one membership can never hold a
+     * sibling-group credential (the 0004 guard binds a holding to its
+     * membership's group) — so the requirement-bearing sibling type [0] would
+     * refuse at the qualification gate before D-1b could speak. The unencumbered
+     * type keeps this a pure D-1b proof. */
+    const siblingShiftType = fixture.catalogue?.alpha?.sibling.shiftTypeIds[1] as string;
 
     const built = await runtime.runner.run(siblingContext, async (uow) => {
       const period = await createPeriod(uow, siblingActor, {

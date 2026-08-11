@@ -83,6 +83,8 @@ export interface HoldingRow extends EffectiveDated {
   readonly effectiveTo: string | null;
   readonly evidenceRef: string | null;
   readonly status: 'pending' | 'valid' | 'expiring' | 'expired' | 'revoked';
+  /** Row CAS counter (OPUS-M4-000A, migration 0012). What a mutation presents back. */
+  readonly version: number;
 }
 
 /**
@@ -190,6 +192,31 @@ export async function loadWorkProfiles(
     maxAssignmentsPerPeriod: row.max_assignments_per_period,
     maxConsecutiveDays: row.max_consecutive_days,
   }));
+}
+
+/**
+ * One work-profile row's identity coordinates, by id — or `null` when it is
+ * not visible in this context.
+ *
+ * Exists so `cancelFutureWorkProfile` can resolve which MEMBERSHIP a named
+ * row belongs to without a second module selecting from the effective-dated
+ * table (the rule at the top of this file; the scanner would fail the build).
+ * Deliberately returns identity only: every window decision still goes
+ * through `loadWorkProfiles` + the domain selection rules.
+ */
+export async function loadWorkProfileIdentity(
+  query: Kysely<Database>,
+  options: { readonly organizationId: string; readonly workProfileId: string },
+): Promise<{ readonly id: string; readonly membershipId: string } | null> {
+  const rows = (await query
+    .selectFrom('membership_work_profiles')
+    .select(['id', 'membership_id'])
+    .where('organization_id', '=', options.organizationId)
+    .where('id', '=', options.workProfileId)
+    .execute()) as unknown as { id: string; membership_id: string }[];
+  const row = rows[0];
+  if (row === undefined) return null;
+  return { id: row.id, membershipId: row.membership_id };
 }
 
 /**
@@ -302,6 +329,7 @@ interface RawHoldingRow {
   valid_until: Date | null;
   evidence_ref: string | null;
   status: HoldingRow['status'];
+  version: number;
 }
 
 /**
@@ -335,6 +363,7 @@ export async function loadHoldings(
       'valid_until',
       'evidence_ref',
       'status',
+      'version',
     ])
     .where('organization_id', '=', scope.organizationId)
     .where('membership_id', '=', scope.membershipId)
@@ -350,6 +379,7 @@ export async function loadHoldings(
     effectiveTo: optionalInstant(row.valid_until),
     evidenceRef: row.evidence_ref,
     status: row.status,
+    version: row.version,
   }));
 }
 
@@ -368,6 +398,7 @@ export async function loadHolding(
       'valid_until',
       'evidence_ref',
       'status',
+      'version',
     ])
     .where('organization_id', '=', options.organizationId)
     .where('id', '=', options.holdingId)
@@ -383,5 +414,6 @@ export async function loadHolding(
     effectiveTo: optionalInstant(row.valid_until),
     evidenceRef: row.evidence_ref,
     status: row.status,
+    version: row.version,
   };
 }

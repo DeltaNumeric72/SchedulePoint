@@ -5,9 +5,10 @@ import {
   type ShiftType,
 } from '@schedulepoint/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, type FormEvent, type JSX } from 'react';
+import { useEffect, useState, type FormEvent, type JSX } from 'react';
 
-import { ValidationError, createShiftType, fetchShiftTypes, setWeekdayDemand, updateShiftType } from '../api/catalogue.js';
+import { ValidationError, createShiftType, fetchShiftTypes, fetchWeekdayDemand, setWeekdayDemand, updateShiftType } from '../api/catalogue.js';
+import { ApiError } from '../api/client.js';
 import {
   CONTROL_CLASS,
   Field,
@@ -630,21 +631,66 @@ function WeekdayDemandForm({
     Object.fromEntries(CATALOGUE_DAY_VALUES.map((day) => [day, '0'])),
   );
   const [problems, setProblems] = useState<readonly FieldProblem[]>([]);
+  /** The aggregate version the save presents — the load-before-edit token (OPUS-M4-000A). */
+  const [loadedVersion, setLoadedVersion] = useState<number | null>(null);
+
+  /* LOAD BEFORE EDIT (doc 34 §4-A). The form opens from the server's current
+   * set — the eight counts AND the aggregate version. Before this existed the
+   * form opened on zeros, and an untouched save silently zeroed live demand:
+   * exactly the reset the packet's no-op requirement forbids. Until the load
+   * lands the fields are disabled, so nothing can be presented that was not
+   * first read. */
+  const current = useQuery({
+    queryKey: ['weekday-demand', scope.organizationId, scope.groupId, shiftType.shiftTypeId],
+    queryFn: () => fetchWeekdayDemand(scope, shiftType.shiftTypeId),
+  });
+  useEffect(() => {
+    if (current.data === undefined) return;
+    setCounts(
+      Object.fromEntries(
+        current.data.demand.map((entry) => [entry.day, String(entry.demandCount)]),
+      ),
+    );
+    setLoadedVersion(current.data.version);
+  }, [current.data]);
 
   const save = useMutation({
-    mutationFn: () =>
-      setWeekdayDemand(scope, shiftType.shiftTypeId, {
+    mutationFn: () => {
+      if (loadedVersion === null) {
+        return Promise.reject(
+          new ValidationError('The current demand has not loaded yet.', [
+            { field: 'form', message: 'The current demand has not loaded yet. Wait or reopen.' },
+          ]),
+        );
+      }
+      return setWeekdayDemand(scope, shiftType.shiftTypeId, {
         demand: CATALOGUE_DAY_VALUES.map((day) => ({
           day,
           demandCount: Number(counts[day] ?? '0'),
         })),
-      }),
+        expectedVersion: loadedVersion,
+      });
+    },
     onSuccess: () => {
       setProblems([]);
       void queryClient.invalidateQueries({ queryKey: ['shift-types'] });
+      void queryClient.invalidateQueries({ queryKey: ['weekday-demand'] });
       onClose();
     },
     onError: (error: unknown) => {
+      if (error instanceof ApiError && error.code === 'STALE_SET_VERSION') {
+        // PO-DEC-18's refetch flow: refuse-and-reload, never merge. The
+        // re-read replaces the counts AND the version with the current truth.
+        setProblems([
+          {
+            field: 'form',
+            message:
+              'Somebody else saved this demand while you were editing. The current values have been reloaded — review them and save again.',
+          },
+        ]);
+        void current.refetch();
+        return;
+      }
       setProblems(error instanceof ValidationError ? error.problems : []);
     },
   });
@@ -677,7 +723,9 @@ function WeekdayDemandForm({
       </h2>
       <p className="text-text-muted">
         How many people this group needs on each day. Holiday demand replaces the weekday
-        figure on the dates in the group&apos;s holiday calendar.
+        figure on the dates in the group&apos;s holiday calendar. Saving stores exactly the
+        counts shown here — a day left at zero holds no demand row, and any day not in a
+        save is removed.
       </p>
 
       <ValidationSummary problems={problems} fieldIds={fieldIds} formName="demand" />
@@ -696,6 +744,7 @@ function WeekdayDemandForm({
                 className={CONTROL_CLASS}
                 inputMode="numeric"
                 name={`demand-${day}`}
+                disabled={loadedVersion === null}
                 value={counts[day] ?? '0'}
                 onChange={(event) => setCounts({ ...counts, [day]: event.target.value })}
               />
