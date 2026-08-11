@@ -805,12 +805,23 @@ describe('SPEC-05 §8 — V-01..V-19', () => {
   });
 
   it('V-15 — publishing a version that double-books across periods is rejected by D-1b', async () => {
-    // Period A, published, holds assigneeA from 08:00 to 16:00 on 2029-01-08.
+    /* Period A, published, holds assigneeA on an OVERNIGHT shift on the
+     * period's LAST day: 2029-01-31 22:00 running to 2029-02-01 06:00.
+     *
+     * The overnight shape is what makes this collision production-reachable
+     * rather than merely constructible. Since OPUS-M4-000B a shift's `date`
+     * must lie inside its version's period (migration 0014,
+     * `SCHEDULE_SHIFT_OUT_OF_PERIOD`), so two periods can no longer share a
+     * date — and the only way one period's assignment can overlap another's
+     * INSTANTS is by crossing midnight at the boundary, which is exactly what
+     * an overnight rota does every night. The old fixture dated period B's
+     * shift inside period A, which the graph invariant now correctly refuses;
+     * this one is the real case D-1b defends. */
     const periodA = await run(async (uow) =>
       createPeriod(uow, actor, {
         name: 'V-15 period A',
         startDate: '2029-01-01',
-        endDate: '2029-01-28',
+        endDate: '2029-01-31',
       }),
     );
     await run(async (uow) => {
@@ -819,9 +830,9 @@ describe('SPEC-05 §8 — V-01..V-19', () => {
         versionId: draft,
         membershipId: assigneeA,
         shiftTypeId,
-        date: '2029-01-08',
-        startsAt: fixtureInstant('2029-01-08', 8),
-        endsAt: fixtureInstant('2029-01-08', 16),
+        date: '2029-01-31',
+        startsAt: fixtureInstant('2029-01-31', 22),
+        endsAt: fixtureInstant('2029-02-01', 6),
       });
       await transitionVersion(uow, actor, draft, 'in_review');
       await transitionVersion(uow, actor, draft, 'approved');
@@ -851,9 +862,11 @@ describe('SPEC-05 §8 — V-01..V-19', () => {
         versionId: draft,
         membershipId: assigneeA,
         shiftTypeId,
-        date: '2029-01-08',
-        startsAt: fixtureInstant('2029-01-08', 12),
-        endsAt: fixtureInstant('2029-01-08', 20),
+        // Period B's FIRST day, 00:00–08:00 — overlapping the tail of period
+        // A's published overnight shift.
+        date: '2029-02-01',
+        startsAt: fixtureInstant('2029-02-01', 0),
+        endsAt: fixtureInstant('2029-02-01', 8),
       });
       await transitionVersion(uow, actor, draft, 'in_review');
       await transitionVersion(uow, actor, draft, 'approved');
@@ -1139,6 +1152,18 @@ describe('SPEC-05 §8 — V-01..V-19', () => {
     const supersededBy = await siblingVersion(period);
     const results: string[] = [];
 
+    /* Clear the reality rows FIRST.
+     *
+     * This cleanup used to sit at the end of the test, described there as "the
+     * honest fix" for the drift these raw transitions create. Since
+     * OPUS-M4-000B it is a PRECONDITION rather than a tidy-up: migration 0014's
+     * deferred constraint trigger refuses, at commit, any transaction that
+     * leaves a version's reality rows behind when it stops being current
+     * (`SCHEDULE_REALITY_ORPHANED`, doc 34 §4-E / V-15c). The matrix below
+     * proves the D-15b TRANSITION guard, not reality maintenance, so removing
+     * the reality rows first is what keeps it measuring the thing it is for. */
+    await dropRealityFor(target);
+
     // is_current: true -> false on the outgoing version.
     expect(await attemptAsMigrator('is_current = false', target)).toBeNull();
     results.push('is_current(true->false) permitted');
@@ -1166,8 +1191,9 @@ describe('SPEC-05 §8 — V-01..V-19', () => {
     expect(lockError?.message).not.toContain('SCHEDULE_VERSION_FROZEN_COLUMN');
     results.push('lock_state permitted by D-15b, refused by the §3.2 CHECK (as §4.1 predicts)');
 
-    // This row drove a published version out of `is_current` by hand; clear the
-    // reality rows it orphaned so V-15c's global invariant stays order-free.
+    // The reality rows were cleared before the matrix ran (see above); this
+    // second call is a no-op belt-and-braces for the case where a future probe
+    // creates new ones, and keeps V-15c's global invariant order-free.
     await dropRealityFor(target);
     record('V-17', results.join('; '));
   });
@@ -1301,9 +1327,19 @@ describe('SPEC-05 §8 — V-01..V-19', () => {
     ];
 
     const outcomes: string[] = [];
+    /* Reality rows first, for the same reason V-17 does it: 0014's deferred
+     * `SCHEDULE_REALITY_ORPHANED` guard refuses a commit that retires a current
+     * version while its reality rows survive, and this probe retires one by
+     * hand without running the publication transaction that maintains them. */
+    await dropRealityFor(target);
+
     // `is_current` is true on this freshly published version, so clear it first
     // for the false->true case to be reachable at all.
-    await attemptAsMigrator('is_current = false', target);
+    expect(
+      await attemptAsMigrator('is_current = false', target),
+      'the outgoing transition itself must be permitted — the false->true probe below ' +
+        'is only meaningful if it actually ran',
+    ).toBeNull();
 
     for (const probe of cases) {
       const error = await attemptAsMigrator(probe.set, target);

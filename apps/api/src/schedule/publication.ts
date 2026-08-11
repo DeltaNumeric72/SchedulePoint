@@ -13,6 +13,7 @@ import { differenceByIdentity, type DiffSnapshot, type VersionDifference } from 
 import { SchedulePreconditionError } from './errors.js';
 import { assertHardRulesRevalidated } from './hard-rule-revalidation.js';
 import { assertNoOpenHardBreach } from './service.js';
+import { assertTimezoneBasisFresh } from './timezone.js';
 
 /**
  * The publication transaction — SPEC-05 §6.
@@ -266,6 +267,24 @@ export async function publishVersion(
     );
   }
 
+  /* 03b — the TIMEZONE basis this version's instants were derived under is
+   *       still the group's zone (OPUS-M4-000B; doc 34 §4-F).
+   *
+   *       Checked BEFORE anything is written, so a stale basis costs nothing.
+   *       A group timezone change re-interprets every shift-local boundary in
+   *       the group — which is why `group.timezone.administer` is its own
+   *       capability (0010) — and a draft authored under the OLD zone holds
+   *       instants that no longer mean what the scheduler saw. Publishing it
+   *       would file a schedule nobody authored, silently, an hour out. The
+   *       refusal is a compare-and-set failure in the FAD-24 sense: the value
+   *       this draft was built against versus the value now, reported rather
+   *       than reconciled.
+   *
+   *       A version created before migration 0014 has no recorded basis and is
+   *       permitted (`unrecorded`) — an additive migration may not retroactively
+   *       unpublish drafts it never touched. */
+  const timezoneState = await assertTimezoneBasisFresh(uow, input.versionId);
+
   /* 04 — `publishing`. Durable only in the sense that it is committed with
    *      everything else; a failure rolls it back with the rest. */
   await uow.query
@@ -431,6 +450,10 @@ export async function publishVersion(
       number: versionNumber,
       affected: difference.affectedMembershipIds.length,
       changes: difference.changes.length,
+      // The interpretation this publication was made under — the zone id, or
+      // `unrecorded` for a pre-0014 version. A scalar, so the closed-payload
+      // rule admits it.
+      timezone: timezoneState.kind === 'unrecorded' ? 'unrecorded' : timezoneState.basis.zone,
     },
   });
 

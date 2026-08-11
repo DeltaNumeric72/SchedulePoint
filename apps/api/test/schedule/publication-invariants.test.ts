@@ -926,82 +926,169 @@ describe('publication contract (FAD-22(2), FAD-22(3))', () => {
 });
 
 /* ────────────────────────────────────────────────────────────────────────────
- * N-5 — D-1b is tenant-qualified, and still catches the cross-GROUP case.
+ * N-5 — D-1b is tenant-qualified. What that arm can still REACH changed in
+ * OPUS-M4-000B, and the change is recorded here rather than absorbed.
+ *
+ * ## What changed, exactly
+ *
+ * Doc 34 §4-C requires the schedule participant to be proven, at the database,
+ * to be a member OF THE GROUP the row belongs to. Migration 0014 does that with
+ * composite foreign keys on `assignment_snapshots.membership_id` and
+ * `current_published_assignments.membership_id`, pointing at the new
+ * `memberships_group_identity` key.
+ *
+ * A consequence follows, and it is worth stating plainly rather than
+ * discovering later: **two reality rows can no longer share a `membership_id`
+ * across two different groups**, because each row's membership must carry that
+ * row's `group_id` and a membership has exactly one. D-1b's cross-GROUP arm is
+ * therefore no longer REACHABLE — not because the EXCLUDE was narrowed (it is
+ * byte-identical, and still carries no `group_id`), but because the input that
+ * used to reach it is now refused several steps earlier, at write time.
+ *
+ * That is a STRENGTHENING, and the two tests below are what prove it is one:
+ *
+ *   1. the cross-group participant write is refused, by the database, as the
+ *      application role — the state N-5 used to construct can no longer exist;
+ *   2. D-1b still fires on the case it was written for — the SAME membership,
+ *      the SAME group, two DIFFERENT periods — which is untouched.
+ *
+ * Note also what D-1b never claimed: it keys on `membership_id`, not on
+ * `user_id`. A human who holds a membership in two groups has two membership
+ * rows, and D-1b has never compared them. That was true before this migration
+ * and is true after it; only the illegal single-membership construction has
+ * gone away.
  * ──────────────────────────────────────────────────────────────────────────── */
 
-describe('D-1b after tenant-qualification (N-5)', () => {
-  it('a cross-GROUP, same-organization double-booking still aborts the publication', async () => {
-    /* Adding `organization_id` to the EXCLUDE closes a cross-tenant existence
-     * oracle. It must NOT have narrowed the constraint: a membership belongs to
-     * exactly one organization, so two rows sharing a membership necessarily
-     * share an organization. The case that could have been weakened is the
-     * cross-GROUP one — same organization, different groups — so it is asserted
-     * directly rather than reasoned about.
-     *
-     * `group_id` is deliberately absent from the equality columns: a person
-     * cannot be in two places in reality regardless of which group's schedule
-     * put them there. */
+describe('D-1b after tenant-qualification (N-5) and group-scoped participants (0014)', () => {
+  it('a CROSS-GROUP participant is refused by the database before any schedule exists', async () => {
     const fixture = multi();
 
-    // Group One publishes assigneeA at 08:00–16:00.
-    const { periodId, versionId } = await approvedVersion('n5-group-one', '2034-06-05');
-    await run(async (uow) =>
-      publishVersion(uow, actor, {
-        periodId,
-        versionId,
-        idempotencyKey: publicationKey('n5a'),
-        expectedPriorCurrentVersionId: null,
-      }),
-    );
-
-    // The SAME membership is what D-1b keys on, so the collision is constructed
-    // in the sibling group against that same membership.
     const siblingContext: TenantContext = {
       ...context,
       groupId: fixture.catalogue?.alpha?.sibling.groupId as string,
       membershipId: fixture.alpha.users.groupTwoScheduler.membershipId,
     };
     const siblingActor = scheduleActor(fixture.alpha.users.groupTwoScheduler.id);
-    /* Index 1 since OPUS-M4-000A: this arm assigns a GROUP-ONE membership
-     * inside the sibling group, and a group-one membership can never hold a
-     * sibling-group credential (the 0004 guard binds a holding to its
-     * membership's group) — so the requirement-bearing sibling type [0] would
-     * refuse at the qualification gate before D-1b could speak. The unencumbered
-     * type keeps this a pure D-1b proof. */
     const siblingShiftType = fixture.catalogue?.alpha?.sibling.shiftTypeIds[1] as string;
 
-    const built = await runtime.runner.run(siblingContext, async (uow) => {
-      const period = await createPeriod(uow, siblingActor, {
-        name: 'n5 sibling period',
-        startDate: '2034-07-03',
-        endDate: '2034-07-03',
-      });
-      const draft = await createDraftVersion(uow, siblingActor, period);
-      await addManualAssignment(uow, siblingActor, {
+    await expect(
+      runtime.runner.run(siblingContext, async (uow) => {
+        const period = await createPeriod(uow, siblingActor, {
+          name: 'n5 sibling period',
+          startDate: '2034-07-03',
+          endDate: '2034-07-03',
+        });
+        const draft = await createDraftVersion(uow, siblingActor, period);
+        return addManualAssignment(uow, siblingActor, {
+          versionId: draft,
+          // Group One's membership, inside the SIBLING group. This is the write
+          // doc 34 §4-C names: the referenced record does not belong to the
+          // same group.
+          membershipId: assigneeA,
+          shiftTypeId: siblingShiftType,
+          date: '2034-07-03',
+          startsAt: fixtureInstant('2034-07-03', 12),
+          endsAt: fixtureInstant('2034-07-03', 20),
+        });
+      }),
+      'a participant from another group must be refused at the database',
+      /* THREE independent controls refuse this, and they speak in a fixed
+       * order: the service's readable check, then the BEFORE trigger (a row
+       * trigger runs before the statement's foreign-key check), then the
+       * composite FK. This assertion accepts whichever is outermost; that each
+       * of the other two refuses it INDEPENDENTLY — with the ones in front of it
+       * suspended inside a rolled-back transaction — is proven in
+       * `test/schedule/graph-invariants.test.ts`, so no control is taken on
+       * trust because another happens to be louder. */
+    ).rejects.toThrow(
+      /ASSIGNEE_NOT_IN_GROUP|no such member of this group|SCHEDULE_ASSIGNEE_UNREADABLE|participant_in_group|violates foreign key/i,
+    );
+  });
+
+  it('D-1b still aborts a CROSS-PERIOD double-booking of the same membership', async () => {
+    /* The case D-1b was written for, and the one that is still reachable: the
+     * same person, in the same group, published into two overlapping intervals
+     * from two DIFFERENT periods. The EXCLUDE deliberately carries no
+     * `period_id`, and that is what this asserts.
+     *
+     * The collision is built the way production reaches it — an OVERNIGHT shift
+     * on the first period's last day running past midnight into the second
+     * period's first day. Since migration 0014 a shift's `date` must lie inside
+     * its own version's period, so two periods cannot share a date and midnight
+     * is the only place their instants can meet. That is not a limitation of
+     * the test: it is the shape of the only cross-period double-booking a rota
+     * can actually produce. */
+    const firstPeriodId = await run(async (uow) =>
+      createPeriod(uow, actor, {
+        name: 'n5-cross-period-one period',
+        startDate: '2034-08-06',
+        endDate: '2034-08-07',
+      }),
+    );
+    const firstVersionId = await run(async (uow) => {
+      const draft = await createDraftVersion(uow, actor, firstPeriodId);
+      await addManualAssignment(uow, actor, {
         versionId: draft,
-        // Group One's membership, deliberately: this is the person D-1b
-        // protects, and the interval overlaps what Group One published.
-        membershipId: assigneeA,
-        shiftTypeId: siblingShiftType,
-        date: '2034-06-05',
-        startsAt: fixtureInstant('2034-06-05', 12),
-        endsAt: fixtureInstant('2034-06-05', 20),
+        membershipId: assigneeB,
+        shiftTypeId,
+        // The LAST day of the first period, running past midnight into the
+        // second period's first day.
+        date: '2034-08-07',
+        startsAt: fixtureInstant('2034-08-07', 20),
+        endsAt: fixtureInstant('2034-08-08', 16),
       });
-      await transitionVersion(uow, siblingActor, draft, 'in_review');
-      await transitionVersion(uow, siblingActor, draft, 'approved');
-      return { period, draft };
+      await transitionVersion(uow, actor, draft, 'in_review');
+      await transitionVersion(uow, actor, draft, 'approved');
+      return draft;
+    });
+    await run(async (uow) =>
+      publishVersion(uow, actor, {
+        periodId: firstPeriodId,
+        versionId: firstVersionId,
+        idempotencyKey: publicationKey('n5-cp-a'),
+        expectedPriorCurrentVersionId: null,
+      }),
+    );
+
+    /* A SECOND period, whose own date is different — so the two periods do not
+     * overlap and D-2 permits both — carrying an assignment whose INSTANTS
+     * overlap the first period's published interval. `approvedVersion` derives
+     * its instants from its own date, so the overlapping interval is built
+     * here directly. */
+    const secondPeriodId = await run(async (uow) =>
+      createPeriod(uow, actor, {
+        name: 'n5-cross-period-two period',
+        startDate: '2034-08-08',
+        endDate: '2034-08-09',
+      }),
+    );
+    const secondVersionId = await run(async (uow) => {
+      const draft = await createDraftVersion(uow, actor, secondPeriodId);
+      await addManualAssignment(uow, actor, {
+        versionId: draft,
+        membershipId: assigneeB,
+        shiftTypeId,
+        // The second period's own first day, 12:00–20:00 — overlapping the
+        // first period's published 2034-08-08 08:00–16:00 tail below.
+        date: '2034-08-08',
+        startsAt: fixtureInstant('2034-08-08', 12),
+        endsAt: fixtureInstant('2034-08-08', 20),
+      });
+      await transitionVersion(uow, actor, draft, 'in_review');
+      await transitionVersion(uow, actor, draft, 'approved');
+      return draft;
     });
 
     await expect(
-      runtime.runner.run(siblingContext, async (uow) =>
-        publishVersion(uow, siblingActor, {
-          periodId: built.period,
-          versionId: built.draft,
-          idempotencyKey: publicationKey('n5b'),
+      run(async (uow) =>
+        publishVersion(uow, actor, {
+          periodId: secondPeriodId,
+          versionId: secondVersionId,
+          idempotencyKey: publicationKey('n5-cp-b'),
           expectedPriorCurrentVersionId: null,
         }),
       ),
-      'D-1b must still catch a cross-GROUP collision within one organization',
+      'D-1b must catch a CROSS-PERIOD collision for one membership',
     ).rejects.toThrow(/no_double_book|exclusion|conflicting key/i);
   });
 });

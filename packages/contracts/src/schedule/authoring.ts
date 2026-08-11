@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { calendarDateSchema } from './calendar-date.js';
+
 /**
  * The scheduler-facing authoring surface's wire shapes (OPUS-M3-004; SPEC-05,
  * doc 07, CAP-014/CAP-019/CAP-020).
@@ -39,7 +41,13 @@ import { z } from 'zod';
  */
 
 const uuid = z.string().uuid();
-const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'a date is YYYY-MM-DD');
+/**
+ * A date on the wire. **A real calendar date**, not merely a `YYYY-MM-DD`-shaped
+ * string: `calendarDateSchema` refuses `2027-02-29`, `2027-13-01` and
+ * `2027-04-31`, which the regex this alias replaced accepted (OPUS-M4-000B,
+ * doc 34 §4-F). The alias is kept so every existing reference reads unchanged.
+ */
+const isoDate = calendarDateSchema;
 const instant = z.string().datetime();
 
 /**
@@ -357,9 +365,59 @@ export const gridAssignmentSchema = z
     creditId: uuid.nullable(),
     creditedMembershipId: uuid.nullable(),
     creditStatus: z.enum(['active', 'reassigned', 'voided']).nullable(),
+    /**
+     * The LOCATION of the shift this assignment hangs on (OPUS-M4-000B; doc 34
+     * §4-F). `null` is a stated allowed state — a single-site group schedules
+     * without locations — and is deliberately not the same as "not shown".
+     *
+     * REQUIRED rather than optional even though a consumer already exists. An
+     * optional field would make "this shift has no location" and "this server
+     * does not report locations" the same value on the wire, and the grid has to
+     * distinguish them to decide whether to render a location column at all. The
+     * one consumer (`apps/web/src/schedule`) is updated in the same change, and
+     * `.strict()` means a stale client would have failed on the new key anyway.
+     *
+     * The name travels with the id so the grid can label a cell without a second
+     * request (I-10), and `locationArchived` travels so an archived location's
+     * EXISTING shifts can be rendered with the archived marker. Archiving refuses
+     * NEW references and retains old ones (migration 0014), so a published
+     * schedule can legitimately point at an archived place and the reader has to
+     * be told which.
+     */
+    locationId: uuid.nullable(),
+    locationName: z.string().min(1).max(120).nullable(),
+    locationArchived: z.boolean(),
   })
   .strict();
 export type GridAssignment = z.infer<typeof gridAssignmentSchema>;
+
+/**
+ * A location the authoring surface can assign a shift to.
+ *
+ * `timezone` is present and is **display metadata only**: the GROUP's timezone
+ * governs every schedule semantic (OPUS-M4-000B's ruling; doc 06 §Time,
+ * "shift-local semantics resolve against the group timezone"). It is here so a
+ * scheduler working across sites can see what the clock on that wall reads —
+ * nothing computes from it, and the grid's own `timezone` field is the one that
+ * every instant on this payload was derived under.
+ *
+ * `archived` locations are listed because existing shifts still reference them
+ * and the grid has to label those; a client offers only `archived === false`
+ * ones as targets for a NEW assignment, and the database refuses the rest
+ * regardless (`SCHEDULE_SHIFT_LOCATION_ARCHIVED`).
+ */
+export const gridLocationSchema = z
+  .object({
+    id: uuid,
+    name: z.string().min(1).max(120),
+    /** The PO-DEC-01 free-form attribute. Not an id, referencing nothing. */
+    siteLabel: z.string().max(120).nullable(),
+    /** DISPLAY METADATA. The group timezone governs — see above. */
+    timezone: z.string().max(64).nullable(),
+    archived: z.boolean(),
+  })
+  .strict();
+export type GridLocation = z.infer<typeof gridLocationSchema>;
 
 export const gridCellSchema = z
   .object({
@@ -441,8 +499,46 @@ export const scheduleGridSchema = z
     emptyCellRevision: revisionTokenSchema,
     conflicts: z.array(scheduleConflictViewSchema),
     roster: z.array(rosterMemberSchema),
-    /** The group's IANA zone, so the alternative rendering can name it. */
+    /**
+     * The locations this group can schedule at (OPUS-M4-000B). Archived ones are
+     * included so existing references can be labelled; only `archived === false`
+     * is offered as a NEW target.
+     */
+    locations: z.array(gridLocationSchema),
+    /**
+     * The IANA zone every instant on this payload was derived under.
+     *
+     * For a DRAFT this is the group's current zone. For a PUBLISHED version it
+     * is the zone the version was published with (`schedule_versions.
+     * timezone_basis`), because a published version is immutable (I-18) and its
+     * rendering may not move when an administrator changes a setting.
+     */
     timezone: z.string().min(1).max(64),
+    /**
+     * Where `timezone` came from (OPUS-M4-000B; doc 34 §4-F).
+     *
+     * `version-snapshot` — the version records its own basis, and this rendering
+     *                      is reproducible from it;
+     * `group-current`    — the version predates migration 0014 and records no
+     *                      basis, so the group's CURRENT zone was used. A
+     *                      fallback that is VISIBLE in the payload rather than
+     *                      disguised as a snapshot.
+     */
+    timezoneSource: z.enum(['version-snapshot', 'group-current']),
+    /**
+     * The tz DATABASE rule set the instants were derived under, e.g. `2026b`, or
+     * `unknown` when the runtime does not expose one. Recorded so a divergence is
+     * DETECTABLE; it does not make an old interpretation reproducible, and
+     * nothing here claims it does.
+     */
+    tzdbVersion: z.string().min(1).max(32),
+    /**
+     * `true` when this version was authored against a zone the group has since
+     * left. Publication is refused (`TIMEZONE_BASIS_STALE`) until it is
+     * re-derived — the explicit staleness surfacing doc 34 §4-F requires, rather
+     * than a silently hour-shifted rota.
+     */
+    timezoneStale: z.boolean(),
     correlationId: z.string().min(1),
   })
   .strict();
@@ -457,6 +553,16 @@ export const addAssignmentRequestSchema = z
     date: isoDate,
     shiftTypeId: uuid,
     membershipId: uuid,
+    /**
+     * Where the shift happens (OPUS-M4-000B; doc 34 §4-F).
+     *
+     * Optional on the wire and defaulting to `null`, which is the un-located
+     * shift every existing caller authors — a stated allowed state, not a
+     * missing value. A location in another group is refused by the composite FK
+     * (migration 0014), and an ARCHIVED location is refused as a NEW reference
+     * while existing references are retained.
+     */
+    locationId: uuid.nullable().optional(),
     isPinned: z.boolean().optional(),
     /** Required when this assignment is a manual OVERRIDE. */
     overrideReason: reason.optional(),
@@ -534,6 +640,36 @@ export const staleEditBodySchema = z
   })
   .strict();
 export type StaleEditBody = z.infer<typeof staleEditBodySchema>;
+
+/**
+ * `409 TIMEZONE_BASIS_STALE` (OPUS-M4-000B; doc 34 §4-F).
+ *
+ * The same CLASS of refusal as `STALE_EDIT` and deliberately a different code:
+ * a stale cell edit is fixed by re-reading the cell, and this one is not — the
+ * version's stored instants were derived under a zone the group has left, so
+ * the remedy is to re-derive the draft or restore the zone. Telling a client
+ * "stale, re-read" when re-reading changes nothing is how a client ends up in a
+ * retry loop against a condition only a human can clear.
+ *
+ * It carries both zones because the administrator who changed the setting and
+ * the scheduler who meets the refusal are usually different people, and "it was
+ * X, it is now Y" is the whole diagnosis. Neither is an authorization signal, so
+ * P-3 is untouched.
+ */
+export const timezoneBasisStaleBodySchema = z
+  .object({
+    error: z
+      .object({
+        code: z.literal('TIMEZONE_BASIS_STALE'),
+        message: z.string().min(1).max(400),
+        correlationId: z.string().min(1),
+        recordedTimezone: z.string().min(1).max(64),
+        currentTimezone: z.string().min(1).max(64),
+      })
+      .strict(),
+  })
+  .strict();
+export type TimezoneBasisStaleBody = z.infer<typeof timezoneBasisStaleBodySchema>;
 
 /* ────────────────────────────────────────────────────────────────────────────
  * Eligibility — the absent-vs-empty ruling's wire shape

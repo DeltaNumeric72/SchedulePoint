@@ -115,12 +115,29 @@ function GridPanel(): JSX.Element {
               </h2>
               <p className="text-text-muted">
                 {grid.data.period.startDate} to {grid.data.period.endDate} · times shown in{' '}
-                {grid.data.timezone} ·{' '}
+                {grid.data.timezone}
+                {grid.data.timezoneSource === 'version-snapshot'
+                  ? ' (the zone this version was published with)'
+                  : ' (the group’s current zone)'}{' '}
+                ·{' '}
                 {grid.data.version.versionNumber === null
                   ? 'unpublished draft'
                   : `version ${String(grid.data.version.versionNumber)}`}{' '}
                 ({grid.data.version.state})
               </p>
+              {/* The explicit staleness surfacing doc 34 §4-F requires. A draft
+                  whose instants were derived under a zone the group has since
+                  left cannot be published, and being told that here — rather
+                  than at the publish button — is the difference between a
+                  correction and a dead end. `role="alert"` because it appears
+                  after the page has loaded and changes what the reader can do. */}
+              {grid.data.timezoneStale ? (
+                <p className="text-text" data-testid="timezone-stale" role="alert">
+                  This version was authored in a different time zone from the one the group uses
+                  now, so its times no longer mean what they did when it was written. It cannot be
+                  published until it is rebuilt against {grid.data.timezone}.
+                </p>
+              ) : null}
               {grid.data.version.isEditable ? null : (
                 <p className="text-text" data-testid="grid-readonly">
                   This version is not a draft. It is shown read-only; amend it by cloning it into a
@@ -231,6 +248,7 @@ function GridPanel(): JSX.Element {
                 onMutated={() => {
                   void queryClient.invalidateQueries({ queryKey: ['schedule-grid'] });
                 }}
+                locations={grid.data.locations}
                 roster={grid.data.roster}
                 scope={scope}
                 versionId={versionId}

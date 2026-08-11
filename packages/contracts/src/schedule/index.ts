@@ -36,3 +36,14 @@ export {
  * call site.
  */
 export * from './versions.js';
+
+/**
+ * OPUS-M4-000B — the real calendar-date schema every date field above uses
+ * (doc 34 §4-F). Exported so a caller that needs to validate a date outside a
+ * request body uses the SAME rule rather than writing a fourth regex.
+ */
+export {
+  calendarDateSchema,
+  isCalendarDate,
+  type CalendarDate,
+} from './calendar-date.js';

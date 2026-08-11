@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type FormEvent, type JSX } from 'react';
 
-import type { GridAssignment, RosterMember } from '@schedulepoint/contracts';
+import type { GridAssignment, GridLocation, RosterMember } from '@schedulepoint/contracts';
 
 import { ValidationError } from '../api/catalogue.js';
 import {
@@ -67,6 +67,15 @@ export interface CellEditorProps {
   readonly versionId: string;
   readonly cell: CellView;
   readonly roster: readonly RosterMember[];
+  /**
+   * The group's locations (OPUS-M4-000B). ARCHIVED ones are in this list —
+   * existing assignments still reference them and the list beside a name has to
+   * label those — but only the active ones are offered as a target for a NEW
+   * assignment, because the database refuses the rest
+   * (`SCHEDULE_SHIFT_LOCATION_ARCHIVED`) and offering a control that always
+   * fails is worse than not offering it.
+   */
+  readonly locations: readonly GridLocation[];
   readonly isEditable: boolean;
   readonly onClose: () => void;
   /** Ask the page to re-read the grid — the server is the authority. */
@@ -81,7 +90,7 @@ type PendingAction =
   | { kind: 'credit'; identityId: string };
 
 export function CellEditor(props: CellEditorProps): JSX.Element {
-  const { scope, versionId, cell, roster, isEditable, onClose, onMutated } = props;
+  const { scope, versionId, cell, roster, locations, isEditable, onClose, onMutated } = props;
   const heading = useRef<HTMLHeadingElement>(null);
 
   /** The server's latest word on this cell. Seeded from the grid, then replaced. */
@@ -297,11 +306,13 @@ export function CellEditor(props: CellEditorProps): JSX.Element {
         <AssignPicker
           cell={cell}
           onCancel={() => setPending({ kind: 'none' })}
-          onSave={(membershipId, overrideReason) =>
+          locations={locations}
+          onSave={(membershipId, overrideReason, locationId) =>
             addAssignment(scope, versionId, {
               date: cell.date,
               shiftTypeId: cell.shiftTypeId,
               membershipId,
+              locationId,
               ...(overrideReason === null ? {} : { overrideReason }),
               expectedCellRevision: revision,
             })
@@ -467,6 +478,7 @@ function AssignmentList({
 
 function AssignPicker({
   cell,
+  locations,
   onCancel,
   onSave,
   problems,
@@ -474,15 +486,25 @@ function AssignPicker({
   versionId,
 }: {
   cell: CellView;
+  locations: readonly GridLocation[];
   onCancel: () => void;
-  onSave: (membershipId: string, overrideReason: string | null) => Promise<void>;
+  onSave: (
+    membershipId: string,
+    overrideReason: string | null,
+    locationId: string | null,
+  ) => Promise<void>;
   problems: readonly FieldProblem[];
   scope: GroupScope;
   versionId: string;
 }): JSX.Element {
-  const fieldIds = useFieldIds('assign', ['membershipId', 'overrideReason'] as const);
+  const fieldIds = useFieldIds('assign', ['membershipId', 'overrideReason', 'locationId'] as const);
   const [membershipId, setMembershipId] = useState('');
   const [overrideReason, setOverrideReason] = useState('');
+  /* `''` is "no location", which is a real answer and the default: a
+     single-site group schedules without locations, and forcing a choice would
+     manufacture data the group does not have (OPUS-M4-000B). */
+  const [locationId, setLocationId] = useState('');
+  const assignableLocations = locations.filter((location) => !location.archived);
 
   const candidates = useQuery({
     queryKey: ['schedule-candidates', versionId, cell.date, cell.shiftTypeId],
@@ -492,7 +514,11 @@ function AssignPicker({
 
   const save = useMutation({
     mutationFn: () =>
-      onSave(membershipId, overrideReason.trim() === '' ? null : overrideReason.trim()),
+      onSave(
+        membershipId,
+        overrideReason.trim() === '' ? null : overrideReason.trim(),
+        locationId === '' ? null : locationId,
+      ),
   });
 
   // The ruling, applied in one call. Everything below renders what it returns.
@@ -563,6 +589,37 @@ function AssignPicker({
                 >
                   {entry.candidate.displayName} — {entry.label}
                   {entry.candidate.alreadyAssigned ? ' — already on this shift' : ''}
+                </option>
+              ))}
+            </select>
+          )}
+        </Field>
+      )}
+
+      {/* Location. Absent from the form entirely when the group has none, rather
+          than rendered as a select with one empty option — an empty control is a
+          question the reader has to answer before realising there is nothing to
+          answer. */}
+      {assignableLocations.length === 0 ? null : (
+        <Field
+          id={fieldIds.locationId}
+          label="Location"
+          help="Optional. Leave it unset when this group does not schedule by location."
+          problem={problemFor(problems, 'locationId')}
+        >
+          {(attributes) => (
+            <select
+              {...attributes}
+              className={CONTROL_CLASS}
+              data-testid="location-select"
+              onChange={(event) => setLocationId(event.target.value)}
+              value={locationId}
+            >
+              <option value="">No location</option>
+              {assignableLocations.map((location) => (
+                <option key={location.id} value={location.id}>
+                  {location.name}
+                  {location.siteLabel === null ? '' : ` — ${location.siteLabel}`}
                 </option>
               ))}
             </select>

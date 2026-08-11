@@ -174,3 +174,21 @@ export * from './rules/index.js';
  * visible reason.
  */
 export * from './catalogue/index.js';
+
+/* ── OPUS-M4-000B: calendar dates and zone semantics (doc 34 §4-F) ────────────
+ *
+ * Two new pure modules, exported here because `@schedulepoint/domain` declares
+ * a single `"."` entry point and a deep import would not resolve. **Additive
+ * only** — no line above this block is touched — which is the same discipline
+ * doc 35 §2 puts on the contracts barrel and `apps/api/src/db/schema.ts`. The
+ * crossing into this file is reported in the packet's return report rather than
+ * made silently (FAD-30).
+ *
+ *   calendar  real calendar-date validation, replacing the shape-only regex
+ *             that accepted 2027-02-29 and 2027-13-01 (doc 34 §4-F)
+ *   time      the DST gap ruling (R-B4, forward), the DST fold ruling (R-B5,
+ *             start-earliest / end-latest), overnight derivation, and the
+ *             UTC+14 / UTC−12 extremes
+ */
+export * from './calendar/index.js';
+export * from './time/index.js';

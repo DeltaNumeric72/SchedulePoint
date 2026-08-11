@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { calendarDateSchema } from './calendar-date.js';
+
 import { publicationIdempotencyKeySchema } from './publication.js';
 import {
   gridShiftTypeSchema,
@@ -58,7 +60,13 @@ import {
  */
 
 const uuid = z.string().uuid();
-const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'a date is YYYY-MM-DD');
+/**
+ * A date on the wire. **A real calendar date**, not merely a `YYYY-MM-DD`-shaped
+ * string: `calendarDateSchema` refuses `2027-02-29`, `2027-13-01` and
+ * `2027-04-31`, which the regex this alias replaced accepted (OPUS-M4-000B,
+ * doc 34 §4-F). The alias is kept so every existing reference reads unchanged.
+ */
+const isoDate = calendarDateSchema;
 const instant = z.string().datetime();
 const displayName = z.string().min(1).max(200);
 

@@ -87,6 +87,20 @@ function entry(overrides: Record<string, unknown> = {}) {
     versionId: VERSION,
     versionNumber: 1,
     periodId: PERIOD,
+    /* OPUS-M4-000B. `scheduleEntrySchema` is `.strict()` and requires all five,
+     * so a fixture missing them fails the client-side parse, renders nothing,
+     * and every interaction times out at 30s.
+     *
+     * `timezone` here is the zone THIS entry's clock was rendered under, which
+     * is a different fact from the response-level `timezone` (the calendar
+     * axis). `version-snapshot` is the ordinary case: a published version keeps
+     * the zone it was published with, so its wall clock does not move when an
+     * administrator changes the group's setting. */
+    locationId: null,
+    locationName: null,
+    locationArchived: false,
+    timezone: ZONE,
+    timezoneSource: 'version-snapshot',
     ...overrides,
   };
 }

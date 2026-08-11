@@ -596,6 +596,223 @@ const CASES = [
     ],
   },
   {
+    id: 'graph-participant-fk',
+    gate: 'the schedule participant belongs to the group (OPUS-M4-000B, doc 34 §4-C)',
+    violation: 'the composite participant FK removed from migration 0014',
+    /* Migration 0014 proves at the DATABASE that a snapshot's membership is a
+     * member of the snapshot's own group. The api project's global setup runs
+     * the migration cycle against a freshly initialised cluster on every
+     * `vitest run`, so patching the migration file is patching the schema the
+     * probes actually meet.
+     *
+     * The trigger is left in place deliberately: `graph-invariants.test.ts` has
+     * an arm that suspends the trigger and requires the FK to refuse on its own,
+     * and THAT arm is what this red case falsifies. With the FK gone, the
+     * trigger still catches the ordinary path and every other test stays green —
+     * which is exactly how a decorative FK ships. */
+    patch: [
+      {
+        file: 'apps/api/migrations/0014_schedule_graph_locations_time.sql',
+        find:
+          'ALTER TABLE assignment_snapshots\n' +
+          '    ADD CONSTRAINT assignment_snapshots_participant_in_group_fk\n' +
+          '        FOREIGN KEY (membership_id, organization_id, group_id)\n' +
+          '        REFERENCES memberships (id, organization_id, group_id);',
+        replace: '-- red case: the composite participant FK is not created',
+      },
+    ],
+    greenCommand: ['exec', 'vitest', 'run', 'apps/api/test/schedule/graph-invariants.test.ts'],
+    redCommand: ['exec', 'vitest', 'run', 'apps/api/test/schedule/graph-invariants.test.ts'],
+  },
+  {
+    id: 'graph-reality-deferred-guard',
+    gate: 'reality names only the CURRENT published version (V-15c arm, OPUS-M4-000B)',
+    violation: 'the DEFERRED constraint trigger removed, so a retired version can orphan its rows',
+    // V-15c proved the EQUALITY by reading both sides. 0014 adds the control:
+    // a transaction that retires a current version while its reality rows
+    // survive fails at COMMIT. Without the trigger the orphaning UPDATE is
+    // accepted and the drift is real.
+    patch: [
+      {
+        file: 'apps/api/migrations/0014_schedule_graph_locations_time.sql',
+        find:
+          'CREATE CONSTRAINT TRIGGER schedule_versions_reality_retired_guard\n' +
+          '    AFTER UPDATE ON schedule_versions\n' +
+          '    DEFERRABLE INITIALLY DEFERRED\n' +
+          '    FOR EACH ROW\n' +
+          '    WHEN (OLD.is_current AND NOT NEW.is_current)\n' +
+          '    EXECUTE FUNCTION app_guard_retired_version_has_no_reality();',
+        replace: '-- red case: the deferred reality guard is never attached',
+      },
+    ],
+    greenCommand: ['exec', 'vitest', 'run', 'apps/api/test/schedule/graph-invariants.test.ts'],
+    redCommand: ['exec', 'vitest', 'run', 'apps/api/test/schedule/graph-invariants.test.ts'],
+  },
+  {
+    id: 'location-archived-guard',
+    gate: 'an archived location takes no NEW shift reference (OPUS-M4-000B, doc 34 §4-F)',
+    violation: 'the archived-location refusal removed from the 0014 shift guard',
+    // Archiving must refuse NEW references while RETAINING existing ones. With
+    // the refusal gone, a decommissioned place keeps accumulating rota and the
+    // retention half still passes — so only the refusal arm can catch this.
+    patch: [
+      {
+        file: 'apps/api/migrations/0014_schedule_graph_locations_time.sql',
+        find:
+          "        IF v_location_state <> 'active' THEN\n" +
+          '            RAISE EXCEPTION\n' +
+          "                'SCHEDULE_SHIFT_LOCATION_ARCHIVED: location % is archived and cannot take a NEW '\n" +
+          "                'shift reference; existing references are retained (doc 34 §4-F)', NEW.location_id\n" +
+          "                USING ERRCODE = 'restrict_violation';\n" +
+          '        END IF;',
+        replace: '        -- red case: an archived location accepts new shift references',
+      },
+    ],
+    greenCommand: ['exec', 'vitest', 'run', 'apps/api/test/schedule/locations.test.ts'],
+    redCommand: ['exec', 'vitest', 'run', 'apps/api/test/schedule/locations.test.ts'],
+  },
+  {
+    id: 'timezone-basis-stale-gate',
+    gate: 'a stale timezone basis refuses publication (OPUS-M4-000B, doc 34 §4-F)',
+    violation: 'the publication-time basis check removed',
+    // Without it, a group timezone change silently re-times every unpublished
+    // draft and they publish with instants nobody authored. The staleness is
+    // still REPORTED by the settings surface, so a suite that only checked the
+    // report would stay green — the refusal arm is what this falsifies.
+    patch: [
+      {
+        file: 'apps/api/src/schedule/publication.ts',
+        find: '  const timezoneState = await assertTimezoneBasisFresh(uow, input.versionId);',
+        replace:
+          '  const timezoneState = await timezoneBasisState(uow, input.versionId); // red case: no refusal',
+      },
+      {
+        file: 'apps/api/src/schedule/publication.ts',
+        find: "import { assertTimezoneBasisFresh } from './timezone.js';",
+        replace: "import { timezoneBasisState } from './timezone.js';",
+      },
+    ],
+    greenCommand: ['exec', 'vitest', 'run', 'apps/api/test/schedule/timezone-basis.test.ts'],
+    redCommand: ['exec', 'vitest', 'run', 'apps/api/test/schedule/timezone-basis.test.ts'],
+  },
+  {
+    id: 'dst-fold-resolution',
+    gate: 'R-B5 — a DST fold has TWO occurrences and the role picks one (OPUS-M4-000B)',
+    violation: 'the fold restored to the naive single-probe resolution',
+    /* The implementation the authoring route used before this packet. It is
+     * wrong in exactly one way — both of its probes land on the same offset on a
+     * fall-back day, so the second occurrence of the repeated hour is invisible
+     * and "ambiguous" and "unique" become the same answer. Restoring it must
+     * fail the domain rulings AND the route-level assertions, which is what
+     * proves those assertions are about the fold and not about arithmetic in
+     * general. */
+    patch: [
+      {
+        file: 'packages/domain/src/time/zoned-time.ts',
+        find:
+          '  const probeBefore = offsetMillisAt(zone, new Date(nominal - MS_PER_DAY));\n' +
+          '  const probeAfter = offsetMillisAt(zone, new Date(nominal + MS_PER_DAY));',
+        replace:
+          '  // red case: the naive single-probe resolution, which cannot see a fold\n' +
+          '  const probeBefore = offsetMillisAt(zone, new Date(nominal));\n' +
+          '  const probeAfter = offsetMillisAt(zone, new Date(nominal - probeBefore));',
+      },
+    ],
+    /* The DOMAIN test only, and deliberately not the api one.
+     *
+     * `apps/api/test/schedule/authoring-time.test.ts` asserts the same two
+     * rulings at the route surface and is genuinely valuable — but it reaches
+     * `@schedulepoint/domain` through the package's `exports` entry, which is
+     * `dist/`, and this runner patches SOURCE with no build in between. Listing
+     * it here would add a file that CANNOT observe the violation, which reads as
+     * corroboration and is not. (This is the same mechanism that left
+     * `calendar-date-shape-only` NOT PROVEN on its first run; the fix there was
+     * the same — point the arm at a test that imports the patched source.)
+     *
+     * `packages/domain/test/time/zoned-time.test.ts` imports
+     * `../../src/time/index.js`, source-relative inside its own package, so the
+     * patch is the code that runs. */
+    greenCommand: ['exec', 'vitest', 'run', 'packages/domain/test/time/zoned-time.test.ts'],
+    redCommand: ['exec', 'vitest', 'run', 'packages/domain/test/time/zoned-time.test.ts'],
+  },
+  {
+    id: 'calendar-date-shape-only',
+    gate: 'dates are REAL calendar dates on the wire (OPUS-M4-000B, doc 34 §4-F)',
+    violation: 'the contract validator restored to the shape-only regex',
+    // The exact code this packet replaces. A shape-only rule accepts
+    // 2027-02-29 and 2027-13-01, and `Date.UTC` then rolls them over silently.
+    // The agreement sweep is what catches the divergence.
+    patch: [
+      {
+        file: 'packages/contracts/src/schedule/calendar-date.ts',
+        find: "  .refine(isCalendarDate, 'that date does not exist in the calendar');",
+        replace: '  ; // red case: the calendar refinement is removed, leaving shape only',
+      },
+    ],
+    /* TARGETED AT THE CONTRACTS PACKAGE'S OWN TEST, and that is the whole
+     * repair.
+     *
+     * The first version of this arm ran `apps/api/test/schedule/
+     * calendar-agreement.test.ts`, and it was NOT PROVEN: the arm passed with
+     * the violation in the tree. The cause was measured, not guessed —
+     * `apps/api` resolves `@schedulepoint/contracts` through the package's
+     * `exports` entry, which is `dist/`, and this runner patches SOURCE and
+     * invokes vitest with no build in between. So the api test imported the
+     * unpatched build and the violation never reached the code under test.
+     * Patching source and rebuilding first turned that same file red
+     * immediately, which is what proves the CONTROL was never the problem.
+     *
+     * `packages/contracts/test/schedule/calendar-date.test.ts` imports
+     * `../../src/schedule/calendar-date.js` — source-relative, inside its own
+     * package — so the patch is the code that runs. One layer, the wire
+     * validator, whose loss is precisely the defect this case exists to catch.
+     *
+     * The agreement sweep keeps its own job (comparing what SHIPS, dist against
+     * dist) and the DATABASE half is asserted separately in the same file. */
+    greenCommand: [
+      'exec',
+      'vitest',
+      'run',
+      'packages/contracts/test/schedule/calendar-date.test.ts',
+    ],
+    redCommand: [
+      'exec',
+      'vitest',
+      'run',
+      'packages/contracts/test/schedule/calendar-date.test.ts',
+    ],
+  },
+  {
+    id: 'membership-state-gate',
+    gate: 'only an ACTIVE membership is a new assignment target (R-B1, OPUS-M4-000B)',
+    violation: 'the active-membership refusal removed from the 0014 snapshot guard',
+    // The service check is left in place on purpose: it produces the readable
+    // error and would keep the ordinary path green. The DATABASE arm of
+    // `membership-semantics.test.ts` — raw SQL as app_runtime — is what this
+    // falsifies, which is the arm that matters for an invariant.
+    patch: [
+      {
+        file: 'apps/api/migrations/0014_schedule_graph_locations_time.sql',
+        find:
+          '        -- R-B1.\n' +
+          "        IF v_status <> 'active' THEN",
+        replace: "        -- red case: the active-membership rule is removed\n        IF false THEN",
+      },
+    ],
+    greenCommand: [
+      'exec',
+      'vitest',
+      'run',
+      'apps/api/test/schedule/membership-semantics.test.ts',
+    ],
+    redCommand: [
+      'exec',
+      'vitest',
+      'run',
+      'apps/api/test/schedule/membership-semantics.test.ts',
+    ],
+  },
+  {
     id: 'request-budget-over',
     gate: 'requests per interaction (SP-HR-2)',
     violation: 'one click recorded as three requests, against a budget of one',

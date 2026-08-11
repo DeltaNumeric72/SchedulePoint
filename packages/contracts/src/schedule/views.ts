@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { calendarDateSchema } from './calendar-date.js';
+
 /**
  * The staff-facing schedule READ surface's wire shapes (OPUS-M3-006; doc 07 §1,
  * SPEC-05, CAP-020).
@@ -69,7 +71,13 @@ import { z } from 'zod';
  */
 
 const uuid = z.string().uuid();
-const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'a date is YYYY-MM-DD');
+/**
+ * A date on the wire. **A real calendar date**, not merely a `YYYY-MM-DD`-shaped
+ * string: `calendarDateSchema` refuses `2027-02-29`, `2027-13-01` and
+ * `2027-04-31`, which the regex this alias replaced accepted (OPUS-M4-000B,
+ * doc 34 §4-F). The alias is kept so every existing reference reads unchanged.
+ */
+const isoDate = calendarDateSchema;
 const instant = z.string().datetime();
 /** Local wall-clock time in the group's zone, as the server resolved it. */
 const localTime = z.string().regex(/^\d{2}:\d{2}$/, 'a time is HH:MM');
@@ -180,6 +188,44 @@ export const scheduleEntrySchema = z
     versionId: uuid,
     versionNumber: z.number().int().positive(),
     periodId: uuid,
+
+    /**
+     * Where the shift happens (OPUS-M4-000B; doc 34 §4-F). `null` is the
+     * un-located shift a single-site group authors — a stated allowed state.
+     *
+     * `locationArchived` is on the wire because archiving a location RETAINS
+     * every existing reference (migration 0014 refuses only NEW ones), so a
+     * published schedule can legitimately name a place that has since been
+     * decommissioned, and the reader has to be told which.
+     */
+    locationId: uuid.nullable(),
+    locationName: z.string().min(1).max(120).nullable(),
+    locationArchived: z.boolean(),
+
+    /**
+     * The zone THIS entry's `startTime`/`endTime` were rendered under, and where
+     * that zone came from (OPUS-M4-000B; doc 34 §4-F).
+     *
+     * Per ENTRY, not per response, and the distinction is load-bearing: a staff
+     * view spans several published versions, and after a group timezone change
+     * they no longer share an interpretation. The version's recorded basis is
+     * used where it exists (`version-snapshot`), so a published shift's wall
+     * clock is the one it was published with and does not move when an
+     * administrator changes a setting — a published version is immutable (I-18),
+     * and a rendering that shifted underneath it would be a mutation performed
+     * by a surface that never touched the row.
+     *
+     * `group-current` means the version predates migration 0014 and records no
+     * basis, so the group's current zone was used. A visible fallback, never a
+     * snapshot in disguise.
+     *
+     * The response-level `timezone` below is a DIFFERENT fact and is not
+     * redundant with this one: it is the zone the CALENDAR AXIS is bucketed in.
+     * A view has to present one calendar, so days are cut in the group's current
+     * zone while each entry states its own rendered clock.
+     */
+    timezone,
+    timezoneSource: z.enum(['version-snapshot', 'group-current']),
   })
   .strict();
 export type ScheduleEntry = z.infer<typeof scheduleEntrySchema>;
@@ -211,6 +257,12 @@ export const personalScheduleSchema = z
   .object({
     membershipId: uuid,
     displayName: z.string().min(1).max(200),
+    /**
+     * The zone the CALENDAR AXIS is cut in — the group's current zone. Each
+     * entry states the zone its own clock was rendered under
+     * (`ScheduleEntry.timezone`), which can differ after a group timezone
+     * change (OPUS-M4-000B).
+     */
     timezone,
     from: isoDate,
     to: isoDate,
@@ -227,6 +279,7 @@ export type PersonalSchedule = z.infer<typeof personalScheduleSchema>;
 export const dailySheetSchema = z
   .object({
     date: isoDate,
+    /** The zone the calendar axis is cut in — see `PersonalSchedule.timezone`. */
     timezone,
     entries: z.array(scheduleEntrySchema),
     correlationId: z.string().min(1),

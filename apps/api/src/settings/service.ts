@@ -12,6 +12,7 @@ import type { FieldProblem, TenantContext, UnitOfWork } from '@schedulepoint/dom
 import type { Kysely } from 'kysely';
 
 import type { Database, LocationsTable } from '../db/schema.js';
+import { draftsAffectedByTimezoneChange } from '../schedule/timezone.js';
 
 /**
  * The settings slice's domain services (OPUS-M3-007).
@@ -340,6 +341,25 @@ export interface TimezoneChange extends SettingsWriteResult {
    * that becomes wrong the first time the surrounding rule changes.
    */
   readonly acknowledged: boolean;
+  /**
+   * DRAFT (and in-review / approved) versions that were authored against the
+   * OUTGOING zone and are therefore now stale (OPUS-M4-000B; doc 34 §4-F).
+   *
+   * Reported, not refused. The change is permitted — §10c requires it to be.
+   *
+   * **This is a SERVICE-LEVEL report and is deliberately NOT on the wire**,
+   * which is the opposite of `publishedVersionCount` — an earlier version of
+   * this comment claimed parity with it and was wrong (review C-3). The
+   * settings response contract does not carry it, and adding it would be a
+   * third place the same fact is published. Staleness already reaches a human
+   * twice, at the moments it matters: the authoring grid carries
+   * `timezoneStale` and renders a `role="alert"` naming the zone to rebuild
+   * against, and publication refuses with `TIMEZONE_BASIS_STALE` (409) carrying
+   * both zones. What this value is for is the caller inside the transaction —
+   * today the audit-adjacent record of what a zone change invalidated, and the
+   * assertion in `timezone-basis.test.ts` that the set is computed correctly.
+   */
+  readonly staleDraftVersionIds: readonly string[];
 }
 
 /**
@@ -364,14 +384,27 @@ export interface TimezoneChange extends SettingsWriteResult {
  *     refuses an unacknowledged change with a field-addressed `422`, so the
  *     warning is a gate rather than a paragraph.
  *
- * ## The display-semantics question is NOT resolved here
+ * ## The display-semantics question, RESOLVED by OPUS-M4-000B
  *
- * Whether an already-published assignment should render at its original wall
- * time or at the new zone's equivalent instant is a product question this packet
- * is explicitly told to record rather than settle. Nothing in this function
- * rewrites, reinterprets or migrates a single stored instant: `assignment_
- * snapshots` are `timestamptz` and are untouched. The question is recorded in
- * `docs/evidence/EV-M3-SETTINGS/INDEX.md` for the M3 exit report.
+ * M3 recorded rather than settled it: "whether an already-published assignment
+ * should render at its original wall time or at the new zone's equivalent
+ * instant". Doc 34 §4-F requires the interpretation needed to reproduce a
+ * published version to be snapshotted, and migration 0014 does that
+ * (`schedule_versions.timezone_basis` / `.tzdb_version`), so the answer follows
+ * from the record rather than from a preference:
+ *
+ *   **A published version renders under the zone it was PUBLISHED with.**
+ *
+ * A published version is immutable (I-18), and a rendering that moved when an
+ * administrator changed a setting would be a mutation of published history
+ * performed by a surface that never touched it. Drafts are different: they are
+ * proposals, their instants were derived under the outgoing zone, and
+ * publishing one now would file a schedule nobody authored — so a draft
+ * authored against the outgoing zone is reported STALE here and refused at
+ * publication (`TIMEZONE_BASIS_STALE`).
+ *
+ * Nothing in this function rewrites, reinterprets or migrates a single stored
+ * instant: `assignment_snapshots` are `timestamptz` and are untouched.
  */
 export async function setTimezone(
   uow: Uow,
@@ -381,6 +414,16 @@ export async function setTimezone(
 ): Promise<SettingsOutcome<TimezoneChange>> {
   const current = await readGroupSettings(uow);
   if (current === null) return { kind: 'not-found' };
+
+  /* Read BEFORE the write and inside the same unit of work, for the same reason
+   * `publishedVersionCount` is: the set reported is the set that was true at
+   * the instant the change committed. */
+  const staleDraftVersionIds =
+    current.timezone === timezone
+      ? []
+      : (await draftsAffectedByTimezoneChange(uow, current.timezone)).map(
+          (row) => row.versionId,
+        );
 
   const updated = await updateGroupWithVersion(uow, expectedVersion, { timezone });
   if (!updated) return { kind: 'conflict' };
@@ -393,6 +436,7 @@ export async function setTimezone(
       publishedVersionCount: current.publishedVersionCount,
       changed: current.timezone !== timezone,
       acknowledged,
+      staleDraftVersionIds,
     },
   };
 }

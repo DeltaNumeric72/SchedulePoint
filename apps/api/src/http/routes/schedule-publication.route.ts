@@ -14,6 +14,7 @@ import {
   versionSignOffRequestSchema,
   staleReviewBodySchema,
   currentVersionMovedBodySchema,
+  timezoneBasisStaleBodySchema,
   validationProblemBodySchema,
   versionComparisonSchema,
   versionHistorySchema,
@@ -38,6 +39,7 @@ import type { Database } from '../../db/schema.js';
 import { isPostgresError, PG_ERRORS, pgFailureLogFields } from '../../db/pg-errors.js';
 import { differenceByIdentity, type DiffSnapshot, type VersionDifference } from '../../schedule/diff.js';
 import { ScheduleDeniedError, SchedulePreconditionError } from '../../schedule/errors.js';
+import { TimezoneBasisStaleError } from '../../schedule/timezone.js';
 import { findHardRuleFindings } from '../../schedule/hard-rule-revalidation.js';
 import { publishRevert, publishVersion } from '../../schedule/publication.js';
 import { calendarDate, digestRows } from '../../schedule/render.js';
@@ -220,6 +222,17 @@ type Outcome<T> =
     }
   /** The reviewed difference is not the difference that would be published. */
   | { readonly kind: 'stale-review'; readonly currentReviewDigest: string }
+  /**
+   * OPUS-M4-000B (review B-2). The version's instants were derived under a zone
+   * the group has since left. Its own outcome, not a generic conflict, because
+   * the remedy is neither "retry" nor "re-read": the draft must be re-derived or
+   * the zone restored, and the two zones are the whole diagnosis.
+   */
+  | {
+      readonly kind: 'timezone-stale';
+      readonly recordedTimezone: string;
+      readonly currentTimezone: string;
+    }
   | { readonly kind: 'invalid'; readonly problems: readonly FieldProblem[] };
 
 const MAX_PROBLEM_MESSAGE = 300;
@@ -276,10 +289,26 @@ const CONFLICT_CODES = new Set([
   // not a duplicate authored rule exists. Same class as HARD_RULE_BREACH for
   // the same reason.
   'QUALIFICATION_REQUIREMENT_BREACH',
+  /* OPUS-M4-000B (review B-2). A BACKSTOP: the typed branch in
+   * `outcomeOfServiceError` below produces the specific body. This entry is what
+   * stops the code falling through to `not-found` if that branch is ever
+   * bypassed — which is exactly what happened before the repair. A scheduler
+   * with a stale draft was told their version DID NOT EXIST, for a condition a
+   * human had caused and could fix. */
+  'TIMEZONE_BASIS_STALE',
 ]);
 
 function outcomeOfServiceError<T>(error: unknown): Outcome<T> | null {
   if (error instanceof ScheduleDeniedError) return { kind: 'denied', decision: error.decision };
+  /* Checked BEFORE the generic branch: `TimezoneBasisStaleError` extends
+   * `SchedulePreconditionError`, so the order is load-bearing (OPUS-M4-000B). */
+  if (error instanceof TimezoneBasisStaleError) {
+    return {
+      kind: 'timezone-stale',
+      recordedTimezone: error.recordedZone,
+      currentTimezone: error.currentZone,
+    };
+  }
   if (error instanceof SchedulePreconditionError) {
     return CONFLICT_CODES.has(error.code) ? { kind: 'conflict' } : { kind: 'not-found' };
   }
@@ -410,6 +439,26 @@ function respond<T>(
         correlationId: request.correlationId,
       },
     });
+  }
+  if (outcome.kind === 'timezone-stale') {
+    /* 409, with BOTH zones on the wire (OPUS-M4-000B, review B-2). Not an
+     * authorization signal — the caller was authorized and the world changed —
+     * so carrying detail here does not weaken P-3, exactly as `STALE_EDIT` and
+     * `cas-moved` already do. */
+    return reply.code(409).send(
+      timezoneBasisStaleBodySchema.parse({
+        error: {
+          code: 'TIMEZONE_BASIS_STALE',
+          message:
+            `This version was authored in ${outcome.recordedTimezone} and the group now uses ` +
+            `${outcome.currentTimezone}. Its times no longer mean what they did when it was ` +
+            'written, so it cannot be published until it is rebuilt against the current zone.',
+          correlationId: request.correlationId,
+          recordedTimezone: outcome.recordedTimezone,
+          currentTimezone: outcome.currentTimezone,
+        },
+      }),
+    );
   }
   if (outcome.kind === 'invalid') {
     return reply.code(422).send(

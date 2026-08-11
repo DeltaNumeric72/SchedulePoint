@@ -717,6 +717,16 @@ export interface ScheduleVersionsTable {
   published_by: string | null;
   superseded_at: Date | null;
   superseded_by_version_id: string | null;
+  /**
+   * OPUS-M4-000B (`migrations/0014`). The IANA zone this version's instants were
+   * derived under, and the tz DATABASE rule set in force at the time
+   * (`process.versions.tz`). Together they are the interpretation needed to
+   * reproduce the version's rendering after the GROUP's timezone changes
+   * (doc 34 §4-F). NULL on every version created before 0014 — "not recorded",
+   * never a backfilled guess.
+   */
+  timezone_basis: string | null;
+  tzdb_version: string | null;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }

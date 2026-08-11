@@ -290,6 +290,29 @@ function noteFor(cell: CellView): string {
   if (cell.assignments.some((assignment) => assignment.isPinned)) notes.push('Pinned.');
   if (cell.assignments.some((assignment) => assignment.overrideReasonGiven)) notes.push('Override.');
   if (cell.assignments.some((assignment) => assignment.creditId !== null)) notes.push('Credit moved.');
+
+  /* Location, as WORDS like every other note here (OPUS-M4-000B). The named
+     places are listed rather than counted, because "at Ward B" is the thing a
+     scheduler scanning a month is looking for and "1 location" is not.
+     `Set` de-duplicates the ordinary case where every assignment in the cell is
+     at the same place. */
+  const places = [
+    ...new Set(
+      cell.assignments
+        .map((assignment) => assignment.locationName)
+        .filter((name): name is string => name !== null),
+    ),
+  ].sort();
+  if (places.length > 0) notes.push(`At ${places.join(', ')}.`);
+
+  /* Archiving a location RETAINS existing references (only NEW ones are
+     refused), so a live cell can point at a decommissioned place. Saying so is
+     the "rendered with the archived marker" half of that rule — silence would
+     leave a scheduler assigning around a site that no longer exists. */
+  if (cell.assignments.some((assignment) => assignment.locationArchived)) {
+    notes.push('Location archived.');
+  }
+
   return notes.length === 0 ? 'None' : notes.join(' ');
 }
 

@@ -9,6 +9,7 @@ import {
   type ScheduleEntry,
 } from '@schedulepoint/contracts';
 import type { Decision, FieldProblem } from '@schedulepoint/domain';
+import { addDays } from '@schedulepoint/domain';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Kysely } from 'kysely';
 
@@ -321,16 +322,22 @@ export function localPartsIn(
   };
 }
 
-/** `YYYY-MM-DD` one day after `date`, by calendar arithmetic in UTC. */
+/**
+ * `YYYY-MM-DD` one day after / before `date`.
+ *
+ * Delegated to `packages/domain/src/calendar` (OPUS-M4-000B). The previous
+ * bodies went through `Date.UTC`, which SILENTLY ROLLS OVER an invalid input —
+ * `Date.UTC(2027, 1, 29)` is `2027-03-01` — so a calendar-invalid date came back
+ * as a real, wrong date instead of an error. `addDays` asserts a real calendar
+ * date first, and both surfaces now share one implementation rather than each
+ * keeping its own copy.
+ */
 function nextDay(date: string): string {
-  const [year, month, day] = date.split('-').map(Number);
-  return new Date(Date.UTC(year ?? 1970, (month ?? 1) - 1, (day ?? 1) + 1)).toISOString().slice(0, 10);
+  return addDays(date, 1);
 }
 
-/** `YYYY-MM-DD` one day before `date`. */
 function previousDay(date: string): string {
-  const [year, month, day] = date.split('-').map(Number);
-  return new Date(Date.UTC(year ?? 1970, (month ?? 1) - 1, (day ?? 1) - 1)).toISOString().slice(0, 10);
+  return addDays(date, -1);
 }
 
 /**
@@ -404,6 +411,12 @@ interface PublishedRow {
   version_id: string;
   version_number: number | null;
   period_id: string;
+  /* OPUS-M4-000B. The location the shift happens at (nullable — a stated
+   * allowed state), and the interpretation the version was published under. */
+  location_id: string | null;
+  location_name: string | null;
+  location_status: string | null;
+  timezone_basis: string | null;
 }
 
 /**
@@ -456,6 +469,9 @@ async function readPublished(
     .innerJoin('schedule_versions', 'schedule_versions.id', 'assignment_snapshots.version_id')
     .innerJoin('shifts', 'shifts.id', 'assignment_snapshots.shift_id')
     .innerJoin('shift_types', 'shift_types.id', 'shifts.shift_type_id')
+    // LEFT: `shifts.location_id` is nullable and an un-located shift is an
+    // ordinary single-site rota, not a broken row (OPUS-M4-000B).
+    .leftJoin('locations', 'locations.id', 'shifts.location_id')
     .innerJoin('memberships', 'memberships.id', 'assignment_snapshots.membership_id')
     .innerJoin('users', 'users.id', 'memberships.user_id')
     .select([
@@ -471,6 +487,10 @@ async function readPublished(
       'schedule_versions.id as version_id',
       'schedule_versions.version_number as version_number',
       'schedule_versions.period_id as period_id',
+      'shifts.location_id as location_id',
+      'locations.name as location_name',
+      'locations.status as location_status',
+      'schedule_versions.timezone_basis as timezone_basis',
     ])
     // A cancelled snapshot is retained so "was this person ever on this
     // version?" stays answerable; it is not content anybody is working.
@@ -524,10 +544,32 @@ function entriesFor(
   windowFrom: string,
   windowTo: string,
 ): readonly { date: string; entry: ScheduleEntry }[] {
-  const start = localPartsIn(row.starts_at, timeZone);
-  const end = localPartsIn(row.ends_at, timeZone);
-  const days = daysCovered(start.date, end.date, end.time);
-  const last = days[days.length - 1] ?? start.date;
+  /* OPUS-M4-000B; doc 34 §4-F. The WALL CLOCK of a published assignment is
+   * rendered under the zone its version was PUBLISHED with, not under the
+   * group's current zone. A published version is immutable (I-18), and a
+   * rendering that moved when an administrator changed a setting would be a
+   * mutation of published history performed by a surface that never touched the
+   * row. `timezone_basis` is NULL for versions published before migration 0014,
+   * and those fall back to the group's zone — the behaviour this surface has
+   * always had — with `timezoneSource` saying so on the wire rather than
+   * presenting a fallback as a snapshot.
+   *
+   * `timeZone` (the group's current zone) still cuts the CALENDAR AXIS below: a
+   * view has to present one calendar, and bucketing each entry into a different
+   * one would produce a sheet whose days do not line up with each other. The two
+   * facts are both on the payload and neither is hidden. */
+  const renderZone = row.timezone_basis ?? timeZone;
+  const renderSource: 'version-snapshot' | 'group-current' =
+    row.timezone_basis === null ? 'group-current' : 'version-snapshot';
+
+  const start = localPartsIn(row.starts_at, renderZone);
+  const end = localPartsIn(row.ends_at, renderZone);
+  /* The DAY BUCKETS come from the group's current zone — one calendar for the
+   * whole view — while the times above are the published ones. */
+  const axisStart = localPartsIn(row.starts_at, timeZone);
+  const axisEnd = localPartsIn(row.ends_at, timeZone);
+  const days = daysCovered(axisStart.date, axisEnd.date, axisEnd.time);
+  const last = days[days.length - 1] ?? axisStart.date;
 
   const produced: { date: string; entry: ScheduleEntry }[] = [];
   for (const date of days) {
@@ -548,7 +590,7 @@ function entriesFor(
         endDate: end.date,
         startTime: start.time,
         endTime: end.time,
-        isContinuation: date !== start.date,
+        isContinuation: date !== axisStart.date,
         continuesToNextDay: date !== last,
         versionId: row.version_id,
         // A published version always has a gapless number (D-9), allocated in
@@ -557,6 +599,14 @@ function entriesFor(
         // state to surface.
         versionNumber: row.version_number ?? 0,
         periodId: row.period_id,
+        locationId: row.location_id,
+        locationName: row.location_name,
+        // Archiving a location RETAINS every existing reference (migration
+        // 0014 refuses only NEW ones), so a live published schedule can name a
+        // decommissioned place and the reader has to be told which.
+        locationArchived: row.location_status === 'archived',
+        timezone: renderZone,
+        timezoneSource: renderSource,
       },
     });
   }

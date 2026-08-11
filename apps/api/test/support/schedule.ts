@@ -331,24 +331,12 @@ export async function grantScheduleCapabilities(
   return grantStaffingCapabilities(runtime, fixture, options);
 }
 
-/** Every column of every row of a version's own row, for the byte-identity rows. */
-export const VERSION_ROW_COLUMNS = [
-  'id',
-  'organization_id',
-  'group_id',
-  'period_id',
-  'version_number',
-  'source_build_id',
-  'cloned_from_version_id',
-  'state',
-  'lock_state',
-  'is_current',
-  'circulation_state',
-  'change_summary',
-  'published_at',
-  'published_by',
-  'superseded_at',
-  'superseded_by_version_id',
-  'created_at',
-  'updated_at',
-] as const;
+/* `VERSION_ROW_COLUMNS` lived here and is REMOVED (OPUS-M4-000B, review C-4).
+ *
+ * It was a hand-maintained list of `schedule_versions`' columns, and its comment
+ * claimed it was what made "no column untested" structural for the byte-identity
+ * proofs. Nothing imported it — the property is actually provided by V-18, which
+ * enumerates the columns from `information_schema` at run time and therefore
+ * cannot fall behind a migration. A hand-maintained list claiming a structural
+ * guarantee is worse than no list: it reads as a control and silently is not
+ * one. (V-18 picked up this packet's two new columns on its own, 13 -> 15.) */

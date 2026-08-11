@@ -4,6 +4,7 @@ import {
   cellKey,
   cellRevision,
   zonedInstant,
+  zonedResolution,
 } from '../../src/http/routes/schedule-authoring.route.js';
 
 /**
@@ -76,15 +77,74 @@ describe('zonedInstant resolves a wall-clock time in the GROUP timezone', () => 
     );
   });
 
-  it('resolves a nonexistent wall-clock time to a real instant rather than NaN', () => {
-    // 02:30 on the spring-forward date does not exist in New York. Any answer is
-    // a choice; the requirement is that it is a valid instant and deterministic,
-    // because a shift type whose start time lands in the gap must still produce
-    // a row rather than an invalid date the database would reject.
+  /**
+   * R-B4, on the real authoring surface (OPUS-M4-000B; doc 34 §4-F).
+   *
+   * This assertion used to say "*Any answer is a choice*" and check only that
+   * the result was not NaN. That is exactly the unstated rule doc 34 §4-F names:
+   * a behaviour nobody reviewed and the next editor could change without any
+   * test noticing. The rule is now stated — **a gap resolves FORWARD by the
+   * transition's own gap duration** — so the test asserts the rule.
+   */
+  it('R-B4: a nonexistent wall-clock time resolves FORWARD by the gap', () => {
+    // 02:30 on the spring-forward date does not exist in New York; 03:30 does.
     const resolved = zonedInstant('2027-03-14', '02:30', 'America/New_York');
     expect(Number.isNaN(resolved.getTime())).toBe(false);
+    expect(resolved.toISOString()).toBe('2027-03-14T07:30:00.000Z');
+
+    const named = zonedResolution('2027-03-14', '02:30', 'America/New_York');
+    expect(named.kind).toBe('gap');
+    if (named.kind !== 'gap') return;
+    expect(named.normalization).toBe('gap-forward');
+    expect(named.shiftedByMillis).toBe(60 * 60 * 1000);
+    expect(named.resolvedLocalTime).toBe('03:30');
+
+    // Deterministic: the same input gives the same instant, every time.
     expect(zonedInstant('2027-03-14', '02:30', 'America/New_York').toISOString()).toBe(
       resolved.toISOString(),
+    );
+  });
+
+  /**
+   * R-B5, on the real authoring surface.
+   *
+   * The implementation this route used before OPUS-M4-000B could not represent
+   * this case at all: both of its probes landed on the same offset, so the
+   * second occurrence of the repeated hour was invisible and "ambiguous" and
+   * "unique" were the same answer. The two occurrences are asserted to be
+   * distinct here, which is what makes the fix observable from this surface
+   * rather than only inside the domain package.
+   */
+  it('R-B5: an ambiguous wall-clock time has TWO occurrences, and the role picks one', () => {
+    // 2027-11-07 01:30 happens twice in New York (the change is at 02:00).
+    const earliest = zonedInstant('2027-11-07', '01:30', 'America/New_York', 'earliest');
+    const latest = zonedInstant('2027-11-07', '01:30', 'America/New_York', 'latest');
+
+    expect(earliest.toISOString()).toBe('2027-11-07T05:30:00.000Z');
+    expect(latest.toISOString()).toBe('2027-11-07T06:30:00.000Z');
+    expect(latest.getTime() - earliest.getTime()).toBe(60 * 60 * 1000);
+
+    // The default is `earliest`, so a bare call never silently delays a START.
+    expect(zonedInstant('2027-11-07', '01:30', 'America/New_York').toISOString()).toBe(
+      earliest.toISOString(),
+    );
+
+    const named = zonedResolution('2027-11-07', '01:30', 'America/New_York');
+    expect(named.kind).toBe('fold');
+  });
+
+  /**
+   * The rolled-over date, refused rather than laundered.
+   *
+   * `nextDay` and `zonedInstant` both went through `Date.UTC` before
+   * OPUS-M4-000B, and `Date.UTC(2027, 1, 29)` is `2027-03-01` — a shift authored
+   * for a day that does not exist was filed on the next one with nothing
+   * failing. Asserted here because this is the surface that used to do it.
+   */
+  it('a shape-valid, calendar-invalid date is refused, not rolled over', () => {
+    expect(new Date(Date.parse('2027-02-29')).toISOString().slice(0, 10)).toBe('2027-03-01');
+    expect(() => zonedInstant('2027-02-29', '08:00', 'America/New_York')).toThrow(
+      /INVALID_CALENDAR_DATE/,
     );
   });
 });
@@ -108,6 +168,9 @@ function assignment() {
     creditId: null,
     creditedMembershipId: null,
     creditStatus: null,
+    locationId: null,
+    locationName: null,
+    locationArchived: false,
   };
 }
 

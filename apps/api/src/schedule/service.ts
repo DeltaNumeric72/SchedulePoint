@@ -12,6 +12,7 @@ import type { Database } from '../db/schema.js';
 import { requireScheduleCapability, type ScheduleActor } from './actions.js';
 import { SchedulePreconditionError, ScheduleTransitionError } from './errors.js';
 import { calendarDate } from './render.js';
+import { captureTimezoneBasis, readTimezoneBasis } from './timezone.js';
 
 /**
  * The schedule module's domain services (SPEC-05).
@@ -437,16 +438,32 @@ export async function createDraftVersion(
   const tenant = tenantOf(uow.context);
   const id = randomUUID();
 
+  /* The timezone interpretation this version's instants will be derived under,
+   * recorded at the moment the draft comes into existence (OPUS-M4-000B, doc 34
+   * §4-F). Recorded HERE rather than at publication because that is when the
+   * derivation actually happens: every `starts_at`/`ends_at` written into this
+   * version resolves against the group's zone as it is now, and a basis captured
+   * later would describe the zone at publication rather than the zone the
+   * content was built in. */
+  const basis = await captureTimezoneBasis(uow);
+
   await uow.query
     .insertInto('schedule_versions')
-    .values({ id, ...tenant, period_id: periodId, state: 'draft' })
+    .values({
+      id,
+      ...tenant,
+      period_id: periodId,
+      state: 'draft',
+      timezone_basis: basis.zone,
+      tzdb_version: basis.tzdb,
+    })
     .execute();
 
   await recordAuditEvent(uow, {
     eventName: 'schedule.version.created',
     subjectType: 'schedule_version',
     subjectId: id,
-    payload: { period: periodId, origin: 'new' },
+    payload: { period: periodId, origin: 'new', timezone: basis.zone },
   });
   return id;
 }
@@ -473,6 +490,25 @@ export async function cloneVersion(
   const source = await loadVersion(uow, sourceVersionId);
   const newVersionId = randomUUID();
 
+  /* The clone INHERITS the source's timezone basis, and does not capture the
+   * current one (OPUS-M4-000B; doc 35 §4 as amended, escalation E1).
+   *
+   * A clone copies `starts_at`/`ends_at` VERBATIM — the instants written below
+   * are the source's, derived under the source's zone. Stamping the clone with
+   * today's zone would assert that content was built under an interpretation it
+   * was not, and the publication staleness check would then PASS on a draft
+   * whose instants are an hour out. Inheriting means cloning a version authored
+   * before a timezone change produces a draft that is correctly reported STALE,
+   * which is what makes the scheduler re-derive instead of publishing an
+   * unnoticed shift.
+   *
+   * `cloneVersion` is jointly edited in M4 (000B: these two columns; 000C:
+   * credit preservation). This edit is exactly one read and two `.values()`
+   * keys, and the proof in `test/schedule/timezone-basis.test.ts` asserts on
+   * the INHERITED COLUMNS rather than on this function's body, so it survives
+   * the composition. */
+  const sourceBasis = await readTimezoneBasis(uow, sourceVersionId);
+
   await uow.query
     .insertInto('schedule_versions')
     .values({
@@ -481,6 +517,8 @@ export async function cloneVersion(
       period_id: source.period_id,
       state: 'draft',
       cloned_from_version_id: sourceVersionId,
+      timezone_basis: sourceBasis?.zone ?? null,
+      tzdb_version: sourceBasis?.tzdb ?? null,
     })
     .execute();
 
@@ -668,6 +706,11 @@ export interface AddAssignmentInput {
   readonly overrideReason?: string | null;
   /** Reuse an existing identity (a reassignment keeps the identity). */
   readonly assignmentIdentityId?: string;
+  /**
+   * The location this shift happens at, or `null` for an un-located shift
+   * (OPUS-M4-000B). `null` is a stated allowed state, not a missing value.
+   */
+  readonly locationId?: string | null;
 }
 
 export interface AddedAssignment {
@@ -675,30 +718,132 @@ export interface AddedAssignment {
   readonly assignmentIdentityId: string;
 }
 
-/** Find or create the shift row this assignment hangs on, within the version. */
+/**
+ * Find or create the shift row this assignment hangs on, within the version.
+ *
+ * ## Location (OPUS-M4-000B; doc 34 §4-F)
+ *
+ * `shifts.location_id` existed from 0009 with no foreign key and no way to set
+ * it; migration 0014 adds the group-qualified FK and this parameter is the
+ * authoring input that reaches it.
+ *
+ * **`null` is a real, allowed value and not a missing one.** A single-site group
+ * schedules without locations, which is what every existing caller does;
+ * `shifts_unique_in_version` already COALESCEs the NULL into a stable key, so
+ * "the 08:00 ward round" and "the 08:00 ward round at Site A" are different
+ * shifts within one version rather than a collision. The lookup below therefore
+ * matches on the location too — a `null` search finds only the un-located shift.
+ *
+ * A NEW reference to an ARCHIVED location is refused by the database
+ * (`SCHEDULE_SHIFT_LOCATION_ARCHIVED`, migration 0014); there is deliberately no
+ * pre-check here, because a friendly pre-check would only race the control.
+ */
 async function ensureShift(
   uow: Uow,
   versionId: string,
   date: string,
   shiftTypeId: string,
+  locationId: string | null,
 ): Promise<string> {
   const tenant = tenantOf(uow.context);
-  const existing = await uow.query
+  let lookup = uow.query
     .selectFrom('shifts')
     .select('id')
     .where('version_id', '=', versionId)
     .where('date', '=', date)
-    .where('shift_type_id', '=', shiftTypeId)
-    .where('location_id', 'is', null)
-    .executeTakeFirst();
+    .where('shift_type_id', '=', shiftTypeId);
+  lookup =
+    locationId === null
+      ? lookup.where('location_id', 'is', null)
+      : lookup.where('location_id', '=', locationId);
+  const existing = await lookup.executeTakeFirst();
   if (existing !== undefined) return existing.id;
 
   const id = randomUUID();
   await uow.query
     .insertInto('shifts')
-    .values({ id, ...tenant, version_id: versionId, date, shift_type_id: shiftTypeId })
+    .values({
+      id,
+      ...tenant,
+      version_id: versionId,
+      date,
+      shift_type_id: shiftTypeId,
+      location_id: locationId,
+    })
     .execute();
   return id;
+}
+
+/**
+ * The membership-state rules for a NEW assignment target (doc 34 §4-C).
+ *
+ * The database enforces these independently (migration 0014's
+ * `app_guard_assignment_snapshot_graph`), and that trigger is the control. This
+ * is the readable error — the same division 0009's `assertEditable` has with
+ * D-15a — plus the one thing the trigger cannot give: a typed failure a route
+ * can map to a 422 with a field, rather than a raw `restrict_violation`.
+ *
+ *   R-B1  only an `active` membership is a NEW assignment target
+ *   R-B2  the assignment must fall inside the membership's effective window
+ *   R-B3  EXISTING assignments are retained when a membership later changes
+ *         state — so this is called on a NEW target and on nothing else
+ *
+ * **There is no override arm.** FAD-23's override exists because an eligibility
+ * absence can be an access-control artefact; membership state is not, and an
+ * `ended` membership is not a person with a relationship to this group to be
+ * scheduled into. The reasoning is set out in full in migration 0014 §9c.
+ */
+export async function assertAssignableMembership(
+  uow: Uow,
+  membershipId: string,
+  startsAt: Date,
+  endsAt: Date,
+): Promise<void> {
+  const row = (await uow.query
+    .selectFrom('memberships')
+    .select(['kind', 'status', 'valid_from', 'valid_to'])
+    .where('id', '=', membershipId)
+    .executeTakeFirst()) as unknown as
+    | { kind: string; status: string; valid_from: Date; valid_to: Date | null }
+    | undefined;
+
+  if (row === undefined) {
+    // The cross-tenant and cross-group answer are deliberately the same reply:
+    // RLS makes another group's membership invisible under this context.
+    throw new SchedulePreconditionError(
+      'ASSIGNEE_NOT_IN_GROUP',
+      'no such member of this group',
+    );
+  }
+
+  if (row.kind !== 'group') {
+    throw new SchedulePreconditionError(
+      'ASSIGNEE_NOT_GROUP_MEMBERSHIP',
+      'a schedule participant is a group membership; an organization membership cannot be assigned',
+    );
+  }
+
+  if (row.status !== 'active') {
+    throw new SchedulePreconditionError(
+      'ASSIGNEE_NOT_ACTIVE',
+      `membership ${membershipId} is ${row.status}; only an active membership is a NEW ` +
+        'assignment target. Assignments already made are retained',
+    );
+  }
+
+  if (startsAt.getTime() < row.valid_from.getTime()) {
+    throw new SchedulePreconditionError(
+      'ASSIGNEE_BEFORE_MEMBERSHIP',
+      `the assignment starts before membership ${membershipId} becomes effective`,
+    );
+  }
+
+  if (row.valid_to !== null && endsAt.getTime() > row.valid_to.getTime()) {
+    throw new SchedulePreconditionError(
+      'ASSIGNEE_AFTER_MEMBERSHIP',
+      `the assignment ends after membership ${membershipId} ends`,
+    );
+  }
 }
 
 export async function addManualAssignment(
@@ -711,7 +856,30 @@ export async function addManualAssignment(
   const version = await loadVersion(uow, input.versionId);
   assertEditable(version);
 
-  const shiftId = await ensureShift(uow, input.versionId, input.date, input.shiftTypeId);
+  /* Ordering, before anything else touches the database (OPUS-M4-000B, review
+   * B-1). `assignment_snapshots_interval` (`ends_at > starts_at`) is the
+   * control and stays the control — but a caller that reached it got a raw
+   * CHECK violation, i.e. a 500 for a condition that is fully describable. The
+   * defect that made this reachable was a DST-gap interval resolving backwards
+   * (now closed by R-B4a); the guard stays regardless, because "no caller can
+   * construct one any more" is a claim about today's callers. */
+  if (input.endsAt.getTime() <= input.startsAt.getTime()) {
+    throw new SchedulePreconditionError(
+      'ASSIGNMENT_INTERVAL_INVALID',
+      `an assignment must end after it starts; ${input.startsAt.toISOString()} to ` +
+        `${input.endsAt.toISOString()} does not advance`,
+    );
+  }
+
+  await assertAssignableMembership(uow, input.membershipId, input.startsAt, input.endsAt);
+
+  const shiftId = await ensureShift(
+    uow,
+    input.versionId,
+    input.date,
+    input.shiftTypeId,
+    input.locationId ?? null,
+  );
 
   let identityId = input.assignmentIdentityId;
   if (identityId === undefined) {
@@ -847,6 +1015,17 @@ export async function reassignAssignment(
       'no active snapshot for that identity in that version',
     );
   }
+
+  /* A reassignment names a NEW assignment target, so R-B1/R-B2 apply to it
+   * exactly as they do to a first assignment (doc 34 §4-C). Reassigning ONTO an
+   * ended or suspended membership is the same act as assigning to one; the
+   * identity being preserved does not make the target any more available. */
+  const interval = (await uow.query
+    .selectFrom('assignment_snapshots')
+    .select(['starts_at', 'ends_at'])
+    .where('id', '=', current.id)
+    .executeTakeFirstOrThrow()) as unknown as { starts_at: Date; ends_at: Date };
+  await assertAssignableMembership(uow, toMembershipId, interval.starts_at, interval.ends_at);
 
   await uow.query
     .updateTable('assignment_snapshots')

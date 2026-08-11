@@ -26,8 +26,11 @@ import {
   type Candidate,
   type GridAssignment,
   type GridCell,
+  type GridLocation,
 } from '@schedulepoint/contracts';
 import type { Decision, FieldProblem } from '@schedulepoint/domain';
+import { addDays, resolveLocalTime, resolveShiftInterval } from '@schedulepoint/domain';
+import type { FoldPolicy, LocalResolution } from '@schedulepoint/domain';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { sql, type Kysely } from 'kysely';
 import { createHash } from 'node:crypto';
@@ -40,6 +43,7 @@ import { transactionNow } from '../../profiles/work-profiles.js';
 import { ScheduleDeniedError, SchedulePreconditionError } from '../../schedule/errors.js';
 import { calendarDate, digestRows } from '../../schedule/render.js';
 import * as schedule from '../../schedule/service.js';
+import { resolveRenderTimezone, timezoneBasisState } from '../../schedule/timezone.js';
 import { requireTenantContext } from '../context/middleware.js';
 import { sendNotFound } from '../context/responses.js';
 import type { RouteConfigWithPolicy } from '../policy.js';
@@ -374,66 +378,72 @@ function respond<T>(
  * ──────────────────────────────────────────────────────────────────────────── */
 
 /**
- * The UTC offset of `timeZone` at `instant`, in milliseconds.
+ * The instant at which `HH:MM` on `YYYY-MM-DD` occurs in `timeZone`.
  *
- * `Intl.DateTimeFormat` with a `timeZone` is the only zone database Node ships,
- * and formatting an instant into that zone and reading the components back is
- * the standard way to recover the offset without a dependency. A third-party
- * date library would be a new dependency for arithmetic the platform already
- * does correctly.
+ * ## This is now a thin delegation, and that is the point (OPUS-M4-000B)
+ *
+ * It used to be a hand-rolled two-pass offset conversion living in this file.
+ * The two passes were real and necessary — a single pass puts a shift on the
+ * wrong side of a DST change — but the implementation had two defects doc 34
+ * §4-F names:
+ *
+ *  1. **It could not see a DST FOLD.** On a fall-back day both of its probes
+ *     land on the same offset, so `01:30` resolved to one instant and the other
+ *     occurrence was invisible. "Ambiguous" and "unique" were the same answer.
+ *     `packages/domain/test/time/zoned-time.test.ts` runs the old algorithm as a
+ *     mutation control and proves exactly this.
+ *  2. **Its GAP behaviour was unstated.** The test that covered it said outright
+ *     "*Any answer is a choice*" and asserted only that the result was not NaN.
+ *     An unstated rule is one nobody can review and one the next editor can
+ *     change without noticing.
+ *
+ * Both rules are now stated, pinned and shared: `resolveLocalTime` implements
+ * **R-B4** (a gap resolves FORWARD by the transition's own gap duration — 30
+ * minutes in Lord Howe, two hours in Troll, not a hard-coded hour) and **R-B5**
+ * (a fold resolves by ROLE: a shift START takes the earlier occurrence, a shift
+ * END the later). Keeping the conversion here would mean the browser-facing
+ * surface and the solver-facing surface could drift on what 02:30 means.
+ *
+ * Exported unchanged in shape for `apps/api/test/schedule/authoring-time.test.ts`.
  */
-function zoneOffsetMs(instant: Date, timeZone: string): number {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    hourCycle: 'h23',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  }).formatToParts(instant);
-
-  const read = (type: string): number => Number(parts.find((part) => part.type === type)?.value ?? '0');
-  const asUtc = Date.UTC(
-    read('year'),
-    read('month') - 1,
-    read('day'),
-    read('hour'),
-    read('minute'),
-    read('second'),
-  );
-  return asUtc - instant.getTime();
+export function zonedInstant(
+  date: string,
+  time: string,
+  timeZone: string,
+  foldPolicy: FoldPolicy = 'earliest',
+): Date {
+  return resolveLocalTime(timeZone, date, time, foldPolicy).instant;
 }
 
 /**
- * The instant at which `HH:MM` on `YYYY-MM-DD` occurs in `timeZone`.
+ * The same resolution, with the DST case NAMED rather than collapsed to an
+ * instant.
  *
- * Two passes, and the second one is not decoration: the offset used to convert
- * has to be the offset that applies at the RESULT, not at the guess. On a
- * daylight-saving boundary those differ by an hour, and a single-pass conversion
- * puts a shift on the wrong side of the change — which is a real rota being
- * wrong for real people twice a year.
- *
- * Exported for `apps/api/test/schedule/authoring-time.test.ts`, which drives it
- * across both transitions in a southern- and a northern-hemisphere zone.
+ * `zonedInstant` throws away the discriminant, which is right for the callers
+ * that only need a `timestamptz`. This is what a caller uses when it has to
+ * TELL somebody — and what the proofs assert on, so a gap or a fold cannot be
+ * observed only as "some instant came back".
  */
-export function zonedInstant(date: string, time: string, timeZone: string): Date {
-  const [year, month, day] = date.split('-').map(Number);
-  const [hour, minute] = time.split(':').map(Number);
-  const naive = Date.UTC(year ?? 1970, (month ?? 1) - 1, day ?? 1, hour ?? 0, minute ?? 0, 0, 0);
-
-  const firstOffset = zoneOffsetMs(new Date(naive), timeZone);
-  const firstPass = naive - firstOffset;
-  const secondOffset = zoneOffsetMs(new Date(firstPass), timeZone);
-  return secondOffset === firstOffset ? new Date(firstPass) : new Date(naive - secondOffset);
+export function zonedResolution(
+  date: string,
+  time: string,
+  timeZone: string,
+  foldPolicy: FoldPolicy = 'earliest',
+): LocalResolution {
+  return resolveLocalTime(timeZone, date, time, foldPolicy);
 }
 
-/** `YYYY-MM-DD` one day after `date`, by calendar arithmetic in UTC. */
+/**
+ * `YYYY-MM-DD` one day after `date`.
+ *
+ * Delegated to `packages/domain/src/calendar` (OPUS-M4-000B). The previous body
+ * went through `Date.UTC`, which SILENTLY ROLLS OVER an invalid input —
+ * `Date.UTC(2027, 1, 29)` is `2027-03-01` — so a calendar-invalid date that
+ * reached it came back as a real, wrong date rather than as an error. `addDays`
+ * asserts the input is a real calendar date first.
+ */
 function nextDay(date: string): string {
-  const [year, month, day] = date.split('-').map(Number);
-  const moved = new Date(Date.UTC(year ?? 1970, (month ?? 1) - 1, (day ?? 1) + 1));
-  return moved.toISOString().slice(0, 10);
+  return addDays(date, 1);
 }
 
 /**
@@ -531,6 +541,14 @@ export function cellRevision(assignments: readonly GridAssignment[]): string {
       credit: assignment.creditId,
       credited: assignment.creditedMembershipId,
       creditStatus: assignment.creditStatus,
+      // OPUS-M4-000B. A cell mutation can now change WHERE the shift happens,
+      // and a token that ignored it would let a concurrent relocation pass the
+      // compare-and-set and be overwritten silently — the same defect every
+      // other field in this digest exists to close. `locationName` and
+      // `locationArchived` are deliberately NOT here: they are derived from the
+      // location row, not from the cell, so an administrator renaming or
+      // archiving a location must not invalidate a scheduler's held token.
+      location: assignment.locationId,
     })),
   );
 }
@@ -572,6 +590,7 @@ async function readCells(uow: Uow, versionId: string): Promise<Map<string, GridA
   const rows = (await query
     .selectFrom('assignment_snapshots')
     .innerJoin('shifts', 'shifts.id', 'assignment_snapshots.shift_id')
+    .leftJoin('locations', 'locations.id', 'shifts.location_id')
     .select([
       'assignment_snapshots.id as id',
       'assignment_snapshots.assignment_identity_id as assignment_identity_id',
@@ -586,13 +605,25 @@ async function readCells(uow: Uow, versionId: string): Promise<Map<string, GridA
       'assignment_snapshots.status as status',
       'assignment_snapshots.override_reason as override_reason',
       'shifts.shift_type_id as shift_type_id',
+      // OPUS-M4-000B: the location is a property of the SHIFT, so it arrives
+      // through the join that is already here. `locations` is LEFT-joined
+      // because `location_id` is nullable and a shift without one is a stated
+      // allowed state, not a broken row.
+      'shifts.location_id as location_id',
+      'locations.name as location_name',
+      'locations.status as location_status',
     ])
     .where('assignment_snapshots.version_id', '=', versionId)
     // ACTIVE only. A cancelled snapshot is retained so "was this person ever on
     // this draft?" stays answerable, but it is not content the grid renders and
     // it is not content the compare-and-set is about.
     .where('assignment_snapshots.status', '=', 'active')
-    .execute()) as unknown as (SnapshotRow & { shift_type_id: string })[];
+    .execute()) as unknown as (SnapshotRow & {
+    shift_type_id: string;
+    location_id: string | null;
+    location_name: string | null;
+    location_status: string | null;
+  })[];
 
   const credits = (await query
     .selectFrom('credits')
@@ -623,6 +654,12 @@ async function readCells(uow: Uow, versionId: string): Promise<Map<string, GridA
       creditId: credit?.id ?? null,
       creditedMembershipId: credit?.credited_membership_id ?? null,
       creditStatus: (credit?.status as GridAssignment['creditStatus']) ?? null,
+      locationId: row.location_id,
+      locationName: row.location_name,
+      // Archiving RETAINS existing references (migration 0014 refuses only new
+      // ones), so a live schedule can legitimately name a decommissioned place
+      // and the grid has to say so rather than render it as any other location.
+      locationArchived: row.location_status === 'archived',
     };
     const key = cellKey(calendarDate(row.date), row.shift_type_id);
     const list = cells.get(key) ?? [];
@@ -1109,11 +1146,42 @@ export default function scheduleAuthoringRoutes(app: FastifyInstance): void {
           explanation: string | null;
         }[];
 
-        const group = (await query
-          .selectFrom('groups')
-          .select(['timezone'])
-          .where('id', '=', uow.context.groupId as string)
-          .executeTakeFirst()) as unknown as { timezone: string } | undefined;
+        /* OPUS-M4-000B: the zone this version's instants were derived under —
+         * the version's recorded basis where it has one, the group's current
+         * zone otherwise. A PUBLISHED version therefore keeps rendering under
+         * the zone it was published with, so an administrator changing the
+         * group's timezone cannot move a schedule that is already immutable
+         * (I-18). `source` carries which of the two answered, so the fallback is
+         * visible rather than disguised as a snapshot. */
+        const renderZone = await resolveRenderTimezone(uow, versionId);
+        const basisState = await timezoneBasisState(uow, versionId);
+
+        /* Archived locations are INCLUDED. Existing shifts still reference them
+         * and the grid has to label those; the client offers only the active
+         * ones as a NEW target, and the database refuses the rest regardless
+         * (`SCHEDULE_SHIFT_LOCATION_ARCHIVED`). */
+        const locationRows = (await query
+          .selectFrom('locations')
+          .select(['id', 'name', 'site_label', 'timezone', 'status'])
+          .orderBy('name')
+          .execute()) as unknown as {
+          id: string;
+          name: string;
+          site_label: string | null;
+          timezone: string | null;
+          status: string;
+        }[];
+        const locations: GridLocation[] = locationRows.map((row) => ({
+          id: row.id,
+          name: row.name,
+          siteLabel: row.site_label,
+          // DISPLAY METADATA ONLY. The GROUP timezone governs every schedule
+          // semantic (OPUS-M4-000B's ruling; doc 06 §Time). Nothing computes
+          // from this value — `renderZone` above is what every instant on this
+          // payload was derived under.
+          timezone: row.timezone,
+          archived: row.status === 'archived',
+        }));
 
         const assignmentsByCell = await readCells(uow, versionId);
         const requiredByCell = new Map(
@@ -1166,7 +1234,11 @@ export default function scheduleAuthoringRoutes(app: FastifyInstance): void {
               explanation: conflict.explanation,
             })),
             roster: await readRoster(uow),
-            timezone: group?.timezone ?? 'UTC',
+            locations,
+            timezone: renderZone.zone,
+            timezoneSource: renderZone.source,
+            tzdbVersion: renderZone.tzdb,
+            timezoneStale: basisState.kind === 'stale',
           },
         };
       });
@@ -1420,27 +1492,42 @@ export default function scheduleAuthoringRoutes(app: FastifyInstance): void {
           | undefined;
         if (shiftType === undefined) return { kind: 'not-found' as const };
 
-        const group = (await query
-          .selectFrom('groups')
-          .select(['timezone'])
-          .where('id', '=', uow.context.groupId as string)
-          .executeTakeFirst()) as unknown as { timezone: string } | undefined;
-        const timezone = group?.timezone ?? 'UTC';
-
-        // The SERVER derives the instants, from the shift type's times and the
-        // GROUP's zone. A browser that computed them would write the viewer's
-        // zone into the schedule.
-        const startsAt = zonedInstant(input.date, shiftType.start_time.slice(0, 5), timezone);
-        const endDate = shiftType.crosses_midnight ? nextDay(input.date) : input.date;
-        const endsAt = zonedInstant(endDate, shiftType.end_time.slice(0, 5), timezone);
+        /* The SERVER derives the instants, from the shift type's times and the
+         * GROUP's zone. A browser that computed them would write the viewer's
+         * zone into the schedule, and two schedulers in two zones would author
+         * two different shifts from the same click.
+         *
+         * The zone is the version's BASIS (OPUS-M4-000B): a draft records the
+         * zone it was created under, and every instant written into it resolves
+         * against that same zone. Deriving against the group's CURRENT zone
+         * instead would let a mid-draft timezone change produce a version whose
+         * rows were built under two different interpretations — which no
+         * staleness check can untangle afterwards, because the rows carry no
+         * record of which one built them.
+         *
+         * `resolveShiftInterval` applies R-B4 and R-B5: a start in a DST gap is
+         * normalized FORWARD by the transition's own gap, a start in a fold
+         * takes the earlier occurrence and an end in a fold the later — the
+         * pairing that keeps `ends_at > starts_at` across a fall-back and covers
+         * the repeated hour exactly once. It also owns the overnight decision,
+         * so `crosses_midnight` on the catalogue row and the derived end date
+         * cannot disagree. */
+        const renderZone = await resolveRenderTimezone(uow, versionId);
+        const interval = resolveShiftInterval(
+          renderZone.zone,
+          input.date,
+          shiftType.start_time.slice(0, 5),
+          shiftType.end_time.slice(0, 5),
+        );
 
         await schedule.addManualAssignment(uow, actorOf(request), {
           versionId,
           membershipId: input.membershipId,
           shiftTypeId: input.shiftTypeId,
           date: input.date,
-          startsAt,
-          endsAt,
+          startsAt: interval.startsAt,
+          endsAt: interval.endsAt,
+          locationId: input.locationId ?? null,
           ...(input.isPinned === undefined ? {} : { isPinned: input.isPinned }),
           ...(input.overrideReason === undefined ? {} : { overrideReason: input.overrideReason }),
         });

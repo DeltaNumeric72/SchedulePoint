@@ -1,0 +1,24 @@
+OPUS-M4-000B named proofs — THREE WAYS (standalone / in-suite / full battery)
+date: 2026-08-11T07:46:34Z  commit: 9540b65
+
+=== 1. STANDALONE — every proof file alone, in its own process ===
+  packages/domain/test/calendar/calendar-date.test.ts ->       Tests  45 passed (45)
+  packages/domain/test/time/zoned-time.test.ts ->       Tests  43 passed (43)
+  packages/contracts/test/schedule/calendar-date.test.ts ->       Tests  31 passed (31)
+  apps/api/test/schedule/graph-invariants.test.ts ->       Tests  21 passed (21)
+  apps/api/test/schedule/locations.test.ts ->       Tests  6 passed (6)
+  apps/api/test/schedule/timezone-basis.test.ts ->       Tests  6 passed (6)
+  apps/api/test/schedule/membership-semantics.test.ts ->       Tests  12 passed (12)
+  apps/api/test/schedule/migration-0014-populated-cycle.test.ts ->       Tests  1 passed (1)
+  apps/api/test/schedule/calendar-agreement.test.ts ->       Tests  14 passed (14)
+
+=== 2. IN-SUITE — with their siblings, per project ===
+  apps/api/test/schedule/** ->  Test Files  21 passed (21)       Tests  224 passed (224) 
+  packages/domain (whole project) ->  Test Files  13 passed (13)       Tests  357 passed (357) 
+  packages/contracts (whole project) ->  Test Files  2 passed (2)       Tests  35 passed (35) 
+
+=== 3. FULL BATTERY — the whole workspace, one run ===
+ Test Files  124 passed (124)
+      Tests  1630 passed (1630)
+   Duration  88.00s (transform 1.83s, setup 1.47s, collect 50.32s, tests 37.21s, environment 1.76s, prepare 2.11s)
+EXIT=0

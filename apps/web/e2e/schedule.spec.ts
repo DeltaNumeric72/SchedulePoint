@@ -97,6 +97,10 @@ function catalogueShiftType(id: string, code: string, name: string) {
   };
 }
 
+/** OPUS-M4-000B: the two locations the grid fixture offers. */
+const LOCATION_ACTIVE = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+const LOCATION_ARCHIVED = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+
 const EMPTY_REVISION = 'a'.repeat(64);
 const FILLED_REVISION = 'b'.repeat(64);
 const MOVED_REVISION = 'c'.repeat(64);
@@ -116,6 +120,15 @@ function assignment(overrides: Record<string, unknown> = {}) {
     creditId: null,
     creditedMembershipId: null,
     creditStatus: null,
+    /* OPUS-M4-000B. `gridAssignmentSchema` is `.strict()` and these three are
+     * REQUIRED, so a fixture missing them fails the client-side parse, renders
+     * nothing, and every interaction below times out at 30s — which is what a
+     * missing mock field looks like from the outside. Defaulted to the
+     * un-located shift, which is the ordinary single-site case; the tests that
+     * care about a location override them. */
+    locationId: null,
+    locationName: null,
+    locationArchived: false,
     ...overrides,
   };
 }
@@ -180,7 +193,33 @@ function grid(overrides: Record<string, unknown> = {}) {
       { membershipId: MEMBER_A, displayName: 'Synthetic Member A', staffingKind: 'staff', status: 'active' },
       { membershipId: MEMBER_B, displayName: 'Synthetic Member B', staffingKind: 'locum', status: 'active' },
     ],
+    /* OPUS-M4-000B: the locations a shift can be authored at, and the
+     * provenance of the zone every instant on this payload was derived under.
+     * `scheduleGridSchema` is `.strict()` and requires all four. */
+    locations: [
+      {
+        id: LOCATION_ACTIVE,
+        name: 'Synthetic Ward',
+        siteLabel: 'Synthetic Site',
+        // Display metadata only — the GROUP zone governs (R-B6).
+        timezone: null,
+        archived: false,
+      },
+      {
+        // An archived location IS listed: existing shifts still reference one
+        // and the grid has to label those. Only the active ones are offered as
+        // a NEW target.
+        id: LOCATION_ARCHIVED,
+        name: 'Synthetic Closed Ward',
+        siteLabel: null,
+        timezone: null,
+        archived: true,
+      },
+    ],
     timezone: 'UTC',
+    timezoneSource: 'group-current',
+    tzdbVersion: '2026b',
+    timezoneStale: false,
     correlationId: 'e2e-correlation-id',
     ...overrides,
   };
@@ -1140,6 +1179,140 @@ test.describe('the cell editor', () => {
       },
     );
     expect(recording.requests.length).toBeLessThanOrEqual(2);
+  });
+
+  /* ──────────────────────────────────────────────────────────────────────────
+   * Locations and the timezone basis (OPUS-M4-000B; doc 34 §4-F)
+   * ────────────────────────────────────────────────────────────────────────── */
+
+  test('the assign picker offers only ACTIVE locations, and "No location" is a real answer', async ({
+    page,
+  }, info) => {
+    await routeHappyPath(page);
+    await openCell(page);
+    await page.getByTestId('cell-assign-open').click();
+    await expect(page.getByTestId('location-select')).toBeVisible();
+
+    const options = await page.getByTestId('location-select').locator('option').allTextContents();
+    /* "No location" is the DEFAULT and a stated allowed state: a single-site
+     * group schedules without locations, and forcing a choice would manufacture
+     * data the group does not have. */
+    expect(options[0]).toContain('No location');
+    expect(options.join(' | ')).toContain('Synthetic Ward');
+    /* The archived one is in the grid payload — existing shifts reference it and
+     * the grid labels those — but it is NOT offered as a NEW target, because the
+     * database refuses it and a control that always fails is worse than no
+     * control. */
+    expect(options.join(' | ')).not.toContain('Synthetic Closed Ward');
+    await expectNoAxeViolations(page);
+    await capture(page, 'cell-editor-location-picker', info.project.name);
+  });
+
+  test('the chosen location travels in the save request', async ({ page }) => {
+    await routeHappyPath(page);
+    let body: Record<string, unknown> | undefined;
+    await page.route(`${API}/schedule/versions/*/assignments`, async (route) => {
+      body = JSON.parse(route.request().postData() ?? '{}') as Record<string, unknown>;
+      await json(route, 201, {
+        cell: {
+          date: DATES[0],
+          shiftTypeId: SHIFT_DAY,
+          requiredCount: 2,
+          assignments: [assignment(), assignment({ membershipId: MEMBER_B })],
+          revision: MOVED_REVISION,
+        },
+        correlationId: 'e2e-correlation-id',
+      });
+    });
+
+    await openCell(page);
+    await page.getByTestId('cell-assign-open').click();
+    await page.getByTestId('candidate-select').selectOption(MEMBER_B);
+    await page.getByTestId('location-select').selectOption(LOCATION_ACTIVE);
+    await page.getByTestId('cell-assign-save').click();
+
+    await expect.poll(() => body?.['locationId']).toBe(LOCATION_ACTIVE);
+  });
+
+  test('an ARCHIVED location on an existing assignment is marked, in WORDS', async ({ page }, info) => {
+    /* Archiving RETAINS existing references (migration 0014 refuses only NEW
+     * ones), so a live cell can name a decommissioned place. Saying so is the
+     * "rendered with the archived marker" half of that rule — and it is words
+     * rather than colour, because SPEC-14 forbids colour alone. */
+    await routeHappyPath(page);
+    await page.route(`${API}/schedule/versions/*/grid`, (route) =>
+      json(
+        route,
+        200,
+        grid({
+          cells: [
+            {
+              date: DATES[0],
+              shiftTypeId: SHIFT_DAY,
+              requiredCount: 2,
+              assignments: [
+                assignment({
+                  locationId: LOCATION_ARCHIVED,
+                  locationName: 'Synthetic Closed Ward',
+                  locationArchived: true,
+                }),
+              ],
+              revision: FILLED_REVISION,
+            },
+          ],
+        }),
+      ),
+    );
+
+    await page.goto(GRID_URL);
+    await page.getByTestId('view-table').click();
+    const note = page.getByTestId(`table-cell-${DATES[0] ?? ''}-DAY`);
+    await expect(note).toContainText('At Synthetic Closed Ward.');
+    await expect(note).toContainText('Location archived.');
+    await expectNoAxeViolations(page);
+    await capture(page, 'grid-archived-location', info.project.name);
+  });
+
+  test('a STALE timezone basis is announced, and names the zone to rebuild against', async ({
+    page,
+  }, info) => {
+    /* The explicit staleness surfacing doc 34 §4-F requires. Told HERE rather
+     * than at the publish button, which is the difference between a correction
+     * and a dead end. */
+    await routeHappyPath(page);
+    await page.route(`${API}/schedule/versions/*/grid`, (route) =>
+      json(route, 200, grid({ timezone: 'Australia/Sydney', timezoneStale: true })),
+    );
+
+    await page.goto(GRID_URL);
+    const alert = page.getByTestId('timezone-stale');
+    await expect(alert).toBeVisible();
+    await expect(alert).toHaveAttribute('role', 'alert');
+    await expect(alert).toContainText('Australia/Sydney');
+    await expectNoAxeViolations(page);
+    await capture(page, 'grid-timezone-stale', info.project.name);
+  });
+
+  test('CONTROL: a FRESH basis shows no staleness alert at all', async ({ page }) => {
+    // Without this, the assertion above would pass for a page that always
+    // renders the warning.
+    await routeHappyPath(page);
+    await page.goto(GRID_URL);
+    await expect(page.getByTestId('timezone-stale')).toHaveCount(0);
+  });
+
+  test('the grid names WHERE its zone came from, so a fallback is never disguised', async ({
+    page,
+  }) => {
+    await routeHappyPath(page);
+    await page.goto(GRID_URL);
+    await expect(page.getByText('the group’s current zone')).toBeVisible();
+
+    await page.route(`${API}/schedule/versions/*/grid`, (route) =>
+      json(route, 200, grid({ timezoneSource: 'version-snapshot' })),
+    );
+    await page.reload();
+    await expect(page.getByText('the zone this version was published with')).toBeVisible();
   });
 
   test('the candidate read failing renders an error, not an empty picker', async ({ page }) => {
