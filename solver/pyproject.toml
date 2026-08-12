@@ -4,14 +4,46 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "schedulepoint-solver"
-version = "0.0.0"
-description = "SchedulePoint scheduling worker (skeleton — no solver logic yet)"
-requires-python = ">=3.12"
-# Deliberately empty. OR-Tools is NOT a dependency yet: OPUS-M0-003 is the spike
-# that proves the CP-SAT boundary, and adding the dependency before the spike
-# reports would prejudge its findings (SPEC-15: a gate closed without its spike
-# is reopened).
-dependencies = []
+version = "1.0.0"
+description = "SchedulePoint scheduling worker — RPC boundary and stub solve (OPUS-M4-001)"
+
+# ── Interpreter ──────────────────────────────────────────────────────────────
+#
+# The IMAGE pins Python 3.12 (FAD-10: 3.9 reached end of life in October 2025
+# and receives no security patches), and `Dockerfile.solver` builds `FROM
+# python:3.12-slim-bookworm`.
+#
+# This floor is 3.9 because of the FAD-7 substitution and for no other reason:
+# this machine has no Docker daemon and no Homebrew, so LOCAL execution runs on
+# the host's system interpreter, which is CPython 3.9.6. Declaring `>=3.12` here
+# would make the package uninstallable on the only interpreter available for the
+# local proof, which would replace a recorded, measured substitution with a
+# blocked one.
+#
+# The worker source is therefore written to 3.9 syntax. That is a cost, it is
+# recorded, and it is temporary: the constraint lifts when CI builds the image.
+requires-python = ">=3.9"
+
+# ── Dependencies ─────────────────────────────────────────────────────────────
+#
+# OR-Tools, pinned by EXACT version rather than by range. SPEC-04 §4 makes
+# `solver_version` part of the reproducibility record, and a floating dependency
+# would make that record name something that changes underneath it. The version
+# is the one the SP-C spike measured (EV-M0-SPC).
+#
+# **M4-001 does not import it.** The packet ships the boundary and a stub solve
+# — "stub solver first … before any real constraint model exists" — and
+# `runtime.py` records `stub-only` when the library is absent rather than
+# pretending it was consulted. The pin is here because the IMAGE must carry it
+# (FAD-10) and because M4-002's adapter is the next packet, not because this one
+# uses it.
+#
+# Local execution under FAD-7 runs the module from the source tree
+# (`python3 -m schedulepoint_solver` with this directory as the working
+# directory) and therefore installs nothing — which is why the stub round trip is
+# provable here while the pinned dependency is not resolved until CI builds the
+# image.
+dependencies = ["ortools==9.15.6755"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]

@@ -21,6 +21,7 @@ import { buildHttpHarness, type HttpHarness } from '../support/http.js';
 import { ownedMulti } from '../support/owned-multi.js';
 import { seedRulesForSweep } from '../support/rules.js';
 import { seedLocationsForSweep } from '../support/settings.js';
+import { seedSolverSnapshotsForSweep } from '../support/solver.js';
 import {
   ProbeFalsified,
   contractProblems,
@@ -195,6 +196,57 @@ beforeAll(async () => {
   log(
     `      · OPUS-M3-007: seeded ${String(seededLocations)} location row(s) across three groups ` +
       'for SBX-004 (sweep floor raised)',
+  );
+
+  /* ── OPUS-M4-001: solver input snapshots for the SBX-004 sweep ─────────────
+   *
+   * Migration 0016 registers `solver_input_snapshots` in `TENANT_TABLES` — this
+   * packet RAISES the sweep floor again — and the sweep's non-vacuity check
+   * fails a registered table that is never seen with a visible row. Same
+   * arrangement, same reason.
+   *
+   * **Two groups, not three**, and the asymmetry is deliberate rather than an
+   * omission: assembling a canonical input needs a catalogue, and only Alpha is
+   * provisioned with one (`seed.catalogue: ['alpha']`, which seeds Group One and
+   * its sibling). Two groups is what the cross-GROUP arm actually requires —
+   * rows Group One could see if the group predicate were broken. Extending the
+   * catalogue seed to Beta to make a symmetry nothing needs would change what
+   * every existing Beta assertion is asserting about.
+   *
+   * A snapshot is the single most consequential row in this schema to leak: it
+   * is a description of one group's entire staffing position for one period. */
+  const alphaCatalogue = multi.catalogue('alpha');
+  const alphaShiftType = alphaCatalogue.shiftTypeIds[1];
+  const siblingShiftType = alphaCatalogue.sibling.shiftTypeIds[1];
+  if (alphaShiftType === undefined || siblingShiftType === undefined) {
+    throw new Error('the alpha catalogue seed produced no shift type for the solver sweep');
+  }
+  const seededSnapshots = await seedSolverSnapshotsForSweep(seedRuntime.runner, [
+    {
+      label: 'alpha_one',
+      organizationId: alpha.organizationId,
+      groupId: alpha.groupOne.id,
+      membershipId: alpha.users.scheduler.membershipId,
+      userId: alpha.users.scheduler.id,
+      shiftTypeId: alphaShiftType,
+      // 2039, far from every other fixture window in this file.
+      startDate: '2039-01-03',
+      endDate: '2039-01-09',
+    },
+    {
+      label: 'alpha_two',
+      organizationId: alpha.organizationId,
+      groupId: alphaCatalogue.sibling.groupId,
+      membershipId: alpha.users.groupTwoScheduler.membershipId,
+      userId: alpha.users.groupTwoScheduler.id,
+      shiftTypeId: siblingShiftType,
+      startDate: '2039-02-07',
+      endDate: '2039-02-13',
+    },
+  ]);
+  log(
+    `      · OPUS-M4-001: seeded ${String(seededSnapshots)} solver input snapshot(s) across two ` +
+      'groups for SBX-004 (sweep floor raised)',
   );
 }, 240_000);
 
@@ -684,7 +736,24 @@ describe('the G-ARCH tenancy subset', () => {
     //
     // Both packets' seeding runs in this file, which is what keeps all 44
     // non-vacuous: `seedRulesForSweep` (M3-002) and `seed.schedule` (M3-003).
-    expect(expectedTables.length, 'the tenant registry shrank').toBeGreaterThanOrEqual(44);
+    //
+    // 44 → 47 across the M4-000 family (`staffing_set_versions` from 0012,
+    // `rule_revisions` from 0015, and `locations` already counted), then
+    // 47 → 48 by OPUS-M4-001: migration 0016 adds `solver_input_snapshots`,
+    // kept non-vacuous by `seedSolverSnapshotsForSweep` above. A floor that lags
+    // the registry stops noticing a removal, which is the only thing it is for.
+    //
+    // ## TWO DIFFERENT COUNTS, and confusing them is easy
+    //
+    // This floor is over the REGISTRY — `TENANT_TABLES.length`, currently **48**.
+    // The SBX-004 sweep reports a smaller number, currently **47**, because
+    // `probeUnder` skips the one table whose scope is `through-membership`:
+    // `users` is global by PO-DEC-06 and reached THROUGH a membership, so
+    // "wrong tenant" is not a column comparison for it and it gets its own
+    // dedicated probe instead. So `sweep = registry − 1`, permanently, and a
+    // runner line reading "47 of 47 tables observed" against a 48-entry registry
+    // is the two counts agreeing rather than disagreeing.
+    expect(expectedTables.length, 'the tenant registry shrank').toBeGreaterThanOrEqual(48);
     expect(
       [...(sweep?.tables ?? [])].sort(),
       `tables exercised: ${sweep?.tables.join(', ')}`,

@@ -51,6 +51,68 @@ export {
   type ProviderBoundaryVerdict,
 } from './ports/provider-boundary.js';
 
+/* ── OPUS-M4-001: the solver port and the canonical input snapshot ────────────
+ *
+ * SPEC-04 §§1–2 and §3.4, doc 35 §6a. Interfaces and PURE decisions only — the
+ * subprocess, the protocol bytes, the MAC and the kill are all in
+ * `apps/api/src/solver/`, because SPEC-04 §1 requires that **no domain module
+ * imports the solver or knows it is Python**.
+ *
+ * Two files, two questions: `solver-port.ts` is "what may I ask, and may I
+ * believe the answer?"; `solver-snapshot.ts` is "what is the problem, and is it
+ * posable at all?".
+ *
+ * The barrel addition follows the 000A/000B/000C precedent for `ports/**` — the
+ * package exposes exactly one entry point, so a new port is unreachable without
+ * it. Additive: no existing export is changed, removed or reordered. */
+export {
+  DishonestSolverOutcomeError,
+  MAX_SOLVER_RESPONSE_BYTES,
+  SOLVER_PROTOCOL_VERSION,
+  SOLVER_SNAPSHOT_SCHEMA_VERSION,
+  SOLVER_STATUSES,
+  SUPPORTED_SOLVER_PROTOCOL_VERSIONS,
+  SolverResponseRejectedError,
+  TERMINATION_REASONS,
+  isTerminalOutcomeHonest,
+  reproducibilityMode,
+  solverResponseVerdict,
+  type SolveOutcome,
+  type SolveRequestSpec,
+  type SolverCandidateAssignment,
+  type SolverParameters,
+  type SolverPort,
+  type SolverResponseRefusal,
+  type SolverResponseVerdict,
+  type SolverRuntimeRecord,
+  type SolverStatus,
+  type TerminationReason,
+} from './ports/solver-port.js';
+
+export {
+  SNAPSHOT_CONSTITUENT_KINDS,
+  SNAPSHOT_REFUSAL_REASONS,
+  SnapshotRefusedError,
+  snapshotRefusals,
+  type SnapshotConstituent,
+  type SnapshotConstituentKind,
+  type SnapshotDemandCell,
+  type SnapshotEligibility,
+  type SnapshotFixedAssignment,
+  type SnapshotHolding,
+  type SnapshotLocation,
+  type SnapshotParticipant,
+  type SnapshotRefusal,
+  type SnapshotRefusalReason,
+  type SnapshotRevisionExpectation,
+  type SnapshotRuleRevision,
+  type SnapshotShiftType,
+  type SnapshotTimezone,
+  type SnapshotWeekdayTarget,
+  type SnapshotWorkProfile,
+  type SolverInputSnapshotDocument,
+} from './ports/solver-snapshot.js';
+
 export type { AlertSeverity, AlertSink, OperationalAlert } from './ports/alerts.js';
 export type { EnqueuedJob, FrozenJobContext, JobOutcome, JobQueue } from './ports/job-queue.js';
 export type { Principal, PrincipalResolution, PrincipalResolver } from './ports/principal.js';

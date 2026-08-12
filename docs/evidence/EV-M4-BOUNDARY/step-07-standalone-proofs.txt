@@ -1,0 +1,12 @@
+canonical-input.test.ts:  Test Files  1 passed (1)       Tests  16 passed (16) 
+migration-0016-populated-cycle.test.ts:  Test Files  1 passed (1)       Tests  1 passed (1) 
+provider-boundary-solver.test.ts:  Test Files  1 passed (1)       Tests  5 passed (5) 
+response-refusals.test.ts:  Test Files  1 passed (1)       Tests  18 passed (18) 
+rpc-auth.test.ts:  Test Files  1 passed (1)       Tests  8 passed (8) 
+snapshot-immutability.test.ts:  Test Files  1 passed (1)       Tests  5 passed (5) 
+snapshot-store.test.ts:  Test Files  1 passed (1)       Tests  6 passed (6) 
+worker-invariants.test.ts:  Test Files  1 passed (1)       Tests  9 passed (9) 
+worker-lifecycle.test.ts:  Test Files  1 passed (1)       Tests  5 passed (5) 
+worker-round-trip.test.ts:  Test Files  1 passed (1)       Tests  7 passed (7) 
+sbx.test.ts:  Test Files  1 passed (1)       Tests  17 passed (17) 
+EXIT=0

@@ -109,3 +109,13 @@ export * from './settings/index.js';
  * claiming to verify it.
  */
 export * from './audit/index.js';
+
+/**
+ * OPUS-M4-001 — the solver runtime boundary (SPEC-04 §§1–2, §3.4, §4). The
+ * canonical input snapshot's wire shape and the solve outcome. Read that
+ * module's header before adding to it: every object is `.strict()` because the
+ * canonical input hash covers the whole document, and the holding shape
+ * deliberately omits `evidence_ref` so `SENSITIVE-PII` free text cannot reach
+ * the snapshot table or the worker.
+ */
+export * from './solver/index.js';

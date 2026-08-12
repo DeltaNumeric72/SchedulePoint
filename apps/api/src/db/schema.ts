@@ -1221,4 +1221,21 @@ export const TENANT_TABLES: readonly TenantTable[] = [
    * Nothing seeds this table directly, and nothing should — a revision the
    * fixture could write is a revision the application could forge. */
   { name: 'rule_revisions', scope: 'organization-and-group' },
+
+  /* ── `migrations/0016_solver_input_snapshots.sql` (OPUS-M4-001) ─────────────
+   *
+   * Registered in the SAME change as the migration that creates it (packet 30
+   * §7.2's rule, still binding). `organization-and-group`, and emphatically so:
+   * a snapshot is a description of one group's entire staffing position for one
+   * period, which makes it the single most consequential row in this schema to
+   * leak. It carries both tenant columns and V-09's conjunctive group predicate,
+   * with no organization-scoped policy.
+   *
+   * Non-vacuity in the sweeps is established by
+   * `apps/api/test/support/solver.ts::seedSolverSnapshotsForSweep`, which
+   * assembles and persists a snapshot in each swept group **through the
+   * production path** — the same discipline `seedRulesForSweep` follows, and for
+   * the same reason: a snapshot the fixture could write directly is a snapshot
+   * the application could forge. */
+  { name: 'solver_input_snapshots', scope: 'organization-and-group' },
 ] as const;

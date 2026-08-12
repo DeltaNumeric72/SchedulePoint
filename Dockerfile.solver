@@ -1,0 +1,74 @@
+# SchedulePoint — solver worker image (image 3 of 3).
+#
+# ############################################################################
+# # AUTHORED, NOT BUILT in this environment (FAD-7: no Docker daemon on this  #
+# # machine). Building it and recording its digest is the standing CI         #
+# # condition FAD-10 attached to E0 closure, and doc 35 §6a restates.         #
+# # Every claim below about the image's CONTENT is a claim about this file;   #
+# # no claim is made about a built artifact until CI records a digest.        #
+# ############################################################################
+#
+# The scheduling worker (ADR-0006 / ADR-0020 / SPEC-04 / SPEC-10 §2). Python
+# because CP-SAT is (verified fact S-04: OR-Tools ships official bindings for
+# C++, Python, Java and C# — not Node.js). A SEPARATE image because its resource
+# profile, its lifetime and — most importantly — its **trust surface** differ
+# from the application's.
+#
+# Non-negotiable properties of this image, each cheaper to establish now than to
+# retrofit:
+#
+#   * **No database credential and no database client.** The worker receives a
+#     problem and returns a solution (SPEC-04 §1.1, S-15t). It never reads tenant
+#     data, which is why it needs no unit of work and cannot breach tenant
+#     isolation. `schedulepoint_solver/egress_guard.py` makes that a runtime
+#     property rather than a claim: it refuses to solve in a process where a
+#     database driver is resident, and replaces the socket constructors with
+#     raising stubs before the solve begins.
+#   * **One solve per subprocess**, so a cancel can become a kill and a kill is
+#     clean (SPEC-04 §2 mechanism 3).
+#   * **Python 3.12.** 3.9 reached end of life in October 2025 and receives no
+#     security patches; FAD-10 pins 3.12 for the production image. The FAD-7
+#     substitution runs the worker on the host's 3.9 interpreter for LOCAL
+#     execution only, and that difference is recorded rather than smoothed over
+#     — every number measured under 3.9 is a number measured under 3.9.
+#   * **OR-Tools pinned by exact version**, not by range. SPEC-04 §4 makes the
+#     library version part of the reproducibility record; a floating dependency
+#     would make the record name something that changes underneath it.
+#
+# The image digest is what SPEC-04 §4 actually records (`solver_image_digest`),
+# and SPEC-10 §8 makes retention-by-digest a named operational cost. A build that
+# cannot name its image cannot be reproduced, and the worker says so honestly:
+# with no `SP_SOLVER_IMAGE_DIGEST` in the environment it records `venv:<path>`
+# rather than fabricating one.
+
+FROM python:3.12-slim-bookworm AS base
+WORKDIR /solver
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+FROM base AS deps
+COPY solver/pyproject.toml ./
+# `pip install .` resolves the pinned dependency set from pyproject.toml, where
+# OR-Tools is pinned to the exact version the SP-C spike measured.
+RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir .
+
+FROM base AS runtime
+COPY --from=deps /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY solver/schedulepoint_solver ./schedulepoint_solver
+
+# Non-root, with a fixed uid so a read-only root filesystem and a mounted
+# workdir behave predictably across environments.
+RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin solver
+USER solver
+
+# The worker reads ONE request on stdin and writes ONE response on stdout, then
+# exits. There is no server loop and no port: the envelope is transport-neutral
+# (SPEC-04 §1.1) and moves to an authenticated HTTP channel unchanged when the
+# worker becomes its own service. Until then the parent owns the process
+# lifetime, which is what makes SPEC-04 §2's mechanism 3 enforceable.
+#
+# `SP_SOLVER_RPC_SECRET` and `SP_SOLVER_RPC_KEY_ID` are supplied by the
+# deployment. **There is deliberately no default**: a worker that cannot find its
+# secret refuses every request rather than accepting everything.
+ENTRYPOINT ["python", "-m", "schedulepoint_solver"]

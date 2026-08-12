@@ -938,6 +938,194 @@ const CASES = [
       'apps/api/test/schedule/membership-semantics.test.ts',
     ],
   },
+
+  /* ── OPUS-M4-001 — the solver runtime boundary (doc 35 §6a) ────────────────
+   *
+   * Five cases. The first is the STATIC gate extended to the real solver port —
+   * 000C built the boundary before any provider existed, and this is the first
+   * time the gate's population is the thing it was built for rather than a
+   * probe. The rest attack the controls the packet's test row names, and each
+   * one is chosen so that **only the intended assertion fails**: a violation
+   * that breaks everything proves nothing about which control was load-bearing.
+   * ────────────────────────────────────────────────────────────────────────── */
+  {
+    id: 'solver-provider-in-transaction',
+    gate: 'the SOLVER port is refused inside a unit of work (SPEC-12 U-07, statically)',
+    violation: 'the solver dispatch moved INSIDE the assembly transaction in build-input.ts',
+    /* `build-input.ts` is the one place the two phases meet, and the seam is a
+     * line: assemble inside `runner.run(...)`, dispatch after it returns. Moving
+     * the dispatch into the callback is the exact defect SPEC-12 U-07 exists to
+     * prevent — a ninety-second solve holding a period-wide lock — and it is the
+     * shape the static gate CAN see, which is why it is the gate's arm.
+     *
+     * The runtime arm has its own proof (`provider-boundary-solver.test.ts`
+     * refuses a deferred call the scan cannot follow) and its own mutation
+     * control, so the two halves are falsified independently. */
+    patch: [
+      {
+        file: 'apps/api/src/solver/build-input.ts',
+        find:
+          '  const snapshot = await createBuildInput(runner, context, options);\n' +
+          '  const outcome = await dispatchBuild(context, snapshot, options);',
+        replace:
+          '  const snapshot = await runner.run(context, async () => {\n' +
+          '    const inner = await createBuildInput(runner, context, options);\n' +
+          '    await solveOnWorker(\n' +
+          '      {\n' +
+          '        protocolVersion: 1,\n' +
+          '        organizationId: context.organizationId,\n' +
+          "        groupId: context.groupId ?? '',\n" +
+          '        buildRunId: options.buildRunId,\n' +
+          '        correlationId: context.correlationId,\n' +
+          '        snapshotId: inner.snapshotId,\n' +
+          '        canonicalInputHash: inner.canonicalInputHash,\n' +
+          '        snapshotPayload: inner.document,\n' +
+          '        parameters: options.parameters,\n' +
+          '      },\n' +
+          '      options,\n' +
+          '    );\n' +
+          '    return inner;\n' +
+          '  });\n' +
+          '  const outcome = await dispatchBuild(context, snapshot, options);',
+      },
+    ],
+    greenCommand: ['run', 'gate:provider-boundary'],
+    redCommand: ['run', 'gate:provider-boundary'],
+  },
+  {
+    id: 'solver-snapshot-immutability',
+    gate: 'a solver input snapshot cannot be rewritten by ANYONE (0016, doc 35 §6a)',
+    violation: 'the append-only guard never attached, and UPDATE granted to the runtime roles',
+    /* Both halves at once, deliberately. The packet asks for "no runtime UPDATE/
+     * DELETE grant **and** a guard trigger", and removing only one of them would
+     * leave the other still refusing — the case would go red for the wrong
+     * reason and would say nothing about whether both controls are load-bearing.
+     *
+     * The api project's global setup runs the migration cycle against a freshly
+     * initialised cluster on every `vitest run`, so patching the migration file
+     * patches the schema the probes actually meet. */
+    patch: [
+      {
+        file: 'apps/api/migrations/0016_solver_input_snapshots.sql',
+        find:
+          'CREATE TRIGGER solver_input_snapshots_append_only\n' +
+          '    BEFORE UPDATE OR DELETE ON solver_input_snapshots\n' +
+          '    FOR EACH ROW EXECUTE FUNCTION app_guard_append_only();',
+        replace: '-- red case: the append-only guard is never attached',
+      },
+      {
+        file: 'apps/api/migrations/0016_solver_input_snapshots.sql',
+        find: 'GRANT SELECT, INSERT ON solver_input_snapshots TO app_runtime, app_worker;',
+        replace:
+          'GRANT SELECT, INSERT, UPDATE, DELETE ON solver_input_snapshots TO app_runtime, app_worker;',
+      },
+    ],
+    greenCommand: ['exec', 'vitest', 'run', 'apps/api/test/solver/snapshot-immutability.test.ts'],
+    redCommand: ['exec', 'vitest', 'run', 'apps/api/test/solver/snapshot-immutability.test.ts'],
+  },
+  {
+    id: 'solver-outcome-honesty',
+    gate: 'a cancelled solve is CANCELLED, never a misreported timeout (EV-M0-SPC H-6)',
+    violation: 'the status/termination honesty rule always agrees',
+    /* The most consequential control in the boundary, and the one a reviewer
+     * would most expect to be decorative. Every other refusal protects the
+     * process; this one protects the scheduler's judgement — a worker reporting
+     * `CANCELLED` with reason `deadline` is not malformed, it is a *plausible
+     * lie*, and a scheduler told their cancel timed out raises the budget.
+     *
+     * With the rule always true, the ten impossible pairs are accepted and the
+     * hostile `dishonest` worker's response is believed. */
+    patch: [
+      {
+        file: 'packages/domain/src/ports/solver-port.ts',
+        find:
+          'export function isTerminalOutcomeHonest(\n' +
+          '  status: SolverStatus,\n' +
+          '  reason: TerminationReason,\n' +
+          '): boolean {\n' +
+          '  switch (status) {',
+        replace:
+          'export function isTerminalOutcomeHonest(\n' +
+          '  status: SolverStatus,\n' +
+          '  reason: TerminationReason,\n' +
+          '): boolean {\n' +
+          '  if (String(status) !== String(reason)) return true; // red case\n' +
+          '  switch (status) {',
+      },
+    ],
+    /* The domain is consumed from `dist/`, so the patched source must be BUILT
+     * before the arm runs — the rebuild-between-patch-and-run lesson 000C's
+     * composition recorded. Both arms build, so the GREEN arm is equally honest. */
+    greenCommand: [
+      'exec',
+      'sh',
+      '-c',
+      'tsc -b packages/domain && vitest run apps/api/test/solver/response-refusals.test.ts',
+    ],
+    redCommand: [
+      'exec',
+      'sh',
+      '-c',
+      'tsc -b packages/domain && vitest run apps/api/test/solver/response-refusals.test.ts',
+    ],
+    /* Reverting the SOURCE is not enough: the RED arm compiled the violation
+     * into `packages/domain/dist`, which every later case consumes. Without this
+     * the patched decision would survive the revert and silently weaken the rest
+     * of the run — a red case leaving a live violation behind is strictly worse
+     * than no red case. */
+    restore: [['exec', 'tsc', '-b', 'packages/domain', '--force']],
+  },
+  {
+    id: 'solver-rpc-request-auth',
+    gate: 'the WORKER refuses a request it cannot authenticate (SPEC-04 §1.1)',
+    violation: 'the request MAC comparison removed from the Python worker',
+    /* SPEC-04 §1.1 requires mutual authentication and that "the worker rejects
+     * unauthenticated requests". Without the comparison, anyone who can reach
+     * the channel can spend a solve or feed one a problem — and every other
+     * solver proof stays green, because they all sign correctly. */
+    /* RE-ANCHORED after the B-1 repair. The arm used to neuter
+     * `sign(request, secret, response=False)` — a function that no longer
+     * exists, because the MAC now covers the received BYTES rather than a
+     * re-derived canonical form. The violation must remove the equivalent check
+     * in the NEW code or the arm stops proving what its name says, so it now
+     * neuters the raw-byte comparison itself. */
+    patch: [
+      {
+        file: 'solver/schedulepoint_solver/auth.py',
+        find:
+          '    if not hmac.compare_digest(expected, presented):\n'
+          + '        raise AuthenticationError()\n'
+          + '    return envelope',
+        replace: '    # red case: the request MAC is computed and never compared\n    return envelope',
+      },
+    ],
+    greenCommand: ['exec', 'vitest', 'run', 'apps/api/test/solver/rpc-auth.test.ts'],
+    redCommand: ['exec', 'vitest', 'run', 'apps/api/test/solver/rpc-auth.test.ts'],
+  },
+  {
+    id: 'solver-response-auth',
+    gate: 'the PLATFORM refuses a response it cannot authenticate (SPEC-04 §1.1)',
+    violation: 'the response MAC verification always agrees',
+    /* The other direction, and the one a bearer token would never have had. A
+     * substituted worker answers and its schedule is believed; a captured
+     * response is replayed against a later solve of the same problem, where the
+     * canonical input hash matches and nothing else notices. */
+    /* RE-ANCHORED after the B-1 repair, same reason: `verifyResponse` became
+     * `verifyResponseFrame` and now compares a MAC over the received body bytes.
+     * Neutering the final comparison keeps every shape check in place — so the
+     * arm falsifies the AUTHENTICATION specifically, not the parsing around it. */
+    patch: [
+      {
+        file: 'apps/api/src/solver/rpc-envelope.ts',
+        find:
+          "  return timingSafeEqual(Buffer.from(presented, 'utf8'), Buffer.from(expected, 'utf8'));",
+        replace:
+          '  return expected.length > 0; // red case: the response MAC is computed and never compared',
+      },
+    ],
+    greenCommand: ['exec', 'vitest', 'run', 'apps/api/test/solver/rpc-auth.test.ts'],
+    redCommand: ['exec', 'vitest', 'run', 'apps/api/test/solver/rpc-auth.test.ts'],
+  },
   {
     id: 'request-budget-over',
     gate: 'requests per interaction (SP-HR-2)',

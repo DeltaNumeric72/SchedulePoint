@@ -251,39 +251,85 @@ describe('migration 0014 over a populated database', () => {
       `populated: ${CENSUS.map((entry) => `${entry.table}=${String(before[entry.table]?.count)}`).join(' ')}`,
     );
 
-    /* ── 2. DOWN, as far as 0014 — the real runner ───────────────────────────
+    /* ── 2. DOWN, to a NAMED TARGET — never to a count ───────────────────────
      *
-     * COMPOSED at the 000C integration. As authored this was `count: 1`,
-     * because 0014 was then the last migration on disk. 0015 now follows it, so
-     * `count: 1` reversed 0015 and the assertion below failed — and the failure
-     * was worse than cosmetic: it threw BEFORE step 3 re-applied anything, so
-     * every later test in the run met a schema without 0015 and died on
-     * `column "operation_type" does not exist`. One stale assumption, four
-     * downstream failures.
+     * ## The defect this has now caused twice
      *
-     * `count: 2` reverses 0015 then 0014, which is what "reverse 0014 over a
-     * populated database" actually requires — a migration cannot be rolled back
-     * out from under the one above it. The assertion names 0014 explicitly
-     * rather than trusting a position, so the next migration to land cannot
-     * repeat this. Reversing 0015 over the same populated rows is extra
-     * evidence, not a cost. */
-    const down = await migrate('down', { count: 2 });
-    expect(down.applied, 'both migrations above and including 0014 must come down').toHaveLength(2);
-    expect(down.applied.some((name) => /0014/.test(name)), '0014 must be among them').toBe(true);
+     * As authored the step was `count: 1`, because 0014 was then the last
+     * migration on disk. 0015 landed above it at the 000C composition and
+     * `count: 1` reversed 0015 instead — the assertion below failed, and it
+     * failed BEFORE step 3 re-applied anything, so every later file in the run
+     * met a schema without 0015 and died on `column "operation_type" does not
+     * exist`. One stale assumption, four downstream failures.
+     *
+     * The repair then was `count: 2`, which is the same mistake with a bigger
+     * number. OPUS-M4-001's `0016` landed above 0015 and `count: 2` reversed
+     * **0016 and 0015, never touching 0014 at all** — the same assertion failed
+     * at the same line, the re-up was skipped again, and this time nineteen
+     * tests across nine files died on `operation_type` and
+     * `relation "solver_input_snapshots" does not exist`.
+     *
+     * ## The durable fix: the LOOP'S TERMINATION CONDITION IS THE NAME
+     *
+     * Roll down one migration at a time until 0014 has come down. There is no
+     * count to go stale, no ledger read to need a grant, and no position to
+     * assume: whatever lands above 0014 next is simply reversed on the way past.
+     * This is FAD-33's intent — a named target, not a distance.
+     *
+     * ## And the re-up is unconditional
+     *
+     * The damage was never the wrong count; it was that an assertion BETWEEN the
+     * down and the up threw and left the schema short for the rest of the run.
+     * Step 3 is therefore in a `finally`, so a future failure anywhere in this
+     * cycle costs one failing test instead of a run-wide cascade. */
+    let up: readonly string[] = [];
+    let midway: Record<string, { count: number; digest: string }> | undefined;
+    const down: string[] = [];
+    try {
 
-    // The rows are still there with the migration reversed: this is the moment a
-    // cascade or a rewrite would already have destroyed them.
-    const midway = await census();
+    /* **The loop runs INSIDE the try, and that placement is the whole point.**
+     *
+     * The first repair moved the down-step from a positional `count` to a named
+     * target and put the re-up in a `finally` — but left the loop's own
+     * "ran out of migrations" `throw` OUTSIDE that try. So the one failure mode
+     * the loop introduces was the one the `finally` did not cover: a target that
+     * never comes down aborts with migrations already reversed and never
+     * re-applied, which is the exact cluster-poisoning signature the repair
+     * claimed to close. The independent review proved it by mutating the target
+     * to `/0099/`.
+     *
+     * Everything between the first `migrate('down')` and the re-up is therefore
+     * inside the try, and `down.length` is read in the `finally` — so however
+     * far the loop got, exactly that many migrations go back up. */
+      while (!down.some((name) => /0014/.test(name))) {
+        const step = await migrate('down', { count: 1 });
+        if (step.applied.length === 0) {
+          throw new Error('ran out of migrations before reaching 0014 — the ledger is empty');
+        }
+        down.push(...step.applied);
+      }
+      expect(
+        down.some((name) => /0014/.test(name)),
+        '0014 must be among the reversed migrations',
+      ).toBe(true);
+
+      // The rows are still there with the migration reversed: this is the moment
+      // a cascade or a rewrite would already have destroyed them.
+      midway = await census();
+    } finally {
+      /* ── 3. UP again — ALWAYS, even if the census above threw ──────────────
+       * `count: down.length` is derived from what actually came down, so it
+       * cannot disagree with it. */
+      up = (await migrate('up', { count: down.length })).applied;
+    }
+
     for (const entry of CENSUS) {
-      expect(midway[entry.table]?.count, `${entry.table} after down`).toBe(
+      expect(midway?.[entry.table]?.count, `${entry.table} after down`).toBe(
         before[entry.table]?.count,
       );
     }
-
-    /* ── 3. UP again ──────────────────────────────────────────────────────── */
-    const up = await migrate('up', { count: 2 });
-    expect(up.applied, 'the same migrations must go back up').toHaveLength(2);
-    expect(up.applied.some((name) => /0014/.test(name)), '0014 must be among them').toBe(true);
+    expect(up, 'the same migrations must go back up').toHaveLength(down.length);
+    expect(up.some((name) => /0014/.test(name)), '0014 must be among them').toBe(true);
 
     /* ── 4. Every row 0014 touches is byte-identical ───────────────────────── */
     const after = await census();
@@ -293,7 +339,10 @@ describe('migration 0014 over a populated database', () => {
         before[entry.table]?.digest,
       );
     }
-    log(`cycle: ${String(down.applied[0])} down and up; every census digest identical`);
+    log(
+      `cycle: ${String(down.length)} migration(s) down to 0014 (${down.join(', ')}) and back up; ` +
+        'every census digest identical',
+    );
 
     /* ── 5. The two NAMED exceptions, asserted rather than glossed ─────────── */
     const basisAfter = await run(async (uow) =>

@@ -36,6 +36,7 @@ import {
 import { withSimulatedPoolerFault } from '../support/pooler-simulator.js';
 import { ownedMulti } from '../support/owned-multi.js';
 import { seedRulesForSweep } from '../support/rules.js';
+import { seedSolverSnapshotsForSweep } from '../support/solver.js';
 import { seedLocationsForSweep } from '../support/settings.js';
 
 /**
@@ -229,6 +230,64 @@ beforeAll(async () => {
       membershipId: multi().beta.users.scheduler.membershipId,
       grantorMembershipId: multi().beta.users.organizationAdmin.membershipId,
       label: 'beta_one',
+    },
+  ]);
+
+  /* ── OPUS-M4-001: solver input snapshots, so 0016's table is not vacuous ───
+   *
+   * Migration 0016 registers `solver_input_snapshots` in `TENANT_TABLES`, and
+   * every sweep in this file refuses a REGISTERED table it never saw a row in —
+   * "0 wrong" over an empty table means nothing, which is exactly what these
+   * probes exist to catch.
+   *
+   * Seeded HERE rather than in `provisionMulti`, for the reason the two blocks
+   * above give: `test/support/multi.ts` is the single fixture owner, and
+   * `test/support/solver.ts` is this packet's own file. Same arrangement,
+   * third time.
+   *
+   * `seedSolverSnapshotsForSweep` goes through the PRODUCTION path —
+   * `assembleCanonicalInput`, then `persistCanonicalInput` — so the row is one
+   * the application can actually produce. A snapshot the fixture wrote directly
+   * would be a snapshot the application could forge, and the table's entire
+   * value is that it cannot be. (The `rule_revisions` precedent: its rows arrive
+   * as a side effect of `seedRulesForSweep`, never by direct insert.)
+   *
+   * **Alpha's two groups only, and the asymmetry is deliberate rather than an
+   * omission.** Assembling a canonical input needs a catalogue, and only Alpha
+   * is provisioned with one — `seed.catalogue: ['alpha']` seeds Group One and
+   * its sibling, and `sibling.groupId` IS `alpha.groupTwo.id`. Two groups is
+   * what the cross-GROUP arm actually requires: rows Group One could see if the
+   * group predicate were broken. The cross-ORGANIZATION arm asks whether Alpha's
+   * context can see rows it should not, and Alpha's rows are precisely what Beta
+   * must not see — so Beta needs none. Extending the catalogue seed to Beta to
+   * manufacture a symmetry nothing needs would change what every existing Beta
+   * assertion is asserting about. */
+  const solverCatalogue = multi.catalogue('alpha');
+  const solverShiftType = solverCatalogue.shiftTypeIds[1];
+  const solverSiblingShiftType = solverCatalogue.sibling.shiftTypeIds[1];
+  if (solverShiftType === undefined || solverSiblingShiftType === undefined) {
+    throw new Error('the alpha catalogue seed produced no shift type for the solver sweep');
+  }
+  await seedSolverSnapshotsForSweep(runtime.runner, [
+    {
+      label: 'alpha_one',
+      organizationId: multi().alpha.organizationId,
+      groupId: multi().alpha.groupOne.id,
+      membershipId: multi().alpha.users.scheduler.membershipId,
+      userId: multi().alpha.users.scheduler.id,
+      shiftTypeId: solverShiftType,
+      startDate: '2039-05-02',
+      endDate: '2039-05-08',
+    },
+    {
+      label: 'alpha_two',
+      organizationId: multi().alpha.organizationId,
+      groupId: solverCatalogue.sibling.groupId,
+      membershipId: multi().alpha.users.groupTwoScheduler.membershipId,
+      userId: multi().alpha.users.groupTwoScheduler.id,
+      shiftTypeId: solverSiblingShiftType,
+      startDate: '2039-06-06',
+      endDate: '2039-06-12',
     },
   ]);
 }, 180_000);

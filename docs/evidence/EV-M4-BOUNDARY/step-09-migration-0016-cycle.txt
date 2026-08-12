@@ -1,0 +1,4 @@
+      ·       · reversed 1 migration(s) to reach 0016: 0016_solver_input_snapshots
+      ·       · snapshots do not survive the drop, and that is what dropping a table means
+      ·       · MUTATION CONTROL: hash CHECK and append-only guard both enforcing after the cycle
+      Tests  1 passed (1)
