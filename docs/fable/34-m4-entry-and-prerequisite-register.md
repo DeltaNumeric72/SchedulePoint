@@ -44,6 +44,25 @@ Every entry below is a functional prerequisite the solver pipeline directly cons
 
 **Closure record (2026-08-10):** entries **A** and **B** are CLOSED by OPUS-M4-000A (accepted & merged `94af3c5`, evidence EV-M4-INPUT-A, rulings FAD-28/29/30; migrations 0012+0013). The verdict's solver-input and independent-validation consumers land in M4-001/002 against the frozen `packages/domain/src/eligibility` module. Entries C–H remain open, owned by 000B (C, E, F) and 000C (D, G, H).
 
+**Closure record (2026-08-12):** entries **C, E, F** are CLOSED by OPUS-M4-000B (accepted & merged `a614f7e`, evidence EV-M4-INPUT-B, rulings FAD-31; migration 0014) and entries **D, G, H** by OPUS-M4-000C (accepted & merged `323d576`, evidence EV-M4-INPUT-C, rulings FAD-32/33; migration 0015). **All eight register entries are closed; M4-000 is complete.** §4a below records the exit-condition check.
+
+### §4a — M4-000 exit-condition check (2026-08-12, against main `323d576` after the final post-merge battery)
+
+| Exit condition (verbatim from §4's authorization list) | Evidence |
+|---|---|
+| All M4-000 tests pass | Post-merge battery on main: check **15/15 gates** (unit 129 files / 1700 tests), exit 0 |
+| Relational consistency is database-proven | 0014's 11 composite FKs + 6 invariant triggers, each with raw-SQL red cases incl. FK-alone arms (EV-M4-INPUT-B `graph-invariants` 21/21); reviewer forgery probes 11/11 HELD |
+| Demand replacement correct under concurrency | EV-M4-INPUT-A demand races (12-round, both editors) + reviewer interleavings (already-written aggregates, RMW straddling commit, replay, 3-writer) all refused the union |
+| Qualification/profile input selection deterministic | S-03 in-force loader as sole selector (loader-is-the-only-selector scan; the S-01-class duplicate in review-identity caught by that scan and routed through the loader); shared verdict FAD-28 |
+| Rule registry generated and internally consistent | Generated from code: 30 kinds, 6/24 disjoint, 11 one-ruling-away, RK-RULING-01..11; hand-edit caught by gate (red case); three step-06 count corrections ratified FAD-32 |
+| Schedule-graph inconsistencies refused | Same as relational consistency + V-15c both halves + D-15 interactions (deferred guard, SET CONSTRAINTS/savepoint defeat attempts HELD) |
+| Locations and timezone semantics present in canonical input | 0014 `shifts.location_id` group-qualified FK, archived guard, `timezone_basis`/`tzdb_version` on versions, R-B4/R-B4a/R-B5/R-B6/R-B7 (FAD-31); consumed by M4-001's snapshot per its finalized packet |
+| Provider-inside-transaction checks active and falsifiable | 000C: static gate (3 classes, mutation diagonal) + runtime guard (fail-closed; closure/dynamic-import/lookup-table attacks HELD; post-commit scheduling refused) + 4 red-case arms 38/38 |
+| Migration cycle passes | `0001..0015` up→down→up→down→up CLEAN on main (post-merge run, exit 0) |
+| Full existing battery green | Post-merge on main: red-cases **38/38** · fixture-regression **116/116** · SBX 6/6, 322 readings, 0 wrong-tenant, **46/46 tables** |
+
+**The real solver packet (OPUS-M4-001) may issue.** Its finalized packet is doc 35 §6a.
+
 ### A. Weekday demand
 Current state: `shift_type_weekday_demand` (catalogue defaults, PUT whole-set per shift type) and `schedule_requirements` (period instances, PUT whole-set per period). ⚑ Neither editor exposes an aggregate consistency mechanism (`expectedVersion`); concurrent replacements can interleave; the editors do not prove load-before-edit; a no-op save's audit posture must match FAD-24 (no-op writes unaudited, with a control). Required: true atomic whole-set replacement; one documented canonical rule for omitted entries; concurrency-controlled replacement that cannot produce an unintended union; open-then-save-unchanged never resets values; no-op not recorded as a change; I-10 preserved.
 
