@@ -39,10 +39,11 @@ import type { Database } from '../../db/schema.js';
 import { isPostgresError, PG_ERRORS, pgFailureLogFields } from '../../db/pg-errors.js';
 import { differenceByIdentity, type DiffSnapshot, type VersionDifference } from '../../schedule/diff.js';
 import { ScheduleDeniedError, SchedulePreconditionError } from '../../schedule/errors.js';
-import { TimezoneBasisStaleError } from '../../schedule/timezone.js';
+import { assertTimezoneBasisFresh, TimezoneBasisStaleError } from '../../schedule/timezone.js';
 import { findHardRuleFindings } from '../../schedule/hard-rule-revalidation.js';
 import { publishRevert, publishVersion } from '../../schedule/publication.js';
 import { calendarDate, digestRows } from '../../schedule/render.js';
+import { materialInputDigest } from '../../schedule/review-identity.js';
 import * as schedule from '../../schedule/service.js';
 import { requireTenantContext } from '../context/middleware.js';
 import { sendNotFound } from '../context/responses.js';
@@ -634,12 +635,30 @@ interface SnapshotRow {
   is_pinned: boolean;
   override_reason: string | null;
   shift_type_id: string;
+  /* OPUS-M4-000C: the material dimensions the shared change definition covers. */
+  location_id: string | null;
+  credited_membership_id: string | null;
+  credit_weight: string | null;
 }
 
 async function readSnapshots(uow: Uow, versionId: string): Promise<SnapshotRow[]> {
   return (await (uow.query as Kysely<Database>)
     .selectFrom('assignment_snapshots')
     .innerJoin('shifts', 'shifts.id', 'assignment_snapshots.shift_id')
+    /* V-23's keying: identity + source version. LEFT, because an assignment need
+     * not carry a credit and one that does not is not a change. A voided credit
+     * is excluded — voiding IS the change, and the row that remains must not go
+     * on asserting the old credited membership. */
+    .leftJoin('credits', (join) =>
+      join
+        .onRef(
+          'credits.assignment_identity_id',
+          '=',
+          'assignment_snapshots.assignment_identity_id',
+        )
+        .onRef('credits.source_version_id', '=', 'assignment_snapshots.version_id')
+        .on('credits.status', '<>', 'voided'),
+    )
     .select([
       'assignment_snapshots.assignment_identity_id as assignment_identity_id',
       'assignment_snapshots.membership_id as membership_id',
@@ -650,11 +669,22 @@ async function readSnapshots(uow: Uow, versionId: string): Promise<SnapshotRow[]
       'assignment_snapshots.is_pinned as is_pinned',
       'assignment_snapshots.override_reason as override_reason',
       'shifts.shift_type_id as shift_type_id',
+      'shifts.location_id as location_id',
+      'credits.credited_membership_id as credited_membership_id',
+      'credits.weight as credit_weight',
     ])
     .where('assignment_snapshots.version_id', '=', versionId)
     .execute()) as unknown as SnapshotRow[];
 }
 
+/**
+ * The projection the pure difference is computed over.
+ *
+ * OPUS-M4-000C: the shift type, the location, the pin and the credit are new,
+ * because the shared material-change definition covers them and a definition
+ * cannot cover a field the projection drops. `readSnapshots` already joined
+ * `shifts`; the credit is joined for the same reason `publication.ts` joins it.
+ */
 function diffSnapshotsOf(rows: readonly SnapshotRow[]): DiffSnapshot[] {
   return rows.map((row) => ({
     assignmentIdentityId: row.assignment_identity_id,
@@ -662,6 +692,12 @@ function diffSnapshotsOf(rows: readonly SnapshotRow[]): DiffSnapshot[] {
     startsAt: row.starts_at,
     endsAt: row.ends_at,
     status: row.status,
+    date: calendarDate(row.date),
+    shiftTypeId: row.shift_type_id,
+    locationId: row.location_id,
+    isPinned: row.is_pinned,
+    creditedMembershipId: row.credited_membership_id,
+    creditWeight: row.credit_weight,
   }));
 }
 
@@ -748,6 +784,9 @@ function decorateDifference(
       kind: change.kind,
       fromMembershipId: change.fromMembershipId,
       toMembershipId: change.toMembershipId,
+      // Carried through unchanged: the decoration never participates in
+      // deciding, and `materialFields` is part of what was decided.
+      materialFields: [...change.materialFields],
       date: calendarDate(row.date),
       shiftTypeId: row.shift_type_id,
       shiftTypeCode: '',
@@ -790,6 +829,7 @@ function tallyAffected(
       reassignedAway: 0,
       reassignedTo: 0,
       retimed: 0,
+      amended: 0,
     };
     tally.set(membershipId, created);
     return created;
@@ -809,6 +849,10 @@ function tallyAffected(
       if (change.toMembershipId !== null) bump(change.toMembershipId, 'reassignedTo');
     } else if (change.kind === 'retimed' && change.toMembershipId !== null) {
       bump(change.toMembershipId, 'retimed');
+    } else if (change.kind === 'amended' && change.toMembershipId !== null) {
+      // OPUS-M4-000C: the shift type, location, pin or credit moved for the same
+      // person at the same time. Previously invisible, and therefore unnotified.
+      bump(change.toMembershipId, 'amended');
     }
   }
 
@@ -818,24 +862,45 @@ function tallyAffected(
 }
 
 /**
- * The digest the confirmation echoes.
+ * The digest the confirmation echoes — the REVIEW IDENTITY.
  *
- * Over the CORE changes only — the four fields the pure function decided — so a
- * decoration change (a renamed person, a re-ordered shift-type list) can never
- * invalidate a review that is still accurate about what will happen to the
- * schedule. `digestRows` is the frozen module's length-prefixed digest, reused
- * rather than reimplemented, so no value a scheduler can type can forge a field
- * boundary inside the token.
+ * ## What changed at OPUS-M4-000C, and what did not
+ *
+ * FAD-26's compare-and-set is unchanged in every respect that is part of its
+ * shape: the review response carries `reviewDigest`, the publication echoes it
+ * as `expectedReviewDigest`, a mismatch is `409 STALE_REVIEW` with the current
+ * digest, and an omitted token is a 422 rather than a bypass. Only what FEEDS
+ * the token grows, from the difference alone to every material input (doc 34
+ * §4-G): participant, date, time, shift type, location, pin, credit, conflicts,
+ * rule revisions, catalogue revisions, profiles, qualifications, demand and
+ * timezone.
+ *
+ * ## The trade, stated
+ *
+ * A review now goes stale when a rule is amended, a qualification expires,
+ * demand is edited or the group timezone moves — none of which alters the diff,
+ * and all of which alter what the publication will actually DO. The original
+ * scoping existed so that "a renamed person" could not invalidate an accurate
+ * review, and **that reasoning is preserved**: decoration is still excluded.
+ * Display names, palettes and report order are in none of the digested reads.
+ *
+ * `digestRows` is the schedule module's length-prefixed digest, reused rather
+ * than reimplemented, so no value a scheduler can type can forge a field
+ * boundary inside the token (N-7).
  */
-export function reviewDigestOf(core: VersionDifference): string {
-  return digestRows(
-    core.changes.map((change) => ({
+export function reviewDigestOf(core: VersionDifference, materialInputs: string): string {
+  return digestRows([
+    ...core.changes.map((change) => ({
       identity: change.assignmentIdentityId,
       kind: change.kind,
       from: change.fromMembershipId,
       to: change.toMembershipId,
+      // The complete answer, not only the summary: a change whose shift type
+      // moved must move the token even when its kind does not.
+      fields: change.materialFields.join(','),
     })),
-  );
+    { identity: '<material-inputs>', kind: 'digest', from: null, to: null, fields: materialInputs },
+  ]);
 }
 
 /** Load both sides and compute the difference. `from = null` means "against nothing". */
@@ -1099,7 +1164,7 @@ export default function schedulePublicationRoutes(app: FastifyInstance): void {
             period: periodView(period),
             currentVersion: current === undefined ? null : versionView(current),
             expectedPriorCurrentVersionId: priorId,
-            reviewDigest: reviewDigestOf(core),
+            reviewDigest: reviewDigestOf(core, await materialInputDigest(uow, period.id, version.id)),
             difference: withShiftTypeCodes(wire, shiftTypes),
             blockers,
             warnings,
@@ -1216,7 +1281,31 @@ export default function schedulePublicationRoutes(app: FastifyInstance): void {
           );
           if (friction !== null) return friction;
 
-          const currentDigest = reviewDigestOf(core);
+          /* ── Precondition ORDER, composed at the 000C integration ────────────
+           *
+           * 000B's timezone-basis staleness is evaluated BEFORE this packet's
+           * review-digest compare-and-set, and the ordering is load-bearing
+           * because the two controls now overlap: the material-input digest
+           * includes the group TIMEZONE, so the very change that makes a draft's
+           * basis stale ALSO moves the digest. With the digest checked first, a
+           * scheduler whose group timezone had moved was told `STALE_REVIEW` —
+           * true, but useless: re-reading the review yields a fresh digest, they
+           * confirm again, and only then meet `TIMEZONE_BASIS_STALE`. One
+           * avoidable round trip, and a first answer that does not name the
+           * cause.
+           *
+           * `TIMEZONE_BASIS_STALE` is the more specific and more actionable
+           * refusal — it names both zones — so it goes first. Neither control is
+           * weakened: the service re-asserts the basis inside the publishing
+           * transaction (`publishVersion` step 05a), which remains the control;
+           * this is the same predict-the-refusal discipline every blocker on
+           * this surface already follows. */
+          await assertTimezoneBasisFresh(uow, versionId);
+
+          const currentDigest = reviewDigestOf(
+            core,
+            await materialInputDigest(uow, version.period_id, versionId),
+          );
           if (currentDigest !== input.expectedReviewDigest) {
             return { kind: 'stale-review' as const, currentReviewDigest: currentDigest };
           }

@@ -251,10 +251,25 @@ describe('migration 0014 over a populated database', () => {
       `populated: ${CENSUS.map((entry) => `${entry.table}=${String(before[entry.table]?.count)}`).join(' ')}`,
     );
 
-    /* ── 2. DOWN, exactly one migration — the real runner ───────────────── */
-    const down = await migrate('down', { count: 1 });
-    expect(down.applied, 'exactly one migration must come down').toHaveLength(1);
-    expect(down.applied[0]).toMatch(/0014/);
+    /* ── 2. DOWN, as far as 0014 — the real runner ───────────────────────────
+     *
+     * COMPOSED at the 000C integration. As authored this was `count: 1`,
+     * because 0014 was then the last migration on disk. 0015 now follows it, so
+     * `count: 1` reversed 0015 and the assertion below failed — and the failure
+     * was worse than cosmetic: it threw BEFORE step 3 re-applied anything, so
+     * every later test in the run met a schema without 0015 and died on
+     * `column "operation_type" does not exist`. One stale assumption, four
+     * downstream failures.
+     *
+     * `count: 2` reverses 0015 then 0014, which is what "reverse 0014 over a
+     * populated database" actually requires — a migration cannot be rolled back
+     * out from under the one above it. The assertion names 0014 explicitly
+     * rather than trusting a position, so the next migration to land cannot
+     * repeat this. Reversing 0015 over the same populated rows is extra
+     * evidence, not a cost. */
+    const down = await migrate('down', { count: 2 });
+    expect(down.applied, 'both migrations above and including 0014 must come down').toHaveLength(2);
+    expect(down.applied.some((name) => /0014/.test(name)), '0014 must be among them').toBe(true);
 
     // The rows are still there with the migration reversed: this is the moment a
     // cascade or a rewrite would already have destroyed them.
@@ -266,9 +281,9 @@ describe('migration 0014 over a populated database', () => {
     }
 
     /* ── 3. UP again ──────────────────────────────────────────────────────── */
-    const up = await migrate('up', { count: 1 });
-    expect(up.applied, 'the same migration must go back up').toHaveLength(1);
-    expect(up.applied[0]).toMatch(/0014/);
+    const up = await migrate('up', { count: 2 });
+    expect(up.applied, 'the same migrations must go back up').toHaveLength(2);
+    expect(up.applied.some((name) => /0014/.test(name)), '0014 must be among them').toBe(true);
 
     /* ── 4. Every row 0014 touches is byte-identical ───────────────────────── */
     const after = await census();

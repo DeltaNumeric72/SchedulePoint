@@ -1,0 +1,24 @@
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-000c
+
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-000c/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-579a26756d7c9dbb7b)] INFO: Completed task 1 (outbox.dispatch, 7.05ms) with success
+[worker(worker-579a26756d7c9dbb7b)] INFO: Completed task 2 (outbox.dispatch, 2.63ms) with success
+[worker(worker-579a26756d7c9dbb7b)] INFO: Completed task 3 (outbox.dispatch, 2.39ms) with success
+[worker(worker-579a26756d7c9dbb7b)] INFO: Completed task 4 (outbox.dispatch, 2.35ms) with success
+[worker(worker-579a26756d7c9dbb7b)] INFO: Completed task 5 (outbox.dispatch, 2.37ms) with success
+[worker(worker-579a26756d7c9dbb7b)] INFO: Completed task 6 (outbox.dispatch, 2.21ms) with success
+[worker(worker-579a26756d7c9dbb7b)] INFO: Completed task 7 (outbox.dispatch, 2.25ms) with success
+[worker(worker-579a26756d7c9dbb7b)] INFO: Completed task 8 (outbox.dispatch, 2.26ms) with success
+[worker(worker-579a26756d7c9dbb7b)] INFO: Completed task 9 (outbox.dispatch, 2.25ms) with success
+[worker(worker-579a26756d7c9dbb7b)] INFO: Completed task 10 (outbox.dispatch, 2.32ms) with success
+[worker(worker-579a26756d7c9dbb7b)] INFO: Completed task 11 (outbox.dispatch, 2.26ms) with success
+ ✓ |api| test/schedule/publication-handoff.test.ts (17 tests) 284ms
+
+ Test Files  1 passed (1)
+      Tests  17 passed (17)
+   Start at  01:07:18
+   Duration  2.09s (transform 285ms, setup 139ms, collect 26ms, tests 284ms, environment 0ms, prepare 80ms)
+
+EXIT=0

@@ -176,6 +176,100 @@ const CASES = [
     redCommand: ['run', 'gate:rule-node-mapping'],
   },
   {
+    id: 'rule-kind-registry',
+    gate: 'rule-kind registry is generated (doc 34 §4-D)',
+    violation: 'a count in the committed registry edited by hand',
+    /* The registry exists because the PREVIOUS register was prose with the
+     * counts typed into its headings, and three of them were wrong. The claim
+     * "the registry is generated" is a claim about this gate, so the gate has to
+     * be seen failing: one number, edited by hand, in the committed artifact. */
+    patch: [
+      {
+        file: 'packages/domain/src/rules/rule-kind-registry.generated.md',
+        find: '| One owner ruling away, nothing else needed | 11 |',
+        replace: '| One owner ruling away, nothing else needed | 10 |',
+      },
+    ],
+    greenCommand: ['run', 'gate:rule-kind-registry'],
+    redCommand: ['run', 'gate:rule-kind-registry'],
+  },
+  {
+    id: 'provider-boundary-unguarded',
+    gate: 'provider outside unit of work (SPEC-12 U-07) — unguarded entry point',
+    violation: 'a declared provider module whose entry point does not open with the guard',
+    inject: [
+      {
+        from: 'provider-boundary/fixture/unguarded-provider.ts',
+        to: 'apps/api/src/db/__red_case__unguarded-provider.ts',
+      },
+    ],
+    greenCommand: ['run', 'gate:provider-boundary'],
+    redCommand: ['run', 'gate:provider-boundary'],
+  },
+  {
+    id: 'provider-boundary-in-transaction',
+    gate: 'provider outside unit of work (SPEC-12 U-07) — provider inside a transaction',
+    violation: 'a provider called from inside a runner.run(...) callback',
+    inject: [
+      {
+        from: 'provider-boundary/fixture/provider-in-transaction.ts',
+        to: 'apps/api/src/db/__red_case__provider-in-transaction.ts',
+      },
+    ],
+    greenCommand: ['run', 'gate:provider-boundary'],
+    redCommand: ['run', 'gate:provider-boundary'],
+  },
+  {
+    id: 'provider-boundary-owns-connection',
+    gate: 'provider outside unit of work (SPEC-12 U-07) — provider owns a connection',
+    violation: 'a declared provider module that imports the unit-of-work runner',
+    /* Gate class 3, which had no red case while classes 1 and 2 did (independent
+     * review N-1).
+     *
+     * It is not decoration. A provider that can OPEN a transaction can put
+     * itself inside one, and once it does, class 2 has nothing left to see —
+     * the illegal call is no longer at a call site in some other module's
+     * unit-of-work callback, it has been folded into the provider. Class 3 is
+     * what keeps classes 1 and 2 meaningful, so it needs its own proof.
+     *
+     * The fixture's guard is present and correctly placed, so the gate must fail
+     * on the RUNNER IMPORT alone. */
+    inject: [
+      {
+        from: 'provider-boundary/fixture/provider-owns-connection.ts',
+        to: 'apps/api/src/db/__red_case__provider-owns-connection.ts',
+      },
+    ],
+    greenCommand: ['run', 'gate:provider-boundary'],
+    redCommand: ['run', 'gate:provider-boundary'],
+  },
+  {
+    id: 'provider-boundary-runtime-mutation',
+    gate: 'provider outside unit of work (SPEC-12 U-07) — the RUNTIME arm',
+    violation: 'the runtime guard neutered, so only the static gate is left',
+    /* THE FALSIFIABILITY CASE, and the one that matters most here.
+     *
+     * The static gate above cannot see a closure captured outside a transaction
+     * and invoked inside it, a dynamic import, or a provider reached through a
+     * lookup table — and all three are reachable. So the runtime guard is what
+     * makes the rule true rather than tidy, and a runtime guard that has only
+     * ever been observed passing is not evidence of anything.
+     *
+     * This turns `assertOutsideUnitOfWork` into a no-op — leaving the marker, the
+     * probe and the static gate all intact and green — and
+     * `apps/api/test/providers/boundary.test.ts` must go red. If it does not, its
+     * refusals were coming from something else and the guard is decorative. */
+    patch: [
+      {
+        file: 'apps/api/src/db/provider-boundary.ts',
+        find: '  assertProviderOutsideUnitOfWork(providerName, unitOfWorkBoundaryProbe);',
+        replace: '  void providerName; // red case: the runtime guard is neutered',
+      },
+    ],
+    greenCommand: ['run', 'gate:unit'],
+    redCommand: ['run', 'gate:unit'],
+  },
+  {
     id: 'nr14-clean-tree',
     gate: 'NR-14 evidence destination (a plain run leaves the tree clean)',
     violation: 'an evidence writer restored to writing its TRACKED path unconditionally',
@@ -490,11 +584,41 @@ const CASES = [
     // holdings retained, verdict reflecting retirement" true on every
     // consumer at once. Removing it must fail the domain property tests AND
     // the manual-vs-publication convergence proof.
+    /* ── REPAIRED at the 000C integration (FAD-30 decorative-arm standing rule) ──
+     *
+     * As authored, this arm was HALF decorative and the half was the
+     * interesting one. It patches `packages/domain/src/eligibility/verdict.ts`
+     * — SOURCE — and listed two tests. The domain test imports the source and
+     * saw the patch; the api convergence test imports `@schedulepoint/domain`,
+     * which resolves to `dist/`, and `dist` was never rebuilt. Measured at the
+     * integration, with the patch applied and no rebuild:
+     *
+     *     packages/domain/test/eligibility/verdict.test.ts   3 failed  (observed)
+     *     apps/api/test/profiles/verdict-convergence.test.ts 7 PASSED  (blind)
+     *
+     * So the case reported PROVEN on the domain test alone while listing the
+     * convergence proof beside it — asserting a falsifiability that had never
+     * been demonstrated. The convergence proof is the whole point of a SHARED
+     * verdict, so shrinking the claim would have been the weaker repair.
+     *
+     * Two changes make both halves real:
+     *
+     *  1. the violation is spelled COMPILE-CLEAN (`void lifecycle;` rather than
+     *     deleting the only read of it). The first spelling left `lifecycle`
+     *     unused, so the rebuild below would fail to compile — and a failed
+     *     `prepare` makes the runner record the case as NOT PROVEN, which would
+     *     have traded a half-decorative arm for a broken one;
+     *  2. `prepare` rebuilds `packages/domain` BETWEEN the patch and the red
+     *     command, so `dist` carries the violation and the api test can see it.
+     *     `restore` rebuilds clean, so no later case inherits a patched `dist`.
+     *
+     * Verified standalone before the battery: rebuild clean, domain 3 failed,
+     * convergence 1 failed — both now observe. */
     patch: [
       {
         file: 'packages/domain/src/eligibility/verdict.ts',
         find: "  if (lifecycle !== 'active') return 'retired';",
-        replace: '  // red case: the retirement-first rule is removed',
+        replace: '  void lifecycle; // red case: the retirement-first rule is removed',
       },
     ],
     greenCommand: [
@@ -504,6 +628,7 @@ const CASES = [
       'packages/domain/test/eligibility/verdict.test.ts',
       'apps/api/test/profiles/verdict-convergence.test.ts',
     ],
+    prepare: [['exec', 'tsc', '-b', 'packages/domain', '--force']],
     redCommand: [
       'exec',
       'vitest',
@@ -511,6 +636,7 @@ const CASES = [
       'packages/domain/test/eligibility/verdict.test.ts',
       'apps/api/test/profiles/verdict-convergence.test.ts',
     ],
+    restore: [['exec', 'tsc', '-b', 'packages/domain', '--force']],
   },
   {
     id: 'enforcement-read-plane',

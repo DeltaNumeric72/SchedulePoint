@@ -51,6 +51,7 @@
  * against two clock readings.
  */
 
+import { AST_BOUNDS } from './bounds.js';
 import type { CompiledRule } from './compile.js';
 import type { RuleNodeKind } from './ast.js';
 
@@ -618,6 +619,33 @@ export function evaluateHardRules(
 ): readonly HardRuleFinding[] {
   const findings: HardRuleFinding[] = [];
 
+  /**
+   * OPUS-M4-000C (doc 34 §4-D): the checker's MEMORY bound, per rule.
+   *
+   * A HARD rule that breaches on every one of ten thousand assignments produces
+   * one refusal either way — the publication is blocked by the first finding.
+   * The ten-thousandth explanation adds nothing a scheduler will read and the
+   * allocation is real, so the list is capped and the cap is DECLARED in the
+   * findings rather than silently applied: a truncated list that looked complete
+   * would be a worse answer than a long one.
+   */
+  const capped = (rule: CompiledRule, produced: readonly HardRuleFinding[]): HardRuleFinding[] => {
+    if (produced.length <= AST_BOUNDS.maxFindingsPerRule) return [...produced];
+    return [
+      ...produced.slice(0, AST_BOUNDS.maxFindingsPerRule),
+      {
+        finding: 'breach',
+        ruleKey: rule.ruleKey,
+        nodeKind: rule.kind,
+        field: 'rule',
+        explanation:
+          `this rule produced ${String(produced.length)} findings; the first ` +
+          `${String(AST_BOUNDS.maxFindingsPerRule)} are listed and the rest are not enumerated ` +
+          '(the evaluation memory bound). Publication is blocked either way.',
+      },
+    ];
+  };
+
   for (const rule of [...compiled].sort((a, b) => (a.ruleKey < b.ruleKey ? -1 : 1))) {
     if (rule.role !== 'constraint') continue;
 
@@ -640,22 +668,22 @@ export function evaluateHardRules(
     const scoped = scopedAssignments(rule, version.assignments);
     switch (rule.kind) {
       case 'RequiresQualification':
-        findings.push(...checkRequiresQualification(rule, scoped, version));
+        findings.push(...capped(rule, checkRequiresQualification(rule, scoped, version)));
         break;
       case 'MinimumRestBetween':
-        findings.push(...checkMinimumRestBetween(rule, scoped));
+        findings.push(...capped(rule, checkMinimumRestBetween(rule, scoped)));
         break;
       case 'MaxConsecutive':
-        findings.push(...checkMaxConsecutive(rule, scoped));
+        findings.push(...capped(rule, checkMaxConsecutive(rule, scoped)));
         break;
       case 'MaxAssignmentsInWindow':
-        findings.push(...checkMaxAssignmentsInWindow(rule, scoped));
+        findings.push(...capped(rule, checkMaxAssignmentsInWindow(rule, scoped)));
         break;
       case 'CallSpacing':
-        findings.push(...checkCallSpacing(rule, scoped));
+        findings.push(...capped(rule, checkCallSpacing(rule, scoped)));
         break;
       case 'AvoidDate':
-        findings.push(...checkAvoidDate(rule, scoped));
+        findings.push(...capped(rule, checkAvoidDate(rule, scoped)));
         break;
       /* No `default`: `isEvaluatedHardRuleKind` narrowed the kind to the closed
        * evaluated set above, so adding a kind to that set without adding a case

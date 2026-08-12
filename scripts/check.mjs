@@ -13,8 +13,10 @@ import {
 /**
  * `pnpm check` — the full gate battery, in dependency order.
  *
- * One command, thirteen gates, all build-failing (15-testing-strategy §4; the
- * thirteenth is the OPUS-M3-002 rule-node → compiler-mapping closure gate). The
+ * One command, fifteen gates, all build-failing (15-testing-strategy §4; the
+ * thirteenth is the OPUS-M3-002 rule-node → compiler-mapping closure gate, and
+ * the fourteenth and fifteenth are OPUS-M4-000C's rule-kind registry and
+ * provider-boundary gates). The
  * runner keeps going after a failure rather than stopping at the first one:
  * a developer fixing a broken branch wants the whole list, not one gate at a
  * time. The exit code is non-zero if any gate failed.
@@ -91,6 +93,27 @@ const GATES = [
     title: 'rule-node → compiler-mapping closure (SPEC-04 §3.2)',
     command: 'pnpm',
     args: ['run', 'gate:rule-node-mapping'],
+  },
+  /* OPUS-M4-000C (doc 34 §4-D / §4-H). Both are ADDITIONS; no existing gate is
+   * modified. They sit after `rule-node-mapping` because they are the same class
+   * of check — a closure property over the rule model, and a structural property
+   * over the provider boundary — and before the browser gates, which are the
+   * slow ones.
+   *
+   * `rule-kind-registry` builds `packages/domain` itself (the `corpus:check`
+   * precedent) so a standalone run and the red case's standalone run both render
+   * the code they are about to compare. */
+  {
+    id: 'rule-kind-registry',
+    title: 'rule-kind registry is generated (doc 34 §4-D)',
+    command: 'pnpm',
+    args: ['run', 'gate:rule-kind-registry'],
+  },
+  {
+    id: 'provider-boundary',
+    title: 'provider outside unit of work (SPEC-12 U-07)',
+    command: 'pnpm',
+    args: ['run', 'gate:provider-boundary'],
   },
   { id: 'secret-scan', title: 'secret scan', command: 'pnpm', args: ['run', 'gate:secret-scan'] },
   {

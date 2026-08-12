@@ -980,12 +980,36 @@ describe('history, comparison, published schedule and publication records', () =
     const body = comparison.body as {
       fromVersion: { id: string } | null;
       toVersion: { id: string };
-      difference: { changes: { kind: string }[]; affectedMembers: { membershipId: string }[] };
+      difference: {
+        changes: { kind: string; materialFields: string[] }[];
+        affectedMembers: { membershipId: string }[];
+      };
     };
     expect(body.fromVersion?.id).toBe(seeded.firstVersionId);
     expect(body.toVersion.id).toBe(seeded.currentVersionId);
-    // The seed reassigns one identity between V1 and V2.
-    expect(body.difference.changes.map((change) => change.kind)).toEqual(['reassigned']);
+    /* The seed does TWO material things between V1 and V2: it reassigns one
+     * identity, and it moves the OTHER identity's credit to a membership who is
+     * not its assignee.
+     *
+     * Until OPUS-M4-000C only the first was visible. `differenceByIdentity`
+     * compared the participant and the two instants and nothing else, so the
+     * credit move produced no difference row, notified nobody, and did not move
+     * the review digest — while changing who is scored for a shift. The seed has
+     * contained that credit move since M3-003; the diff simply could not see it.
+     *
+     * So the expectation grows from one change to two. That is the gap closing,
+     * not the assertion loosening: it is now stricter (an exact two-element
+     * list), and `materialFields` says which dimension each one moved. */
+    /* Sorted, because the difference orders by `assignment_identity_id` — a
+     * random uuid — so which of the two comes first is not a property of the
+     * behaviour and asserting it would be a flake waiting for the next seed. */
+    expect(body.difference.changes.map((change) => change.kind).sort()).toEqual([
+      'amended',
+      'reassigned',
+    ]);
+    expect(
+      body.difference.changes.find((change) => change.kind === 'amended')?.materialFields,
+    ).toEqual(['credit']);
 
     const affected = await call(
       'GET',
@@ -999,8 +1023,13 @@ describe('history, comparison, published schedule and publication records', () =
       affectedMembers: { membershipId: string; reassignedAway: number; reassignedTo: number }[];
     };
     expect(affectedBody.fromVersionId).toBe(seeded.firstVersionId);
-    expect(affectedBody.changeCount).toBe(1);
-    // BOTH sides of the move are affected — the union, not the after-side.
+    // Two changes now: the reassignment and the credit move (see above).
+    expect(affectedBody.changeCount).toBe(2);
+    /* BOTH sides of the move are affected — the union, not the after-side. It is
+     * still two people: the credit moved BETWEEN the same two memberships the
+     * reassignment moved the shift between, so the union does not grow. That it
+     * does not grow is worth asserting — a union that returned "everybody
+     * touched by anything" would also produce 2 here and be wrong elsewhere. */
     expect(affectedBody.affectedMembers).toHaveLength(2);
     expect(affectedBody.affectedMembers.map((member) => member.membershipId).sort()).toEqual(
       body.difference.affectedMembers.map((member) => member.membershipId).sort(),

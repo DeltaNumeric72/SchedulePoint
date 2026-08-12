@@ -595,6 +595,31 @@ export async function cloneVersion(
       .execute();
   }
 
+  /* ── OPUS-M4-000C: credits are PRESERVED across the clone (doc 34 §4-G) ────
+   *
+   * Self-contained on purpose: one call, after the snapshots exist and before
+   * the audit row, touching nothing above it. `cloneVersion` is a jointly-edited
+   * function this milestone and the composition has to be clean.
+   *
+   * ## Why this was a real gap
+   *
+   * A revert is a clone-then-publish (SPEC-05 §6.1), and a clone dropped every
+   * credit. So reverting to v3 produced a v5 whose ASSIGNMENTS were v3's and
+   * whose CREDITS were empty — every credit move a scheduler had made silently
+   * undone, on the one operation whose entire purpose is to restore a previous
+   * state. The same hole made an ordinary amendment lose credits: clone v2, edit
+   * one shift, publish, and everybody's credit for the other shifts is gone.
+   *
+   * ## Voided credits are cloned too, and that is deliberate
+   *
+   * A voided credit is a RECORD that a credit was withdrawn. Dropping the voided
+   * rows and keeping the rest would make the clone say "nobody was ever credited
+   * for this", which is a different claim from "somebody was, and it was
+   * withdrawn" — and the difference is exactly what an audit of a credit dispute
+   * needs. `status` is carried verbatim.
+   */
+  await cloneCredits(uow, sourceVersionId, newVersionId);
+
   await recordAuditEvent(uow, {
     eventName: 'schedule.version.created',
     subjectType: 'schedule_version',
@@ -607,6 +632,94 @@ export async function cloneVersion(
     },
   });
   return newVersionId;
+}
+
+/**
+ * Copy every credit from one version to another, re-keyed to the clone
+ * (OPUS-M4-000C, doc 34 §4-G).
+ *
+ * ## The re-keying, and the one subtlety in it
+ *
+ * V-23 keys a credit on (identity, source version, source snapshot). Identity is
+ * PRESERVED by the clone — that is the whole point of the clone — so it carries
+ * over unchanged. `source_version_id` becomes the new version. `source_snapshot_id`
+ * must become the CLONE's snapshot for that identity, not the source's: a credit
+ * pointing at a snapshot in another version would be a cross-version reference
+ * that looks correct and resolves to a row the clone does not own.
+ *
+ * So the new snapshot is looked up by identity within the target version, which
+ * is unambiguous: D-14 permits exactly one snapshot per identity per version.
+ *
+ * `weight`, `reason` and `status` are carried verbatim. `moved_by` is carried
+ * too, because the person who moved the credit is a fact about the credit and
+ * not about the clone — rewriting it to the cloner would put the wrong name on
+ * somebody else's decision.
+ *
+ * Exported so the proof can call it directly against a crafted credit set
+ * (moved and voided credits included) without going through a whole clone.
+ */
+export async function cloneCredits(
+  uow: Uow,
+  sourceVersionId: string,
+  targetVersionId: string,
+): Promise<number> {
+  const tenant = tenantOf(uow.context);
+
+  const sourceCredits = await uow.query
+    .selectFrom('credits')
+    .select([
+      'assignment_identity_id',
+      'credited_membership_id',
+      'weight',
+      'reason',
+      'moved_by',
+      'status',
+    ])
+    .where('source_version_id', '=', sourceVersionId)
+    .execute();
+  if (sourceCredits.length === 0) return 0;
+
+  // Identity → the CLONE's snapshot. D-14 makes this a function, not a relation.
+  const cloneSnapshots = await uow.query
+    .selectFrom('assignment_snapshots')
+    .select(['id', 'assignment_identity_id'])
+    .where('version_id', '=', targetVersionId)
+    .execute();
+  const snapshotByIdentity = new Map(
+    cloneSnapshots.map((row) => [row.assignment_identity_id, row.id]),
+  );
+
+  let cloned = 0;
+  for (const credit of sourceCredits) {
+    const snapshotId = snapshotByIdentity.get(credit.assignment_identity_id);
+    if (snapshotId === undefined) {
+      /* The source credit names an identity the clone does not carry — a credit
+       * against a CANCELLED snapshot, whose row the clone still copies, or a
+       * credit whose snapshot was never cloned. It is skipped rather than
+       * pointed at a foreign snapshot: a dangling reference that still looks
+       * correct is the failure mode `assignment_identities` exists to prevent.
+       */
+      continue;
+    }
+    await uow.query
+      .insertInto('credits')
+      .values({
+        id: randomUUID(),
+        ...tenant,
+        assignment_identity_id: credit.assignment_identity_id,
+        source_version_id: targetVersionId,
+        source_snapshot_id: snapshotId,
+        credited_membership_id: credit.credited_membership_id,
+        weight: credit.weight,
+        reason: credit.reason,
+        // The person who moved it, not the person who cloned it.
+        moved_by: credit.moved_by,
+        status: credit.status,
+      })
+      .execute();
+    cloned += 1;
+  }
+  return cloned;
 }
 
 export async function transitionVersion(

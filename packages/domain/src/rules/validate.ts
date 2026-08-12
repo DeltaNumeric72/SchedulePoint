@@ -23,6 +23,7 @@ import {
   type Rule,
   type RuleNode,
 } from './ast.js';
+import { nodeBoundProblems, scopeBoundProblems } from './bounds.js';
 
 /** A single validation failure, addressed to the authoring control that caused it. */
 export interface RuleProblem {
@@ -163,6 +164,13 @@ function unexpectedKeyProblems(
 export function nodeProblems(node: RuleNode, base: string): RuleProblem[] {
   const problems: RuleProblem[] = [
     ...unexpectedKeyProblems(node, RULE_NODE_KEYS[node.kind] ?? ['kind'], base),
+    // OPUS-M4-000C (doc 34 §4-D): the CAPACITY half. `ast.ts` closes the shape;
+    // it says nothing about size, and a `ForbiddenSequence` with fifty thousand
+    // entries is a perfectly valid instance of the closed set that then costs a
+    // publication transaction real time on every version, forever. The bounds
+    // live in `bounds.ts` so "how big may this be" is one list rather than
+    // thirty scattered comparisons.
+    ...nodeBoundProblems(node, base),
   ];
   const at = (suffix: string): string => (suffix === '' ? base : `${base}.${suffix}`);
   const requirePositive = (field: string, value: unknown, label: string): void => {
@@ -403,7 +411,12 @@ export function nodeProblems(node: RuleNode, base: string): RuleProblem[] {
 
 /** The scope filter, when present, must be internally consistent. */
 export function scopeProblems(rule: Rule): RuleProblem[] {
-  const problems: RuleProblem[] = [...unexpectedKeyProblems(rule.scope, SCOPE_KEYS, 'scope')];
+  const problems: RuleProblem[] = [
+    ...unexpectedKeyProblems(rule.scope, SCOPE_KEYS, 'scope'),
+    // Scope CARDINALITY (doc 34 §4-D). A scope is the multiplier on every
+    // evaluation the rule will ever cost.
+    ...scopeBoundProblems(rule),
+  ];
   const range = rule.scope.dateRange;
   if (range !== undefined) {
     problems.push(...unexpectedKeyProblems(range, DATE_RANGE_KEYS, 'scope.dateRange'));

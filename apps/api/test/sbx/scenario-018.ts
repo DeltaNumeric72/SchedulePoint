@@ -208,11 +208,41 @@ export function buildScenario018(deps: () => ScenarioDependencies): SbxScenario 
       });
 
       /* ── Step 2 — amend AFTER publication: clone, change, publish ─────── */
-      const beforeRows = await runtime.runner.run(tenant, async ({ query }) => {
+      /* One reader for both sides, so the oracle can never be handed a
+       * narrower projection on one side than on the other. */
+      const readMaterialSnapshots = (versionId: string): Promise<DiffSnapshot[]> =>
+        runtime.runner.run(tenant, async ({ query }) => {
+        /* OPUS-M4-000C: the shared material-change definition covers the shift
+         * type, the location, the pin and the credit, so the oracle's input
+         * carries them. Reading fewer columns than the definition compares would
+         * make the oracle silently agree about fields it never saw. */
         const rows = await query
           .selectFrom('assignment_snapshots')
-          .select(['assignment_identity_id', 'membership_id', 'starts_at', 'ends_at', 'status'])
-          .where('version_id', '=', v1)
+          .innerJoin('shifts', 'shifts.id', 'assignment_snapshots.shift_id')
+          .leftJoin('credits', (join) =>
+            join
+              .onRef(
+                'credits.assignment_identity_id',
+                '=',
+                'assignment_snapshots.assignment_identity_id',
+              )
+              .onRef('credits.source_version_id', '=', 'assignment_snapshots.version_id')
+              .on('credits.status', '<>', 'voided'),
+          )
+          .select([
+            'assignment_snapshots.assignment_identity_id as assignment_identity_id',
+            'assignment_snapshots.membership_id as membership_id',
+            'assignment_snapshots.date as date',
+            'assignment_snapshots.starts_at as starts_at',
+            'assignment_snapshots.ends_at as ends_at',
+            'assignment_snapshots.status as status',
+            'assignment_snapshots.is_pinned as is_pinned',
+            'shifts.shift_type_id as shift_type_id',
+            'shifts.location_id as location_id',
+            'credits.credited_membership_id as credited_membership_id',
+            'credits.weight as credit_weight',
+          ])
+          .where('assignment_snapshots.version_id', '=', versionId)
           .execute();
         return rows.map((row) => ({
           assignmentIdentityId: row.assignment_identity_id,
@@ -220,8 +250,16 @@ export function buildScenario018(deps: () => ScenarioDependencies): SbxScenario 
           startsAt: row.starts_at,
           endsAt: row.ends_at,
           status: row.status,
+          date: String(row.date).slice(0, 10),
+          shiftTypeId: row.shift_type_id,
+          locationId: row.location_id,
+          isPinned: row.is_pinned,
+          creditedMembershipId: row.credited_membership_id,
+          creditWeight: row.credit_weight,
         }));
-      });
+        });
+
+      const beforeRows = await readMaterialSnapshots(v1);
 
       const v2 = await run(async (uow) => {
         const clone = await cloneVersion(uow as never, actor, v1);
@@ -270,20 +308,7 @@ export function buildScenario018(deps: () => ScenarioDependencies): SbxScenario 
       );
 
       /* ── Notification exactness, for the step-2 publication ───────────── */
-      const afterRows = await runtime.runner.run(tenant, async ({ query }) => {
-        const rows = await query
-          .selectFrom('assignment_snapshots')
-          .select(['assignment_identity_id', 'membership_id', 'starts_at', 'ends_at', 'status'])
-          .where('version_id', '=', v2)
-          .execute();
-        return rows.map((row) => ({
-          assignmentIdentityId: row.assignment_identity_id,
-          membershipId: row.membership_id,
-          startsAt: row.starts_at,
-          endsAt: row.ends_at,
-          status: row.status,
-        }));
-      });
+      const afterRows = await readMaterialSnapshots(v2);
 
       const notified = publication.difference.affectedMembershipIds;
       const problems = notificationOracle(beforeRows, afterRows, notified, everyMembership);
@@ -407,11 +432,25 @@ export function buildScenario018(deps: () => ScenarioDependencies): SbxScenario 
       const unaffected = '44444444-4444-4444-8444-444444444444';
 
       const at = (hour: number): Date => fixtureInstant('2031-02-03', hour);
+      /* Everything except the participant is held EQUAL between the two sides,
+       * so the reassignment is the only material difference the shared
+       * definition can find. */
+      const fixed = {
+        startsAt: at(8),
+        endsAt: at(16),
+        status: 'active',
+        date: '2031-02-03',
+        shiftTypeId: '55555555-5555-4555-8555-555555555555',
+        locationId: null,
+        isPinned: false,
+        creditedMembershipId: null,
+        creditWeight: null,
+      } as const;
       const before: DiffSnapshot[] = [
-        { assignmentIdentityId: identity, membershipId: held, startsAt: at(8), endsAt: at(16), status: 'active' },
+        { assignmentIdentityId: identity, membershipId: held, ...fixed },
       ];
       const after: DiffSnapshot[] = [
-        { assignmentIdentityId: identity, membershipId: other, startsAt: at(8), endsAt: at(16), status: 'active' },
+        { assignmentIdentityId: identity, membershipId: other, ...fixed },
       ];
 
       // The truth: this reassignment affects `held` and `other`, and nobody else.

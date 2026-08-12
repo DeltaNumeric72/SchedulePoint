@@ -4,8 +4,8 @@ import { useState, type FormEvent, type JSX } from 'react';
 import type { RuleView } from '@schedulepoint/contracts';
 
 import { ValidationError, fetchShiftTypes } from '../api/catalogue.js';
-import { createRule, fetchRules, setRuleState } from '../api/rules.js';
-import { updateRule } from './api.js';
+import { createRule, fetchRules } from '../api/rules.js';
+import { setRuleState, updateRule } from './api.js';
 import {
   NODE_KINDS,
   NODE_SPECS,
@@ -135,6 +135,10 @@ function RulesPanel(): JSX.Element {
   const [isAuthoring, setIsAuthoring] = useState(false);
   /** Non-null when an EXISTING rule is open. Its key cannot change. */
   const [editingKey, setEditingKey] = useState<string | null>(null);
+  /* The rule's version at the moment the editor OPENED it (OPUS-M4-000C). It is
+   * presented back on save, and a mismatch is a 409 the author is told about
+   * rather than a silent overwrite of somebody else's edit. */
+  const [editingVersion, setEditingVersion] = useState(1);
   const [ruleKey, setRuleKey] = useState('');
   const [name, setName] = useState('');
   const [classification, setClassification] = useState<'HARD' | 'SOFT'>('HARD');
@@ -173,6 +177,8 @@ function RulesPanel(): JSX.Element {
     setProblems([]);
     setEditingKey(rule.ruleKey);
     setRuleKey(rule.ruleKey);
+    // The CAS token, captured at LOAD time — the whole point of load-before-edit.
+    setEditingVersion(rule.version);
     setName(rule.name);
     setClassification(rule.classification);
     setWeight(rule.weight === null ? '' : String(rule.weight));
@@ -193,7 +199,11 @@ function RulesPanel(): JSX.Element {
 
   const save = useMutation({
     mutationFn: () =>
-      editingKey === null ? createRule(scope, body()) : updateRule(scope, editingKey, body()),
+      editingKey === null
+        ? createRule(scope, body())
+        : /* The version the editor LOADED, presented back on save (OPUS-M4-000C).
+           * A create carries none — there is nothing yet to be stale against. */
+          updateRule(scope, editingKey, body(), editingVersion),
     onSuccess: () => {
       closeForm();
       void queryClient.invalidateQueries({ queryKey: ['rules'] });
@@ -203,8 +213,11 @@ function RulesPanel(): JSX.Element {
   });
 
   const changeState = useMutation({
-    mutationFn: (input: { ruleKey: string; state: 'active' | 'disabled' | 'archived' }) =>
-      setRuleState(scope, input.ruleKey, input.state),
+    mutationFn: (input: {
+      ruleKey: string;
+      state: 'active' | 'disabled' | 'archived';
+      expectedVersion: number;
+    }) => setRuleState(scope, input.ruleKey, input.state, input.expectedVersion),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['rules'] });
     },
@@ -451,6 +464,7 @@ function RulesPanel(): JSX.Element {
                         changeState.mutate({
                           ruleKey: rule.ruleKey,
                           state: rule.state === 'active' ? 'disabled' : 'active',
+                          expectedVersion: rule.version,
                         })
                       }
                       type="button"
@@ -531,6 +545,7 @@ function RulesPanel(): JSX.Element {
                           changeState.mutate({
                             ruleKey: rule.ruleKey,
                             state: rule.state === 'active' ? 'disabled' : 'active',
+                          expectedVersion: rule.version,
                           })
                         }
                         type="button"

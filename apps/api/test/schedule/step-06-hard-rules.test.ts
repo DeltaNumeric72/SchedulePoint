@@ -4,7 +4,7 @@ import { sql } from 'kysely';
 import type { TenantContext } from '@schedulepoint/domain';
 import type { PgUnitOfWork } from '../../src/db/unit-of-work.js';
 import { grantHolding } from '../../src/profiles/qualifications.js';
-import { createRule, setRuleState } from '../../src/rules/service.js';
+import { createRule, getRule, setRuleState } from '../../src/rules/service.js';
 import {
   HardRuleBreachError,
   findHardRuleFindings,
@@ -57,6 +57,22 @@ let assignee: string;
 
 const run = async <T>(fn: (uow: PgUnitOfWork) => Promise<T>): Promise<T> =>
   runtime.runner.run(context, fn);
+
+/**
+ * Disable a rule, reading its CAS token first (OPUS-M4-000C, doc 34 §4-D).
+ *
+ * `setRuleState` now requires `expectedVersion` — a lifecycle move is a mutation
+ * like any other, and archiving is terminal. The falsifiability controls in this
+ * file do not care WHICH version they are disabling, only that the rule ends up
+ * disabled, so they read the current one first. A test that hard-coded a version
+ * number would start failing the day a rule gained an extra edit.
+ */
+const disableRule = async (uow: PgUnitOfWork, ruleKey: string): Promise<void> => {
+  const found = await getRule(uow, ruleKey);
+  if (found.kind !== 'ok') throw new Error(`no rule ${ruleKey} to disable`);
+  const outcome = await setRuleState(uow, ruleKey, 'disabled', found.value.version);
+  if (outcome.kind !== 'ok') throw new Error(`could not disable ${ruleKey}: ${outcome.kind}`);
+};
 
 beforeAll(async () => {
   runtime = createRuntime('app_runtime', { max: 6 });
@@ -199,9 +215,10 @@ describe('step 06 — a breached HARD rule BLOCKS publication, and disabling it 
     /* FALSIFIABILITY. One fact moves — the rule becomes `disabled` — and the
      * identical publication succeeds. If this still failed, the refusal above
      * was never the rule's. */
+    // `disableRule` throws if the state move is refused, so reaching the next
+    // line IS the assertion that the rule is now disabled.
     await run(async (uow) => {
-      const outcome = await setRuleState(uow, 'no_work_on_2033_02_10', 'disabled');
-      expect(outcome.kind).toBe('ok');
+      await disableRule(uow, 'no_work_on_2033_02_10');
     });
 
     await publish(periodId, versionId, publicationKey('s06-after-disable'));
@@ -235,7 +252,7 @@ describe('step 06 — a breached HARD rule BLOCKS publication, and disabling it 
     );
     expect(mine[0]?.field).toBe(snapshot.id);
 
-    await run(async (uow) => setRuleState(uow, 'named_avoid_2033_03_05', 'disabled'));
+    await run(async (uow) => disableRule(uow, 'named_avoid_2033_03_05'));
   });
 
   it('a SOFT rule with the same predicate does not block', async () => {
@@ -270,8 +287,8 @@ describe('step 06 — a breached HARD rule BLOCKS publication, and disabling it 
     await expect(
       publish(hardSubject.periodId, hardSubject.versionId, publicationKey('s06-soft-ctl')),
     ).rejects.toThrow(HardRuleBreachError);
-    await run(async (uow) => setRuleState(uow, 'hard_avoid_2033_04_08', 'disabled'));
-    await run(async (uow) => setRuleState(uow, 'soft_avoid_2033_04_07', 'disabled'));
+    await run(async (uow) => disableRule(uow, 'hard_avoid_2033_04_08'));
+    await run(async (uow) => disableRule(uow, 'soft_avoid_2033_04_07'));
   });
 
   it('an active HARD rule this system cannot evaluate BLOCKS rather than passing', async () => {
@@ -297,7 +314,7 @@ describe('step 06 — a breached HARD rule BLOCKS publication, and disabling it 
     expect(await versionState(versionId)).toBe('approved');
 
     // Falsifiability again: disabling it publishes.
-    await run(async (uow) => setRuleState(uow, 'coverage_not_evaluable', 'disabled'));
+    await run(async (uow) => disableRule(uow, 'coverage_not_evaluable'));
     await publish(periodId, versionId, publicationKey('s06-uneval-ok'));
     expect(await versionState(versionId)).toBe('published');
   });
@@ -349,7 +366,7 @@ describe('CallSpacing at publication — B-2, against a real database', () => {
     expect(await versionState(subject.versionId)).toBe('approved');
 
     // FALSIFIABILITY: one fact moves — the rule is disabled — and it publishes.
-    await run(async (uow) => setRuleState(uow, 'calls_three_days_apart', 'disabled'));
+    await run(async (uow) => disableRule(uow, 'calls_three_days_apart'));
     await publish(subject.periodId, subject.versionId, publicationKey('s06-call-ok'));
     expect(await versionState(subject.versionId)).toBe('published');
   });
@@ -377,7 +394,7 @@ describe('CallSpacing at publication — B-2, against a real database', () => {
     await publish(at.periodId, at.versionId, publicationKey('s06-call-boundary'));
     expect(await versionState(at.versionId)).toBe('published');
 
-    await run(async (uow) => setRuleState(uow, 'calls_three_days_apart_boundary', 'disabled'));
+    await run(async (uow) => disableRule(uow, 'calls_three_days_apart_boundary'));
   });
 });
 
@@ -530,7 +547,7 @@ describe('qualification expiry against the ASSIGNMENT DATE (packet 32 §10f deli
     await publish(periodId, versionId, publicationKey('s06-expiry-renewed'));
     expect(await versionState(versionId)).toBe('published');
 
-    await run(async (uow) => setRuleState(uow, 'requires_midperiod_credential', 'disabled'));
+    await run(async (uow) => disableRule(uow, 'requires_midperiod_credential'));
   });
 
   it('the evaluation instant for a date is midday UTC, so no offset moves the day', () => {

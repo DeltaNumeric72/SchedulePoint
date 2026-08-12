@@ -120,6 +120,10 @@ function change(overrides: Record<string, unknown> = {}) {
     endsAt: '2029-03-04T16:00:00.000Z',
     fromDisplayName: 'Synthetic Member A',
     toDisplayName: 'Synthetic Member B',
+    /* OPUS-M4-000C: every material dimension that moved. REQUIRED by
+     * `assignmentChangeCoreSchema`, so a fixture without it fails the parse and
+     * the review never renders. */
+    materialFields: ['participant'],
     ...overrides,
   };
 }
@@ -133,6 +137,7 @@ function difference(overrides: Record<string, unknown> = {}) {
         kind: 'added',
         fromMembershipId: null,
         fromDisplayName: null,
+        materialFields: ['participant', 'date', 'time', 'shiftType', 'location', 'pin', 'credit'],
         date: '2029-03-05',
         startsAt: '2029-03-05T08:00:00.000Z',
         endsAt: '2029-03-05T16:00:00.000Z',
@@ -148,6 +153,7 @@ function difference(overrides: Record<string, unknown> = {}) {
         reassignedAway: 1,
         reassignedTo: 0,
         retimed: 0,
+        amended: 0,
       },
       {
         membershipId: MEMBER_B,
@@ -157,6 +163,7 @@ function difference(overrides: Record<string, unknown> = {}) {
         reassignedAway: 0,
         reassignedTo: 1,
         retimed: 0,
+        amended: 0,
       },
     ],
     ...overrides,

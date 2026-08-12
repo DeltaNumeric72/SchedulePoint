@@ -833,7 +833,51 @@ export interface PublicationRecordsTable {
   actor_membership_id: string | null;
   prerequisites_snapshot: unknown;
   outcome: 'published' | 'failed';
+  /**
+   * OPUS-M4-000C (migration 0015, doc 34 §4-G). D-17 bound idempotency to
+   * (period, key), which answers "have I seen this key?" and not "have I seen
+   * this key for THIS request?". A key reused for a REVERT after a PUBLISH was
+   * told its operation had already succeeded when a different one had.
+   */
+  operation_type: 'publish' | 'revert';
+  /**
+   * A sha-256 over the semantic request — the operation, the period, the
+   * version, the expected prior current version and the expected version state.
+   * `null` only for records written before 0015.
+   */
+  semantic_request_digest: string | null;
   created_at: Date;
+}
+
+/**
+ * `migrations/0015_rule_revisions_and_period_lifecycle.sql` (OPUS-M4-000C).
+ *
+ * Append-only, and deliberately ABSENT from `Database` for exactly the reason
+ * `publication_records` is: a typed `updateTable('rule_revisions')` would be a
+ * rewrite path the type system handed out for a table whose whole value is that
+ * it cannot be rewritten. Rows arrive through the SECURITY DEFINER trigger
+ * `app_record_rule_revision`; reads go through raw `sql` and are typed by this
+ * interface. No runtime role holds INSERT, UPDATE or DELETE.
+ */
+export interface RuleRevisionsTable {
+  id: string;
+  organization_id: string;
+  group_id: string;
+  rule_id: string;
+  /** The STABLE identifier, carried so a citation reads `rule_key@revision`. */
+  rule_key: string;
+  /** `rules.version` at the moment of the mutation — the CAS token, as history. */
+  revision: number;
+  rule_schema_version: number;
+  name: string;
+  classification: 'HARD' | 'SOFT';
+  weight: string | null;
+  category: 'general' | 'pattern' | 'staff';
+  scope: unknown;
+  predicate: unknown;
+  status: 'active' | 'disabled' | 'archived';
+  recorded_by: string | null;
+  recorded_at: Date;
 }
 
 /** Append-only (D-15d); not in `Database`. Defined for raw-SQL row typing only. */
@@ -1162,4 +1206,19 @@ export const TENANT_TABLES: readonly TenantTable[] = [
    * seeding: the demand writes it already performs fire the bump trigger,
    * which upserts a counter row through the production mechanism. */
   { name: 'staffing_set_versions', scope: 'organization-and-group' },
+
+  /* ── `migrations/0015_rule_revisions_and_period_lifecycle.sql` (OPUS-M4-000C)
+   *
+   * Registered in the SAME change as the migration that creates it (packet 30
+   * §7.2's rule, still binding). `organization-and-group`: both tenant columns
+   * and V-09's conjunctive group predicate, with no organization-scoped policy —
+   * a rule belongs to a group and so does its history.
+   *
+   * Non-vacuity in the sweeps is established by
+   * `apps/api/test/support/rules.ts::seedRulesForSweep`, which every sweeping
+   * file already calls: writing a rule fires `rules_zz_record_revision`, so a
+   * revision row exists in each swept group through the production mechanism.
+   * Nothing seeds this table directly, and nothing should — a revision the
+   * fixture could write is a revision the application could forge. */
+  { name: 'rule_revisions', scope: 'organization-and-group' },
 ] as const;

@@ -8,10 +8,13 @@ import { recordAuditEvent } from '../audit/recorder.js';
 import type { RecordedAuditEvent } from '@schedulepoint/domain';
 import type { Database } from '../db/schema.js';
 import { publishOutboxEvent } from '../outbox/publisher.js';
+import { currentRuleRevisions, type RuleRevisionRef } from '../rules/service.js';
 import { requireScheduleCapability, type ScheduleActor } from './actions.js';
 import { differenceByIdentity, type DiffSnapshot, type VersionDifference } from './diff.js';
 import { SchedulePreconditionError } from './errors.js';
 import { assertHardRulesRevalidated } from './hard-rule-revalidation.js';
+import { calendarDate } from './render.js';
+import { semanticRequestDigest } from './review-identity.js';
 import { assertNoOpenHardBreach } from './service.js';
 import { assertTimezoneBasisFresh } from './timezone.js';
 
@@ -76,6 +79,22 @@ export interface PublishInput {
    * rejected, never merged blindly."
    */
   readonly expectedPriorCurrentVersionId: string | null;
+  /**
+   * OPUS-M4-000C (doc 34 §4-G): what this idempotency key is a key FOR.
+   *
+   * D-17 bound idempotency to (period, key). That answers "have I seen this
+   * key?" and not "have I seen this key for THIS request?", so a key reused for
+   * a REVERT after a PUBLISH — or for a publish naming a different expected
+   * prior-current version — was answered as a replay of something else.
+   *
+   * Defaulted to `'publish'` because `publishVersion` IS the publish operation;
+   * `publishRevert` passes `'revert'`. It is not optional in the sense that
+   * matters: the value always reaches the record, and a replay whose recorded
+   * operation or semantic digest differs is refused.
+   */
+  readonly operationType?: 'publish' | 'revert';
+  /** Present only for a revert. Part of the semantic request identity. */
+  readonly revertedToVersionId?: string | null;
 }
 
 export interface PublishResult {
@@ -126,21 +145,70 @@ interface PrerequisitesSnapshot {
   readonly priorCurrentVersionId?: string | null;
   readonly affectedMembershipIds?: readonly string[];
   readonly affectedCount?: number;
+  /**
+   * OPUS-M4-000C (doc 34 §4-D): the EXACT rule revisions this publication was
+   * validated against, as `rule_key@revision`.
+   *
+   * Recorded because "builds and publications identify exact rule revisions" is
+   * unanswerable after the fact otherwise: rules are amended, and a published
+   * version that says "it satisfied the HARD rules" without saying WHICH
+   * revisions of them is making a claim nobody can check a month later. The
+   * revisions themselves are reconstructable byte-identically from
+   * `rule_revisions`.
+   */
+  readonly ruleRevisions?: readonly RuleRevisionRef[];
 }
 
-/** Rows the difference and `current_published_assignments` are computed from. */
+/**
+ * Rows the difference and `current_published_assignments` are computed from.
+ *
+ * OPUS-M4-000C (doc 34 §4-G): the shift join and the credit join are new. The
+ * difference's material-change definition covers shift type, location, pin and
+ * credit, and a definition cannot cover a field the reader never selects — the
+ * previous version of this function selected five columns, so a shift-type move
+ * or a credit move produced no difference and notified nobody.
+ *
+ * The credit join is `LEFT` and keyed by V-23's (identity, source version): an
+ * assignment need not have a credit, and one that does not is not a change.
+ */
 async function activeSnapshotsOf(uow: Uow, versionId: string): Promise<DiffSnapshot[]> {
-  const rows = await uow.query
-    .selectFrom('assignment_snapshots')
-    .select(['assignment_identity_id', 'membership_id', 'starts_at', 'ends_at', 'status'])
-    .where('version_id', '=', versionId)
-    .execute();
-  return rows.map((row) => ({
+  const rows = await sql<{
+    assignment_identity_id: string;
+    membership_id: string;
+    starts_at: Date;
+    ends_at: Date;
+    status: string;
+    date: string | Date;
+    shift_type_id: string;
+    location_id: string | null;
+    is_pinned: boolean;
+    credited_membership_id: string | null;
+    weight: string | null;
+  }>`
+    SELECT s.assignment_identity_id, s.membership_id, s.starts_at, s.ends_at, s.status,
+           s.date, s.is_pinned, sh.shift_type_id, sh.location_id,
+           c.credited_membership_id, c.weight
+      FROM assignment_snapshots s
+      JOIN shifts sh ON sh.id = s.shift_id
+      LEFT JOIN credits c
+             ON c.assignment_identity_id = s.assignment_identity_id
+            AND c.source_version_id = s.version_id
+            AND c.status <> 'voided'
+     WHERE s.version_id = ${versionId}
+  `.execute(uow.query);
+
+  return rows.rows.map((row) => ({
     assignmentIdentityId: row.assignment_identity_id,
     membershipId: row.membership_id,
     startsAt: row.starts_at,
     endsAt: row.ends_at,
     status: row.status,
+    date: calendarDate(row.date),
+    shiftTypeId: row.shift_type_id,
+    locationId: row.location_id,
+    isPinned: row.is_pinned,
+    creditedMembershipId: row.credited_membership_id,
+    creditWeight: row.weight,
   }));
 }
 
@@ -208,11 +276,26 @@ export async function publishVersion(
    *      `priorCurrentVersionId: null` and an empty difference to EVERY replay,
    *      which is a lie a caller cannot detect: a retry after a dropped
    *      connection would have been told nobody was affected. */
+  const operationType = input.operationType ?? 'publish';
+  /* OPUS-M4-000C (doc 34 §4-G): the key is bound to the OPERATION TYPE and the
+   * SEMANTIC REQUEST, not to the period alone. Computed before the read so the
+   * replay comparison has something to compare against. */
+  const semanticDigest = semanticRequestDigest({
+    operation: operationType,
+    periodId: input.periodId,
+    versionId: input.versionId,
+    expectedVersionState: expectedState,
+    expectedPriorCurrentVersionId: input.expectedPriorCurrentVersionId,
+    revertedToVersionId: input.revertedToVersionId ?? null,
+  });
+
   const existing = await sql<{
     version_id: string;
     outcome: string;
+    operation_type: string;
+    semantic_request_digest: string | null;
     prerequisites_snapshot: PrerequisitesSnapshot;
-  }>`SELECT version_id, outcome, prerequisites_snapshot
+  }>`SELECT version_id, outcome, operation_type, semantic_request_digest, prerequisites_snapshot
        FROM publication_records
       WHERE period_id = ${input.periodId}
         AND publication_idempotency_key = ${input.idempotencyKey}`.execute(uow.query);
@@ -226,6 +309,37 @@ export async function publishVersion(
         'IDEMPOTENCY_KEY_REUSED_FOR_DIFFERENT_VERSION',
         `idempotency key already published version ${replayed.version_id} in this period; ` +
           `it cannot be reused for version ${input.versionId}`,
+      );
+    }
+    /* Same key, same version, DIFFERENT operation — a revert reusing a publish's
+     * key, or the other way round. The version matches, so the check above lets
+     * it through, and the two operations have different capabilities
+     * (`schedule.publish` versus `schedule.revert`) and different audit events.
+     * Answering "already done" would report a revert that never happened. */
+    if (replayed.operation_type !== operationType) {
+      throw new SchedulePreconditionError(
+        'IDEMPOTENCY_KEY_REUSED_FOR_DIFFERENT_OPERATION',
+        `idempotency key already recorded a ${replayed.operation_type} in this period; ` +
+          `it cannot be reused for a ${operationType}`,
+      );
+    }
+    /* Same key, same version, same operation, DIFFERENT semantic request — most
+     * usefully a different `expectedPriorCurrentVersionId`, which means the
+     * caller's belief about the world has changed since the first attempt. A
+     * replay must answer about the request that was actually performed.
+     *
+     * A record written before migration 0015 has no recorded digest. It is
+     * treated as a match rather than a mismatch: an unknown is not evidence of a
+     * difference, and refusing every pre-0015 replay would break retries of
+     * publications that genuinely succeeded. */
+    if (
+      replayed.semantic_request_digest !== null &&
+      replayed.semantic_request_digest !== semanticDigest
+    ) {
+      throw new SchedulePreconditionError(
+        'IDEMPOTENCY_KEY_REUSED_FOR_DIFFERENT_REQUEST',
+        'idempotency key already recorded a publication of this version with different ' +
+          'parameters; it cannot be reused for a different request',
       );
     }
     const snapshot = replayed.prerequisites_snapshot ?? {};
@@ -488,10 +602,16 @@ export async function publishVersion(
   /* 15 — the append-only publication record. Written last, so its presence means
    *      the whole sequence succeeded; D-17's unique key makes the retry a
    *      replay. No UPDATE/DELETE grant exists on this table (D-15d). */
+  /* The EXACT rule revisions this publication was validated against, read INSIDE
+   * the publishing transaction so the citation names what step 06 actually
+   * evaluated rather than what was current a moment earlier (doc 34 §4-D). */
+  const ruleRevisions = await currentRuleRevisions(uow);
+
   await sql`
     INSERT INTO publication_records
       (id, organization_id, group_id, period_id, version_id,
-       publication_idempotency_key, actor_membership_id, prerequisites_snapshot, outcome)
+       publication_idempotency_key, actor_membership_id, prerequisites_snapshot, outcome,
+       operation_type, semantic_request_digest)
     VALUES (${randomUUID()}, ${organizationId}, ${groupId}, ${input.periodId},
             ${input.versionId}, ${input.idempotencyKey}, ${uow.context.membershipId},
             ${JSON.stringify({
@@ -502,7 +622,9 @@ export async function publishVersion(
               // than an empty set (FAD-22(3)).
               affectedMembershipIds: difference.affectedMembershipIds,
               affectedCount: difference.affectedMembershipIds.length,
-            } satisfies PrerequisitesSnapshot)}::jsonb, 'published')
+              ruleRevisions,
+            } satisfies PrerequisitesSnapshot)}::jsonb, 'published',
+            ${operationType}, ${semanticDigest})
   `.execute(uow.query);
 
   return {
@@ -535,7 +657,16 @@ export async function publishRevert(
   deps: PublicationDependencies = {},
 ): Promise<PublishResult> {
   await requireScheduleCapability(uow, actor, 'revert');
-  const result = await publishVersion(uow, actor, input, deps);
+  /* OPUS-M4-000C: the record is stamped `revert`, and the reverted-to version is
+   * part of the semantic request. Reusing a publish's key for a revert — or a
+   * revert's key for a revert to a DIFFERENT version — is now an explicit
+   * refusal rather than a replay that answers about the wrong operation. */
+  const result = await publishVersion(
+    uow,
+    actor,
+    { ...input, operationType: 'revert', revertedToVersionId: input.revertedToVersionId },
+    deps,
+  );
   if (!result.replay) {
     await recordAuditEvent(uow, {
       eventName: 'schedule.version.reverted',
@@ -549,6 +680,105 @@ export async function publishRevert(
     });
   }
   return result;
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * The period lifecycle (OPUS-M4-000C, doc 34 §4-G)
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * The legal period moves. Closing is the ordinary end; reopening is a decision.
+ *
+ * `closed -> published` is deliberately absent. A reopen goes through
+ * `planning`, so reopening and republishing are two recorded acts rather than
+ * one silent one. The database enforces the same table independently
+ * (`app_guard_period_status_transition`, migration 0015) — this produces the
+ * readable error and the audit row.
+ */
+const LEGAL_PERIOD_TRANSITIONS: Readonly<Record<string, readonly string[]>> = {
+  planning: ['published', 'closed'],
+  published: ['closed'],
+  closed: ['planning'],
+};
+
+export type PeriodStatus = 'planning' | 'published' | 'closed';
+
+export interface PeriodTransitionResult {
+  readonly periodId: string;
+  readonly from: PeriodStatus;
+  readonly to: PeriodStatus;
+}
+
+/**
+ * Move a period's lifecycle status — **the explicit audited transition** doc 34
+ * §4-G requires.
+ *
+ * Until this packet `schedule_periods.status` was a column nothing enforced: a
+ * `closed` period accepted new versions, new requirements and new publications
+ * exactly as an open one did, and the status could be moved anywhere. Migration
+ * 0015 closes the enforcement half at the database (a closed period refuses new
+ * versions and requirements, and refuses a version being walked to `published`);
+ * this is the operation that moves the status, and reopening a closed period is
+ * the ONE way past those refusals.
+ *
+ * It lives here rather than in `schedule/service.ts` because the period
+ * lifecycle is the first clause of the publication handoff, and because
+ * publication is what a closed period exists to stop.
+ *
+ * FAD-12's ordering: evaluate → deny → mutate → audit, in the caller's one unit
+ * of work. The capability is `periodAdminister`, the same one that creates a
+ * period; the database asks for it again independently.
+ */
+export async function transitionPeriodStatus(
+  uow: Uow,
+  actor: ScheduleActor,
+  periodId: string,
+  to: PeriodStatus,
+): Promise<PeriodTransitionResult> {
+  await requireScheduleCapability(uow, actor, 'periodAdminister');
+
+  /* FOR UPDATE, so two concurrent transitions cannot both read `planning` and
+   * both proceed. The publication path takes the same row lock, in the same
+   * order, so closing a period and publishing into it serialize against each
+   * other rather than racing. */
+  const period = (await uow.query
+    .selectFrom('schedule_periods')
+    .select(['id', 'status'])
+    .where('id', '=', periodId)
+    .forUpdate()
+    .executeTakeFirst()) as { id: string; status: PeriodStatus } | undefined;
+  if (period === undefined) {
+    throw new SchedulePreconditionError('PERIOD_NOT_FOUND', 'no such schedule period');
+  }
+
+  if (period.status === to) {
+    // A no-op is not a change and is not audited (FAD-24's discipline). It is
+    // also not an error: a client retrying a close should not be told off.
+    return { periodId, from: period.status, to };
+  }
+
+  if (!(LEGAL_PERIOD_TRANSITIONS[period.status] ?? []).includes(to)) {
+    throw new SchedulePreconditionError(
+      'PERIOD_TRANSITION_ILLEGAL',
+      `a schedule period does not move from ${period.status} to ${to}`,
+    );
+  }
+
+  await uow.query
+    .updateTable('schedule_periods')
+    .set({ status: to, updated_at: new Date() })
+    .where('id', '=', periodId)
+    .execute();
+
+  await recordAuditEvent(uow, {
+    eventName: 'schedule.period.updated',
+    subjectType: 'schedule_period',
+    subjectId: periodId,
+    // The transition, and nothing a user typed.
+    payload: { mechanism: 'status_transition', from: period.status, to },
+  });
+
+  return { periodId, from: period.status, to };
 }
 
 /**

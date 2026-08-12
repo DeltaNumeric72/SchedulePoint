@@ -9,6 +9,13 @@
 export const ports = {
   /** `./unit-of-work.ts` — implemented by `apps/api/src/db/unit-of-work.ts`. */
   unitOfWork: 'UnitOfWorkRunner',
+  /**
+   * `./provider-boundary.ts` — implemented by `apps/api/src/db/provider-boundary.ts`
+   * (OPUS-M4-000C, SPEC-12 U-07). The probe the boundary decision reads: it is a
+   * port because the thing that knows whether a transaction is open is an
+   * `AsyncLocalStorage`, and this package imports no node builtin.
+   */
+  providerBoundary: 'ProviderBoundaryProbe',
   /** `./alerts.ts` — implemented by `apps/api/src/db/alerts.ts`. */
   alerts: 'AlertSink',
   /** `./job-queue.ts` — implemented by `apps/api/src/jobs/in-memory-queue.ts`. */

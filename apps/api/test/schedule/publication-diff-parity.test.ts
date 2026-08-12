@@ -72,6 +72,14 @@ afterAll(async () => {
   await admin.end();
 });
 
+/**
+ * The independent read the parity proof compares against.
+ *
+ * OPUS-M4-000C: it now selects every dimension the shared material-change
+ * definition compares — shift type, location, pin, credit — because a proof that
+ * fed the pure function a NARROWER projection than the route feeds it would
+ * agree about fields neither of them ever saw.
+ */
 async function readSnapshotsDirect(versionId: string): Promise<DiffSnapshot[]> {
   const result = await admin.query<{
     assignment_identity_id: string;
@@ -79,9 +87,23 @@ async function readSnapshotsDirect(versionId: string): Promise<DiffSnapshot[]> {
     starts_at: Date;
     ends_at: Date;
     status: string;
+    date: string | Date;
+    shift_type_id: string;
+    location_id: string | null;
+    is_pinned: boolean;
+    credited_membership_id: string | null;
+    credit_weight: string | null;
   }>(
-    `select assignment_identity_id, membership_id, starts_at, ends_at, status
-       from assignment_snapshots where version_id = $1`,
+    `select s.assignment_identity_id, s.membership_id, s.starts_at, s.ends_at, s.status,
+            s.date, s.is_pinned, sh.shift_type_id, sh.location_id,
+            c.credited_membership_id, c.weight as credit_weight
+       from assignment_snapshots s
+       join shifts sh on sh.id = s.shift_id
+       left join credits c
+              on c.assignment_identity_id = s.assignment_identity_id
+             and c.source_version_id = s.version_id
+             and c.status <> 'voided'
+      where s.version_id = $1`,
     [versionId],
   );
   return result.rows.map((row) => ({
@@ -90,6 +112,12 @@ async function readSnapshotsDirect(versionId: string): Promise<DiffSnapshot[]> {
     startsAt: row.starts_at,
     endsAt: row.ends_at,
     status: row.status,
+    date: String(row.date instanceof Date ? row.date.toISOString() : row.date).slice(0, 10),
+    shiftTypeId: row.shift_type_id,
+    locationId: row.location_id,
+    isPinned: row.is_pinned,
+    creditedMembershipId: row.credited_membership_id,
+    creditWeight: row.credit_weight,
   }));
 }
 
@@ -119,15 +147,22 @@ async function readComparison(
 
 describe('the rendered difference equals the pure function', () => {
   it('the contract kind union is exactly the module`s', () => {
-    // A fifth kind added to the module and not to the wire would silently render
-    // as nothing at all. `satisfies` is the assertion: this stops compiling if
-    // the two sets diverge in either direction.
+    // A kind added to the module and not to the wire would silently render as
+    // nothing at all. `satisfies` is the assertion: this stops compiling if the
+    // two sets diverge in either direction.
+    //
+    // `amended` is OPUS-M4-000C's (doc 34 §4-G) — the same person, at the same
+    // time, whose shift type, location, pin or credit moved. This list is the
+    // one place the module's union is written out by hand, so it is EXACTLY
+    // what must move when a kind is added; updating it does not weaken the
+    // assertion, which still fails in both directions.
     const wire: readonly AssignmentChangeKind[] = ASSIGNMENT_CHANGE_KINDS;
     const module: readonly (typeof ASSIGNMENT_CHANGE_KINDS)[number][] = [
       'added',
       'removed',
       'reassigned',
       'retimed',
+      'amended',
     ] satisfies readonly AssignmentChangeKind[];
     expect([...wire].sort()).toEqual([...module].sort());
   });
@@ -190,6 +225,13 @@ describe('the rendered difference equals the pure function', () => {
     const first = rendered.changes[0];
     if (first === undefined) throw new Error('the seed produced no changes to perturb');
 
+    const swappable = rendered.changes.find(
+      (change) => change.fromMembershipId !== change.toMembershipId,
+    );
+    if (swappable === undefined) {
+      throw new Error('the seed produced no change with two distinct memberships to swap');
+    }
+
     const perturbations: { name: string; changes: AssignmentChangeView[] }[] = [
       { name: 'a dropped change', changes: rendered.changes.slice(1) },
       {
@@ -198,9 +240,24 @@ describe('the rendered difference equals the pure function', () => {
       },
       {
         name: 'a swapped membership',
+        /* Perturb a change whose two memberships actually DIFFER.
+         *
+         * This used to swap `changes[0]` unconditionally. OPUS-M4-000C added the
+         * `amended` kind, and the seed's credit move produces one — a change
+         * whose from and to are the SAME person, because the assignee did not
+         * move. Swapping those two is a no-op, so the perturbation silently
+         * stopped perturbing anything and the falsifiability check passed
+         * vacuously. `swappable` is asserted to exist, so the case can never go
+         * quiet again. */
         changes: [
-          { ...first, toMembershipId: first.fromMembershipId, fromMembershipId: first.toMembershipId },
-          ...rendered.changes.slice(1),
+          {
+            ...swappable,
+            toMembershipId: swappable.fromMembershipId,
+            fromMembershipId: swappable.toMembershipId,
+          },
+          ...rendered.changes.filter(
+            (change) => change.assignmentIdentityId !== swappable.assignmentIdentityId,
+          ),
         ],
       },
       {
@@ -225,14 +282,28 @@ describe('the rendered difference equals the pure function', () => {
     const after = await readSnapshotsDirect(seeded.currentVersionId);
     const pure = differenceByIdentity(before, after);
 
+    /* OPUS-M4-000C: the digest is now a function of the changes AND of the
+     * material-input digest (doc 34 §4-G). The material-input half is held
+     * CONSTANT here so this test still isolates the change half; that the
+     * material half also moves the token is proven separately, in
+     * `publication-handoff.test.ts`'s NINE-CLASS MATRIX, by moving one input
+     * class at a time. (This cited `review-identity.test.ts`, which has never
+     * existed — a citation to a file nobody can open is worse than none, because
+     * it reads as though the coverage had been checked.) */
+    const inputs = 'material-input-digest-held-constant';
+
     // Deterministic across calls…
-    expect(reviewDigestOf(pure)).toBe(reviewDigestOf(differenceByIdentity(before, after)));
-    // …independent of the ROW order the database happened to return…
-    expect(reviewDigestOf(differenceByIdentity([...before].reverse(), [...after].reverse()))).toBe(
-      reviewDigestOf(pure),
+    expect(reviewDigestOf(pure, inputs)).toBe(
+      reviewDigestOf(differenceByIdentity(before, after), inputs),
     );
+    // …independent of the ROW order the database happened to return…
+    expect(
+      reviewDigestOf(differenceByIdentity([...before].reverse(), [...after].reverse()), inputs),
+    ).toBe(reviewDigestOf(pure, inputs));
     // …and SENSITIVE to a real change, or it would be a decorative token.
     const perturbed = differenceByIdentity(before, after.slice(1));
-    expect(reviewDigestOf(perturbed)).not.toBe(reviewDigestOf(pure));
+    expect(reviewDigestOf(perturbed, inputs)).not.toBe(reviewDigestOf(pure, inputs));
+    // …and sensitive to the MATERIAL INPUTS moving while the changes do not.
+    expect(reviewDigestOf(pure, 'a-different-world')).not.toBe(reviewDigestOf(pure, inputs));
   });
 });

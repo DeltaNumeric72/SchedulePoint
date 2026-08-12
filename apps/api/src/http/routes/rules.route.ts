@@ -1,13 +1,17 @@
 import {
   conflictBodySchema,
   isUuid,
+  ruleAmendSchema,
   ruleListSchema,
   ruleResultSchema,
+  ruleRevisionListSchema,
+  ruleSetAmendSchema,
   ruleSetListSchema,
   ruleSetResultSchema,
   ruleSetWriteSchema,
   ruleStateRequestSchema,
   ruleWriteSchema,
+  staleRuleBodySchema,
   validationProblemBodySchema,
   type ConflictBody,
 } from '@schedulepoint/contracts';
@@ -67,7 +71,18 @@ type Outcome<T> =
   | { readonly kind: 'denied'; readonly decision: Decision }
   | { readonly kind: 'not-found' }
   | { readonly kind: 'conflict' }
-  | { readonly kind: 'invalid'; readonly problems: readonly RuleProblem[] };
+  | { readonly kind: 'invalid'; readonly problems: readonly RuleProblem[] }
+  /**
+   * OPUS-M4-000C (doc 34 §4-D). The author's `expectedVersion` is not the row's
+   * current one, so somebody else amended the rule between the load and the
+   * save. `409 STALE_RULE`, carrying the CURRENT version so the editor can
+   * re-fetch and show what moved.
+   *
+   * Deliberately NOT folded into `conflict`: the generic 409 says "the request
+   * could not be completed" and carries nothing, which leaves an author with no
+   * way to recover and no way to tell a stale edit from a duplicate key.
+   */
+  | { readonly kind: 'stale'; readonly currentVersion: number };
 
 /**
  * The wire contract caps a problem message at 300 characters
@@ -233,6 +248,19 @@ function respond<T>(
       } satisfies ConflictBody),
     );
   }
+  if (outcome.kind === 'stale') {
+    return reply.code(409).send(
+      staleRuleBodySchema.parse({
+        error: {
+          code: 'STALE_RULE',
+          message:
+            'This rule changed while you were editing it. Reload it and apply your change again.',
+          currentVersion: outcome.currentVersion,
+        },
+        correlationId: request.correlationId,
+      }),
+    );
+  }
   if (outcome.kind === 'invalid') {
     return reply.code(422).send(
       validationProblemBodySchema.parse({
@@ -316,9 +344,14 @@ export default function rulesRoutes(app: FastifyInstance): void {
       request,
       async (uow) => {
         if (ruleKey === undefined) return { kind: 'not-found' as const };
-        const parsed = parseBody(ruleWriteSchema, request.body);
+        // `ruleAmendSchema`, not `ruleWriteSchema`: an amendment carries the
+        // version the author was looking at, and it is REQUIRED (FAD-22(2)'s
+        // reasoning applied to rules — an optional compare-and-set is
+        // indistinguishable from a caller that never thought about concurrency).
+        const parsed = parseBody(ruleAmendSchema, request.body);
         if (parsed.kind !== 'ok') return parsed;
-        return rules.updateRule(uow, ruleKey, parsed.value);
+        const { expectedVersion, ...write } = parsed.value;
+        return rules.updateRule(uow, ruleKey, write, expectedVersion);
       },
       (mutation) => ({
         eventName: RULES_AUDIT_EVENTS.ruleUpdated,
@@ -342,7 +375,7 @@ export default function rulesRoutes(app: FastifyInstance): void {
         const parsed = parseBody(ruleStateRequestSchema, request.body);
         if (parsed.kind !== 'ok') return parsed;
         requested = parsed.value.state;
-        return rules.setRuleState(uow, ruleKey, parsed.value.state);
+        return rules.setRuleState(uow, ruleKey, parsed.value.state, parsed.value.expectedVersion);
       },
       (mutation) => ({
         eventName: stateEvent(requested),
@@ -353,6 +386,37 @@ export default function rulesRoutes(app: FastifyInstance): void {
     );
     return respond(request, reply, outcome, (mutation) =>
       ruleResultSchema.parse({ rule: mutation.rule, correlationId: request.correlationId }),
+    );
+  });
+
+  /**
+   * The rule's revision history (OPUS-M4-000C, doc 34 §4-D).
+   *
+   * A read, under the same `RULE_CONFIG` policy as reading the rule itself:
+   * seeing what a rule USED to say is exactly as sensitive as seeing what it
+   * says now, and a second, looser policy for history is how a permission
+   * surface acquires a hole.
+   *
+   * The list carries metadata only — key, revision, name, classification,
+   * weight, state, timestamp — and NOT the stored AST. A build that needs the
+   * exact predicate of a historical revision reads it through
+   * `loadRuleRevision` on the server; shipping every historical predicate to a
+   * list view would be a payload nobody asked for on a screen that only needs to
+   * say what changed and when.
+   */
+  app.get(`${base}/:ruleKey/revisions`, { config: RULE_CONFIG }, async (request, reply) => {
+    const { ruleKey } = request.params as { ruleKey?: string };
+    const outcome = await withRuleQuery(request, async (uow) =>
+      ruleKey === undefined ? [] : rules.listRuleRevisions(uow, ruleKey),
+    );
+    return respond(request, reply, outcome, (revisions) =>
+      ruleRevisionListSchema.parse({
+        revisions: revisions.map((revision) => ({
+          ...revision,
+          recordedAt: revision.recordedAt.toISOString(),
+        })),
+        correlationId: request.correlationId,
+      }),
     );
   });
 
@@ -393,9 +457,10 @@ export default function rulesRoutes(app: FastifyInstance): void {
         // malformed id is decidable before any statement runs, so the `22P02`
         // class never reaches the database (catalogue finding V-02).
         if (ruleSetId === undefined || !isUuid(ruleSetId)) return { kind: 'not-found' as const };
-        const parsed = parseBody(ruleSetWriteSchema, request.body);
+        const parsed = parseBody(ruleSetAmendSchema, request.body);
         if (parsed.kind !== 'ok') return parsed;
-        return rules.updateRuleSet(uow, ruleSetId, parsed.value);
+        const { expectedVersion, ...write } = parsed.value;
+        return rules.updateRuleSet(uow, ruleSetId, write, expectedVersion);
       },
       (ruleSet) => ({
         eventName: RULES_AUDIT_EVENTS.ruleSetUpdated,
@@ -414,9 +479,27 @@ export default function rulesRoutes(app: FastifyInstance): void {
       request,
       async (uow) => {
         if (ruleSetId === undefined || !isUuid(ruleSetId)) return { kind: 'not-found' as const };
+        /* The compare-and-set arrives as a QUERY parameter, because a DELETE
+         * carrying a body is a shape proxies and clients disagree about. It is
+         * a positive integer and nothing else — no personal or sensitive value
+         * ever goes in a URL — and a missing or malformed one is refused rather
+         * than defaulted, so the CAS cannot be skipped by omitting it. */
+        const { expectedVersion } = request.query as { expectedVersion?: string };
+        const expected = Number(expectedVersion);
+        if (!Number.isInteger(expected) || expected <= 0) {
+          return {
+            kind: 'invalid' as const,
+            problems: [
+              {
+                path: 'expectedVersion',
+                message: 'The version of the rule set being archived is required.',
+              },
+            ],
+          };
+        }
         // ARCHIVE, not delete. The verb is DELETE because that is the HTTP verb
         // for "retire this resource"; nothing is removed from the database.
-        return rules.archiveRuleSet(uow, ruleSetId);
+        return rules.archiveRuleSet(uow, ruleSetId, expected);
       },
       (ruleSet) => ({
         eventName: RULES_AUDIT_EVENTS.ruleSetArchived,

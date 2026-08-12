@@ -36,6 +36,21 @@ export {
   type UnitOfWorkRunner,
 } from './ports/unit-of-work.js';
 
+/* ── OPUS-M4-000C: the provider/unit-of-work boundary (SPEC-12 U-07, doc 34 §4-H)
+ *
+ * The DECISION only. The observation that answers "is a transaction open in this
+ * async context?" is an `AsyncLocalStorage` in `apps/api/src/db/provider-boundary.ts`,
+ * because it is infrastructure and this package imports nothing. */
+export {
+  ProviderBoundaryNotInstalledError,
+  ProviderInsideUnitOfWorkError,
+  assertProviderOutsideUnitOfWork,
+  providerBoundaryVerdict,
+  type ActiveUnitOfWorkMark,
+  type ProviderBoundaryProbe,
+  type ProviderBoundaryVerdict,
+} from './ports/provider-boundary.js';
+
 export type { AlertSeverity, AlertSink, OperationalAlert } from './ports/alerts.js';
 export type { EnqueuedJob, FrozenJobContext, JobOutcome, JobQueue } from './ports/job-queue.js';
 export type { Principal, PrincipalResolution, PrincipalResolver } from './ports/principal.js';

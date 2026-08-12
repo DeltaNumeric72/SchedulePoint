@@ -1,0 +1,21 @@
+=== 1. STANDALONE — each named proof alone ===
+--- packages/domain/test/ports/provider-boundary.test.ts ---
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+--- packages/domain/test/rules/registry-and-bounds.test.ts ---
+ Test Files  1 passed (1)
+      Tests  15 passed (15)
+--- apps/api/test/providers/boundary.test.ts ---
+ Test Files  1 passed (1)
+      Tests  10 passed (10)
+--- apps/api/test/rules/revision-and-cas.test.ts ---
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+--- apps/api/test/schedule/publication-handoff.test.ts ---
+ Test Files  1 passed (1)
+      Tests  25 passed (25)
+
+=== 2. IN-SUITE — the five, with the suites they live beside ===
+ Test Files  27 passed (27)
+      Tests  320 passed (320)
+EXIT=0

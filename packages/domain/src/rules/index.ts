@@ -66,6 +66,20 @@ export {
   type WorkPercentageTargetNode,
 } from './ast.js';
 
+/* OPUS-M4-000C — AST bounds (doc 34 §4-D). The closed node set bounds the SHAPE;
+ * these bound the SIZE, and `evaluationCostBound` makes the checker's bound
+ * argument a value a test can assert rather than a paragraph. */
+export {
+  AST_BOUNDS,
+  evaluationCostBound,
+  maximumEvaluationCostBound,
+  nodeBoundProblems,
+  scopeBoundProblems,
+  scopeCardinality,
+  valueDepth,
+  type BoundProblem,
+} from './bounds.js';
+
 export {
   RULE_NODE_KEYS,
   isValidRule,
@@ -86,6 +100,30 @@ export {
   type CompiledRule,
   type CompiledRuleSet,
 } from './compile.js';
+
+/* OPUS-M4-000C — the generated rule-kind registry (doc 34 §4-D). The counts come
+ * from the four code sources it composes; the committed artifact
+ * `rule-kind-registry.generated.md` is emitted from `renderRuleKindRegistry` and
+ * a build-failing gate proves the bytes have not drifted. */
+export {
+  MILESTONE_OWNERS,
+  NATURAL_CLASSIFICATIONS,
+  RULE_KIND_FAMILIES,
+  RULE_KIND_METADATA,
+  RULE_KIND_PENDING_RULINGS,
+  buildRuleKindRegistry,
+  notEvaluableClassOf,
+  renderRuleKindRegistry,
+  type EvaluationOwner,
+  type MilestoneOwner,
+  type NaturalClassification,
+  type NotEvaluableClass,
+  type PendingRuling,
+  type RegistryEntry,
+  type RuleKindFamily,
+  type RuleKindMetadata,
+  type RuleKindRegistry,
+} from './registry.js';
 
 export {
   EVALUATED_HARD_RULE_KINDS,

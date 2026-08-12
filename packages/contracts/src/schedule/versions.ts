@@ -75,12 +75,39 @@ const displayName = z.string().min(1).max(200);
  * ──────────────────────────────────────────────────────────────────────────── */
 
 /**
- * The four kinds `apps/api/src/schedule/diff.ts` produces. Asserted equal to the
+ * The five kinds `apps/api/src/schedule/diff.ts` produces. Asserted equal to the
  * module's own union by `apps/api/test/schedule/publication-diff-parity.test.ts`
- * — a fifth kind added there and not here would be a silent wire truncation.
+ * — a kind added there and not here would be a silent wire truncation.
+ *
+ * `amended` is OPUS-M4-000C's (doc 34 §4-G): the same person, at the same time,
+ * whose shift type, location, pin or credit moved. Before the shared
+ * material-change definition those moves produced no change at all — no diff
+ * row, and nobody notified.
  */
-export const ASSIGNMENT_CHANGE_KINDS = ['added', 'removed', 'reassigned', 'retimed'] as const;
+export const ASSIGNMENT_CHANGE_KINDS = [
+  'added',
+  'removed',
+  'reassigned',
+  'retimed',
+  'amended',
+] as const;
 export type AssignmentChangeKindWire = (typeof ASSIGNMENT_CHANGE_KINDS)[number];
+
+/**
+ * The dimensions along which an assignment can materially change — the ONE
+ * definition, mirrored on the wire from `apps/api/src/schedule/review-identity.ts`
+ * and asserted equal by the diff-parity proof.
+ */
+export const MATERIAL_CHANGE_FIELDS = [
+  'participant',
+  'date',
+  'time',
+  'shiftType',
+  'location',
+  'pin',
+  'credit',
+] as const;
+export type MaterialChangeFieldWire = (typeof MATERIAL_CHANGE_FIELDS)[number];
 
 /**
  * **Exactly** what the pure diff decides, and nothing else.
@@ -96,6 +123,12 @@ export const assignmentChangeCoreSchema = z
     kind: z.enum(ASSIGNMENT_CHANGE_KINDS),
     fromMembershipId: uuid.nullable(),
     toMembershipId: uuid.nullable(),
+    /**
+     * Every material dimension that moved (OPUS-M4-000C). `kind` is the summary
+     * a reader scans; this is the complete answer, so a reassignment that also
+     * changed the shift type does not lose the second fact to the summarising.
+     */
+    materialFields: z.array(z.enum(MATERIAL_CHANGE_FIELDS)),
   })
   .strict();
 export type AssignmentChangeCore = z.infer<typeof assignmentChangeCoreSchema>;
@@ -128,6 +161,7 @@ export function assignmentChangeCoreOf(view: AssignmentChangeView): AssignmentCh
     kind: view.kind,
     fromMembershipId: view.fromMembershipId,
     toMembershipId: view.toMembershipId,
+    materialFields: view.materialFields,
   };
 }
 
@@ -149,6 +183,8 @@ export const affectedMemberSchema = z
     reassignedAway: z.number().int().nonnegative(),
     reassignedTo: z.number().int().nonnegative(),
     retimed: z.number().int().nonnegative(),
+    /** Shift type, location, pin or credit moved for the same person at the same time. */
+    amended: z.number().int().nonnegative(),
   })
   .strict();
 export type AffectedMember = z.infer<typeof affectedMemberSchema>;

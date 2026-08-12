@@ -4,6 +4,7 @@ import {
   cellResultSchema,
   cloneVersionRequestSchema,
   createPeriodRequestSchema,
+  periodTransitionRequestSchema,
   createVersionRequestSchema,
   isUuid,
   MAX_PERIOD_DAYS,
@@ -42,6 +43,7 @@ import { PG_ERRORS, isPostgresError } from '../../db/pg-errors.js';
 import { transactionNow } from '../../profiles/work-profiles.js';
 import { ScheduleDeniedError, SchedulePreconditionError } from '../../schedule/errors.js';
 import { calendarDate, digestRows } from '../../schedule/render.js';
+import { transitionPeriodStatus } from '../../schedule/publication.js';
 import * as schedule from '../../schedule/service.js';
 import { resolveRenderTimezone, timezoneBasisState } from '../../schedule/timezone.js';
 import { requireTenantContext } from '../context/middleware.js';
@@ -1766,6 +1768,47 @@ export default function scheduleAuthoringRoutes(app: FastifyInstance): void {
 
       return respond(request, reply, outcome, (cell) =>
         cellResultSchema.parse({ cell, correlationId: request.correlationId }),
+      );
+    },
+  );
+
+  /* ── the period lifecycle transition ─────────────────── OPUS-M4-000C ──── */
+
+  /**
+   * Close or reopen a schedule period (doc 34 §4-G).
+   *
+   * `schedule_periods.status` has existed since migration 0009 with a
+   * three-value domain and NOTHING enforcing it: a `closed` period accepted new
+   * versions, new requirements and new publications exactly as an open one did.
+   * Migration 0015 closes the enforcement half at the database; this is the
+   * explicit, audited transition that is the only way past those refusals.
+   *
+   * The service owns the capability check, the row lock, the legality table and
+   * the audit event — as every other write on this surface does. This handler is
+   * transport and shape validation, deliberately self-contained: it is appended
+   * as its own block and touches no assignment or authoring endpoint above it.
+   */
+  app.put(
+    `${base}/periods/:periodId/status`,
+    { config: PERIOD_ADMINISTER_CONFIG },
+    async (request, reply) => {
+      const { periodId } = request.params as { periodId?: string };
+      const outcome = await withSchedule(request, async (uow) => {
+        if (periodId === undefined || !isUuid(periodId)) return { kind: 'not-found' as const };
+        // Body parsing INSIDE the unit of work and AFTER the verdict (SBX-001):
+        // parsing first lets an actor who holds nothing in this group tell an
+        // absent route from a present one by the shape of the refusal.
+        const parsed = parseBody(periodTransitionRequestSchema, request.body);
+        if (parsed.kind !== 'ok') return parsed;
+
+        await transitionPeriodStatus(uow, actorOf(request), periodId, parsed.value.to);
+        const row = await loadPeriod(uow, periodId);
+        if (row === undefined) return { kind: 'not-found' as const };
+        return { kind: 'ok' as const, value: periodView(row) };
+      });
+
+      return respond(request, reply, outcome, (period) =>
+        schedulePeriodResultSchema.parse({ period, correlationId: request.correlationId }),
       );
     },
   );

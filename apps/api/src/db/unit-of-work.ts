@@ -17,6 +17,7 @@ import { Kysely, PostgresDialect, sql } from 'kysely';
 import type { PostgresPool, PostgresPoolClient } from 'kysely';
 import type pg from 'pg';
 
+import { withUnitOfWorkMark } from './provider-boundary.js';
 import type { RoleName } from './roles.js';
 import type { Database } from './schema.js';
 
@@ -251,7 +252,17 @@ export class PgUnitOfWorkRunner implements UnitOfWorkRunner<Kysely<Database>> {
         runnerId: this.#id,
       };
 
-      const result = await this.#active.run(active, () => fn(uow));
+      // SPEC-12 U-07 (doc 34 §4-H): the PROCESS-wide provider-boundary mark, set
+      // for exactly the lifetime of the transaction body. It is separate from
+      // `#active` on purpose — `#active` is per-runner because nesting must not
+      // cross runners, while a provider call is illegal inside ANY open
+      // transaction, whichever runner owns it. `AsyncLocalStorage.run` restores
+      // the previous store when the callback settles, so the mark cannot outlive
+      // the commit.
+      const result = await withUnitOfWorkMark(
+        { depth: 0, correlationId: context.correlationId },
+        () => this.#active.run(active, () => fn(uow)),
+      );
 
       this.stats.statements += 1;
       this.stats.commits += 1;
@@ -326,7 +337,12 @@ export class PgUnitOfWorkRunner implements UnitOfWorkRunner<Kysely<Database>> {
     };
 
     try {
-      const result = await this.#active.run({ ...outer, depth }, () => fn(uow));
+      // The savepoint carries its own depth into the provider-boundary mark, so
+      // a refusal names how deep the illegal call actually was.
+      const result = await withUnitOfWorkMark(
+        { depth, correlationId: outer.context.correlationId },
+        () => this.#active.run({ ...outer, depth }, () => fn(uow)),
+      );
       this.stats.statements += 1;
       await outer.client.query(`RELEASE SAVEPOINT ${name}`);
       return result;

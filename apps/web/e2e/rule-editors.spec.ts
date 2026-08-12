@@ -278,6 +278,8 @@ function ruleView(ruleKey: string, predicate: Record<string, unknown>) {
     scope: {},
     predicate,
     state: 'active',
+    // OPUS-M4-000C: `ruleViewSchema` requires the CAS token.
+    version: 1,
   };
 }
 

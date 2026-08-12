@@ -55,7 +55,30 @@ export function changeSentence(change: AssignmentChangeView): string {
       return `Moved — from ${from} to ${to}.`;
     case 'retimed':
       return `Times changed — ${to} keeps this shift at new hours.`;
+    case 'amended':
+      /* OPUS-M4-000C. The same person at the same time, but the shift type, the
+       * location, the pin or the credit moved. The sentence NAMES which, because
+       * "amended" on its own tells a scheduler nothing they can check, and these
+       * changes were invisible in the review until this packet. */
+      return `Changed — ${to} keeps this shift; ${describeFields(change.materialFields)} changed.`;
   }
+}
+
+/** The material dimensions, as words. Ordered as the definition orders them. */
+function describeFields(fields: readonly AssignmentChangeView['materialFields'][number][]): string {
+  const words: Record<string, string> = {
+    participant: 'who is working it',
+    date: 'the date',
+    time: 'the times',
+    shiftType: 'the shift type',
+    location: 'the location',
+    pin: 'whether it is pinned',
+    credit: 'the credit',
+  };
+  const named = fields.map((field) => words[field] ?? field);
+  if (named.length === 0) return 'something';
+  if (named.length === 1) return named[0] ?? 'something';
+  return `${named.slice(0, -1).join(', ')} and ${named[named.length - 1] ?? ''}`;
 }
 
 export function ChangeList({
@@ -158,6 +181,7 @@ export function affectedSentence(member: AffectedMember): string {
   if (member.reassignedTo > 0) parts.push(`${String(member.reassignedTo)} moved to them`);
   if (member.reassignedAway > 0) parts.push(`${String(member.reassignedAway)} moved away`);
   if (member.retimed > 0) parts.push(`${String(member.retimed)} retimed`);
+  if (member.amended > 0) parts.push(`${String(member.amended)} changed`);
   return parts.length === 0 ? 'no change' : parts.join(', ');
 }
 

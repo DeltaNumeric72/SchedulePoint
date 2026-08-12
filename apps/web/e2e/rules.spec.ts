@@ -52,6 +52,13 @@ function rule(index: number, overrides: Record<string, unknown> = {}) {
     scope: {},
     predicate: { kind: 'RequiredCount', count: index + 1 },
     state: 'active',
+    /* OPUS-M4-000C: the CAS token the editor loads and presents back on save.
+     * REQUIRED by `ruleViewSchema`, so a fixture without it fails the parse and
+     * the list renders nothing — which is how this fixture gap presented: the
+     * rule rows never appeared and every budgeted rules interaction lost its
+     * recording. Adding it is not loosening the contract; the contract is what
+     * caught the fixture. */
+    version: 1,
     ...overrides,
   };
 }

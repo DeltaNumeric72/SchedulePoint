@@ -13,7 +13,7 @@ import {
   type TenantContext,
   type UnitOfWork,
 } from '@schedulepoint/domain';
-import type { Kysely } from 'kysely';
+import { sql, type Kysely } from 'kysely';
 
 import type { Database } from '../db/schema.js';
 
@@ -59,7 +59,15 @@ export type RuleOutcome<T> =
   | { readonly kind: 'ok'; readonly value: T }
   | { readonly kind: 'invalid'; readonly problems: readonly RuleProblem[] }
   | { readonly kind: 'not-found' }
-  | { readonly kind: 'conflict' };
+  | { readonly kind: 'conflict' }
+  /**
+   * OPUS-M4-000C (doc 34 §4-D): the caller's `expectedVersion` is not the row's
+   * current one. The current value travels back so the editor can re-fetch and
+   * show the author what moved — **a stale edit is refused, never merged
+   * blindly** (doc 07 §3.1), and the refusal is explicit rather than a silent
+   * last-write-wins.
+   */
+  | { readonly kind: 'stale'; readonly currentVersion: number };
 
 /** The tenant coordinates every statement below is pinned to. Never from a body. */
 function tenantOf(context: TenantContext): { organization_id: string; group_id: string } {
@@ -88,6 +96,9 @@ const RULE_COLUMNS = [
   'scope',
   'predicate',
   'status',
+  // OPUS-M4-000C: the database-owned counter 0008 created and nothing read.
+  // It is the CAS token AND the revision number — see `rule_revisions`.
+  'version',
 ] as const;
 
 interface RuleRow {
@@ -101,6 +112,7 @@ interface RuleRow {
   scope: unknown;
   predicate: unknown;
   status: 'active' | 'disabled' | 'archived';
+  version: number;
 }
 
 /**
@@ -140,8 +152,20 @@ export function toRule(body: RuleWriteRequest): Rule {
     : { ...base, classification: 'SOFT', weight: body.weight ?? 0 };
 }
 
+/**
+ * The AST-bearing subset of a stored rule row.
+ *
+ * `rowToRule` is defined over THIS rather than over `RuleRow` deliberately: the
+ * CAS/revision counter is not part of the AST, and typing the reconstruction
+ * against the full row would force every reader that does not need the counter
+ * (the HARD-rule revalidation loader, which selects only what it evaluates) to
+ * select it anyway. A wider parameter type than the function reads is a coupling
+ * that shows up as an unrelated compile error two modules away.
+ */
+export type RuleAstRow = Omit<RuleRow, 'version'>;
+
 /** A stored row, as the typed domain `Rule`. The inverse of {@link toRule}. */
-export function rowToRule(row: RuleRow): Rule {
+export function rowToRule(row: RuleAstRow): Rule {
   const base = {
     ruleKey: row.rule_key,
     name: row.name,
@@ -164,6 +188,9 @@ function rowToWire(row: RuleRow): RuleView {
     scope: (row.scope ?? {}) as RuleView['scope'],
     predicate: row.predicate as RuleView['predicate'],
     state: row.status,
+    // The editor loads this and presents it back on save. Without it the
+    // authoring surface has no way to say "this is the rule I was looking at".
+    version: row.version,
   };
 }
 
@@ -266,6 +293,7 @@ export async function updateRule(
   uow: Uow,
   ruleKey: string,
   body: RuleWriteRequest,
+  expectedVersion: number,
 ): Promise<RuleOutcome<RuleMutation>> {
   if (body.ruleKey !== ruleKey) {
     return {
@@ -296,15 +324,48 @@ export async function updateRule(
     })
     .where('rule_key', '=', ruleKey)
     .where('status', '!=', 'archived')
+    // ── The compare-and-set (OPUS-M4-000C, doc 34 §4-D) ────────────────────
+    //
+    // In the UPDATE's own predicate, not in a read before it. That distinction
+    // is the whole M3-004 lesson, and it lands on the other side here: an
+    // unlocked read-then-write CAS over a SET is unsafe under READ COMMITTED
+    // (measured — 11 of 12 rounds both writers won), but a SINGLE-STATEMENT CAS
+    // on ONE row is safe without a lock, because a blocked UPDATE re-evaluates
+    // its WHERE clause against the row version the winner committed. The loser
+    // therefore matches zero rows rather than overwriting.
+    //
+    // `version` is database-owned: `app_maintain_catalogue_version` (0008)
+    // increments it unconditionally, including for a no-op UPDATE, so a writer
+    // that read N and wrote nothing still loses to a writer that read N and
+    // wrote something. It is also absent from the UPDATE grant, so the
+    // application cannot rewind it.
+    .where('version', '=', expectedVersion)
     .returning(RULE_COLUMNS)
     .executeTakeFirst()) as unknown as RuleRow | undefined;
 
-  return updated === undefined
-    ? { kind: 'not-found' }
-    : {
-        kind: 'ok',
-        value: { rule: rowToWire(updated), id: updated.id, ruleKey: updated.rule_key },
-      };
+  if (updated !== undefined) {
+    return {
+      kind: 'ok',
+      value: { rule: rowToWire(updated), id: updated.id, ruleKey: updated.rule_key },
+    };
+  }
+
+  // Zero rows has two causes and they are different answers to the author: the
+  // rule is gone (or archived), or somebody else edited it first. Distinguishing
+  // them costs one read and is the difference between "re-fetch and try again"
+  // and "this no longer exists".
+  return staleOrMissing(uow, ruleKey);
+}
+
+/** The zero-rows discriminator shared by every rule CAS write. */
+async function staleOrMissing(uow: Uow, ruleKey: string): Promise<RuleOutcome<never>> {
+  const current = (await uow.query
+    .selectFrom('rules')
+    .select(['version', 'status'])
+    .where('rule_key', '=', ruleKey)
+    .executeTakeFirst()) as unknown as { version: number; status: string } | undefined;
+  if (current === undefined || current.status === 'archived') return { kind: 'not-found' };
+  return { kind: 'stale', currentVersion: current.version };
 }
 
 /**
@@ -317,21 +378,158 @@ export async function setRuleState(
   uow: Uow,
   ruleKey: string,
   state: 'active' | 'disabled' | 'archived',
+  expectedVersion: number,
 ): Promise<RuleOutcome<RuleMutation>> {
   const updated = (await uow.query
     .updateTable('rules')
     .set({ status: state, updated_at: new Date() })
     .where('rule_key', '=', ruleKey)
     .where('status', '!=', 'archived')
+    // A lifecycle move is a mutation like any other, and archiving is
+    // TERMINAL — archiving a rule somebody has just rewritten, without being
+    // told, is the most consequential last-write-wins on this surface.
+    .where('version', '=', expectedVersion)
     .returning(RULE_COLUMNS)
     .executeTakeFirst()) as unknown as RuleRow | undefined;
 
-  return updated === undefined
-    ? { kind: 'not-found' }
-    : {
-        kind: 'ok',
-        value: { rule: rowToWire(updated), id: updated.id, ruleKey: updated.rule_key },
-      };
+  if (updated !== undefined) {
+    return {
+      kind: 'ok',
+      value: { rule: rowToWire(updated), id: updated.id, ruleKey: updated.rule_key },
+    };
+  }
+  return staleOrMissing(uow, ruleKey);
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Revisions (OPUS-M4-000C, doc 34 §4-D)
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** One historical revision, as stored. Read through raw SQL: the table is append-only. */
+export interface RuleRevisionView {
+  readonly ruleKey: string;
+  readonly revision: number;
+  readonly ruleSchemaVersion: number;
+  readonly name: string;
+  readonly classification: 'HARD' | 'SOFT';
+  readonly weight: number | null;
+  readonly state: 'active' | 'disabled' | 'archived';
+  readonly recordedAt: Date;
+}
+
+interface RuleRevisionRow {
+  rule_key: string;
+  revision: number;
+  rule_schema_version: number;
+  name: string;
+  classification: 'HARD' | 'SOFT';
+  weight: string | null;
+  scope: unknown;
+  predicate: unknown;
+  status: 'active' | 'disabled' | 'archived';
+  recorded_at: Date;
+}
+
+/**
+ * Every revision of one rule, newest first.
+ *
+ * Raw `sql` rather than a Kysely builder, and `rule_revisions` is deliberately
+ * absent from the `Database` interface, for the same reason `publication_records`
+ * is: a typed `updateTable('rule_revisions')` would be a rewrite path the type
+ * system handed out for a table whose entire value is that it cannot be
+ * rewritten (D-15d). The database refuses it anyway — no runtime role holds
+ * UPDATE or DELETE and `app_guard_append_only` fires for the owner too — and not
+ * offering the path is the cheaper half of the same discipline.
+ */
+export async function listRuleRevisions(
+  uow: Uow,
+  ruleKey: string,
+): Promise<readonly RuleRevisionView[]> {
+  const rows = await sql<RuleRevisionRow>`
+    SELECT rule_key, revision, rule_schema_version, name, classification, weight,
+           scope, predicate, status, recorded_at
+      FROM rule_revisions
+     WHERE rule_key = ${ruleKey}
+     ORDER BY revision DESC
+  `.execute(uow.query);
+  return rows.rows.map((row) => ({
+    ruleKey: row.rule_key,
+    revision: row.revision,
+    ruleSchemaVersion: row.rule_schema_version,
+    name: row.name,
+    classification: row.classification,
+    weight: row.weight === null ? null : Number(row.weight),
+    state: row.status,
+    recordedAt: row.recorded_at,
+  }));
+}
+
+/**
+ * Reconstruct one historical revision as the typed domain `Rule`.
+ *
+ * This is the function the packet's byte-identity requirement is about: what was
+ * authored at revision N must come back as the same AST, canonicalising to the
+ * same bytes, however many times the rule has been rewritten since. It returns
+ * the domain object rather than a wire view because re-validation and
+ * re-serialization are defined over the AST.
+ */
+export async function loadRuleRevision(
+  uow: Uow,
+  ruleKey: string,
+  revision: number,
+): Promise<Rule | null> {
+  const rows = await sql<RuleRevisionRow>`
+    SELECT rule_key, revision, rule_schema_version, name, classification, weight,
+           scope, predicate, status, recorded_at
+      FROM rule_revisions
+     WHERE rule_key = ${ruleKey} AND revision = ${revision}
+  `.execute(uow.query);
+  const row = rows.rows[0];
+  if (row === undefined) return null;
+  const base = {
+    ruleKey: row.rule_key,
+    name: row.name,
+    ruleSchemaVersion: row.rule_schema_version,
+    scope: (row.scope ?? {}) as RuleScope,
+    predicate: row.predicate as RuleNode,
+  };
+  return row.classification === 'HARD'
+    ? { ...base, classification: 'HARD' }
+    : { ...base, classification: 'SOFT', weight: Number(row.weight) };
+}
+
+/** `rule_key` → the revision currently in force. The citation a build records. */
+export interface RuleRevisionRef {
+  readonly ruleKey: string;
+  readonly revision: number;
+}
+
+/**
+ * The exact revisions of the group's ACTIVE rules, at this instant, inside this
+ * transaction.
+ *
+ * Doc 34 §4-D: "builds and publications record exact rule revisions". Read
+ * inside the same unit of work as the operation that records them, so the
+ * citation names what the operation actually consumed rather than what was
+ * current a moment before.
+ *
+ * `ruleKeys` narrows to a rule set's members; omitting it takes every active
+ * rule, which is what a publication's HARD-rule re-validation evaluates.
+ */
+export async function currentRuleRevisions(
+  uow: Uow,
+  ruleKeys?: readonly string[],
+): Promise<readonly RuleRevisionRef[]> {
+  let query = uow.query
+    .selectFrom('rules')
+    .select(['rule_key', 'version'])
+    .where('status', '=', 'active');
+  if (ruleKeys !== undefined) query = query.where('rule_key', 'in', [...ruleKeys]);
+  const rows = (await query.orderBy('rule_key').execute()) as unknown as {
+    rule_key: string;
+    version: number;
+  }[];
+  return rows.map((row) => ({ ruleKey: row.rule_key, revision: row.version }));
 }
 
 /**
@@ -356,13 +554,14 @@ export async function compileActiveRules(uow: Uow, ruleKeys?: readonly string[])
  * Rule sets
  * ──────────────────────────────────────────────────────────────────────────── */
 
-const RULE_SET_COLUMNS = ['id', 'name', 'rule_keys', 'status'] as const;
+const RULE_SET_COLUMNS = ['id', 'name', 'rule_keys', 'status', 'version'] as const;
 
 interface RuleSetRow {
   id: string;
   name: string;
   rule_keys: string[];
   status: 'active' | 'archived';
+  version: number;
 }
 
 export interface RuleSetView {
@@ -370,10 +569,29 @@ export interface RuleSetView {
   readonly name: string;
   readonly ruleKeys: readonly string[];
   readonly state: 'active' | 'archived';
+  /** The CAS token (OPUS-M4-000C). Database-owned, absent from the UPDATE grant. */
+  readonly version: number;
 }
 
 function ruleSetToWire(row: RuleSetRow): RuleSetView {
-  return { id: row.id, name: row.name, ruleKeys: row.rule_keys, state: row.status };
+  return {
+    id: row.id,
+    name: row.name,
+    ruleKeys: row.rule_keys,
+    state: row.status,
+    version: row.version,
+  };
+}
+
+/** The zero-rows discriminator for rule sets. Same reasoning as `staleOrMissing`. */
+async function ruleSetStaleOrMissing(uow: Uow, id: string): Promise<RuleOutcome<never>> {
+  const current = (await uow.query
+    .selectFrom('rule_sets')
+    .select(['version', 'status'])
+    .where('id', '=', id)
+    .executeTakeFirst()) as unknown as { version: number; status: string } | undefined;
+  if (current === undefined || current.status === 'archived') return { kind: 'not-found' };
+  return { kind: 'stale', currentVersion: current.version };
 }
 
 export async function listRuleSets(uow: Uow): Promise<readonly RuleSetView[]> {
@@ -421,6 +639,7 @@ export async function updateRuleSet(
   uow: Uow,
   id: string,
   body: RuleSetWriteRequest,
+  expectedVersion: number,
 ): Promise<RuleOutcome<RuleSetView>> {
   const missing = await unresolvedKeys(uow, body.ruleKeys);
   if (missing.length > 0) {
@@ -437,23 +656,32 @@ export async function updateRuleSet(
     .set({ name: body.name, rule_keys: [...body.ruleKeys], updated_at: new Date() })
     .where('id', '=', id)
     .where('status', '=', 'active')
+    // A rule set IS a list, and last-write-wins on a list is the union failure
+    // mode by another route: two editors adding one key each, and one key
+    // silently disappearing. The single-statement CAS refuses the loser.
+    .where('version', '=', expectedVersion)
     .returning(RULE_SET_COLUMNS)
     .executeTakeFirst()) as unknown as RuleSetRow | undefined;
   return updated === undefined
-    ? { kind: 'not-found' }
+    ? ruleSetStaleOrMissing(uow, id)
     : { kind: 'ok', value: ruleSetToWire(updated) };
 }
 
-export async function archiveRuleSet(uow: Uow, id: string): Promise<RuleOutcome<RuleSetView>> {
+export async function archiveRuleSet(
+  uow: Uow,
+  id: string,
+  expectedVersion: number,
+): Promise<RuleOutcome<RuleSetView>> {
   const updated = (await uow.query
     .updateTable('rule_sets')
     .set({ status: 'archived', updated_at: new Date() })
     .where('id', '=', id)
     .where('status', '=', 'active')
+    .where('version', '=', expectedVersion)
     .returning(RULE_SET_COLUMNS)
     .executeTakeFirst()) as unknown as RuleSetRow | undefined;
   return updated === undefined
-    ? { kind: 'not-found' }
+    ? ruleSetStaleOrMissing(uow, id)
     : { kind: 'ok', value: ruleSetToWire(updated) };
 }
 

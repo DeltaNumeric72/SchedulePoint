@@ -150,6 +150,26 @@ export const schedulePeriodResultSchema = z
   .strict();
 export type SchedulePeriodResult = z.infer<typeof schedulePeriodResultSchema>;
 
+/**
+ * The explicit, audited period lifecycle transition (OPUS-M4-000C, doc 34 §4-G).
+ *
+ * A `closed` period refuses new versions, new requirements and any publication
+ * — at the database, not only in the service (migration 0015). This request is
+ * the ONE way past those refusals, and reopening goes to `planning` rather than
+ * straight back to `published`, so the reopen and the republication are two
+ * recorded acts rather than one silent one.
+ *
+ * The legal moves, enforced in the service AND by an independent trigger:
+ *
+ *     planning  -> published | closed
+ *     published -> closed
+ *     closed    -> planning
+ */
+export const periodTransitionRequestSchema = z
+  .object({ to: z.enum(['planning', 'published', 'closed']) })
+  .strict();
+export type PeriodTransitionRequest = z.infer<typeof periodTransitionRequestSchema>;
+
 /* ────────────────────────────────────────────────────────────────────────────
  * Requirements — period-scoped demand (doc 07 §1: "how much staffing is needed
  * on a date for a shift type"). A PERIOD INSTANCE, deliberately not the
