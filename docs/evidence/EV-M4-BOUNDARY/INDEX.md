@@ -137,6 +137,32 @@ step-01-check.txt … step-09-migration-0016-cycle.txt   the runs above, each wi
 INDEX.md                                                this file
 ```
 
+## 10. Stage-1 recovery verification (orchestrator, 2026-08-13, main `b1aa64e`, serial)
+
+The M4-001 acceptance's orchestrator rerun, executed during the Stage-1 recovery
+after the acceptance merge; every exit code read from the inner `EXIT=` marker,
+never the launcher. The first `check` run is retained FAILED with its diagnosis —
+the standing rule about discarded failures.
+
+| Step | Command | Exit | Result | File |
+|---|---|---|---|---|
+| 01 | `python3 docs/architecture/validate.py` | 0 | 95/95 | `recovery-step-01-arch-validate.txt` |
+| 02 | `python3 docs/fable/validate.py` | 0 | 36/36 | `recovery-step-02-fable-validate.txt` |
+| 03 | `bash schedulepoint-research/validate.sh` | 0 | PASS | `recovery-step-03-research-validate.txt` |
+| 04 | `corepack pnpm check` (1st) | **1** | 14/15 — ONE failure: `zoned-time.test.ts` R-B4a exhaustive enumeration **timed out at 5000ms** (file total 5143ms; collect 55.8s — heavy parallel load). Not an assertion failure; the tree is byte-identical to the acceptance tree that ran it green | `recovery-step-04-check-FAILED-contention-timeout.txt` |
+| 04a | the file standalone | 0 | 47/47 in 3.70s (the enumeration ~2s alone) — contention-class timeout, diagnosed not dismissed | `recovery-step-04a-zoned-time-standalone.txt` |
+| 04b | `corepack pnpm check` (serial re-run, quiet) | 0 | **15/15 gates; unit 1792/1792** — authoritative | `recovery-step-04b-check-rerun.txt` |
+| 05 | `corepack pnpm red-cases` | 0 | **43/43 proven** | `recovery-step-05-red-cases.txt` |
+| 06 | `corepack pnpm fixture-regression` | 0 | **126/126**, fresh rotating seed **367857**; `loader-writer-agreement` passed (NR-15: zero reproductions again) | `recovery-step-06-fixture-regression.txt` |
+| 07 | `corepack pnpm sbx` | 0 | 6/6, 0 vacuous; **329 readings / 7 contexts / 0 wrong-tenant / 47 of 47 tables** | `recovery-step-07-sbx.txt` |
+| 08 | `migrate:cycle:embedded` | 0 | **0001–0016 CYCLE CLEAN**, up→down→up→down→up, 1319ms | `recovery-step-08-migration-cycle.txt` |
+
+Transcript-quality note recorded at this review: `step-09-migration-0016-cycle.txt`
+is an excerpt WITHOUT an `EXIT=` marker (it ends at the complete vitest summary
+`Tests 1 passed (1)`). It is not treated as independently sufficient; row 08 above
+re-proves the full cycle with a captured exit code, and the cycle test also ran
+green inside every unit gate of this table.
+
 ## 7. What is NOT claimed
 
 - **No benchmark.** No corpus has been run; every performance statement is a measurement of the *stub*, not of a solver.

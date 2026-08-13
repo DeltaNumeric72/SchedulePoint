@@ -2,6 +2,14 @@
 
 Strategy: [../15-testing-strategy.md](../15-testing-strategy.md). Baseline mapping: research report 22 (capability -> QA -> SBX) + SPEC harness IDs (T/P/V/R/M/N/F/X/U/AC/S-t series). This file accretes the evidence column as tests execute: capability -> harness/SBX run -> docs/evidence/ artifact.
 
+Execution log (M4 — authorized 2026-08-07; rows added 2026-08-13 at the Stage-1 closeout, which found the M4 section had never been started):
+| Harness / gate | Task | Status | Evidence |
+|---|---|---|---|
+| Solver boundary: worker round-trip on the stub, RPC framed-wire auth both directions (6/6 non-ASCII), timeout/cancel/forced-kill with honest attribution, snapshot hash determinism + immutability vs all roles, every input-refusal class, provider-gate extended to the real solver port, 5 new red cases, migration 0016 populated cycle | OPUS-M4-001 | **PASSED — post-repair battery 15/15 gates (1792/139), 43/43 red, 126/126 fixreg, SBX 329/7/0-wrong-tenant/47-of-47; orchestrator recovery battery on main green 2026-08-13 (EV-M4-BOUNDARY §10)** | docs/evidence/EV-M4-BOUNDARY |
+| Rule revisioning (append-only vs 12 role/path attempts), generated 30-kind registry gate + hand-edit red case, period lifecycle closed-period matrix, nine-class material-input digest mutation matrix + shrink-guard pin, credit-preserving clone (moved + voided), provider boundary static + runtime (closure/dynamic-import/lookup-table/post-commit attacks HELD) | OPUS-M4-000C | **PASSED — composed battery 15/15 (1700/129), 38/38 red, 116/116 fixreg, SBX 46/46, cycle 0001..0015** | docs/evidence/EV-M4-INPUT-C |
+| Schedule graph: 11 composite FKs + 6 invariant triggers each red-cased with FK-alone arms, R-B1/2/3 membership semantics, R-B4/R-B4a gap (399→0 enumerated), R-B5 fold, R-B6/R-B7 timezone basis with 409 wire proof, populated 0014 cycle with census digests | OPUS-M4-000B | **PASSED — 13/13 (1636), 33/33 red, 113/113 fixreg, SBX 45/45** | docs/evidence/EV-M4-INPUT-B |
+| Staffing input: demand/requirement whole-set CAS races (12-round + reviewer interleavings), requires-expiry both layers + flip guard, retired-qualification refusal matrix, shared-verdict five-outcome properties + manual≡publication convergence, future-profile cancellation, enforcement read plane 4-dimension probes | OPUS-M4-000A | **PASSED — condition-closure battery 13/13 (1448), 26/26 red, 107/107 fixreg (seed 849638), sweep 45, cycle 0001..0013** | docs/evidence/EV-M4-INPUT-A |
+
 Execution log (M0):
 | Harness / gate | Task | Status | Evidence |
 |---|---|---|---|

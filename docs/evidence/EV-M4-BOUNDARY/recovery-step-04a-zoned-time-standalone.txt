@@ -1,0 +1,12 @@
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint
+
+ ✓ |domain| test/time/zoned-time.test.ts (47 tests) 2865ms
+   ✓ overnight shifts and the DST-day durations > R-B4a: NO (start, end) pair in any gap zone resolves to a non-positive interval  2819ms
+
+ Test Files  1 passed (1)
+      Tests  47 passed (47)
+   Start at  09:01:19
+   Duration  3.70s (transform 36ms, setup 0ms, collect 36ms, tests 2.87s, environment 0ms, prepare 331ms)
+
+EXIT=0

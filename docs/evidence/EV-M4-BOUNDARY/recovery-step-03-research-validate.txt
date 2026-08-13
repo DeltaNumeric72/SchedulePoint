@@ -1,0 +1,23 @@
+== Directories ==
+OK dir      : reports
+OK dir      : reports/inbox
+OK dir      : screenshots/navigation
+OK dir      : screenshots/schedule
+OK dir      : screenshots/requests
+OK dir      : screenshots/vacation
+OK dir      : screenshots/picklist
+OK dir      : screenshots/admin
+OK dir      : screenshots/errors
+
+== Required files ==
+OK file     : reports/manifest.json
+OK file     : reports/source-page-index.md
+OK file     : reports/evidence-register.md
+OK file     : reports/unresolved-questions.md
+OK file     : MASTER-CHECKLIST.md
+
+== manifest.json JSON validity ==
+OK json     : reports/manifest.json parses
+
+PASS: all required files and directories are present and non-empty.
+EXIT=0

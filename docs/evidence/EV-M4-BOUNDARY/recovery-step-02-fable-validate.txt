@@ -1,0 +1,39 @@
+1a. All 25 numbered deliverables (00-24) exist                                               PASS
+1b. All 13 control documents exist                                                           PASS
+2a. Baseline defines 58 capabilities                                                         PASS
+2b. Every capability has a parity-matrix row                                                 PASS
+2c. Every parity row maps to a milestone                                                     PASS
+3a. Parity tallies sum to 58                                                                 PASS
+4a. Roadmap defines M0..M12                                                                  PASS
+4b. Every milestone has an Exit criterion                                                    PASS
+4c. Compact sequence table present (§6a)                                                     PASS
+5a. Exactly three task packets defined                                                       PASS
+5b. Packets carry field: Escalation conditions (x3)                                          PASS
+5b. Packets carry field: Fable review checklist (x3)                                         PASS
+5b. Packets carry field: Required evidence (x3)                                              PASS
+5b. Packets carry field: Prohibited files (x3)                                               PASS
+5b. Packets carry field: Acceptance criteria (x3)                                            PASS
+5b. Packets carry field: Tenant-isolation requirements (x3)                                  PASS
+5c. Packets are marked not-executed                                                          PASS
+5d. Three finalized M1 packets exist and are marked NOT ISSUED                               PASS
+5e. M1 packets carry field: Escalation conditions (x3)                                       PASS
+5e. M1 packets carry field: Fable acceptance checklist (x3)                                  PASS
+5e. M1 packets carry field: Tenant-isolation requirements (x3)                               PASS
+5e. M1 packets carry field: Acceptance criteria (x3)                                         PASS
+5e. M1 packets carry field: Prohibited files (x3)                                            PASS
+5e. M1 packets carry field: Required evidence (x3)                                           PASS
+6a. All 20 product decisions appear in the resolution record                                 PASS
+6b. All 15 technology gates resolved                                                         PASS
+6c. OI-1..7 addressed                                                                        PASS
+6c. EV-1..8 addressed                                                                        PASS
+6d. FD-1..FD-4 present                                                                       PASS
+7a. No stale blocking language in live control docs                                          PASS
+7b. PROJECT-STATUS names the milestone authorization boundary                                PASS
+8a. All relative markdown links resolve                                                      PASS
+9a. Referenced file exists: internal-verification-2026-08-01.md                              PASS
+9a. Referenced file exists: SPEC-01-request-context-and-tenant-isolation.md                  PASS
+9a. Referenced file exists: SPEC-02-picklist-turn-transaction.md                             PASS
+10a. Docs tree contains no application code                                                  PASS
+
+36 assertions, 36 passed, 0 failed.
+EXIT=0
