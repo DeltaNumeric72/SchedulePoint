@@ -260,6 +260,31 @@ Both belong in OPUS-M4-002's packet body. This packet records them and stops.
 
 ---
 
+## 6a. Orchestrator acceptance battery (post-merge main `efa1ffd`, 2026-08-13, serial, inner exit codes)
+
+Added at acceptance. The squash merge's tree is byte-identical to the reviewed branch
+(`git diff main opus/m4-001r-fad28-correction` empty), so this one battery serves as
+both the orchestrator's independent rerun and the clean-main post-merge verification.
+
+| Command | Result | Exit | File |
+|---|---|---|---|
+| validators (arch/fable/research) | 95/95 · 36/36 · PASS | 0/0/0 | (inline in task record) |
+| `corepack pnpm check` | 15/15 gates; unit 1796/1796 | 0 | `orchestrator-01-check.txt` |
+| `corepack pnpm red-cases` | 43/43 proven; `retired-verdict pass fail PROVEN` | 0 | `orchestrator-02-red-cases.txt` |
+| `corepack pnpm fixture-regression` | 127/127, fresh rotating seed 249048 | 0 | `orchestrator-03-fixture-regression.txt` |
+| `corepack pnpm sbx` | 6/6, 0 vacuous, 329 readings / 47 of 47 / 0 wrong-tenant | 0 | `orchestrator-04-sbx.txt` |
+| `migrate:cycle:embedded` | 0001–0016 CYCLE CLEAN | 0 | `orchestrator-05-migrate-cycle.txt` |
+
+Independent review verdict: **ACCEPT** (probes retained on `review/m4-001r` at
+`9fc280d`, `.review-m4-001r/`). Findings adjudicated at acceptance: **R-1** MEDIUM
+out-of-scope (the `requires_expiry` flip-vs-grant interleaving is admitted with NO
+read-side backstop; `solver-snapshot.ts:154` overclaims write-time enforcement) →
+**NR-17 + corrective packet OPUS-M4-001S (doc 35 §6c) before M4-002**; **R-2**
+informational (red-cases build-ordering on a fresh worktree, pre-existing) → M4-005
+candidate; **R-3** minor (`waitUntilBlockedOnLock` tightening) → folded into
+M4-001S; **R-4** cosmetic (`01-install.txt` EXIT value lost to a `${PIPESTATUS[0]}`
+slip, reviewer-reproduced; nothing load-bearing).
+
 ## 7. Honest notes and limitations
 
 - **No behaviour changed.** The docblock is a comment; `run.mjs`'s edits are a
