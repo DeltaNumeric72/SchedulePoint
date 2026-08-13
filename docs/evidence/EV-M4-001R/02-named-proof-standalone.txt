@@ -1,0 +1,39 @@
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-001r
+
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-001r/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-bff9a6d165a4a7da33)] INFO: Completed task 1 (outbox.dispatch, 7.70ms) with success
+[worker(worker-bff9a6d165a4a7da33)] INFO: Completed task 2 (outbox.dispatch, 2.66ms) with success
+[worker(worker-bff9a6d165a4a7da33)] INFO: Completed task 3 (outbox.dispatch, 2.12ms) with success
+[worker(worker-bff9a6d165a4a7da33)] INFO: Completed task 4 (outbox.dispatch, 2.33ms) with success
+[worker(worker-bff9a6d165a4a7da33)] INFO: Completed task 5 (outbox.dispatch, 2.49ms) with success
+[worker(worker-bff9a6d165a4a7da33)] INFO: Completed task 6 (outbox.dispatch, 2.24ms) with success
+[worker(worker-bff9a6d165a4a7da33)] INFO: Completed task 7 (outbox.dispatch, 2.32ms) with success
+[worker(worker-bff9a6d165a4a7da33)] INFO: Completed task 8 (outbox.dispatch, 2.37ms) with success
+[worker(worker-bff9a6d165a4a7da33)] INFO: Completed task 9 (outbox.dispatch, 2.26ms) with success
+[worker(worker-bff9a6d165a4a7da33)] INFO: Completed task 10 (outbox.dispatch, 2.45ms) with success
+[worker(worker-bff9a6d165a4a7da33)] INFO: Completed task 11 (outbox.dispatch, 2.28ms) with success
+stdout | test/profiles/granted-while-retiring-inertness.test.ts
+      · race established: grant backend 23750 blocked on Lock/advisory held by retirement backend 23749
+
+stdout | test/profiles/granted-while-retiring-inertness.test.ts > the granted-while-retiring interleaving is admitted, and its credential is inert > (a) ADMITTED: the grant committed AFTER the retirement, and the holding row exists
+      · admitted: one committed holding of a now-retired qualification, status valid
+
+stdout | test/profiles/granted-while-retiring-inertness.test.ts > the granted-while-retiring interleaving is admitted, and its credential is inert > (b) MANUAL PATH: listMembershipEligibility answers retired — and satisfied for the control
+      · manual path: raced=retired, control=satisfied
+
+stdout | test/profiles/granted-while-retiring-inertness.test.ts > the granted-while-retiring interleaving is admitted, and its credential is inert > (c) PUBLICATION PATH: the gate reports retired and BLOCKS the publish
+      · publication path: retired finding reported, and the step-06 prerequisite refused
+
+stdout | test/profiles/granted-while-retiring-inertness.test.ts > the granted-while-retiring interleaving is admitted, and its credential is inert > (d) SOLVER INPUT: the canonical snapshot marks the qualification retired for that membership
+      · solver input: raced pair retired/ineligible, control pair satisfied/eligible
+
+ ✓ |api| test/profiles/granted-while-retiring-inertness.test.ts (4 tests) 257ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  10:31:59
+   Duration  6.28s (transform 374ms, setup 133ms, collect 33ms, tests 257ms, environment 0ms, prepare 76ms)
+
+EXIT=0

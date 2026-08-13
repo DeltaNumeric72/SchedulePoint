@@ -1,0 +1,219 @@
+# retired-verdict red case — RED arm, run standalone (the case's own patch, prepare, redCommand)
+
+## patch (verbatim from scripts/red-cases/run.mjs)
+packages/domain/src/eligibility/verdict.ts
+  find:    "  if (lifecycle !== 'active') return 'retired';"
+  replace: "  void lifecycle; // red case: the retirement-first rule is removed"
+patch applied
+
+## prepare: corepack pnpm exec tsc -b packages/domain --force
+PREPARE_EXIT=0
+
+## redCommand
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-001r
+
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-001r/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-40cc05e89f0271561a)] INFO: Completed task 1 (outbox.dispatch, 7.41ms) with success
+[worker(worker-40cc05e89f0271561a)] INFO: Completed task 2 (outbox.dispatch, 2.61ms) with success
+[worker(worker-40cc05e89f0271561a)] INFO: Completed task 3 (outbox.dispatch, 2.27ms) with success
+[worker(worker-40cc05e89f0271561a)] INFO: Completed task 4 (outbox.dispatch, 2.27ms) with success
+[worker(worker-40cc05e89f0271561a)] INFO: Completed task 5 (outbox.dispatch, 2.34ms) with success
+[worker(worker-40cc05e89f0271561a)] INFO: Completed task 6 (outbox.dispatch, 2.19ms) with success
+[worker(worker-40cc05e89f0271561a)] INFO: Completed task 7 (outbox.dispatch, 2.53ms) with success
+[worker(worker-40cc05e89f0271561a)] INFO: Completed task 8 (outbox.dispatch, 2.23ms) with success
+[worker(worker-40cc05e89f0271561a)] INFO: Completed task 9 (outbox.dispatch, 2.19ms) with success
+[worker(worker-40cc05e89f0271561a)] INFO: Completed task 10 (outbox.dispatch, 2.48ms) with success
+[worker(worker-40cc05e89f0271561a)] INFO: Completed task 11 (outbox.dispatch, 2.33ms) with success
+ ❯ |domain| test/eligibility/verdict.test.ts (25 tests | 3 failed) 5ms
+   ✓ the five distinct outcomes > satisfied: an in-window holding with a conferring status 1ms
+   ✓ the five distinct outcomes > `expiring` confers, exactly as the shipped ELIGIBLE_HOLDING_STATUSES says 0ms
+   ✓ the five distinct outcomes > missing: no holding of the qualification at all 0ms
+   ✓ the five distinct outcomes > expired: the window has been reached and passed 0ms
+   ✓ the five distinct outcomes > expired: a stored `expired` status decides even with an open window 0ms
+   ✓ the five distinct outcomes > future: the window has not begun 0ms
+   ✓ the five distinct outcomes > future: recorded but pending inside its window 0ms
+   ✓ the five distinct outcomes > revoked: a revoked holding, whatever its window 0ms
+   × the five distinct outcomes > retired: the qualification lifecycle decides FIRST, over a live holding 3ms
+     → expected 'satisfied' to be 'retired' // Object.is equality
+   × the five distinct outcomes > retired: an unresolvable lifecycle is fail-closed retired, never satisfied 0ms
+     → expected 'satisfied' to be 'retired' // Object.is equality
+   ✓ the five distinct outcomes > the six outcome tokens are exactly the closed set 0ms
+   ✓ the boundary: expiry date vs assignment date (half-open, [from, until)) > an instant strictly before the expiry is IN 0ms
+   ✓ the boundary: expiry date vs assignment date (half-open, [from, until)) > an instant exactly equal to the expiry is OUT — expired, not satisfied 0ms
+   ✓ the boundary: expiry date vs assignment date (half-open, [from, until)) > an instant exactly equal to the start is IN 0ms
+   ✓ aggregation precedence and determinism > revoked > expired > future across several non-conferring holdings 0ms
+   ✓ aggregation precedence and determinism > a renewal already in force wins over the lapsed predecessor 0ms
+   ✓ aggregation precedence and determinism > the verdict is order-independent in holdings 0ms
+   ✓ aggregation precedence and determinism > an unparsable holding is ignored — fail-closed to missing, never satisfied 0ms
+   ✓ aggregation precedence and determinism > requirements are deduplicated and reported in caller order 0ms
+   ✓ membership and work-profile dimensions > not-evaluated never blocks (FAD-23 absence discipline) 0ms
+   ✓ membership and work-profile dimensions > suspended, ended, and invited memberships are ineligible; active is not 0ms
+   ✓ membership and work-profile dimensions > a missing work profile is REPORTED and does not block 0ms
+   ✓ membership and work-profile dimensions > no requirements is vacuously satisfied — enforcement, not invention 0ms
+   ✓ MUTATION CONTROL — the oracles above can fail > a closed-boundary variant is caught by the expiry-boundary oracle 0ms
+   × MUTATION CONTROL — the oracles above can fail > a retirement-last variant is caught by the retired oracle 0ms
+     → expected 'satisfied' to be 'retired' // Object.is equality
+stdout | test/profiles/verdict-convergence.test.ts > one fixture, one instant, one verdict > satisfied / boundary-expired / expired agree across both consumers, per date
+      · satisfied/expired boundary: manual and publication verdicts identical per date
+
+stdout | test/profiles/verdict-convergence.test.ts > one fixture, one instant, one verdict > MISSING agrees across both consumers
+      · missing: manual and publication verdicts identical
+
+stdout | test/profiles/verdict-convergence.test.ts > one fixture, one instant, one verdict > REVOKED agrees across both consumers
+      · revoked: manual and publication verdicts identical
+
+stdout | test/profiles/verdict-convergence.test.ts > one fixture, one instant, one verdict > FUTURE agrees across both consumers
+      · future: manual and publication verdicts identical
+
+stdout | test/profiles/verdict-convergence.test.ts > one fixture, one instant, one verdict > AGGREGATE PRECEDENCE over several holdings of ONE qualification agrees across both consumers
+      · aggregate precedence over three holdings of one qualification: expired > future, revoked > expired, both consumers
+
+stdout | test/profiles/verdict-convergence.test.ts > one fixture, one instant, one verdict > MUTATION CONTROL: an off-by-one-day manual instant breaks the equality
+      · mutation control: shifting the instant one day flips the verdict — the equality is live
+
+ ❯ |api| test/profiles/verdict-convergence.test.ts (7 tests | 1 failed) 292ms
+   ✓ one fixture, one instant, one verdict > satisfied / boundary-expired / expired agree across both consumers, per date 31ms
+   ✓ one fixture, one instant, one verdict > MISSING agrees across both consumers 17ms
+   ✓ one fixture, one instant, one verdict > REVOKED agrees across both consumers 18ms
+   ✓ one fixture, one instant, one verdict > FUTURE agrees across both consumers 16ms
+   × one fixture, one instant, one verdict > RETIRED agrees across both consumers, and outranks the holding 19ms
+     → expected 'satisfied' to be 'retired' // Object.is equality
+   ✓ one fixture, one instant, one verdict > AGGREGATE PRECEDENCE over several holdings of ONE qualification agrees across both consumers 22ms
+   ✓ one fixture, one instant, one verdict > MUTATION CONTROL: an off-by-one-day manual instant breaks the equality 16ms
+stdout | test/profiles/granted-while-retiring-inertness.test.ts
+      · race established: grant backend 24053 blocked on Lock/advisory held by retirement backend 24052
+
+stdout | test/profiles/granted-while-retiring-inertness.test.ts > the granted-while-retiring interleaving is admitted, and its credential is inert > (a) ADMITTED: the grant committed AFTER the retirement, and the holding row exists
+      · admitted: one committed holding of a now-retired qualification, status valid
+
+ ❯ |api| test/profiles/granted-while-retiring-inertness.test.ts (4 tests | 3 failed) 212ms
+   ✓ the granted-while-retiring interleaving is admitted, and its credential is inert > (a) ADMITTED: the grant committed AFTER the retirement, and the holding row exists 1ms
+   × the granted-while-retiring interleaving is admitted, and its credential is inert > (b) MANUAL PATH: listMembershipEligibility answers retired — and satisfied for the control 3ms
+     → expected 'satisfied' to be 'retired' // Object.is equality
+   × the granted-while-retiring interleaving is admitted, and its credential is inert > (c) PUBLICATION PATH: the gate reports retired and BLOCKS the publish 4ms
+     → expected [] to have a length of 1 but got +0
+   × the granted-while-retiring interleaving is admitted, and its credential is inert > (d) SOLVER INPUT: the canonical snapshot marks the qualification retired for that membership 14ms
+     → expected [ Array(1) ] to include '57cc5b7b-0bb7-4d8a-83bb-70144da2b36b:…'
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |domain| test/eligibility/verdict.test.ts > the five distinct outcomes > retired: the qualification lifecycle decides FIRST, over a live holding
+AssertionError: expected 'satisfied' to be 'retired' // Object.is equality
+
+Expected: [32m"[7mretir[27med"[39m
+Received: [31m"[7msatisfi[27med"[39m
+
+ ❯ test/eligibility/verdict.test.ts:111:48
+    109|       input({ qualificationLifecycles: RETIRED, holdings: [holding({})…
+    110|     );
+    111|     expect(verdict.qualifications[0]?.outcome).toBe('retired');
+       |                                                ^
+    112|     expect(verdict.eligible).toBe(false);
+    113|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+ FAIL  |domain| test/eligibility/verdict.test.ts > the five distinct outcomes > retired: an unresolvable lifecycle is fail-closed retired, never satisfied
+AssertionError: expected 'satisfied' to be 'retired' // Object.is equality
+
+Expected: [32m"[7mretir[27med"[39m
+Received: [31m"[7msatisfi[27med"[39m
+
+ ❯ test/eligibility/verdict.test.ts:119:48
+    117|       input({ qualificationLifecycles: new Map(), holdings: [holding({…
+    118|     );
+    119|     expect(verdict.qualifications[0]?.outcome).toBe('retired');
+       |                                                ^
+    120|   });
+    121| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
+
+ FAIL  |domain| test/eligibility/verdict.test.ts > MUTATION CONTROL — the oracles above can fail > a retirement-last variant is caught by the retired oracle
+AssertionError: expected 'satisfied' to be 'retired' // Object.is equality
+
+Expected: [32m"[7mretir[27med"[39m
+Received: [31m"[7msatisfi[27med"[39m
+
+ ❯ test/eligibility/verdict.test.ts:294:60
+    292|     })();
+    293|     expect(brokenOutcome).toBe('satisfied');
+    294|     expect(qualificationOutcome(Q, 'retired', [live], AT)).toBe('retir…
+       |                                                            ^
+    295|   });
+    296| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
+
+ FAIL  |api| test/profiles/granted-while-retiring-inertness.test.ts > the granted-while-retiring interleaving is admitted, and its credential is inert > (b) MANUAL PATH: listMembershipEligibility answers retired — and satisfied for the control
+AssertionError: expected 'satisfied' to be 'retired' // Object.is equality
+
+Expected: [32m"[7mretir[27med"[39m
+Received: [31m"[7msatisfi[27med"[39m
+
+ ❯ test/profiles/granted-while-retiring-inertness.test.ts:473:64
+    471|         ?.qualificationOutcomes.find((entry) => entry.qualificationId …
+    472| 
+    473|     expect(outcomeFor(racedShiftTypeId, racedQualificationId)).toBe('r…
+       |                                                                ^
+    474|     // The control: the same read, the same member, the same instant.
+    475|     expect(outcomeFor(controlShiftTypeId, controlQualificationId)).toB…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯
+
+ FAIL  |api| test/profiles/granted-while-retiring-inertness.test.ts > the granted-while-retiring interleaving is admitted, and its credential is inert > (c) PUBLICATION PATH: the gate reports retired and BLOCKS the publish
+AssertionError: expected [] to have a length of 1 but got +0
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 1[39m
+[31m+ 0[39m
+
+ ❯ test/profiles/granted-while-retiring-inertness.test.ts:487:19
+    485|       (finding) => finding.qualificationId === racedQualificationId,
+    486|     );
+    487|     expect(raced).toHaveLength(1);
+       |                   ^
+    488|     expect(raced[0]?.outcome).toBe('retired');
+    489|     expect(raced[0]?.date).toBe(DATES[0]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯
+
+ FAIL  |api| test/profiles/granted-while-retiring-inertness.test.ts > the granted-while-retiring interleaving is admitted, and its credential is inert > (d) SOLVER INPUT: the canonical snapshot marks the qualification retired for that membership
+AssertionError: expected [ Array(1) ] to include '57cc5b7b-0bb7-4d8a-83bb-70144da2b36b:…'
+ ❯ test/profiles/granted-while-retiring-inertness.test.ts:534:29
+    532|       (entry) => entry.shiftTypeId === racedShiftTypeId,
+    533|     );
+    534|     expect(raced?.outcomes).toContain(`${racedQualificationId}:retired…
+       |                             ^
+    535|     expect(raced?.eligible, 'the snapshot marks the raced pair eligibl…
+    536| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/7]⎯
+
+ FAIL  |api| test/profiles/verdict-convergence.test.ts > one fixture, one instant, one verdict > RETIRED agrees across both consumers, and outranks the holding
+AssertionError: expected 'satisfied' to be 'retired' // Object.is equality
+
+Expected: [32m"[7mretir[27med"[39m
+Received: [31m"[7msatisfi[27med"[39m
+
+ ❯ test/profiles/verdict-convergence.test.ts:371:20
+    369|     );
+    370|     const publication = await publicationOutcome(arrangement, arrangem…
+    371|     expect(manual).toBe('retired');
+       |                    ^
+    372|     expect(publication).toBe(manual);
+    373|     log('retired: manual and publication verdicts identical, lifecycle…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/7]⎯
+
+
+ Test Files  3 failed (3)
+      Tests  7 failed | 29 passed (36)
+   Start at  10:32:47
+   Duration  2.54s (transform 317ms, setup 149ms, collect 56ms, tests 509ms, environment 0ms, prepare 52ms)
+
+EXIT=1

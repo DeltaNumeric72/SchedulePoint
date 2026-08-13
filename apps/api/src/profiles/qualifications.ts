@@ -293,10 +293,31 @@ export interface GrantHoldingInput {
  *     eligibility function rather than through any rewrite.
  *
  * There is deliberately NO `expectedVersion` on a grant: nothing mutable is
- * read to become stale — the identity is new, duplicates are refused by the
- * `(membership, qualification, valid_from)` unique key, and the
- * granted-while-retiring race is closed by the trigger inside the same
- * transaction as the retirement's committed state.
+ * read to become stale — the identity is new, and a duplicate issue is refused
+ * by `qualification_holdings_unique_issue` on
+ * `(membership, qualification, valid_from)`.
+ *
+ * ## The granted-while-retiring interleaving is ADMITTED, not excluded
+ *
+ * FAD-28(2) and FAD-35, measured by the M4-000A independent review's probe P3e
+ * and pinned by
+ * `apps/api/test/profiles/granted-while-retiring-inertness.test.ts`.
+ *
+ * Under READ COMMITTED a grant whose lookups — this function's and the trigger's
+ * alike — returned `active` still commits after a retirement has committed on
+ * another connection, and what it leaves behind is a holding of a now-retired
+ * qualification. **Nothing at write time prevents that, and nothing here claims
+ * to.** An earlier revision of this docblock said the race was closed by the
+ * trigger; that claim was falsified deterministically and is corrected here.
+ *
+ * What makes the outcome safe is the READ side, and it is safe for a different
+ * reason than write-prevention: the shared eligibility verdict evaluates the
+ * qualification's LIFECYCLE FIRST (`packages/domain/src/eligibility`, ruling R3)
+ * and returns `retired` even over an in-window `valid` holding, so the
+ * credential such a race produces confers nothing on any consumer — the manual
+ * eligibility read, the publication gate, and canonical solver-input assembly
+ * all answer `retired`. Stated precisely: the interleaving is admitted; the
+ * credential it produces is inert.
  */
 export async function grantHolding(
   uow: UnitOfWork<Kysely<Database>>,

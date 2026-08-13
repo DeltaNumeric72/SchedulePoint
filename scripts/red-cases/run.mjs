@@ -584,7 +584,7 @@ const CASES = [
     // holdings retained, verdict reflecting retirement" true on every
     // consumer at once. Removing it must fail the domain property tests AND
     // the manual-vs-publication convergence proof.
-    /* ── REPAIRED at the 000C integration (FAD-30 decorative-arm standing rule) ──
+    /* ── REPAIRED at the 000C integration (FAD-33(1) decorative-arm standing rule) ──
      *
      * As authored, this arm was HALF decorative and the half was the
      * interesting one. It patches `packages/domain/src/eligibility/verdict.ts`
@@ -613,7 +613,18 @@ const CASES = [
      *     `restore` rebuilds clean, so no later case inherits a patched `dist`.
      *
      * Verified standalone before the battery: rebuild clean, domain 3 failed,
-     * convergence 1 failed — both now observe. */
+     * convergence 1 failed — both now observe.
+     *
+     * ── EXTENDED by OPUS-M4-001R (doc 35 §6b clause 3, FAD-35(c)) ──
+     *
+     * `granted-while-retiring-inertness.test.ts` is added to both arms. It pins
+     * the FAD-28 contract this arm's rule actually supplies: the
+     * granted-while-retiring interleaving is ADMITTED at the 0012 trigger, and
+     * the holding it produces is inert only because the verdict evaluates the
+     * lifecycle first. Remove rule 1 and the raced holding confers again on all
+     * three consumers (manual read, publication gate, canonical solver input),
+     * so the file fails — verified in both directions standalone before the
+     * battery. It is an api-side test, so it depends on the rebuild above. */
     patch: [
       {
         file: 'packages/domain/src/eligibility/verdict.ts',
@@ -627,6 +638,7 @@ const CASES = [
       'run',
       'packages/domain/test/eligibility/verdict.test.ts',
       'apps/api/test/profiles/verdict-convergence.test.ts',
+      'apps/api/test/profiles/granted-while-retiring-inertness.test.ts',
     ],
     prepare: [['exec', 'tsc', '-b', 'packages/domain', '--force']],
     redCommand: [
@@ -635,6 +647,7 @@ const CASES = [
       'run',
       'packages/domain/test/eligibility/verdict.test.ts',
       'apps/api/test/profiles/verdict-convergence.test.ts',
+      'apps/api/test/profiles/granted-while-retiring-inertness.test.ts',
     ],
     restore: [['exec', 'tsc', '-b', 'packages/domain', '--force']],
   },

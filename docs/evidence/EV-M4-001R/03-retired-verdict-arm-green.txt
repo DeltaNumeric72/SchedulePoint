@@ -1,0 +1,64 @@
+# retired-verdict red case — GREEN arm (clean tree), run standalone
+$ corepack pnpm exec vitest run packages/domain/test/eligibility/verdict.test.ts apps/api/test/profiles/verdict-convergence.test.ts apps/api/test/profiles/granted-while-retiring-inertness.test.ts
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-001r
+
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-001r/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-b050a17f82c1921d42)] INFO: Completed task 1 (outbox.dispatch, 7.55ms) with success
+[worker(worker-b050a17f82c1921d42)] INFO: Completed task 2 (outbox.dispatch, 2.60ms) with success
+[worker(worker-b050a17f82c1921d42)] INFO: Completed task 3 (outbox.dispatch, 2.20ms) with success
+[worker(worker-b050a17f82c1921d42)] INFO: Completed task 4 (outbox.dispatch, 2.30ms) with success
+[worker(worker-b050a17f82c1921d42)] INFO: Completed task 5 (outbox.dispatch, 2.34ms) with success
+[worker(worker-b050a17f82c1921d42)] INFO: Completed task 6 (outbox.dispatch, 2.20ms) with success
+[worker(worker-b050a17f82c1921d42)] INFO: Completed task 7 (outbox.dispatch, 2.21ms) with success
+[worker(worker-b050a17f82c1921d42)] INFO: Completed task 8 (outbox.dispatch, 2.32ms) with success
+[worker(worker-b050a17f82c1921d42)] INFO: Completed task 9 (outbox.dispatch, 2.25ms) with success
+[worker(worker-b050a17f82c1921d42)] INFO: Completed task 10 (outbox.dispatch, 2.40ms) with success
+[worker(worker-b050a17f82c1921d42)] INFO: Completed task 11 (outbox.dispatch, 2.29ms) with success
+ ✓ |domain| test/eligibility/verdict.test.ts (25 tests) 3ms
+stdout | test/profiles/verdict-convergence.test.ts > one fixture, one instant, one verdict > satisfied / boundary-expired / expired agree across both consumers, per date
+      · satisfied/expired boundary: manual and publication verdicts identical per date
+
+stdout | test/profiles/verdict-convergence.test.ts > one fixture, one instant, one verdict > MISSING agrees across both consumers
+      · missing: manual and publication verdicts identical
+
+stdout | test/profiles/verdict-convergence.test.ts > one fixture, one instant, one verdict > REVOKED agrees across both consumers
+      · revoked: manual and publication verdicts identical
+
+stdout | test/profiles/verdict-convergence.test.ts > one fixture, one instant, one verdict > FUTURE agrees across both consumers
+      · future: manual and publication verdicts identical
+
+stdout | test/profiles/verdict-convergence.test.ts > one fixture, one instant, one verdict > RETIRED agrees across both consumers, and outranks the holding
+      · retired: manual and publication verdicts identical, lifecycle first
+
+stdout | test/profiles/verdict-convergence.test.ts > one fixture, one instant, one verdict > AGGREGATE PRECEDENCE over several holdings of ONE qualification agrees across both consumers
+      · aggregate precedence over three holdings of one qualification: expired > future, revoked > expired, both consumers
+
+stdout | test/profiles/verdict-convergence.test.ts > one fixture, one instant, one verdict > MUTATION CONTROL: an off-by-one-day manual instant breaks the equality
+      · mutation control: shifting the instant one day flips the verdict — the equality is live
+
+ ✓ |api| test/profiles/verdict-convergence.test.ts (7 tests) 295ms
+stdout | test/profiles/granted-while-retiring-inertness.test.ts
+      · race established: grant backend 23948 blocked on Lock/advisory held by retirement backend 23947
+
+stdout | test/profiles/granted-while-retiring-inertness.test.ts > the granted-while-retiring interleaving is admitted, and its credential is inert > (a) ADMITTED: the grant committed AFTER the retirement, and the holding row exists
+      · admitted: one committed holding of a now-retired qualification, status valid
+
+stdout | test/profiles/granted-while-retiring-inertness.test.ts > the granted-while-retiring interleaving is admitted, and its credential is inert > (b) MANUAL PATH: listMembershipEligibility answers retired — and satisfied for the control
+      · manual path: raced=retired, control=satisfied
+
+stdout | test/profiles/granted-while-retiring-inertness.test.ts > the granted-while-retiring interleaving is admitted, and its credential is inert > (c) PUBLICATION PATH: the gate reports retired and BLOCKS the publish
+      · publication path: retired finding reported, and the step-06 prerequisite refused
+
+stdout | test/profiles/granted-while-retiring-inertness.test.ts > the granted-while-retiring interleaving is admitted, and its credential is inert > (d) SOLVER INPUT: the canonical snapshot marks the qualification retired for that membership
+      · solver input: raced pair retired/ineligible, control pair satisfied/eligible
+
+ ✓ |api| test/profiles/granted-while-retiring-inertness.test.ts (4 tests) 201ms
+
+ Test Files  3 passed (3)
+      Tests  36 passed (36)
+   Start at  10:32:31
+   Duration  2.48s (transform 327ms, setup 179ms, collect 71ms, tests 499ms, environment 0ms, prepare 91ms)
+
+EXIT=0

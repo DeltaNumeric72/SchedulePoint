@@ -1,0 +1,37 @@
+# OPUS-M4-001R — repo-wide sweep for surviving WRITE-TIME-EXCLUSION claims (FAD-35)
+# Run on the finished tree. Excludes node_modules, .git, dist, and this evidence
+# bundle itself (whose transcripts quote the test's own name back at the grep).
+
+## 1. The falsified wording
+$ grep -rIn -E "race is closed|closed by the trigger" --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=dist --exclude-dir=EV-M4-001R .
+docs/evidence/EV-M4-INPUT-A/INDEX.md:259:| **C3** | **F-2 (accuracy)** — §8 claimed "the granted-while-retiring race is closed by the 0012 trigger" | §8 rewritten to state what was measured. See the bullet there: the race is **not** closed at the trigger; safety comes from the verdict layer as a fail-safe outcome, not from write-prevention |
+docs/fable/35-m4-task-packets.md:107:Origin: the Stage-1 recovery reconciliation (owner directive 2026-08-13). `apps/api/src/profiles/qualifications.ts:298` still claims "the granted-while-retiring race is closed by the trigger" — the exact claim the M4-000A independent review **falsified deterministically** (probe P3e) and whose evidence-INDEX correction (condition C3) missed this docblock. **Determination (FAD-35): FAD-28's fail-closed/read-time design is authoritative and intentional** — the READ COMMITTED interleaving is ADMITTED at the 0012 trigger; safety is the shared verdict's lifecycle-first `retired` outcome. No requirement anywhere in doc 34 §4-B demands write-time exclusion. A repo-wide sweep found exactly ONE source occurrence (plus its generated `dist/` artifact); the reviewer's P3e probe was never retained as a runnable repo test, and no test pins the race-produced holding inert through the canonical solver input.
+EXIT=0
+
+## 2. Every mention of the interleaving, anywhere in source or scripts
+$ grep -rIn "granted-while-retiring" --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=dist apps packages scripts solver
+apps/api/test/profiles/granted-while-retiring-inertness.test.ts:33: * **NAMED PROOF — the granted-while-retiring race is ADMITTED, and the
+apps/api/test/profiles/granted-while-retiring-inertness.test.ts:127:const multi = ownedMulti('granted-while-retiring-inertness', {
+apps/api/test/profiles/granted-while-retiring-inertness.test.ts:274:      key: 'granted-while-retiring-raced',
+apps/api/test/profiles/granted-while-retiring-inertness.test.ts:282:      key: 'granted-while-retiring-control',
+apps/api/test/profiles/granted-while-retiring-inertness.test.ts:422:describe('the granted-while-retiring interleaving is admitted, and its credential is inert', () => {
+apps/api/src/profiles/qualifications.ts:300: * ## The granted-while-retiring interleaving is ADMITTED, not excluded
+apps/api/src/profiles/qualifications.ts:304: * `apps/api/test/profiles/granted-while-retiring-inertness.test.ts`.
+scripts/red-cases/run.mjs:620:     * `granted-while-retiring-inertness.test.ts` is added to both arms. It pins
+scripts/red-cases/run.mjs:622:     * granted-while-retiring interleaving is ADMITTED at the 0012 trigger, and
+scripts/red-cases/run.mjs:641:      'apps/api/test/profiles/granted-while-retiring-inertness.test.ts',
+scripts/red-cases/run.mjs:650:      'apps/api/test/profiles/granted-while-retiring-inertness.test.ts',
+EXIT=0
+
+## 3. Any GENERATED artifact still carrying the old claim (dist included this time)
+$ grep -rIl "race is closed" apps packages
+EXIT=1  (1 = no match anywhere, which is the wanted answer)
+
+## Reading
+Hit 1 returns ONLY historical records that are correct AS history:
+  docs/evidence/EV-M4-INPUT-A/INDEX.md         — §10 C3, which states the claim was wrong
+  docs/fable/35-m4-task-packets.md             — §6b, which quotes it to commission this fix
+NO source file asserts write-time exclusion, and no build artifact carries the old
+sentence. The one source occurrence the packet named
+(apps/api/src/profiles/qualifications.ts:298) is corrected; the replacement is
+hit 2's qualifications.ts:300, which states the ADMISSION.
