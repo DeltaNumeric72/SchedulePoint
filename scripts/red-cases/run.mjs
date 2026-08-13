@@ -735,6 +735,59 @@ const CASES = [
     ],
   },
   {
+    id: 'requires-expiry-flip-serialization',
+    gate: 'the requires_expiry flip is SERIALIZED against an in-flight grant (OPUS-M4-001S / FAD-36(2))',
+    violation: 'migration 0017 reverted to the 0012 bodies — both locking clauses removed',
+    /* The M4-001R review's finding R-1, reproduced as probe D3: under READ
+     * COMMITTED a `requires_expiry` flip committing beside an in-flight
+     * open-ended grant produced `requires_expiry = true` with an open-ended live
+     * holding — the exact state FAD-28 R5's sequential trigger refuses with
+     * 23001, and the one state with NO read-side backstop (`requires_expiry` is
+     * not an input to the shared verdict, so the race-admitted holding reads
+     * `satisfied` for ever, including in canonical solver input).
+     *
+     * Migration 0017 closes it with one lock object in two conflicting modes:
+     * the holding guard reads the qualification FOR KEY SHARE, the flip guard
+     * takes FOR UPDATE before it looks for open-ended holdings. The violation
+     * removes exactly those two clauses, which restores 0012's bodies verbatim
+     * — so the case asks the only question worth asking: is the locking what
+     * refuses, or was the refusal coming from somewhere else all along?
+     *
+     * The violation is applied to the MIGRATION, and the api project's global
+     * setup runs the migration cycle against a freshly initialised cluster on
+     * every `vitest run` — so the guards under test are literally the patched
+     * ones, with no rebuild needed (FAD-33(1) is satisfied by the schema being
+     * re-derived, not by a `dist`). Both listed files then fail: the
+     * serialization proof's (A) and (B) admit the forbidden final state, and the
+     * populated-cycle file's post-re-up arm no longer blocks or refuses. */
+    patch: [
+      {
+        file: 'apps/api/migrations/0017_requires_expiry_flip_serialization.sql',
+        find: '     WHERE q.id = NEW.qualification_id\n       FOR KEY SHARE;',
+        replace: '     WHERE q.id = NEW.qualification_id; -- red case: the read is unlocked again',
+      },
+      {
+        file: 'apps/api/migrations/0017_requires_expiry_flip_serialization.sql',
+        find: '        PERFORM 1 FROM qualifications WHERE id = OLD.id FOR UPDATE;',
+        replace: '        -- red case: the flip no longer waits for an in-flight grant',
+      },
+    ],
+    greenCommand: [
+      'exec',
+      'vitest',
+      'run',
+      'apps/api/test/profiles/requires-expiry-flip-serialization.test.ts',
+      'apps/api/test/profiles/migration-0017-populated-cycle.test.ts',
+    ],
+    redCommand: [
+      'exec',
+      'vitest',
+      'run',
+      'apps/api/test/profiles/requires-expiry-flip-serialization.test.ts',
+      'apps/api/test/profiles/migration-0017-populated-cycle.test.ts',
+    ],
+  },
+  {
     id: 'graph-participant-fk',
     gate: 'the schedule participant belongs to the group (OPUS-M4-000B, doc 34 §4-C)',
     violation: 'the composite participant FK removed from migration 0014',

@@ -1,0 +1,130 @@
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-001s
+
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-001s/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-6c667609c9a54f9ee8)] INFO: Completed task 1 (outbox.dispatch, 7.15ms) with success
+[worker(worker-6c667609c9a54f9ee8)] INFO: Completed task 2 (outbox.dispatch, 2.43ms) with success
+[worker(worker-6c667609c9a54f9ee8)] INFO: Completed task 3 (outbox.dispatch, 2.29ms) with success
+[worker(worker-6c667609c9a54f9ee8)] INFO: Completed task 4 (outbox.dispatch, 2.29ms) with success
+[worker(worker-6c667609c9a54f9ee8)] INFO: Completed task 5 (outbox.dispatch, 2.34ms) with success
+[worker(worker-6c667609c9a54f9ee8)] INFO: Completed task 6 (outbox.dispatch, 2.19ms) with success
+[worker(worker-6c667609c9a54f9ee8)] INFO: Completed task 7 (outbox.dispatch, 2.28ms) with success
+[worker(worker-6c667609c9a54f9ee8)] INFO: Completed task 8 (outbox.dispatch, 2.33ms) with success
+[worker(worker-6c667609c9a54f9ee8)] INFO: Completed task 9 (outbox.dispatch, 2.22ms) with success
+[worker(worker-6c667609c9a54f9ee8)] INFO: Completed task 10 (outbox.dispatch, 2.21ms) with success
+[worker(worker-6c667609c9a54f9ee8)] INFO: Completed task 11 (outbox.dispatch, 2.05ms) with success
+stdout | test/profiles/requires-expiry-flip-serialization.test.ts > the requires_expiry flip is serialized against an in-flight grant > (D) LOCK-ORDER INVERSION against the 0003 audit lock: pre-existing, bounded, never violating
+      · D1 (0012 objects only, no 0017): inverter=40P01 holder=NO ERROR
+
+stdout | test/profiles/requires-expiry-flip-serialization.test.ts > the requires_expiry flip is serialized against an in-flight grant > (D) LOCK-ORDER INVERSION against the 0003 audit lock: pre-existing, bounded, never violating
+      · D2 (0017 edge, inverted order): flipper=NO ERROR granter=NO ERROR
+
+ ❯ |api| test/profiles/requires-expiry-flip-serialization.test.ts (4 tests | 4 failed) 41290ms
+   × the requires_expiry flip is serialized against an in-flight grant > (A) GRANT FIRST: the flip BLOCKS on the grant, then refuses 23001 20024ms
+     → backend 54587 was not blocked on Lock/transactionid|tuple held by backend 54586 within 20000ms (last seen: state=idle wait=Client/ClientRead blocked_by=[]). The interleaving this proof depends on could not be established — investigate the serialisation mechanism before treating this as a transient.
+   × the requires_expiry flip is serialized against an in-flight grant > (B) FLIP FIRST: the grant BLOCKS in the guard, then is refused 23001 20022ms
+     → backend 54587 was not blocked on Lock/transactionid|tuple held by backend 54586 within 20000ms (last seen: state=idle wait=Client/ClientRead blocked_by=[]). The interleaving this proof depends on could not be established — investigate the serialisation mechanism before treating this as a transient.
+   × the requires_expiry flip is serialized against an in-flight grant > (C) CROSSED and UNGATED: every round settles bounded, exactly one writer wins 16ms
+     → round 0: 2 writers committed: expected 2 to be 1 // Object.is equality
+   × the requires_expiry flip is serialized against an in-flight grant > (D) LOCK-ORDER INVERSION against the 0003 audit lock: pre-existing, bounded, never violating 1057ms
+     → D2: the inverted order did not produce the bounded refusal the analysis predicts: expected +0 to be 1 // Object.is equality
+stdout | test/profiles/migration-0017-populated-cycle.test.ts > migration 0017 over a populated database > up → down → up, resolved BY NAME, with the interleaving measured at the midpoint
+      · midway (0017 down): flip=NO ERROR → requires_expiry=true with 1 open-ended live holding — the D3 admission
+
+ ❯ |api| test/profiles/migration-0017-populated-cycle.test.ts (1 test | 1 failed) 204ms
+   × migration 0017 over a populated database > up → down → up, resolved BY NAME, with the interleaving measured at the midpoint 95ms
+     → the re-applied 0017 did not BLOCK the flip: expected false to be true // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |api| test/profiles/migration-0017-populated-cycle.test.ts > migration 0017 over a populated database > up → down → up, resolved BY NAME, with the interleaving measured at the midpoint
+AssertionError: the re-applied 0017 did not BLOCK the flip: expected false to be true // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+ ❯ test/profiles/migration-0017-populated-cycle.test.ts:360:79
+    358|     const afterCycle = await newQualification('after-cycle');
+    359|     const refused = await raceFlipAgainstOpenGrant('after', afterCycle…
+    360|     expect(refused.flipBlocked, 'the re-applied 0017 did not BLOCK the…
+       |                                                                               ^
+    361|     expect(refused.flipCode, 'the re-applied 0017 did not refuse the f…
+    362|     expect(refused.state.requiresExpiry).toBe(false);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  |api| test/profiles/requires-expiry-flip-serialization.test.ts > the requires_expiry flip is serialized against an in-flight grant > (A) GRANT FIRST: the flip BLOCKS on the grant, then refuses 23001
+Error: backend 54587 was not blocked on Lock/transactionid|tuple held by backend 54586 within 20000ms (last seen: state=idle wait=Client/ClientRead blocked_by=[]). The interleaving this proof depends on could not be established — investigate the serialisation mechanism before treating this as a transient.
+ ❯ waitUntilBlockedOnLock test/profiles/lock-observation.ts:134:9
+    132|       ? ''
+    133|       : ` held by backend ${String(expectation.blockedBy)}`);
+    134|   throw new Error(
+       |         ^
+    135|     `backend ${String(pid)} was not blocked on ${wanted} within ${Stri…
+    136|       `(last seen: ${describe(last)}). The interleaving this proof dep…
+ ❯ test/profiles/requires-expiry-flip-serialization.test.ts:284:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  |api| test/profiles/requires-expiry-flip-serialization.test.ts > the requires_expiry flip is serialized against an in-flight grant > (B) FLIP FIRST: the grant BLOCKS in the guard, then is refused 23001
+Error: backend 54587 was not blocked on Lock/transactionid|tuple held by backend 54586 within 20000ms (last seen: state=idle wait=Client/ClientRead blocked_by=[]). The interleaving this proof depends on could not be established — investigate the serialisation mechanism before treating this as a transient.
+ ❯ waitUntilBlockedOnLock test/profiles/lock-observation.ts:134:9
+    132|       ? ''
+    133|       : ` held by backend ${String(expectation.blockedBy)}`);
+    134|   throw new Error(
+       |         ^
+    135|     `backend ${String(pid)} was not blocked on ${wanted} within ${Stri…
+    136|       `(last seen: ${describe(last)}). The interleaving this proof dep…
+ ❯ test/profiles/requires-expiry-flip-serialization.test.ts:360:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  |api| test/profiles/requires-expiry-flip-serialization.test.ts > the requires_expiry flip is serialized against an in-flight grant > (C) CROSSED and UNGATED: every round settles bounded, exactly one writer wins
+AssertionError: round 0: 2 writers committed: expected 2 to be 1 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 1[39m
+[31m+ 2[39m
+
+ ❯ test/profiles/requires-expiry-flip-serialization.test.ts:446:87
+    444|       const winners = [grantError === undefined, flipError === undefin…
+    445|         .length;
+    446|       expect(winners, `round ${String(round)}: ${String(winners)} writ…
+       |                                                                                       ^
+    447| 
+    448|       const state = await finalState(qualification.id);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  |api| test/profiles/requires-expiry-flip-serialization.test.ts > the requires_expiry flip is serialized against an in-flight grant > (D) LOCK-ORDER INVERSION against the 0003 audit lock: pre-existing, bounded, never violating
+AssertionError: D2: the inverted order did not produce the bounded refusal the analysis predicts: expected +0 to be 1 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 1[39m
+[31m+ 0[39m
+
+ ❯ test/profiles/requires-expiry-flip-serialization.test.ts:602:7
+    600|       d2Codes.filter((code) => code === '40P01').length,
+    601|       'D2: the inverted order did not produce the bounded refusal the …
+    602|     ).toBe(1);
+       |       ^
+    603|     expectInvariant(await finalState(d2Target.id), 'D2');
+    604| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  5 failed (5)
+   Start at  14:54:36
+   Duration  43.51s (transform 344ms, setup 195ms, collect 49ms, tests 41.49s, environment 0ms, prepare 118ms)
+
+EXIT=1

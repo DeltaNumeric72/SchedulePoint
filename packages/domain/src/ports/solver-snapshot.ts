@@ -151,7 +151,26 @@ export interface SnapshotWorkProfile {
 export interface SnapshotHolding {
   readonly qualificationId: string;
   readonly validFrom: string;
-  /** `null` is open-ended. `requires_expiry` is enforced at write time (0012). */
+  /**
+   * `null` is open-ended.
+   *
+   * The `requires_expiry` contract, stated precisely (OPUS-M4-001S; FAD-28 R5,
+   * FAD-36(2)): migration 0012 refuses the SEQUENTIAL violation — a holding
+   * without `valid_until` for a requires-expiry qualification, and a flip of
+   * `requires_expiry` over existing open-ended live holdings — and migration
+   * **0017** serializes the two writers against each other so the concurrent
+   * interleaving cannot slip between them (the holding guard reads the
+   * qualification `FOR KEY SHARE`, the flip guard takes `FOR UPDATE` before it
+   * looks). Together: no committed state has `requires_expiry = true` with an
+   * open-ended live holding.
+   *
+   * The earlier wording here — "enforced at write time (0012)" — was true of the
+   * sequential rule and false under concurrency, which the M4-001R review
+   * measured (finding R-1). It is corrected rather than deleted because
+   * `requires_expiry` is not an input to the eligibility verdict: nothing on the
+   * READ side would catch a violation, so what this comment claims is the whole
+   * of the guarantee a consumer has.
+   */
   readonly validUntil: string | null;
   readonly status: string;
 }

@@ -28,6 +28,7 @@ import { createRuntime, log, type Runtime } from '../support/harness.js';
 import { ownedMulti } from '../support/owned-multi.js';
 import { fixtureInstant, scheduleActor } from '../support/schedule.js';
 import { grantStaffingCapabilities } from '../support/staffing.js';
+import { waitUntilBlockedOnLock } from './lock-observation.js';
 
 /**
  * **NAMED PROOF — the granted-while-retiring race is ADMITTED, and the
@@ -173,6 +174,8 @@ interface RaceRecord {
   readonly retirePid: number;
   readonly grantWaitEventType: string;
   readonly grantWaitEvent: string | null;
+  /** `pg_blocking_pids()` for the grant — WHO is holding the lock it waits on. */
+  readonly grantBlockedBy: readonly number[];
   readonly grantSettledWhileRetirementOpen: boolean;
 }
 
@@ -192,45 +195,6 @@ function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
     resolve = res;
   });
   return { promise, resolve };
-}
-
-/**
- * Waits until the named backend is BLOCKED on a lock, and says so.
- *
- * Polled from the superuser client, which is harness observation and never an
- * assertion about application behaviour (see `admin-client.ts`). The budget is
- * generous and the failure is explicit: "the grant never blocked" is a finding
- * about the audit chain's serialisation, not a flake to retry.
- */
-async function waitUntilBlockedOnLock(
-  pid: number,
-  budgetMs = 20_000,
-): Promise<{ waitEventType: string; waitEvent: string | null }> {
-  const deadline = Date.now() + budgetMs;
-  let last = 'no such backend';
-  while (Date.now() < deadline) {
-    const seen = await admin.query<{
-      wait_event_type: string | null;
-      wait_event: string | null;
-      state: string | null;
-    }>(
-      `select wait_event_type, wait_event, state from pg_stat_activity where pid = $1`,
-      [pid],
-    );
-    const row = seen.rows[0];
-    if (row !== undefined) {
-      last = `state=${String(row.state)} wait=${String(row.wait_event_type)}/${String(row.wait_event)}`;
-      if (row.wait_event_type === 'Lock') {
-        return { waitEventType: row.wait_event_type, waitEvent: row.wait_event };
-      }
-    }
-    await new Promise((resolveDelay) => setTimeout(resolveDelay, 25));
-  }
-  throw new Error(
-    `the grant transaction never blocked on a lock within ${String(budgetMs)}ms (last seen: ${last}). ` +
-      'The interleaving this proof depends on could not be established — investigate the audit ' +
-      'chain\'s per-organization serialisation before treating this as a transient.',
-  );
 }
 
 /** Creates a shift type and returns its id. */
@@ -390,7 +354,17 @@ beforeAll(async () => {
     return granted;
   });
 
-  const blocked = await waitUntilBlockedOnLock(await grantPid.promise);
+  /* R-3 (M4-001R review, closed by OPUS-M4-001S). This used to wait for
+   * `wait_event_type = 'Lock'` and return — satisfied by ANY lock wait, on any
+   * object, caused by any backend. The ordering premise deserves better than
+   * "something blocked": the grant must be waiting on the **advisory** lock, and
+   * it must be waiting on the **retirement's** backend, checked against
+   * `pg_blocking_pids()` rather than inferred. Both are required before this
+   * returns; neither weakens anything that was here. */
+  const blocked = await waitUntilBlockedOnLock(admin, await grantPid.promise, {
+    waitEvent: 'advisory',
+    blockedBy: retirePid,
+  });
   const grantSettledWhileRetirementOpen = grantSettled;
 
   // Release the retirement; it commits FIRST, and only then can the grant.
@@ -403,6 +377,7 @@ beforeAll(async () => {
     retirePid,
     grantWaitEventType: blocked.waitEventType,
     grantWaitEvent: blocked.waitEvent,
+    grantBlockedBy: blocked.blockedBy,
     grantSettledWhileRetirementOpen,
   };
 
@@ -432,6 +407,16 @@ describe('the granted-while-retiring interleaving is admitted, and its credentia
     ).toBe(false);
     expect(race.grantWaitEventType).toBe('Lock');
     expect(race.grantPid).not.toBe(race.retirePid);
+    /* R-3: WHICH lock, and WHOSE. `advisory` is the 0003 per-organization audit
+     * lock — the only thing that can serialise these two transactions — and
+     * `pg_blocking_pids` names the retirement as the holder. A grant blocked on
+     * some other lock, or blocked by some other backend, is a different
+     * interleaving and must not read as this one. */
+    expect(race.grantWaitEvent, 'the grant blocked on the wrong lock').toBe('advisory');
+    expect(
+      race.grantBlockedBy,
+      'the grant was not blocked by the retirement backend',
+    ).toContain(race.retirePid);
 
     /* Ground truth, from the superuser: the review's `committedHoldings=1,
      * qualification=retired`, measured here rather than cited. */
