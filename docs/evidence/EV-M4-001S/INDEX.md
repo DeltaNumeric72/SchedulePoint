@@ -1,4 +1,39 @@
-# EV-M4-001S — write-time serialization of the `requires_expiry` flip
+# EV-M4-001S
+
+## 0. Orchestrator acceptance battery (post-merge main `d910af6`, 2026-08-13, added at acceptance)
+
+The squash merge's tree is byte-identical to the reviewed branch (empty diff), so this
+battery serves as both the orchestrator's independent rerun and the clean-main
+post-merge verification. Serial, every exit code from the inner `EXIT=` marker.
+
+| Command | Result | Exit | File |
+|---|---|---|---|
+| validators (arch/fable/research) | 95/95 · 36/36 · PASS | 0/0/0 | (task record) |
+| `corepack pnpm check` | 15/15 gates; unit 1801/1801 | 0 | `orchestrator-01-check.txt` |
+| `corepack pnpm red-cases` — run 1 | **42/44** — `location-archived-guard` + `timezone-basis-stale-gate` GREEN arms failed with **"No test files found"** (vitest filter matched nothing for files that exist; both files pass standalone 6/6 and 8/8). A NEW transient infrastructure signature: the runner cannot distinguish it from a gate failure, and each such exit orphans the case's cluster daemon. Runner hardening assigned to M4-005 beside R-2 | 1 | `orchestrator-02-red-cases-FAILED-no-test-files-transient.txt` |
+| run 2 | **43/44** — the two above PROVEN; `axe` GREEN arm failed (the documented Playwright/preview contention class; the axe gate passed in this same tree's `pnpm check`) | 1 | `orchestrator-02b-red-cases-FAILED-axe-transient.txt` |
+| run 3 | **41/44** — three different cases (`unit`, `stale-edit-cas`, `draft-invisibility`). Diagnosis: 1-minute load average **96–123** from a wedged `mediaanalysisd` (322% CPU, 354 CPU-hours since Aug 5) plus a Spotlight indexing storm driven by the day's file churn. The daemon was killed (launchd restarts it); load fell to ~5 | 1 | `orchestrator-02c-red-cases-FAILED-load-storm.txt` |
+| run 4 — **authoritative**, calm machine | **44/44 proven, 0 not proven** (incl. `requires-expiry-flip-serialization pass fail PROVEN`) | 0 | `orchestrator-02d-red-cases-authoritative.txt` |
+| `corepack pnpm fixture-regression` | **129/129**, fresh rotating seed 368944 | 0 | `orchestrator-03-fixture-regression.txt` |
+| `corepack pnpm sbx` | 6/6, 0 vacuous, 329 readings / 47 of 47 / 0 wrong-tenant | 0 | `orchestrator-04-sbx.txt` |
+| `migrate:cycle:embedded` | **0001–0017 CYCLE CLEAN** | 0 | `orchestrator-05-migrate-cycle.txt` |
+
+**Process defect recorded honestly (orchestrator's own):** the first fixture-regression
+launch was CHAINED behind the red-cases result read, so it started before the red-cases
+failure had been diagnosed — and the orchestrator's subsequent diagnostics and process
+cleanup then ran against a machine with that battery active, invalidating it (its
+transcript was discarded, and the stray processes killed during cleanup were its own
+workers). The serial discipline exists precisely to prevent this; the closeout re-ran
+everything cleanly and the lesson is recorded in the runbook's standing notes.
+
+Independent review verdict: **ACCEPT, zero blocking** (probes retained on
+`review/m4-001s` at `08c763a`). Observations V-1..V-4 recorded in the acceptance
+ruling (FAD-37): V-1 the migration §1 "acquires NOTHING NEW" is true of locks, not of
+the SELECT-only-role privilege surface (measured harmless — only INSERT-holding roles
+reach the guard); V-2 a second advisory lock (`acquireStaffingSet`) is ordered against
+the same rows, one-way today, 20 rounds clean — noted for M4-002; V-3 order (A) also
+rests on the VOLATILE-function fresh-snapshot rule; V-4 0017 prevents creation, no
+backfill CHECK — whole-database sweep found zero pre-existing violating rows. — write-time serialization of the `requires_expiry` flip
 
 **Packet:** OPUS-M4-001S (doc 35 §6c), finalized 2026-08-13.
 **Branch:** `opus/m4-001s-requires-expiry-serialization`, base commit `9b260eb`.
