@@ -19,6 +19,7 @@
     "gate:rule-node-mapping": "node scripts/gates/rule-node-mapping-check.mjs",
     "gate:rule-kind-registry": "tsc -b packages/domain && node scripts/gates/rule-kind-registry-check.mjs",
     "gate:provider-boundary": "node scripts/gates/provider-boundary-check.mjs",
+    "gate:solver-kind-parity": "node scripts/gates/solver-kind-parity-check.mjs",
     "gate:secret-scan": "node scripts/gates/secret-scan.mjs",
     "gate:build": "node scripts/run-in-workspace.mjs apps/web vite build",
     "gate:axe": "node scripts/run-in-workspace.mjs apps/web playwright test",

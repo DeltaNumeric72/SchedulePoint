@@ -56,8 +56,22 @@ export const SOLVER_PROTOCOL_VERSION = 1;
  */
 export const SUPPORTED_SOLVER_PROTOCOL_VERSIONS: readonly number[] = [1];
 
-/** The version of the canonical-input document shape (doc 35 §6a). */
-export const SOLVER_SNAPSHOT_SCHEMA_VERSION = 1;
+/**
+ * The version of the canonical-input document shape (doc 35 §6a).
+ *
+ * **`2` since OPUS-M4-002 (FAD-38).** v2 APPENDS three vocabularies — staff
+ * groups with their members, valid groups with their shift types, and the
+ * qualification id↔key↔status triple — that RK-RULING-02/03 and CP-SAT modelling
+ * of `RequiresQualification` require and that v1 could not reach. Nothing was
+ * removed or reshaped.
+ *
+ * The bump is what makes the new fields safe to require rather than optional: a
+ * v1 document is **refused by version** on both sides rather than read as a v2
+ * document that happens to be missing three vocabularies. `SPEC-04 §1.2`'s rule
+ * — reject outside the window, never guess — applied to the document as well as
+ * to the envelope.
+ */
+export const SOLVER_SNAPSHOT_SCHEMA_VERSION = 2;
 
 /* ────────────────────────────────────────────────────────────────────────────
  * 2. Outcome vocabulary (SPEC-04 §2)

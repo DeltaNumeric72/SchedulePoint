@@ -1,0 +1,51 @@
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-002
+
+ DEPRECATED  'basic' reporter is deprecated and will be removed in Vitest v3.
+Remove 'basic' from 'reporters' option. To match 'basic' reporter 100%, use configuration:
+{
+  "test": {
+    "reporters": [
+      [
+        "default",
+        {
+          "summary": false
+        }
+      ]
+    ]
+  }
+}
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-002/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-a7e36407a5fb13602e)] INFO: Completed task 1 (outbox.dispatch, 9.50ms) with success
+[worker(worker-a7e36407a5fb13602e)] INFO: Completed task 2 (outbox.dispatch, 2.53ms) with success
+[worker(worker-a7e36407a5fb13602e)] INFO: Completed task 3 (outbox.dispatch, 2.56ms) with success
+[worker(worker-a7e36407a5fb13602e)] INFO: Completed task 4 (outbox.dispatch, 2.70ms) with success
+[worker(worker-a7e36407a5fb13602e)] INFO: Completed task 5 (outbox.dispatch, 2.66ms) with success
+[worker(worker-a7e36407a5fb13602e)] INFO: Completed task 6 (outbox.dispatch, 2.44ms) with success
+[worker(worker-a7e36407a5fb13602e)] INFO: Completed task 7 (outbox.dispatch, 2.48ms) with success
+[worker(worker-a7e36407a5fb13602e)] INFO: Completed task 8 (outbox.dispatch, 2.37ms) with success
+[worker(worker-a7e36407a5fb13602e)] INFO: Completed task 9 (outbox.dispatch, 2.24ms) with success
+[worker(worker-a7e36407a5fb13602e)] INFO: Completed task 10 (outbox.dispatch, 2.37ms) with success
+[worker(worker-a7e36407a5fb13602e)] INFO: Completed task 11 (outbox.dispatch, 2.20ms) with success
+stdout | test/solver/worker-invariants.test.ts > the solver worker package > has sources to scan at all
+      ·       · scanning 10 worker module(s): __init__.py, __main__.py, auth.py, cancellation.py, cpsat_adapter.py, egress_guard.py, model.py, protocol.py, runtime.py, stub_solver.py
+
+stdout | test/solver/worker-invariants.test.ts > the solver worker package > installs NO signal handler — cancellation is a watcher thread (H-4, FAD-10)
+      ·       · no signal handler; the watcher thread is present
+
+stdout | test/solver/worker-invariants.test.ts > the solver worker package > imports `ortools` in at most one adapter module (ADR-0006)
+      ·       · ortools importers: 1 — the allowance is spent, once
+
+stdout | test/solver/worker-invariants.test.ts > the outcome vocabulary is the same in both runtimes > the solver statuses match, value for value
+      ·       · 8 statuses agree across TypeScript and Python
+
+ ✓ |api| test/solver/worker-invariants.test.ts (9 tests) 31ms
+
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  00:01:41
+   Duration  2.05s (transform 381ms, setup 128ms, collect 28ms, tests 31ms, environment 0ms, prepare 71ms)
+
+EXIT=0

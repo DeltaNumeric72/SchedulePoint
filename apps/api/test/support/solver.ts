@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -52,8 +53,92 @@ export const HOSTILE_WORKER = resolve(HERE, 'hostile-worker.py');
 export const FIXTURE_RPC_SECRET = 'fixture-local-solver-rpc-secret-0123456789ab';
 export const FIXTURE_RPC_KEY_ID = 'fixture-local-solver-key-1';
 
+/* ────────────────────────────────────────────────────────────────────────────
+ * Which interpreter runs the worker
+ *
+ * ## The defect this closes
+ *
+ * `applySolverEnv` used to hard-code `'python3'` as its default command. That
+ * default is correct for a machine whose `python3` has OR-Tools installed, and
+ * it silently OVERRODE `SP_SOLVER_WORKER_COMMAND` on every machine where it is
+ * not — so `SP_SOLVER_WORKER_COMMAND=… vitest run` set a variable that the very
+ * first `beforeEach` unset again. The symptom was seventeen solver proofs
+ * failing with `FAILED`/`crashed` while the identical snapshot solved fine when
+ * the venv interpreter was invoked by hand (EV-M4-002 step-07/step-08).
+ *
+ * The attribution was never wrong: a child that dies on
+ * `from ortools.sat.python import cp_model` **has** crashed, and that is what
+ * the parent must say. The wiring was wrong.
+ *
+ * ## The order, and why each rung exists
+ *
+ *   1. `SP_SOLVER_WORKER_COMMAND` — the deployment/CI answer, and the one this
+ *      helper must stop stepping on. Read from the AMBIENT environment captured
+ *      at module load, because `applySolverEnv` writes that same variable and a
+ *      later read would see the harness's own value rather than the operator's.
+ *   2. `SP_SOLVER_VENV` — a venv ROOT rather than an interpreter path, for the
+ *      common local case. A root that has no `bin/python` **throws**: falling
+ *      back would reproduce exactly the failure this exists to remove, with a
+ *      typo presenting as `crashed` half an hour later.
+ *   3. **Discovery**, at repository-relative paths only — `solver/.venv` and the
+ *      worktree's `.venv`. Both are already gitignored, so a developer creates
+ *      one (or symlinks one) and every battery works with no environment at all.
+ *   4. `python3`. The generic committed default, unchanged.
+ *
+ * **No user-specific path is committed anywhere in this file.** Rungs 2 and 3
+ * are how a local venv is reached; `docs/evidence/EV-M4-002/INDEX.md` records
+ * the one-line local setup.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** The ambient values, captured BEFORE any `applySolverEnv` call can write them. */
+const AMBIENT_WORKER_COMMAND = process.env['SP_SOLVER_WORKER_COMMAND'];
+const AMBIENT_SOLVER_VENV = process.env['SP_SOLVER_VENV'];
+
+/** Rung 3, in order. Repository-relative and gitignored — never a home directory. */
+export const DISCOVERED_INTERPRETER_PATHS: readonly string[] = [
+  resolve(SOLVER_ROOT, '.venv/bin/python'),
+  resolve(SOLVER_ROOT, '../.venv/bin/python'),
+];
+
+export interface InterpreterSources {
+  readonly workerCommand?: string | undefined;
+  readonly venvRoot?: string | undefined;
+  /** Injected so the resolution ORDER is testable without touching a filesystem. */
+  readonly exists?: (path: string) => boolean;
+}
+
+/** Resolve the worker interpreter by the four-rung order documented above. */
+export function resolveWorkerInterpreter(sources: InterpreterSources = {}): string {
+  const exists = sources.exists ?? existsSync;
+
+  const explicit = sources.workerCommand;
+  if (explicit !== undefined && explicit !== '') return explicit;
+
+  const venvRoot = sources.venvRoot;
+  if (venvRoot !== undefined && venvRoot !== '') {
+    const candidate = resolve(venvRoot, 'bin', 'python');
+    if (exists(candidate)) return candidate;
+    throw new Error(
+      `SP_SOLVER_VENV is set to ${venvRoot}, which has no bin/python. A venv path that ` +
+        'does not resolve is a configuration error; falling back to the system interpreter ' +
+        'would report it as a crashed worker instead.',
+    );
+  }
+
+  for (const candidate of DISCOVERED_INTERPRETER_PATHS) {
+    if (exists(candidate)) return candidate;
+  }
+  return 'python3';
+}
+
+/** The interpreter THIS run uses. One resolution, at module load. */
+export const WORKER_INTERPRETER = resolveWorkerInterpreter({
+  workerCommand: AMBIENT_WORKER_COMMAND,
+  venvRoot: AMBIENT_SOLVER_VENV,
+});
+
 export interface SolverEnvOptions {
-  /** Override the interpreter. Defaults to `python3` from `PATH`. */
+  /** Override the interpreter. Defaults to {@link WORKER_INTERPRETER}. */
   readonly command?: string;
   /** Override the module invocation — the hostile-worker fixtures use this. */
   readonly args?: readonly string[];
@@ -81,7 +166,7 @@ export function applySolverEnv(options: SolverEnvOptions = {}): () => void {
 
   set('SP_SOLVER_RPC_SECRET', options.secret ?? FIXTURE_RPC_SECRET);
   set('SP_SOLVER_RPC_KEY_ID', options.keyId ?? FIXTURE_RPC_KEY_ID);
-  set('SP_SOLVER_WORKER_COMMAND', options.command ?? 'python3');
+  set('SP_SOLVER_WORKER_COMMAND', options.command ?? WORKER_INTERPRETER);
   set(
     'SP_SOLVER_WORKER_ARGS',
     JSON.stringify(options.args ?? ['-m', 'schedulepoint_solver']),
@@ -116,6 +201,27 @@ export const DETERMINISTIC_PARAMETERS: SolverParameters = {
   maxDeterministicTime: 100,
   interleaveSearch: true,
 };
+
+/**
+ * **The SOLVED set** — the two statuses that mean "a candidate came back".
+ *
+ * SPEC-04 §2 keeps `FEASIBLE` and `OPTIMAL` distinct, and SPEC-04 §7 forbids
+ * claiming the second without a proof. They are NOT interchangeable and this
+ * constant does not make them so: it exists because a test whose subject is
+ * *"the round trip produced a candidate"* was written as `toBe('FEASIBLE')`
+ * when the only implementation behind it was a stub that could never prove
+ * optimality. The real CP-SAT model proves it on these fixtures and returns
+ * `OPTIMAL` — SPEC-04 §7 honoured, not violated — so the assertion has to say
+ * what it always meant.
+ *
+ * A test that means *specifically feasible-and-not-proven-optimal* must
+ * construct that case and assert `toBe('FEASIBLE')` on its own; nothing here
+ * admits `OPTIMAL` into such a test, and nothing here weakens the honesty
+ * proofs, which assert exact statuses and still do
+ * (`response-refusals.test.ts`'s ten impossible pairs, `worker-invariants`'
+ * "the stub never claims OPTIMAL").
+ */
+export const SOLVED_STATUSES: readonly string[] = ['FEASIBLE', 'OPTIMAL'];
 
 /** The same, with the two reproducibility conditions absent. */
 export const BEST_EFFORT_PARAMETERS: SolverParameters = {

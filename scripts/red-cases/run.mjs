@@ -176,18 +176,68 @@ const CASES = [
     redCommand: ['run', 'gate:rule-node-mapping'],
   },
   {
+    id: 'solver-kind-parity',
+    gate: 'solver/checker HARD-kind parity (doc 35 §6d)',
+    violation: 'a HARD kind the checker evaluates that the model does not build',
+    /* The direction chosen is the one that actually happened. FAD-42 R-1 was a
+     * WINDOW-level version of exactly this: the model failed to constrain
+     * something the checker enforced, so candidates came back and were refused
+     * after the fact, and the engine said "worker output rejected" where the
+     * honest answer was INFEASIBLE. At kind level the same divergence is
+     * invisible until a rule of that kind appears in a real build.
+     *
+     * The patch removes `MinimumRestBetween` from the Python tuple — the very
+     * kind R-1 was about — leaving the checker still evaluating it. The gate
+     * parses source, so no rebuild and no interpreter are needed and the arm is
+     * self-contained.
+     *
+     * Anchored on the two neighbouring entries rather than the line alone, so a
+     * reordering of the tuple breaks the anchor loudly (`anchor not found`)
+     * instead of silently patching a different kind. */
+    patch: [
+      {
+        file: 'solver/schedulepoint_solver/model.py',
+        find: '    "MaxConsecutive",\n    "MinimumRestBetween",\n    "CallSpacing",',
+        replace: '    "MaxConsecutive",\n    "CallSpacing",',
+      },
+    ],
+    greenCommand: ['run', 'gate:solver-kind-parity'],
+    redCommand: ['run', 'gate:solver-kind-parity'],
+  },
+  {
     id: 'rule-kind-registry',
     gate: 'rule-kind registry is generated (doc 34 §4-D)',
     violation: 'a count in the committed registry edited by hand',
     /* The registry exists because the PREVIOUS register was prose with the
      * counts typed into its headings, and three of them were wrong. The claim
      * "the registry is generated" is a claim about this gate, so the gate has to
-     * be seen failing: one number, edited by hand, in the committed artifact. */
+     * be seen failing: one number, edited by hand, in the committed artifact.
+     *
+     * ── RE-ANCHORED at OPUS-M4-002, and the re-anchoring is the finding ──
+     *
+     * The anchor read `| One owner ruling away, nothing else needed | 11 |`.
+     * That row is GENERATED, and this packet is what moved it: the eleven
+     * RK-RULINGs answered every open ruling, so the label became "Still ONE OPEN
+     * owner ruling away…" and the count became 0. The anchor stopped matching
+     * and the runner threw `anchor not found` — which is a BROKEN case, not a
+     * failing one, and a broken case proves nothing at all.
+     *
+     * It went unnoticed because `pnpm check` and `pnpm red-cases` are different
+     * batteries: the registry gate stayed green throughout (the committed
+     * artifact and the generated one agreed), and only the arm that tampers with
+     * the artifact could see the row had moved.
+     *
+     * Re-anchored to `| Unique node kinds | 30 |` — the ONE count in this
+     * artifact that no ruling, no owner assignment and no milestone can change,
+     * because it counts the closed AST node set. An arm anchored to a number the
+     * next packet will legitimately move is an arm that breaks again. Nothing is
+     * weakened: the violation is still exactly one number edited by hand in the
+     * committed artifact, and the gate must still catch it. */
     patch: [
       {
         file: 'packages/domain/src/rules/rule-kind-registry.generated.md',
-        find: '| One owner ruling away, nothing else needed | 11 |',
-        replace: '| One owner ruling away, nothing else needed | 10 |',
+        find: '| Unique node kinds | 30 |',
+        replace: '| Unique node kinds | 29 |',
       },
     ],
     greenCommand: ['run', 'gate:rule-kind-registry'],
@@ -1191,6 +1241,146 @@ const CASES = [
     ],
     greenCommand: ['exec', 'vitest', 'run', 'apps/api/test/solver/rpc-auth.test.ts'],
     redCommand: ['exec', 'vitest', 'run', 'apps/api/test/solver/rpc-auth.test.ts'],
+  },
+  {
+    id: 'solver-model-constraint-dropped',
+    gate: 'the independent checker catches a MODEL that lost a constraint (SPEC-04 §3.3)',
+    violation: 'the linkage constraint family dropped from the CP-SAT model builder',
+    /* THE INDEPENDENCE CASE (OPUS-M4-002, doc 35 §6d).
+     *
+     * `corpus-agreement` asserts the solver and the checker AGREE. Necessary,
+     * and not sufficient: two implementations that share a defect agree
+     * perfectly. What must be shown is that the checker would DISAGREE if the
+     * model were wrong, and the only honest way to show it is to make the model
+     * wrong.
+     *
+     * The violation drops the whole linkage family — `LinkedShifts`,
+     * `ImpliesAssignment`, `MutuallyExclusive` — from the model builder alone.
+     * The checker is untouched, which is the point: it is TypeScript over
+     * finished rows and shares no line with the Python that built the model.
+     *
+     * `B-infeasible-contradictory-rules` then becomes solvable, and EVERY
+     * solution to it breaches one of its two rules by construction: any
+     * candidate places `AUX` somewhere, and that membership either also has
+     * `EVE` on that date (breaching the exclusion) or does not (breaching the
+     * implication). So the catch does not depend on which solution CP-SAT
+     * finds — it is certain, not likely.
+     *
+     * Python, so no rebuild is needed between the patch and the run. */
+    patch: [
+      {
+        file: 'solver/schedulepoint_solver/cpsat_adapter.py',
+        find:
+          '    if kind in ("LinkedShifts", "ImpliesAssignment", "MutuallyExclusive"):\n' +
+          '        if kind == "ImpliesAssignment":',
+        replace:
+          '    if kind in ("LinkedShifts", "ImpliesAssignment", "MutuallyExclusive"):\n' +
+          '        return  # red case: the linkage constraint family is dropped\n' +
+          '        if kind == "ImpliesAssignment":',
+      },
+    ],
+    greenCommand: [
+      'exec',
+      'vitest',
+      'run',
+      'apps/api/test/solver/model-independence.test.ts',
+      'apps/api/test/solver/corpus/corpus-agreement.test.ts',
+    ],
+    redCommand: [
+      'exec',
+      'vitest',
+      'run',
+      'apps/api/test/solver/model-independence.test.ts',
+      'apps/api/test/solver/corpus/corpus-agreement.test.ts',
+    ],
+  },
+  {
+    id: 'solver-checker-disabled',
+    gate: 'the independent checker is LOAD-BEARING (SPEC-04 §3.3, FAD-33(1))',
+    violation: 'the LinkedShifts arm of the linkage checker never reports a breach',
+    /* The inverse of the case above, and the reason both are needed: a checker
+     * that never disagrees is decorative, and it looks exactly like a checker
+     * that agrees.
+     *
+     * `LinkedShifts` is the kind chosen because a lone `EVE` row in the
+     * rule-heavy fixture breaches NOTHING else — no rest pair, no coverage
+     * ceiling, no adjacency. Disabling `MutuallyExclusive` instead would have
+     * been caught incidentally by `MinimumRestBetween`, and the arm would have
+     * reported PROVEN while proving something else.
+     *
+     * Compile-clean, on the retired-verdict lesson: `present` is still read by
+     * the detail string, so the rebuild below succeeds and the api-side test
+     * genuinely observes the patched `dist`. */
+    patch: [
+      {
+        file: 'packages/domain/src/rules/hard-rule-check.ts',
+        find: '        breached = present.length > 0 && present.length < names.length;',
+        replace: '        breached = false; // red case: the LinkedShifts arm never breaches',
+      },
+    ],
+    greenCommand: [
+      'exec',
+      'vitest',
+      'run',
+      'packages/domain/test/rules/ruled-kinds.test.ts',
+      'apps/api/test/solver/incorrect-worker-output.test.ts',
+    ],
+    /* `dist` carries the violation, or the api-side arm is blind to it. */
+    prepare: [['exec', 'tsc', '-b', 'packages/domain', '--force']],
+    redCommand: [
+      'exec',
+      'vitest',
+      'run',
+      'packages/domain/test/rules/ruled-kinds.test.ts',
+      'apps/api/test/solver/incorrect-worker-output.test.ts',
+    ],
+    restore: [['exec', 'tsc', '-b', 'packages/domain', '--force']],
+  },
+  {
+    id: 'solver-fail-closed-kind-skipped',
+    gate: 'a later-milestone HARD kind can NEVER be silently ignored (FAD-27, SPEC-04 §3.3)',
+    violation: 'the owner block removed, the kind admitted, and the unmapped fall-through silenced',
+    /* SPEC-04 §3.3 is absolute: a HARD rule is never "relaxed, downgraded,
+     * weighted, or skipped by any code path". `LocumRestriction` has no input in
+     * the canonical snapshot — the locum slice owns it — so the worker refuses
+     * to model the problem at all rather than solving it without the rule.
+     *
+     * Making that silently ignorable takes THREE removals, and that is the
+     * finding rather than an inconvenience: the fail-closed property is enforced
+     * at three independent points, and the arm has to defeat all of them to
+     * show a silent skip. Any two left standing still refuse.
+     *
+     *   1. the FAD-27 owner block in `check_modellable`;
+     *   2. the "HARD kind with no constraint mapping" refusal, defeated by
+     *      admitting the kind into `HARD_KINDS`;
+     *   3. the fall-through `raise` at the end of `_hard`, which catches a kind
+     *      that is declared modellable and then has no branch.
+     *
+     * With all three gone `B-locum-shaped` SOLVES — a build produced while an
+     * active HARD rule was ignored — and `corpus-agreement` fails on it. */
+    patch: [
+      {
+        file: 'solver/schedulepoint_solver/model.py',
+        find: '    if kind in FAIL_CLOSED_OWNERS:\n        raise ModelError(',
+        replace: '    if False:  # red case: the FAD-27 owner block is removed\n        raise ModelError(',
+      },
+      {
+        file: 'solver/schedulepoint_solver/model.py',
+        find: 'HARD_KINDS = (\n    "RequiredCount",',
+        replace: 'HARD_KINDS = (\n    "LocumRestriction",  # red case: a later-milestone kind admitted\n    "RequiredCount",',
+      },
+      {
+        file: 'solver/schedulepoint_solver/cpsat_adapter.py',
+        find:
+          '    raise M.ModelError(\n' +
+          '        "rule_kind_not_modelled",\n' +
+          '        "rule %s of kind %s reached the model with no branch" % (rule_key, kind),\n' +
+          '    )',
+        replace: '    return  # red case: an unmapped kind is silently ignored',
+      },
+    ],
+    greenCommand: ['exec', 'vitest', 'run', 'apps/api/test/solver/corpus/corpus-agreement.test.ts'],
+    redCommand: ['exec', 'vitest', 'run', 'apps/api/test/solver/corpus/corpus-agreement.test.ts'],
   },
   {
     id: 'request-budget-over',

@@ -1,0 +1,85 @@
+STEP 32 — the FAD-42 repair proofs, GREEN direction
+
+$ vitest run --project api test/solver/rest-across-gap-day.test.ts \
+      test/solver/empty-staff-group-scope.test.ts test/solver/corpus/ \
+      test/solver/model-independence.test.ts
+--------------------------------------------------------------------
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-002
+
+stdout | test/solver/rest-across-gap-day.test.ts > MinimumRestBetween across a demand-free gap day (FAD-42 R-1) > minHours=30 — 40 hours of rest is LEGAL: the model builds it and the checker agrees
+      · minHours=30: model OPTIMAL with 2 row(s); independent checker usable=true, 0 breaches — the two AGREE
+
+stdout | test/solver/rest-across-gap-day.test.ts > MinimumRestBetween across a demand-free gap day (FAD-42 R-1) > minHours=41 — the SAME 40 hours is ILLEGAL: the model refuses, and the checker says why
+      · minHours=41: model INFEASIBLE with no candidate; the only demand-satisfying schedule breaches — MinimumRestBetween: membership 338d7c50-477c-46eb-aeb6-41500a404e55 has 40.00 hours of rest before the assignment on 2027-03-03, and this rule requires 41 — the two AGREE
+
+ ✓ |api| test/solver/rest-across-gap-day.test.ts (2 tests) 1688ms
+   ✓ MinimumRestBetween across a demand-free gap day (FAD-42 R-1) > minHours=30 — 40 hours of rest is LEGAL: the model builds it and the checker agrees  940ms
+   ✓ MinimumRestBetween across a demand-free gap day (FAD-42 R-1) > minHours=41 — the SAME 40 hours is ILLEGAL: the model refuses, and the checker says why  724ms
+stdout | test/solver/corpus/corpus-agreement.test.ts > the E1 corpus, solver against independent checker > records the per-class run summary
+      ·       ┌─ E1 CORPUS RUN SUMMARY ─────────────────────────────────────
+      ·       │ feasible-small                   · B-feasible-small                     · hash fe6cbb2d8440 · outcome OPTIMAL/completed      · hardViolations 0     · cause —
+      ·       │ feasible-medium                  · B-feasible-medium                    · hash 791c4710f309 · outcome OPTIMAL/completed      · hardViolations 0     · cause —
+      ·       │ feasible-large                   · B-feasible-large                     · hash dfd8574fa1d7 · outcome OPTIMAL/completed      · hardViolations 0     · cause —
+      ·       │ multisite                        · B-multisite                          · hash 300d6427ecef · outcome OPTIMAL/completed      · hardViolations 0     · cause —
+      ·       │ rule-heavy                       · B-ruleheavy                          · hash 4142d15ea3fb · outcome OPTIMAL/completed      · hardViolations 0     · cause —
+      ·       │ progressive-pinned               · B-progressive-pinned                 · hash 32cd27e3a4e3 · outcome OPTIMAL/completed      · hardViolations 0     · cause —
+      ·       │ qualifications                   · B-qualifications                     · hash ec332922122d · outcome OPTIMAL/completed      · hardViolations 0     · cause —
+      ·       │ fte                              · B-fte                                · hash 4a457dbfea06 · outcome OPTIMAL/completed      · hardViolations 0     · cause —
+      ·       │ locum-shaped                     · B-locum-shaped                       · hash c37f6f7338c8 · outcome FAILED/rejected        · hardViolations n/a   · cause —
+      ·       │ fairness-shaped                  · B-fairness-shaped                    · hash 492e4d98422a · outcome OPTIMAL/completed      · hardViolations 0     · cause —
+      ·       │ infeasible-contradictory-rules   · B-infeasible-contradictory-rules     · hash ed2de3578cf9 · outcome INFEASIBLE/completed   · hardViolations n/a   · cause EXPLAINED_SUBSET T1[__demand__,ci-implies,ci-mutex]
+      ·       │ infeasible-missing-qualification · B-infeasible-missing-qualification   · hash 42e2de116235 · outcome INFEASIBLE/completed   · hardViolations n/a   · cause EXPLAINED_EXACT T0[no_eligible_member,no_eligible_member,no_eligible_member]
+      ·       │ infeasible-over-demand           · B-infeasible-over-demand             · hash f5a210d51e0a · outcome INFEASIBLE/completed   · hardViolations n/a   · cause EXPLAINED_EXACT T0[eligible_capacity_below_demand,eligible_capacity_below_demand,eligible_capacity_below_demand,day_demand_exceeds_participants,day_demand_exceeds_participants,day_demand_exceeds_participants] T1[__demand__]
+      ·       │ infeasible-fixed-conflict        · B-infeasible-fixed-conflict          · hash fc22e3adc59b · outcome INFEASIBLE/completed   · hardViolations n/a   · cause EXPLAINED_EXACT T0[conflicting_fixed_assignments] T1[__demand__]
+      ·       │ race-retired-holding             · B-race-retired-holding               · hash 6b4ececa0726 · outcome INFEASIBLE/completed   · hardViolations n/a   · cause EXPLAINED_EXACT T0[no_eligible_member]
+      ·       └─────────────────────────────────────────────────────────────
+
+stdout | test/solver/corpus/corpus-agreement.test.ts > the E1 corpus, solver against independent checker > rule-heavy: every M4-evaluable HARD kind is present, and all of them hold at once
+      ·       · rule-heavy: 22 HARD kinds, 30 assignments, 0 hard violations
+
+stdout | test/solver/corpus/corpus-agreement.test.ts > the E1 corpus, solver against independent checker > fairness-shaped: the E1 objective tiers are RECORDED, and SOFT never became HARD
+      ·       · fairness tiers: 10:preference(42) 20:work-percentage(6) 30:fairness(2)
+
+stdout | test/solver/corpus/corpus-agreement.test.ts > the E1 corpus, solver against independent checker > race-retired-holding: the validator REJECTS staffing the raced membership
+      ·       · raced staffing refused; the un-raced control staffing accepted
+
+ ✓ |api| test/solver/corpus/corpus-agreement.test.ts (8 tests) 11102ms
+stdout | test/solver/empty-staff-group-scope.test.ts > scope.staffGroups that resolves to nobody (FAD-42(3)) > KNOWN but EMPTY — the MODEL builds it: the rule bound nobody
+      · known-empty: model OPTIMAL with 2 row(s) — the empty scope made no statement
+
+stdout | test/solver/empty-staff-group-scope.test.ts > scope.staffGroups that resolves to nobody (FAD-42(3)) > KNOWN but EMPTY — the CHECKER agrees: no breach, and NOT a not-evaluable refusal
+      · known-empty: checker usable=true, 0 breaches, 0 not-evaluable — the two AGREE
+
+stdout | test/solver/empty-staff-group-scope.test.ts > scope.staffGroups that resolves to nobody (FAD-42(3)) > UNKNOWN id — the MODEL refuses to build at all
+      · unknown id: model FAILED, no candidate — fail-closed (FAD-27)
+
+stdout | test/solver/empty-staff-group-scope.test.ts > scope.staffGroups that resolves to nobody (FAD-42(3)) > UNKNOWN id — the CHECKER refuses too, and names the id
+      · unknown id: checker usable=false — scope.staffGroups names 56844c5f-485e-4b09-8130-9df8f0f928c7, which is not a staff-group id in this group (RK-RULING-02 pins the domain to staff_groups.id)
+
+ ✓ |api| test/solver/empty-staff-group-scope.test.ts (4 tests) 2147ms
+   ✓ scope.staffGroups that resolves to nobody (FAD-42(3)) > KNOWN but EMPTY — the MODEL builds it: the rule bound nobody  715ms
+   ✓ scope.staffGroups that resolves to nobody (FAD-42(3)) > KNOWN but EMPTY — the CHECKER agrees: no breach, and NOT a not-evaluable refusal  716ms
+   ✓ scope.staffGroups that resolves to nobody (FAD-42(3)) > UNKNOWN id — the MODEL refuses to build at all  697ms
+stdout | test/solver/model-independence.test.ts > the independent checker would catch a model that lost a constraint > the linkage family is IN the model — and if it were not, the checker would catch it
+      ·       · linkage family present: the contradictory fixture has no solution, as constructed
+
+ ✓ |api| test/solver/model-independence.test.ts (1 test) 740ms
+   ✓ the independent checker would catch a model that lost a constraint > the linkage family is IN the model — and if it were not, the checker would catch it  721ms
+stdout | test/solver/corpus/corpus-manifest.test.ts > the E1 corpus manifest > 1. covers every §6d class, exactly once
+      ·       · 15 fixtures across 15 classes
+
+stdout | test/solver/corpus/corpus-manifest.test.ts > the E1 corpus manifest > 2. regenerates byte-identically within one process
+      ·       · 14 generated fixtures reproduced byte for byte
+
+stdout | test/solver/corpus/corpus-manifest.test.ts > the E1 corpus manifest > 3. matches the committed manifest, hash for hash
+      ·       · 15 committed hashes all matched
+
+ ✓ |api| test/solver/corpus/corpus-manifest.test.ts (8 tests) 29ms
+
+ Test Files  5 passed (5)
+      Tests  23 passed (23)
+   Start at  14:34:05
+   Duration  17.65s (transform 286ms, setup 204ms, collect 82ms, tests 15.71s, environment 0ms, prepare 28ms)
+
+REPAIR-PROOFS-GREEN EXIT=0

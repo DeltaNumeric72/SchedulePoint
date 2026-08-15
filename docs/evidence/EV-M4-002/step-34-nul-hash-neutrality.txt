@@ -1,0 +1,23 @@
+STEP 34 — R-2 NUL repair: hash neutrality, and the ONE hash that moved
+
+Every corpus identifier is derived through corpusId(), whose separator was one
+of the nine repaired NUL bytes. If the escape spelling had changed the digest,
+ALL FIFTEEN fixture hashes would have moved. They did not.
+--------------------------------------------------------------------
+A. raw NUL bytes remaining in the three repaired files
+   apps/api/test/solver/corpus/generators.ts: 0
+   packages/domain/src/rules/hard-rule-check.ts: 0
+   apps/api/src/solver/candidate-validation.ts: 0
+   TOTAL raw NUL bytes remaining: 0
+
+B. E1 corpus manifest, HEAD (before) vs regenerated (after)
+   E1 fixtures compared : 15
+   hash UNCHANGED       : 14   <- the R-2 repair is hash-neutral
+   hash MOVED           : 1
+      B-ruleheavy  (the 27a rest-rule change, deliberate)
+         before 89ff810ff67002c557993406af78dee422bf37989c167c03ecf13327335515ab
+         after  66f5e0ca57e22e08c729e12f529d9a10c6241b05217cbeafe306b853f47bf635
+
+C. the M3 rule-model corpus at solver/corpus/manifest.json — untouched
+   fixtures: 6   unchanged: 6
+HASH-COMPARISON EXIT=0

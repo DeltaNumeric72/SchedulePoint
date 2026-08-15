@@ -67,6 +67,13 @@ export const SNAPSHOT_CONSTITUENT_KINDS = [
   'timezoneBasis',
   'period',
   'version',
+  /* ── snapshot v2 (OPUS-M4-002, FAD-38) ──────────────────────────────────────
+   * Two kinds, APPENDED. Appended rather than inserted because the order of this
+   * array is the order a reader meets the vocabulary in, and renumbering a list
+   * that documents cite is the shape non-bypass rule 13 forbids. Nothing above
+   * moved. */
+  'staffGroup',
+  'validGroup',
 ] as const;
 export type SnapshotConstituentKind = (typeof SNAPSHOT_CONSTITUENT_KINDS)[number];
 
@@ -115,6 +122,17 @@ export interface SnapshotShiftType {
   readonly endTime: string;
   readonly crossesMidnight: boolean;
   readonly isManualOnly: boolean;
+  /**
+   * `shift_types.is_on_call` (migration 0005) — snapshot v2, FAD-39.
+   *
+   * The ONE attribute in the system that says a shift IS a call, and therefore
+   * the whole of what makes `CallSpacing` decidable. v2 originally omitted it and
+   * the worker refused every `CallSpacing` rule rather than modelling one that
+   * would have matched nothing; the refusal was right and it is kept as the
+   * unknown-input backstop, but the input is here now so the refusal no longer
+   * fires for this kind. Folded into the SAME v2 bump — v2 had not shipped.
+   */
+  readonly isOnCall: boolean;
   readonly creditWeight: string;
   readonly status: 'active' | 'retired';
   /** ACTIVE `shift_type_qualifications` edges. Archived edges are history. */
@@ -218,6 +236,89 @@ export interface SnapshotFixedAssignment {
   readonly creditWeight: string | null;
 }
 
+/* ────────────────────────────────────────────────────────────────────────────
+ * Snapshot v2 — the three vocabularies the rulings need (OPUS-M4-002, FAD-38)
+ *
+ * ## Why these three, and why they were not here at v1
+ *
+ * M4-001 assembled everything a *stub* solve consumes. M4-002's rulings then
+ * made three more kinds evaluable and the assembly could not reach their inputs:
+ *
+ *  - **RK-RULING-02** — `MemberOfStaffGroup(staffGroup = staff_groups.id)`, and
+ *    `RuleScope.staffGroups`, which is a filter on **every** kind. Without the
+ *    membership edges, any staff-group-scoped rule of any kind is unresolvable,
+ *    which is what blocked the `B-ruleheavy` corpus class outright.
+ *  - **RK-RULING-03** — `ValidGroupRestriction(validGroup = valid_groups.id)`.
+ *  - `RequiresQualification(qualification = qualifications.key)` — already
+ *    EVALUATED by the independent checker at M3, but the worker can only see
+ *    qualification **ids** (`holdings[].qualificationId`,
+ *    `shiftTypes[].requiredQualificationIds`), so it could not model a rule that
+ *    names a **key**. The key appeared only inside a `constituents` citation,
+ *    which carries no id.
+ *
+ * The tables all shipped at migration 0005 — **this is a document-shape gap, not
+ * a schema gap, and v2 adds no migration.** The gap was escalated before any code
+ * was written (EV-M4-002) and ruled FAD-38: additive-only, nothing removed or
+ * reshaped, every v1 consumer compiles unchanged.
+ *
+ * ## The rule these three obey
+ *
+ * Each carries the **stable identifier the rulings name** plus exactly what an
+ * evaluation needs, and nothing else. No display name is carried where an id
+ * decides (`staff_groups.name` is mutable; a rename must not change a rule's
+ * historical meaning), and no free text of any kind crosses (I-07).
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * A staff group and the memberships in it (RK-RULING-02).
+ *
+ * `staffGroupId` is `staff_groups.id` — the STABLE identifier the ruling pins,
+ * never `name`. Authoring resolves a name to this id at save, so a later rename
+ * leaves every historical build meaning exactly what it meant.
+ */
+export interface SnapshotStaffGroup {
+  readonly staffGroupId: string;
+  /** `staff_group_members.membership_id`, ordered, group-scoped by the composite FK. */
+  readonly memberMembershipIds: readonly string[];
+}
+
+/**
+ * A valid group: which draft pick positions are legal for which shift types
+ * (RK-RULING-03).
+ *
+ * `validGroupId` is `valid_groups.id`, on the same stable-id reasoning as
+ * {@link SnapshotStaffGroup}. `allowedPickPositions` is carried because the row
+ * owns it (migration 0005 keeps the positions as an array on the row rather than
+ * as a child table) and a restriction that could not see them would be a
+ * restriction about nothing.
+ */
+export interface SnapshotValidGroup {
+  readonly validGroupId: string;
+  /** Ascending, distinct — the shape migration 0005's trigger enforces. */
+  readonly allowedPickPositions: readonly number[];
+  /** `valid_group_shift_types.shift_type_id`, ordered. */
+  readonly shiftTypeIds: readonly string[];
+}
+
+/**
+ * The group's qualification vocabulary: the id↔key↔lifecycle triple.
+ *
+ * This is the resolution `RequiresQualification` needs and v1 could not supply.
+ * It carries **no** `requires_expiry` and no evidence reference: the first is a
+ * write-time control (migrations 0012/0017) that no evaluation consults, and the
+ * second is `SENSITIVE-PII` free text that never crosses this boundary (I-07,
+ * non-bypass rule 9). The `constituents` citation of kind `qualification`
+ * continues to pin the revision — this adds the *vocabulary*, not a second
+ * citation.
+ */
+export interface SnapshotQualification {
+  readonly qualificationId: string;
+  /** `qualifications.key` — the domain the AST's `qualification` field names. */
+  readonly key: string;
+  /** `qualifications.status`; the verdict treats an unresolvable one as retired. */
+  readonly status: string;
+}
+
 /** One rule, at the exact revision the build consumes. */
 export interface SnapshotRuleRevision {
   readonly ruleKey: string;
@@ -279,6 +380,21 @@ export interface SolverInputSnapshotDocument {
   readonly participants: readonly SnapshotParticipant[];
   readonly fixedAssignments: readonly SnapshotFixedAssignment[];
   readonly ruleRevisions: readonly SnapshotRuleRevision[];
+
+  /* ── v2 (OPUS-M4-002, FAD-38) — APPENDED, nothing above reshaped ───────────
+   * Required rather than optional, and deliberately: an optional field would let
+   * a document that simply forgot a vocabulary look identical to one whose group
+   * genuinely has none, and the two answers differ — the first silently makes
+   * every staff-group-scoped rule unresolvable, the second correctly makes it
+   * resolve to nobody. An empty array says "none"; an absent field would say
+   * nothing at all. The bump to `snapshotSchemaVersion = 2` is what makes that
+   * requirement safe: a v1 document is refused by version, not misread. */
+  /** RK-RULING-02's vocabulary. Empty when the group defines no staff groups. */
+  readonly staffGroups: readonly SnapshotStaffGroup[];
+  /** RK-RULING-03's vocabulary. Empty when the group defines no valid groups. */
+  readonly validGroups: readonly SnapshotValidGroup[];
+  /** The id↔key↔lifecycle triple `RequiresQualification` resolves against. */
+  readonly qualifications: readonly SnapshotQualification[];
 
   /** Every constituent revision, sorted. The configuration-revision record. */
   readonly constituents: readonly SnapshotConstituent[];
@@ -500,6 +616,36 @@ export function snapshotRefusals(
     'constituents',
     'the same constituent is cited at two revisions',
   );
+  /* v2 (FAD-38). A duplicated qualification KEY is the ambiguity that matters
+   * most here: `RequiresQualification` names a key, so two rows claiming one key
+   * would make the rule resolve to whichever row a consumer read first — the
+   * exact defect the id↔key vocabulary was added to remove. The id arm is
+   * checked too, because a vocabulary that is ambiguous in either direction is
+   * not a resolution. */
+  pushDuplicates(
+    refusals,
+    document.qualifications.map((q) => q.key),
+    'qualifications',
+    'two qualifications claim the same key',
+  );
+  pushDuplicates(
+    refusals,
+    document.qualifications.map((q) => q.qualificationId),
+    'qualifications',
+    'the same qualification id appears twice',
+  );
+  pushDuplicates(
+    refusals,
+    document.staffGroups.map((g) => g.staffGroupId),
+    'staffGroups',
+    'the same staff group appears twice',
+  );
+  pushDuplicates(
+    refusals,
+    document.validGroups.map((g) => g.validGroupId),
+    'validGroups',
+    'the same valid group appears twice',
+  );
 
   /* ── cross-group ───────────────────────────────────────────────────────────
    * Composite foreign keys (0014) make most of this unreachable through the
@@ -533,6 +679,63 @@ export function snapshotRefusals(
         reason: 'cross-group',
         subject: `fixedAssignments.${fixed.assignmentIdentityId}`,
         detail: 'a fixed assignment names a location that is not in this group',
+      });
+    }
+  }
+  /* v2 (FAD-38). The same reasoning, applied to the two new vocabularies: a
+   * staff group whose members are not this group's participants, or a valid
+   * group naming a shift type this group does not define, is a document
+   * describing two groups at once. The composite FKs (0005 tenant identity,
+   * 0014) make it unreachable through the database; this is the arm that catches
+   * an ASSEMBLY that joined the wrong set. */
+  for (const staffGroup of document.staffGroups) {
+    for (const membershipId of staffGroup.memberMembershipIds) {
+      if (participantIds.has(membershipId)) continue;
+      refusals.push({
+        reason: 'cross-group',
+        subject: `staffGroups.${staffGroup.staffGroupId}`,
+        detail:
+          'a staff group names a membership that is not an active effective participant of ' +
+          'this group for this period',
+      });
+    }
+  }
+  for (const validGroup of document.validGroups) {
+    for (const shiftTypeId of validGroup.shiftTypeIds) {
+      if (shiftTypeIds.has(shiftTypeId)) continue;
+      refusals.push({
+        reason: 'cross-group',
+        subject: `validGroups.${validGroup.validGroupId}`,
+        detail: 'a valid group names a shift type that is not in this group',
+      });
+    }
+  }
+  /* The qualification vocabulary must COVER every id the rest of the document
+   * already uses, or `RequiresQualification` would resolve a key to an id that
+   * no holding could ever match and the rule would silently never fire — a false
+   * "satisfied", which is the worst direction for a qualification rule to fail
+   * in. `missing-required-input` rather than `cross-group`: the vocabulary is
+   * incomplete, not foreign. */
+  const qualificationIds = new Set(document.qualifications.map((q) => q.qualificationId));
+  for (const shiftType of document.shiftTypes) {
+    for (const qualificationId of shiftType.requiredQualificationIds) {
+      if (qualificationIds.has(qualificationId)) continue;
+      refusals.push({
+        reason: 'missing-required-input',
+        subject: `shiftTypes.${shiftType.shiftTypeId}`,
+        detail:
+          'a shift-type qualification requirement names a qualification the snapshot ' +
+          'vocabulary does not define',
+      });
+    }
+  }
+  for (const participant of document.participants) {
+    for (const holding of participant.holdings) {
+      if (qualificationIds.has(holding.qualificationId)) continue;
+      refusals.push({
+        reason: 'missing-required-input',
+        subject: `participants.${participant.membershipId}.holdings`,
+        detail: 'a holding names a qualification the snapshot vocabulary does not define',
       });
     }
   }

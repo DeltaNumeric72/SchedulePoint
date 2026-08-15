@@ -132,6 +132,10 @@ export {
   dayNumber,
   evaluateHardRules,
   isEvaluatedHardRuleKind,
+  /* OPUS-M4-002 — the ruled kinds' seam and its date helper. */
+  weekdayOfDate,
+  type CandidateFacts,
+  type CandidatePriorAssignment,
   type CheckedAssignment,
   type CheckedVersion,
   type EvaluatedHardRuleKind,

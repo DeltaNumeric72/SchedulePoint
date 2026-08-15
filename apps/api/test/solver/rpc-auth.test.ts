@@ -18,6 +18,7 @@ import {
   DETERMINISTIC_PARAMETERS,
   FIXTURE_RPC_KEY_ID,
   FIXTURE_RPC_SECRET,
+  WORKER_INTERPRETER,
   applyHostileWorkerEnv,
   applySolverEnv,
 } from '../support/solver.js';
@@ -128,7 +129,7 @@ describe('the solver RPC channel authenticates in both directions', () => {
       freshNonce(),
     );
 
-    const run = spawnSync('python3', ['-m', 'schedulepoint_solver'], {
+    const run = spawnSync(WORKER_INTERPRETER, ['-m', 'schedulepoint_solver'], {
       cwd: SOLVER_ROOT,
       input: frame.wire,
       env: {
@@ -157,7 +158,7 @@ describe('the solver RPC channel authenticates in both directions', () => {
     const { spawnSync } = await import('node:child_process');
     const { SOLVER_ROOT } = await import('../support/solver.js');
 
-    const run = spawnSync('python3', ['-m', 'schedulepoint_solver'], {
+    const run = spawnSync(WORKER_INTERPRETER, ['-m', 'schedulepoint_solver'], {
       cwd: SOLVER_ROOT,
       input: Buffer.from('{}\n{}', 'utf8'),
       // No SP_SOLVER_RPC_* at all. Fail-closed: refuse everything, not accept it.
@@ -246,7 +247,7 @@ describe('the solver RPC channel authenticates in both directions', () => {
       key,
       nonce,
     );
-    const run = spawnSync('python3', ['-m', 'schedulepoint_solver'], {
+    const run = spawnSync(WORKER_INTERPRETER, ['-m', 'schedulepoint_solver'], {
       cwd: SOLVER_ROOT,
       input: frame.wire,
       env: {
@@ -311,7 +312,7 @@ describe('the solver RPC channel authenticates in both directions', () => {
 
         const { spawnSync } = await import('node:child_process');
         const { SOLVER_ROOT } = await import('../support/solver.js');
-        const run = spawnSync('python3', ['-m', 'schedulepoint_solver'], {
+        const run = spawnSync(WORKER_INTERPRETER, ['-m', 'schedulepoint_solver'], {
           cwd: SOLVER_ROOT,
           input: frame.wire,
           env: {

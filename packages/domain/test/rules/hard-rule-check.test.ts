@@ -7,8 +7,11 @@ import {
   compileRule,
   evaluateHardRules,
   isEvaluatedHardRuleKind,
+  type CandidateFacts,
+  type CandidatePriorAssignment,
   type CheckedAssignment,
   type CheckedVersion,
+  type DateRange,
   type Rule,
   type RuleNode,
   type RuleNodeKind,
@@ -49,6 +52,42 @@ interface VersionOptions {
   readonly knownQualificationKeys?: readonly string[];
   readonly knownShiftTypeCodes?: readonly string[];
   readonly knownMembershipIds?: readonly string[];
+  /**
+   * The OPUS-M4-002 seam. **Absent by default**, and that default is the
+   * load-bearing part of this helper: every M3 fixture below keeps the exact
+   * shape it had, so the publication caller's behaviour is asserted unchanged
+   * rather than assumed (FAD-38(6)).
+   */
+  readonly facts?: FactsOptions;
+}
+
+interface FactsOptions {
+  readonly horizon?: DateRange;
+  readonly staffGroups?: Readonly<Record<string, readonly string[]>>;
+  readonly validGroups?: Readonly<Record<string, readonly string[]>>;
+  readonly weekdayTargets?: Readonly<
+    Record<string, Readonly<Record<string, { fteFraction: number; maxAssignments: number | null }>>>
+  >;
+  readonly workPercentages?: Readonly<Record<string, number>>;
+  readonly prior?: readonly CandidatePriorAssignment[];
+}
+
+export function candidateFacts(options: FactsOptions): CandidateFacts {
+  const staffGroups = options.staffGroups ?? {};
+  const validGroups = options.validGroups ?? {};
+  return {
+    horizon: options.horizon ?? { from: '2031-01-01', to: '2031-12-31' },
+    knownStaffGroupIds: new Set(Object.keys(staffGroups)),
+    staffGroupMembers: (id) =>
+      id in staffGroups ? new Set(staffGroups[id] ?? []) : null,
+    knownValidGroupIds: new Set(Object.keys(validGroups)),
+    validGroupShiftTypes: (id) =>
+      id in validGroups ? new Set(validGroups[id] ?? []) : null,
+    weekdayTarget: (membershipId, weekday) =>
+      options.weekdayTargets?.[membershipId]?.[weekday] ?? null,
+    workPercentage: (membershipId) => options.workPercentages?.[membershipId] ?? null,
+    priorAssignments: options.prior ?? [],
+  };
 }
 
 function version(options: VersionOptions): CheckedVersion {
@@ -61,6 +100,7 @@ function version(options: VersionOptions): CheckedVersion {
       knownQualificationKeys: new Set(options.knownQualificationKeys ?? ['acls']),
       heldOn: (membershipId, key, date) => held.has(`${membershipId}|${key}|${date}`),
     },
+    ...(options.facts === undefined ? {} : { candidateFacts: candidateFacts(options.facts) }),
   };
 }
 
@@ -445,14 +485,49 @@ describe('scope resolution is fail-closed', () => {
     expect(evaluate([rule], subject)).toEqual(['not-evaluable:avoid_unknown_type:rule']);
   });
 
-  it('a staffGroups scope is NOT-EVALUABLE: SPEC-04 §3.1 pins no identifier domain', () => {
+  /* REWRITTEN under RK-RULING-02 (authorized, FAD-38(7)). The assertion CLASS is
+   * unchanged and is the one that matters: an unresolved identifier must never
+   * silently narrow the scope to nothing, because a vacuous scope passes and a
+   * HARD rule would have been skipped by a typo. What changed is WHY it can be
+   * unresolved — the domain is now pinned to `staff_groups.id`, so there are
+   * three arms rather than one blanket refusal, and all three are asserted. */
+  it('a staffGroups scope with NO vocabulary is NOT-EVALUABLE (RK-RULING-02)', () => {
     const rule = hard(
       'avoid_staff_group',
       { kind: 'AvoidDate', date: '2031-08-10' },
-      { staffGroups: ['anything'] },
+      { staffGroups: ['sg-1'] },
     );
     const subject = version({ assignments: [assignment({ snapshotId: 's1', date: '2031-08-10' })] });
     expect(evaluate([rule], subject)).toEqual(['not-evaluable:avoid_staff_group:rule']);
+  });
+
+  it('a staffGroups scope naming an UNKNOWN id is NOT-EVALUABLE, never an empty scope', () => {
+    const rule = hard(
+      'avoid_staff_group',
+      { kind: 'AvoidDate', date: '2031-08-10' },
+      { staffGroups: ['sg-nope'] },
+    );
+    const subject = version({
+      assignments: [assignment({ snapshotId: 's1', date: '2031-08-10' })],
+      facts: { staffGroups: { 'sg-1': [MEMBER_A] } },
+    });
+    expect(evaluate([rule], subject)).toEqual(['not-evaluable:avoid_staff_group:rule']);
+  });
+
+  it('a staffGroups scope that RESOLVES narrows to its members — the other direction', () => {
+    const rule = hard(
+      'avoid_staff_group',
+      { kind: 'AvoidDate', date: '2031-08-10' },
+      { staffGroups: ['sg-1'] },
+    );
+    const subject = version({
+      assignments: [
+        assignment({ snapshotId: 'a', date: '2031-08-10', membershipId: MEMBER_A }),
+        assignment({ snapshotId: 'b', date: '2031-08-10', membershipId: MEMBER_B }),
+      ],
+      facts: { staffGroups: { 'sg-1': [MEMBER_B] } },
+    });
+    expect(evaluate([rule], subject)).toEqual(['breach:avoid_staff_group:b']);
   });
 
   it('a membership scope that resolves narrows to that person', () => {
@@ -472,14 +547,35 @@ describe('scope resolution is fail-closed', () => {
 });
 
 describe('an unevaluable HARD kind blocks rather than passing', () => {
-  it('RequiredCount reports not-evaluable with its stated reason', () => {
+  /* REWRITTEN under RK-RULING-01 (authorized, FAD-38(7)). The assertion class is
+   * the same one: a kind this caller cannot decide BLOCKS with a stated reason
+   * rather than passing silently. What changed is the reason — the grouping unit
+   * is pinned now, and what a publication caller lacks is the build horizon. The
+   * OTHER direction is asserted immediately below, which the original pin could
+   * not do at all because the kind was undecidable for everyone. */
+  it('RequiredCount without candidate facts BLOCKS, naming what is missing', () => {
     const rule = hard('coverage', { kind: 'RequiredCount', count: 2 });
     const subject = version({ assignments: [assignment({ snapshotId: 's1', date: '2031-09-01' })] });
     const findings = evaluateHardRules([compileRule(rule)], subject);
     expect(findings).toHaveLength(1);
     expect(findings[0]?.finding).toBe('not-evaluable');
     expect(findings[0]?.ruleKey).toBe('coverage');
-    expect(findings[0]?.explanation).toContain('grouping-unit-not-pinned');
+    expect(findings[0]?.explanation).toContain('candidateFacts');
+  });
+
+  it('…and WITH candidate facts it decides — the arm the old pin could not have', () => {
+    const rule = hard('coverage', { kind: 'RequiredCount', count: 1 }, { shiftTypes: ['DAY'] });
+    const satisfied = version({
+      assignments: [assignment({ snapshotId: 's1', date: '2031-09-01' })],
+      facts: { horizon: { from: '2031-09-01', to: '2031-09-01' } },
+    });
+    expect(evaluate([rule], satisfied)).toEqual([]);
+    const breached = version({
+      assignments: [assignment({ snapshotId: 's1', date: '2031-09-01' })],
+      facts: { horizon: { from: '2031-09-01', to: '2031-09-02' } },
+    });
+    // The empty second day is the case a row-walking checker cannot see.
+    expect(evaluate([rule], breached)).toEqual(['breach:coverage:2031-09-02/DAY']);
   });
 
   it('every unevaluable kind reports itself rather than passing silently', () => {
@@ -487,12 +583,15 @@ describe('an unevaluable HARD kind blocks rather than passing', () => {
     const unevaluable = (RULE_NODE_KINDS as readonly RuleNodeKind[]).filter(
       (kind) => !isEvaluatedHardRuleKind(kind),
     );
-    // 6 evaluated + 24 unevaluable = 30. `CallSpacing` moved into the evaluated
-    // set at the review's B-2: its recorded reason ("no shift-type attribute
-    // distinguishes a call") was factually false — `shift_types.is_on_call`
-    // shipped at M2.
-    expect(unevaluable.length).toBe(24);
-    expect(EVALUATED_HARD_RULE_KINDS.length).toBe(6);
+    /* 22 evaluated + 8 unevaluable = 30 (OPUS-M4-002; was 6 + 24 at M3-008).
+     * The sixteen that moved did so because the eleven RK-RULINGs answered the
+     * questions their reasons named — nothing here got cleverer. The remaining
+     * eight are four kinds whose input a NAMED later milestone owns and four
+     * SOFT-natural kinds whose HARD authoring is a classification contradiction.
+     * The ASSERTION CLASS is unchanged: the two sets partition the union, and
+     * both numbers are pinned so neither can drift alone. */
+    expect(unevaluable.length).toBe(8);
+    expect(EVALUATED_HARD_RULE_KINDS.length).toBe(22);
   });
 });
 

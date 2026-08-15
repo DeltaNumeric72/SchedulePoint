@@ -37,8 +37,16 @@ PROTOCOL_VERSION = 1
 SUPPORTED_PROTOCOL_VERSIONS: Tuple[int, ...] = (1,)
 
 #: The canonical-input document shape this worker understands.
-SNAPSHOT_SCHEMA_VERSION = 1
-SUPPORTED_SNAPSHOT_SCHEMA_VERSIONS: Tuple[int, ...] = (1,)
+#:
+#: **2 since OPUS-M4-002 (FAD-38).** v2 appends three vocabularies — staff groups
+#: with their members, valid groups with their shift types, and the qualification
+#: id/key/status triple — without which RK-RULING-02/03 cannot be modelled and a
+#: rule naming a qualification KEY cannot be resolved to the ids the holdings
+#: carry. v1 is NOT accepted: the window is the SPEC-04 §1.2 rule applied to the
+#: document, and a v1 document read as a v2 one would silently model a group with
+#: no staff groups rather than refusing a problem it cannot pose.
+SNAPSHOT_SCHEMA_VERSION = 2
+SUPPORTED_SNAPSHOT_SCHEMA_VERSIONS: Tuple[int, ...] = (2,)
 
 MESSAGE_TYPE_REQUEST = "SolveRequest"
 MESSAGE_TYPE_RESPONSE = "SolveResponse"
@@ -254,7 +262,18 @@ def validate_snapshot(snapshot: Dict[str, Any]) -> Dict[str, Any]:
     )
     for name in ("organizationId", "groupId", "periodId", "versionId", "startDate", "endDate"):
         _field(snapshot, name, (str,), "snapshot")
-    for name in ("shiftTypes", "participants", "demand", "fixedAssignments", "ruleRevisions"):
+    for name in (
+        "shiftTypes",
+        "participants",
+        "demand",
+        "fixedAssignments",
+        "ruleRevisions",
+        # v2 (FAD-38). Required, not optional: an absent vocabulary and an empty
+        # one are different claims, and only the second is a group that has none.
+        "staffGroups",
+        "validGroups",
+        "qualifications",
+    ):
         _field(snapshot, name, (list,), "snapshot")
     _require(
         len(snapshot["shiftTypes"]) > 0,

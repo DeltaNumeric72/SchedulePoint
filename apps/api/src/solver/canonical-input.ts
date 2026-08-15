@@ -15,9 +15,12 @@ import {
   type SnapshotHolding,
   type SnapshotLocation,
   type SnapshotParticipant,
+  type SnapshotQualification,
   type SnapshotRevisionExpectation,
   type SnapshotRuleRevision,
   type SnapshotShiftType,
+  type SnapshotStaffGroup,
+  type SnapshotValidGroup,
   type SnapshotWorkProfile,
   type SolverInputSnapshotDocument,
   type UnitOfWork,
@@ -295,6 +298,9 @@ export async function assembleCanonicalInput(
       endTime: shiftType.endTime,
       crossesMidnight: shiftType.crossesMidnight,
       isManualOnly: shiftType.isManualOnly,
+      /* v2 (FAD-39). The catalogue read already carries it; not carrying it into
+       * the snapshot was the omission, not a missing column. */
+      isOnCall: shiftType.isOnCall,
       creditWeight: String(shiftType.creditWeight),
       status: shiftType.status,
       requiredQualificationIds: active,
@@ -387,9 +393,25 @@ export async function assembleCanonicalInput(
     version: number;
   }[];
   const lifecycles = new Map<string, QualificationLifecycle>();
+  /* v2 (OPUS-M4-002, FAD-38): the id↔key↔status VOCABULARY, alongside the
+   * revision citation that was already here.
+   *
+   * The citation pins *what moved*; the vocabulary answers *what the key means*.
+   * v1 carried only the first, so `RequiresQualification(qualification = <key>)`
+   * — a rule whose identifier domain the AST pins as `qualifications.key` — could
+   * not be resolved to the ids `holdings[]` and `shiftTypes[]` carry, and the
+   * worker could not model it at all. Read from the SAME rows in the SAME
+   * transaction as the citation, so the two can never disagree.
+   *
+   * `requires_expiry` is read here because the CITATION includes it (a flip
+   * changes what a build may legally contain) and is deliberately NOT carried
+   * into the vocabulary: no evaluation consults it, and 0012/0017 own it at
+   * write time. */
+  const qualifications: SnapshotQualification[] = [];
   for (const row of qualificationRows) {
     lifecycles.set(row.id, row.status);
     add('qualification', row.key, `${row.version}:${row.status}:${String(row.requires_expiry)}`);
+    qualifications.push({ qualificationId: row.id, key: row.key, status: row.status });
   }
 
   /* ── participants ─────────────────────────────────────────────────────────
@@ -552,6 +574,100 @@ export async function assembleCanonicalInput(
     creditWeight: row.weight,
   }));
 
+  /* ── staff groups and valid groups (snapshot v2 — OPUS-M4-002, FAD-38) ────
+   *
+   * RK-RULING-02 pins `MemberOfStaffGroup.staffGroup` and `RuleScope.staffGroups`
+   * to `staff_groups.id`; RK-RULING-03 pins `ValidGroupRestriction.validGroup` to
+   * `valid_groups.id`. Neither could be evaluated at v1 because neither
+   * vocabulary was in the document — and because `scope.staffGroups` filters
+   * EVERY kind, its absence made any staff-group-scoped rule of any kind
+   * unresolvable. Migration 0005 has carried all four tables since M2; this is a
+   * document-shape gap, not a schema one, which is why v2 needs no migration.
+   *
+   * **ACTIVE rows only, and only ACTIVE edges.** Archived staff groups and valid
+   * groups are excluded on the same reasoning the rule set uses one line below:
+   * archiving something is what makes a build stop consulting it. The
+   * `is_active` edge flags are honoured for the same reason — a deactivated
+   * membership edge is not a membership.
+   *
+   * `name` is read for neither. The ruling's whole point is that a rename must
+   * not change a rule's historical meaning, so carrying the mutable display
+   * string into the immutable snapshot would put a moving value inside the hash
+   * for no evaluation to consume. */
+  const staffGroupRows = (await query
+    .selectFrom('staff_groups')
+    .select(['id', 'version'])
+    .where('status', '=', 'active')
+    .orderBy('id')
+    .execute()) as unknown as { id: string; version: number }[];
+  const staffGroupMemberRows = (await query
+    .selectFrom('staff_group_members')
+    .select(['staff_group_id', 'membership_id'])
+    .where('is_active', '=', true)
+    .orderBy('staff_group_id')
+    .orderBy('membership_id')
+    .execute()) as unknown as { staff_group_id: string; membership_id: string }[];
+
+  /* The participant set the snapshot actually carries — a staff group may name
+   * somebody who is not an effective participant of THIS period (ended, not yet
+   * started, suspended), and carrying that edge would make a rule scoped to the
+   * group refer to a person the document does not contain. `snapshotRefusals`
+   * refuses exactly that shape, so filtering here is what keeps a legitimate
+   * roster change from becoming an assembly refusal. */
+  const participantIdSet = new Set(participants.map((participant) => participant.membershipId));
+  const membersByStaffGroup = new Map<string, string[]>();
+  for (const row of staffGroupMemberRows) {
+    if (!participantIdSet.has(row.membership_id)) continue;
+    const list = membersByStaffGroup.get(row.staff_group_id);
+    if (list === undefined) membersByStaffGroup.set(row.staff_group_id, [row.membership_id]);
+    else list.push(row.membership_id);
+  }
+  const staffGroups: SnapshotStaffGroup[] = staffGroupRows.map((row) => {
+    add('staffGroup', row.id, row.version);
+    return {
+      staffGroupId: row.id,
+      memberMembershipIds: (membersByStaffGroup.get(row.id) ?? []).sort(),
+    };
+  });
+
+  const validGroupRows = (await query
+    .selectFrom('valid_groups')
+    .select(['id', 'allowed_pick_positions', 'version'])
+    .where('status', '=', 'active')
+    .orderBy('id')
+    .execute()) as unknown as {
+    id: string;
+    allowed_pick_positions: number[];
+    version: number;
+  }[];
+  const validGroupShiftTypeRows = (await query
+    .selectFrom('valid_group_shift_types')
+    .select(['valid_group_id', 'shift_type_id'])
+    .where('is_active', '=', true)
+    .orderBy('valid_group_id')
+    .orderBy('shift_type_id')
+    .execute()) as unknown as { valid_group_id: string; shift_type_id: string }[];
+
+  /* Retired shift types are excluded from `shiftTypes` above, so an edge naming
+   * one would fail the cross-group refusal. Filtering to the carried set keeps a
+   * retired shift type from turning a live valid group into a refused assembly. */
+  const carriedShiftTypeIds = new Set(shiftTypes.map((shiftType) => shiftType.shiftTypeId));
+  const shiftTypesByValidGroup = new Map<string, string[]>();
+  for (const row of validGroupShiftTypeRows) {
+    if (!carriedShiftTypeIds.has(row.shift_type_id)) continue;
+    const list = shiftTypesByValidGroup.get(row.valid_group_id);
+    if (list === undefined) shiftTypesByValidGroup.set(row.valid_group_id, [row.shift_type_id]);
+    else list.push(row.shift_type_id);
+  }
+  const validGroups: SnapshotValidGroup[] = validGroupRows.map((row) => {
+    add('validGroup', row.id, row.version);
+    return {
+      validGroupId: row.id,
+      allowedPickPositions: [...row.allowed_pick_positions].sort((a, b) => a - b),
+      shiftTypeIds: (shiftTypesByValidGroup.get(row.id) ?? []).sort(),
+    };
+  });
+
   /* ── rule revisions (0015) ────────────────────────────────────────────────
    * `rules.version` IS the revision number (migration 0015 §4), so the citation
    * a build records reads `rule_key@revision` and the immutable `rule_revisions`
@@ -618,6 +734,10 @@ export async function assembleCanonicalInput(
     participants,
     fixedAssignments,
     ruleRevisions,
+    /* v2 (FAD-38) — the three vocabularies, appended. */
+    staffGroups,
+    validGroups,
+    qualifications,
     constituents,
   };
 

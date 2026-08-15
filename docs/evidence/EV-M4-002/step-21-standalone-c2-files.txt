@@ -1,0 +1,114 @@
+STEP 21 — the two C-2 files, STANDALONE, with the FAD-40 fix in place
+
+A. $ vitest run --project api test/audit/outbox-dispatch.test.ts
+--------------------------------------------------------------------
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-002
+
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-002/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+      · commit → outbox 4754eaf4-a831-446a-9613-b27156e770aa linked to audit sequence 15, queue job 23
+
+      · rollback → 0 audit rows, 0 outbox rows, 0 queue jobs (the outbox property, in situ)
+
+      · a repeated idempotency key raises 23505 — a duplicate publication is impossible
+
+      · dispatch → delivered once, row marked, one outbox.dispatched audit event
+
+      · redelivery: outbox CAS (already_dispatched) AND a durable primary-key refusal, independently — one row in outbox_effects
+
+      · I-11: a failing sink left the domain row, the audit row and the chain intact; the outbox row records last_error_code=sink_unavailable
+
+      · last_error_code accepts a code and rejects an exception message (SQLSTATE 23514)
+
+      · 4 dispatch-path modules: no outbound-network import
+
+      · R-02(a): two concurrent dispatchers → outcomes [already_dispatched, delivered], 1 effect row, 1 outbox.dispatched audit event
+
+      · R-02(b): effect applied on attempt 1, dispatcher died before the mark; the replacement re-ran, was suppressed by the primary key, applied nothing, and completed the bookkeeping
+
+      · outbox_effects: UPDATE and DELETE both refused (23001)
+
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-002/crontab'; cron is disabled
+
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      · finalized 20 queued job(s) through the production dispatcher; the queue this file hands on is EMPTY
+
+ ✓ |api| test/audit/outbox-dispatch.test.ts (12 tests) 242ms
+
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+   Start at  10:49:29
+   Duration  1.89s (transform 220ms, setup 112ms, collect 35ms, tests 242ms, environment 0ms, prepare 25ms)
+
+OUTBOX-DISPATCH-STANDALONE EXIT=0
+
+B. $ vitest run --project api test/audit/crash-restart.test.ts
+--------------------------------------------------------------------
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-002
+
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-002/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+      · A: killed after 12 reported commits (last sequence 26); chain intact, head 26, 26 rows spanning 1..26 with no gap
+
+      · audit_chain_heads tip (26) equals the highest chain row
+
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-002/crontab'; cron is disabled
+
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+
+
+
+
+
+
+
+
+
+
+
+
+      · B precondition: drained 11 pre-existing job(s); the queue is empty and the crash worker can only take the job this test publishes
+
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-002/crontab'; cron is disabled
+
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+
+
+      · B: a worker killed while holding job 23 (pool pool-fa058c598468c0788e); a replacement reclaimed and completed it in 575 ms of real time, against an unmitigated 4-hour lease. No clock was manipulated
+
+      · chain verified across the crash and the restart: 34 entries, head 34, 0 problems
+
+      · the effect was applied exactly once: outbox state=dispatched, attempts=2 (one crashed claim + one that finished), and 1 row in outbox_effects from attempt 2
+
+ ✓ |api| test/audit/crash-restart.test.ts (4 tests) 1222ms
+   ✓ B — lease recovery on restart (SP-D condition C-2, no clock manipulation) > a replacement worker reclaims a dead pool's job and completes it in seconds  870ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  10:49:31
+   Duration  2.89s (transform 220ms, setup 111ms, collect 35ms, tests 1.22s, environment 0ms, prepare 24ms)
+
+CRASH-RESTART-STANDALONE EXIT=0

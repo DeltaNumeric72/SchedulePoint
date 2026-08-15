@@ -1,0 +1,68 @@
+STEP 33 — the FAD-42 repair proofs, RED direction (each defect restored, then reverted)
+
+A. R-1: the OLD one-day pairing restored in cpsat_adapter._hard
+-----------------------------------------------------------------
+defect restored: window_dates[index : index + 2]
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-002
+
+      · minHours=30: model OPTIMAL with 2 row(s); independent checker usable=true, 0 breaches — the two AGREE
+
+ ❯ |api| test/solver/rest-across-gap-day.test.ts (2 tests | 1 failed) 1510ms
+   ✓ MinimumRestBetween across a demand-free gap day (FAD-42 R-1) > minHours=30 — 40 hours of rest is LEGAL: the model builds it and the checker agrees  750ms
+   × MinimumRestBetween across a demand-free gap day (FAD-42 R-1) > minHours=41 — the SAME 40 hours is ILLEGAL: the model refuses, and the checker says why 735ms
+     → the model produced a candidate for a problem whose only schedule breaches a HARD rule — the rest pairing is not reaching across the gap day: expected [ { …(4) }, { …(4) } ] to be null
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |api| test/solver/rest-across-gap-day.test.ts > MinimumRestBetween across a demand-free gap day (FAD-42 R-1) > minHours=41 — the SAME 40 hours is ILLEGAL: the model refuses, and the checker says why
+AssertionError: the model produced a candidate for a problem whose only schedule breaches a HARD rule — the rest pairing is not reaching across the gap day: expected [ { …(4) }, { …(4) } ] to be null
+
+[32m- Expected:[39m 
+null
+
+[31m+ Received:[39m 
+[
+  {
+    "date": "2027-03-01",
+    "locationId": null,
+    "membershipId": "338d7c50-477c-46eb-aeb6-41500a404e55",
+    "shiftTypeId": "c9a7afbc-26cc-4b8b-8b89-7a74b9d11d57",
+  },
+  {
+    "date": "2027-03-03",
+    "locationId": null,
+    "membershipId": "338d7c50-477c-46eb-aeb6-41500a404e55",
+    "shiftTypeId": "c9a7afbc-26cc-4b8b-8b89-7a74b9d11d57",
+  },
+]
+
+ ❯ test/solver/rest-across-gap-day.test.ts:139:7
+    137|       'the model produced a candidate for a problem whose only schedul…
+    138|         'the rest pairing is not reaching across the gap day',
+    139|     ).toBeNull();
+       |       ^
+    140|     expect(outcome.status, 'and it must say so as INFEASIBLE, not as a…
+    141|       'INFEASIBLE',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  14:34:38
+   Duration  3.22s (transform 265ms, setup 113ms, collect 47ms, tests 1.51s, environment 0ms, prepare 29ms)
+
+R1-RED EXIT=1
+(repaired model restored)
+
+B. R-7: MinimumRestBetween removed from the Python HARD_KINDS tuple
+-----------------------------------------------------------------
+violation applied
+FAIL  solver/checker HARD-kind parity (§6d) — 1 violation(s)
+  packages/domain/src/rules/hard-rule-check.ts:306  the checker evaluates HARD kind 'MinimumRestBetween', which the model does not build — every candidate carrying such a rule is refused after the solve, and the engine reports a rejected output where the honest answer is INFEASIBLE (the FAD-42 R-1 shape).
+      scanned: 21 HARD kind(s) in solver/schedulepoint_solver/model.py, 22 in packages/domain/src/rules/hard-rule-check.ts
+R7-RED EXIT=1
+(model.py restored)
+PASS  solver/checker HARD-kind parity (§6d) — 22 HARD kind(s) in solver/schedulepoint_solver/model.py, 22 in packages/domain/src/rules/hard-rule-check.ts
+R7-GREEN-AFTER-RESTORE EXIT=0

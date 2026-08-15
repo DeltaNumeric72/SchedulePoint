@@ -1,0 +1,19 @@
+STEP 15 — targeted repeats of the C-2 arms (NR-15 discipline)
+
+A. crash-restart.test.ts STANDALONE x10
+
+  run 1  EXIT=0  Tests  4 passed (4)
+  run 2  EXIT=0  Tests  4 passed (4)
+  run 3  EXIT=0  Tests  4 passed (4)
+  run 4  EXIT=0  Tests  4 passed (4)
+  run 5  EXIT=0  Tests  4 passed (4)
+  run 6  EXIT=0  Tests  4 passed (4)
+  run 7  EXIT=0  Tests  4 passed (4)
+  run 8  EXIT=0  Tests  4 passed (4)
+  run 9  EXIT=0  Tests  4 passed (4)
+  run 10  EXIT=0  Tests  4 passed (4)
+
+B. FULL SUITE at the exposing seed 123456, x2 more (attempt 1 is step-16)
+
+  attempt 2  EXIT=1  Tests  2 failed | 1253 passed (1255)  Duration  149.03s (transform 894ms, setup 2.18s, collect 1.24s, tests 143.74s, environment 0ms, prepare 124ms)
+  attempt 3  EXIT=1  Tests  2 failed | 1253 passed (1255)  Duration  148.59s (transform 878ms, setup 2.16s, collect 1.18s, tests 143.36s, environment 0ms, prepare 99ms)

@@ -99,6 +99,7 @@ export function syntheticProblem(
         endTime: '16:00:00',
         crossesMidnight: false,
         isManualOnly: false,
+        isOnCall: false,
         creditWeight: '1.00',
         status: 'active',
         requiredQualificationIds: [],
@@ -113,6 +114,18 @@ export function syntheticProblem(
     participants,
     fixedAssignments: [],
     ruleRevisions: [],
+    /* Snapshot v2 (OPUS-M4-002, FAD-38). Empty is the RIGHT value for this
+     * fixture and not a placeholder: these boundary proofs pose a problem with
+     * no staff groups, no valid groups and no qualification requirements, so an
+     * empty vocabulary is what the group genuinely has. The fields are present
+     * because v2 requires them — an ABSENT vocabulary and an EMPTY one are
+     * different claims, and the schema is what keeps them different.
+     *
+     * `apps/api/test/solver/corpus/` supplies the populated shapes; nothing here
+     * moved, and no assertion in any boundary proof reads these fields. */
+    staffGroups: [],
+    validGroups: [],
+    qualifications: [],
     constituents: [
       { kind: 'period', key: periodId, revision: '1' },
       { kind: 'shiftType', key: shiftTypeId, revision: '1' },

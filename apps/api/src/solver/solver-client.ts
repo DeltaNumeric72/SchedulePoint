@@ -79,6 +79,84 @@ import { freshNonce } from './rpc-envelope.js';
  * termination reason — and no content.
  */
 
+/* ────────────────────────────────────────────────────────────────────────────
+ * The detail the DOMAIN outcome does not carry
+ *
+ * `SolveOutcome` (`packages/domain/src/ports/solver-port.ts`) is the port's
+ * shape and this packet does not own that file. The explanation and the
+ * objective tiers are nevertheless required end to end — doc 35 §6d required
+ * behaviour 4 ("INFEASIBLE carries T0 findings always and a T1 subset when the
+ * budgeted assumption-solve succeeds") and 6 ("E1 objective tiers explicit and
+ * recorded … in the response envelope").
+ *
+ * So they are declared HERE, additively, as an API-local widening of the port's
+ * outcome. `SolveOutcomeDetail extends SolveOutcome`, so every existing
+ * consumer, and the `SolverPort` interface itself, keeps working unchanged and
+ * nothing in the domain moved. When a later packet owns `solver-port.ts` these
+ * can be lifted into it; until then the widening is the honest expression of
+ * "the API sees more than the port promises".
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** One T0 structural finding, exactly as the worker states it. */
+export interface StructuralFinding {
+  readonly code: string;
+  readonly date: string | null;
+  readonly shiftTypeId: string | null;
+  readonly detail: string;
+}
+
+/**
+ * SPEC-04 §5's four explanation states.
+ *
+ * `EXPLAINED_MINIMAL` is deliberately NOT among them: CP-SAT returns a
+ * *sufficient* assumption subset, not a minimal one (measured, EV-M4-002 probe
+ * 02), and minimisation is T2 — M4-004's budget work.
+ */
+export type ExplanationState =
+  | 'EXPLAINED_EXACT'
+  | 'EXPLAINED_SUBSET'
+  | 'EXPLANATION_BUDGET_EXCEEDED'
+  | 'EXPLANATION_UNAVAILABLE';
+
+export interface SolverExplanationRecord {
+  readonly state: ExplanationState;
+  /** T0. Always attempted, exact when it fires. Never null on an INFEASIBLE. */
+  readonly structural: readonly StructuralFinding[];
+  /** T1. The sufficient assumption subset, or empty. */
+  readonly conflictingRuleKeys: readonly string[];
+}
+
+/** One E1 objective tier, recorded so a scheduler can see WHAT was optimised. */
+export interface ObjectiveTierRecord {
+  readonly tier: number;
+  readonly name: string;
+  readonly weightScale: number;
+  readonly ruleKeys: readonly string[];
+  /** Rules in this tier the model could not map to a term. Named, never hidden. */
+  readonly unmappedRuleKeys: readonly string[];
+  readonly termCount: number;
+}
+
+export interface SolveOutcomeDetail extends SolveOutcome {
+  /** Present on INFEASIBLE; `null` whenever the worker had nothing to explain. */
+  readonly explanation: SolverExplanationRecord | null;
+  readonly objectiveTiers: readonly ObjectiveTierRecord[];
+  readonly objectiveValue: number | null;
+  /**
+   * The worker's own refusal CODE, when it refused (`FAILED`/`rejected`).
+   *
+   * The code and **not** the message. The code is a short structural token from
+   * the worker's own closed set — `rule_kind_not_modelled`,
+   * `rule_identifier_unresolved`, `rule_input_not_in_snapshot`, and the protocol
+   * refusals. The MESSAGE names rule keys and owners and is written by the
+   * least-trusted component the platform ships; carrying it here would give a
+   * compromised worker a channel into the API's error surfaces, which is the
+   * shape I-07 and non-bypass rule 9 close. A caller that needs to know *which*
+   * later-milestone kind blocked reads the rule set it dispatched — it has it.
+   */
+  readonly refusalCode: string | null;
+}
+
 /** Knobs the *dispatch* needs that the domain request does not carry. */
 export interface SolverDispatchOptions {
   /**
@@ -117,7 +195,7 @@ export interface SolverDispatchOptions {
 export async function solveOnWorker(
   request: SolveRequestSpec,
   options: SolverDispatchOptions = {},
-): Promise<SolveOutcome> {
+): Promise<SolveOutcomeDetail> {
   assertOutsideUnitOfWork('solver');
 
   const key = solverRpcKey();
@@ -184,6 +262,13 @@ export async function solveOnWorker(
       assignments: null,
       runtime: unknownRuntime(request),
       elapsedMs,
+      /* A terminated worker wrote NOTHING, so there is nothing to explain and
+       * no tier list to report. Empty here is a stated absence, not a claim
+       * that the problem had no explanation. */
+      explanation: null,
+      objectiveTiers: [],
+      objectiveValue: null,
+      refusalCode: null,
     };
   }
   if (transcript.kind === 'oversized') {
@@ -225,6 +310,10 @@ export async function solveOnWorker(
     assignments: readAssignments(body['assignments']),
     runtime: readRuntime(body['runtime'], request),
     elapsedMs,
+    explanation: readExplanation(body['explanation']),
+    objectiveTiers: readObjectiveTiers(body['objectiveTiers']),
+    objectiveValue: typeof body['objectiveValue'] === 'number' ? body['objectiveValue'] : null,
+    refusalCode: readRefusalCode(body['error']),
   };
 }
 
@@ -408,6 +497,92 @@ function readAssignments(value: unknown): readonly SolverCandidateAssignment[] |
     });
   }
   return assignments;
+}
+
+/**
+ * The refusal code, read defensively and BOUNDED.
+ *
+ * Bounded in length because it is a string from an untrusted process on its way
+ * into the platform's own vocabulary, and a code is a token — anything long is
+ * not a code, whatever it claims to be. The message beside it is discarded here
+ * and never read; see {@link SolveOutcomeDetail.refusalCode}.
+ */
+function readRefusalCode(value: unknown): string | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const code = (value as Record<string, unknown>)['code'];
+  if (typeof code !== 'string') return null;
+  if (code === '' || code.length > 64) return null;
+  if (!/^[a-z0-9_]+$/.test(code)) return null;
+  return code;
+}
+
+const EXPLANATION_STATES: readonly ExplanationState[] = [
+  'EXPLAINED_EXACT',
+  'EXPLAINED_SUBSET',
+  'EXPLANATION_BUDGET_EXCEEDED',
+  'EXPLANATION_UNAVAILABLE',
+];
+
+/**
+ * The explanation, read defensively — and CLOSED over its state set.
+ *
+ * A state outside the four SPEC-04 §5 names is discarded rather than carried
+ * through, for the reason the section exists: an explanation the platform
+ * cannot classify must present as *no explanation*, never as a fifth kind of
+ * certainty. In particular a worker inventing `EXPLAINED_MINIMAL` would be
+ * claiming a minimality CP-SAT does not provide, and it would arrive looking
+ * exactly like a stronger answer.
+ */
+function readExplanation(value: unknown): SolverExplanationRecord | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const row = value as Record<string, unknown>;
+  const state = row['state'];
+  if (typeof state !== 'string') return null;
+  if (!EXPLANATION_STATES.includes(state as ExplanationState)) return null;
+
+  const structural: StructuralFinding[] = [];
+  if (Array.isArray(row['structural'])) {
+    for (const entry of row['structural']) {
+      if (typeof entry !== 'object' || entry === null) continue;
+      const finding = entry as Record<string, unknown>;
+      const code = finding['code'];
+      if (typeof code !== 'string') continue;
+      structural.push({
+        code,
+        date: typeof finding['date'] === 'string' ? finding['date'] : null,
+        shiftTypeId: typeof finding['shiftTypeId'] === 'string' ? finding['shiftTypeId'] : null,
+        detail: typeof finding['detail'] === 'string' ? finding['detail'] : '',
+      });
+    }
+  }
+  const conflicting = Array.isArray(row['conflictingRuleKeys'])
+    ? row['conflictingRuleKeys'].filter((key): key is string => typeof key === 'string')
+    : [];
+
+  return { state: state as ExplanationState, structural, conflictingRuleKeys: conflicting };
+}
+
+function readObjectiveTiers(value: unknown): readonly ObjectiveTierRecord[] {
+  if (!Array.isArray(value)) return [];
+  const tiers: ObjectiveTierRecord[] = [];
+  for (const entry of value) {
+    if (typeof entry !== 'object' || entry === null) continue;
+    const row = entry as Record<string, unknown>;
+    if (typeof row['tier'] !== 'number' || typeof row['name'] !== 'string') continue;
+    const strings = (name: string): readonly string[] =>
+      Array.isArray(row[name])
+        ? (row[name] as unknown[]).filter((item): item is string => typeof item === 'string')
+        : [];
+    tiers.push({
+      tier: row['tier'],
+      name: row['name'],
+      weightScale: typeof row['weightScale'] === 'number' ? row['weightScale'] : 0,
+      ruleKeys: strings('ruleKeys'),
+      unmappedRuleKeys: strings('unmappedRuleKeys'),
+      termCount: typeof row['termCount'] === 'number' ? row['termCount'] : 0,
+    });
+  }
+  return tiers;
 }
 
 /**

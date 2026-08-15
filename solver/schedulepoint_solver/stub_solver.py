@@ -199,6 +199,16 @@ def solve(
             "control.stubBehaviour %r is not one of %s" % (behaviour, list(BEHAVIOURS)),
         )
 
+    # `BEHAVIOUR_CANDIDATE` needs no branch: it is the fall-through, and the
+    # greedy candidate at the end of this function IS its implementation. It used
+    # to have an `if ...: pass` block carrying the note that this module is no
+    # longer reachable through `__main__` (the ordinary path goes to
+    # `cpsat_adapter` since OPUS-M4-002, and this stays runnable in isolation for
+    # the boundary proofs that predate the real model). The note is worth keeping;
+    # the empty branch that carried it was not — a reader has to check whether a
+    # `pass` is a deliberate no-op or an unfinished thought, and that cost is paid
+    # every time (FAD-42 R-9).
+
     if behaviour == BEHAVIOUR_WEDGED:
         # Layers 1 and 2 deliberately do not return. The parent's termination is
         # the only thing that ends this, which is the property SPEC-04 §2 calls

@@ -1,0 +1,14 @@
+STEP 16 — the seed-123456 REPRODUCTION ATTEMPT of the C-2 failure
+
+$ node node_modules/vitest/vitest.mjs run --project api \
+      --sequence.shuffle.files --sequence.shuffle.tests --sequence.seed=123456
+
+The exposing seed, re-run with the identical flags the gate uses.
+
+ Test Files  121 passed (121)
+      Tests  1255 passed (1255)
+   Start at  09:40:33
+   Duration  104.35s (transform 852ms, setup 2.16s, collect 1.11s, tests 99.22s, environment 0ms, prepare 120ms)
+SEED-123456 EXIT=0
+
+DID NOT REPRODUCE. Both C-2 arms passed under their own exposing seed.

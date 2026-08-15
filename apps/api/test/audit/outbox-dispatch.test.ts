@@ -18,6 +18,7 @@ import { adminClient } from '../support/admin-client.js';
 import { groupContext } from '../support/fixtures.js';
 import { createRuntime, log, type Runtime } from '../support/harness.js';
 import { ownedMulti } from '../support/owned-multi.js';
+import { drainQueue } from '../support/queue.js';
 
 /**
  * FAD-15 Layer 2 — this file owns its tenant.
@@ -71,10 +72,89 @@ beforeAll(async () => {
   await admin.connect();
 });
 
+/**
+ * FAD-40 — this file finalizes every job it enqueued, and says so.
+ *
+ * ## What it used to leave behind, and what that cost
+ *
+ * Every `mutateAndPublish` below enqueues a real `outbox.dispatch` job in the
+ * same transaction — that is the property the first test measures. But the
+ * dispatch tests then call `dispatchOutboxEvent` **directly**, so the queue rows
+ * those publications created were never taken by any worker and never finalized.
+ * Measured standalone: twenty rows left in `graphile_worker._private_jobs` at the
+ * end of this file (eleven from the owned fixture's seeded events, nine from the
+ * tests), including the I-11 arm's, whose sink is `AlwaysFailingSink`.
+ *
+ * The queue is not a tenant table (FAD-15 Layer 3), so that backlog is not this
+ * file's private business: any later file that starts a worker inherits it.
+ * `crash-restart.test.ts`'s block B has to empty the queue before it can start a
+ * crash worker at all, and it pays for every job this file left behind.
+ *
+ * **What this hook does NOT fix, said plainly so nobody re-derives it:** the C-2
+ * starvation at shuffle seed 123456 is *not* caused by these rows. It was
+ * measured — an external poller on the harness cluster caught the surviving job
+ * in the act — and it is an `audit.checkpoint` job left locked by a dead pool,
+ * which `crash-restart`'s signer-less drainer can neither execute (the task is
+ * not in its task list) nor reclaim (`staleAfterMs` is an hour). See
+ * EV-M4-002 §21. This hook is worth doing on its own terms; it is not that cure.
+ *
+ * ## Why a drain rather than a DELETE
+ *
+ * `global-setup.ts` already does exactly this for the baseline fixture, for
+ * exactly this reason, and states the rule: *"no file inherits a backlog it did
+ * not create"*. The same rule applies to a file that publishes twenty more.
+ *
+ * The finalization runs the **production** path — `startOutboxRunner` with the
+ * real `DatabaseOutboxSink`, via `support/queue.ts`'s `drainQueue` — not a
+ * `DELETE`. A test that empties a queue with a statement the system cannot issue
+ * leaves the database in a state the system cannot reach, and the I-11 arm's job
+ * in particular deserves the honest ending: production retries a failed delivery
+ * against a working sink, and that is what happens here.
+ *
+ * **It takes nothing away from I-11.** That arm's assertions all run inside the
+ * test, against the failing sink, before this hook exists: the domain row, the
+ * audit row, the chain and `last_error_code=sink_unavailable` are measured there
+ * and are untouched. This hook only finishes the delivery afterwards, which is
+ * what the queue would have done anyway.
+ */
 afterAll(async () => {
+  let failure: unknown;
+  try {
+    const drained = await drainQueue({
+      worker: worker.runner,
+      admin,
+      label: 'outbox-dispatch-finalize',
+    });
+    expect(
+      await queuedJobs(),
+      'this file must leave the queue empty — every job it enqueued is finalized',
+    ).toBe(0);
+    log(
+      `finalized ${String(drained)} queued job(s) through the production dispatcher; ` +
+        'the queue this file hands on is EMPTY',
+    );
+  } catch (error) {
+    failure = error;
+  }
+
+  if (failure !== undefined) {
+    // Name what survived. A drain that cannot finish is a diagnosis, and the
+    // next reader should not have to reproduce it to get one.
+    const stuck = await admin.query(
+      `select j.id::text as id, t.identifier, j.attempts, j.max_attempts,
+              j.run_at, j.locked_at, j.locked_by, j.last_error
+         from graphile_worker._private_jobs j
+         join graphile_worker._private_tasks t on t.id = j.task_id
+        order by j.id`,
+    );
+    log(`UNFINALIZED JOBS (${String(stuck.rowCount ?? 0)}): ${JSON.stringify(stuck.rows)}`);
+  }
+
   await runtime.destroy();
   await worker.destroy();
   await admin.end();
+
+  if (failure !== undefined) throw failure;
 });
 
 function context(correlationId: string) {
@@ -329,6 +409,11 @@ describe('I-11 — a delivery failure NEVER rolls back the domain change', () =>
       'I-11: a failing sink left the domain row, the audit row and the chain intact; ' +
         `the outbox row records last_error_code=${String(row?.last_error_code)}`,
     );
+
+    // The queue job this publication created is still outstanding, and it is
+    // this file's to finish (FAD-40). It is finalized in `afterAll`, through the
+    // production dispatcher against a working sink — after every assertion above
+    // has been made against the failing one.
   });
 
   it('the recorded failure is a CODE and cannot be an exception message', async () => {

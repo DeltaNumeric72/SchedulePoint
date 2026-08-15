@@ -1,0 +1,48 @@
+=== PROBE E — OR-Tools availability under the FAD-7 local substitution ===
+$ python3 --version   # the host interpreter M4-001 recorded
+Python 3.9.6
+$ python3 -c 'import ortools'
+ModuleNotFoundError: No module named 'ortools'
+
+A dedicated venv WAS created outside the worktree and OR-Tools installed at the FAD-10 pin:
+$ /Users/prabashan/.venvs/sp-solver/bin/python --version
+Python 3.9.6
+$ /Users/prabashan/.venvs/sp-solver/bin/python -c "from importlib import metadata; print(metadata.version('ortools'))"
+9.15.6755
+
+=== PROBE F — CP-SAT assumption support (SPEC-04 §5 tier T1) ===
+Model: three assumption literals, a0 => x0=1, a1 => x0=0, a2 => x1=1. a0/a1 conflict.
+from ortools.sat.python import cp_model
+m = cp_model.CpModel()
+xs = [m.NewBoolVar("x%d" % i) for i in range(3)]
+a = [m.NewBoolVar("a%d" % i) for i in range(3)]
+# a0 -> x0 ; a1 -> not x0 ; a2 -> x1  => a0,a1 conflict
+m.Add(xs[0] == 1).OnlyEnforceIf(a[0])
+m.Add(xs[0] == 0).OnlyEnforceIf(a[1])
+m.Add(xs[1] == 1).OnlyEnforceIf(a[2])
+m.AddAssumptions(a)
+s = cp_model.CpSolver()
+s.parameters.num_search_workers = 1
+s.parameters.interleave_search = True
+s.parameters.max_deterministic_time = 5.0
+s.parameters.random_seed = 7
+st = s.Solve(m)
+print("status", s.StatusName(st))
+print("core", list(s.SufficientAssumptionsForInfeasibility()))
+print("indices of a", [v.Index() for v in a])
+print("ortools", __import__("ortools").__spec__ is not None)
+import ortools
+from importlib import metadata
+print("ver", metadata.version("ortools"))
+--- output ---
+status INFEASIBLE
+core [3, 4, 5]
+indices of a [3, 4, 5]
+ortools True
+ver 9.15.6755
+
+FINDING: assumptions WORK and SufficientAssumptionsForInfeasibility returns a
+sufficient — but NOT minimal — subset (all three literals, where {a0,a1} suffices).
+That is exactly what SPEC-04 §5 promises for T1 ('An infeasible subset, not
+necessarily minimal' -> EXPLAINED_SUBSET). T1 is therefore implementable; T2
+minimisation remains M4-004's budget work, as the packet already excludes.

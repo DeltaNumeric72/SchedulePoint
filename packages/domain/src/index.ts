@@ -102,12 +102,17 @@ export {
   type SnapshotHolding,
   type SnapshotLocation,
   type SnapshotParticipant,
+  /* v2 (OPUS-M4-002, FAD-38) — the three vocabularies RK-RULING-02/03 and
+   * CP-SAT modelling of `RequiresQualification` need. Additive. */
+  type SnapshotQualification,
   type SnapshotRefusal,
   type SnapshotRefusalReason,
   type SnapshotRevisionExpectation,
   type SnapshotRuleRevision,
   type SnapshotShiftType,
+  type SnapshotStaffGroup,
   type SnapshotTimezone,
+  type SnapshotValidGroup,
   type SnapshotWeekdayTarget,
   type SnapshotWorkProfile,
   type SolverInputSnapshotDocument,

@@ -115,6 +115,17 @@ const GATES = [
     command: 'pnpm',
     args: ['run', 'gate:provider-boundary'],
   },
+  /* OPUS-M4-002 (FAD-42 R-7). An ADDITION; no existing gate is modified. It
+   * belongs beside the other rule-model closure checks and is static — it parses
+   * `model.py` and `hard-rule-check.ts` as text, so it needs no interpreter, no
+   * venv and no build, which is what lets §6d's "compile-time/CI error" clause
+   * hold on a machine that cannot run the solver at all. */
+  {
+    id: 'solver-kind-parity',
+    title: 'solver/checker HARD-kind parity (doc 35 §6d)',
+    command: 'pnpm',
+    args: ['run', 'gate:solver-kind-parity'],
+  },
   { id: 'secret-scan', title: 'secret scan', command: 'pnpm', args: ['run', 'gate:secret-scan'] },
   {
     id: 'build',

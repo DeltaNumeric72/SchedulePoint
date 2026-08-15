@@ -15,6 +15,7 @@ import { solveOnWorker } from '../../src/solver/solver-client.js';
 import { log } from '../support/harness.js';
 import {
   DETERMINISTIC_PARAMETERS,
+  SOLVED_STATUSES,
   applyHostileWorkerEnv,
   applySolverEnv,
 } from '../support/solver.js';
@@ -276,7 +277,11 @@ describe('the same decision, through a real hostile worker subprocess', () => {
     /* Every case above would pass against a client that refused everything. */
     restore = applySolverEnv();
     const outcome = await solveOnWorker(request());
-    expect(outcome.status).toBe('FEASIBLE');
+    /* Re-anchored at OPUS-M4-002 (disclosed). The property is *the honest
+     * worker is BELIEVED* — the inverse of every refusal above — and the real
+     * model closes this fixture with a proof, so the solved set is what the
+     * control has always meant. */
+    expect(SOLVED_STATUSES).toContain(outcome.status);
     log('      · MUTATION CONTROL: the honest worker is still believed');
   });
 });

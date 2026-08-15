@@ -22,7 +22,15 @@ import {
   createPeriod,
   setRequirement,
 } from '../../src/schedule/service.js';
+import { validateCandidate } from '../../src/solver/candidate-validation.js';
 import { assembleCanonicalInput } from '../../src/solver/canonical-input.js';
+import {
+  CAPTURE_ENV,
+  RACE_FIXTURE_PATH,
+  captureDriftAgainstLive,
+  readRaceCapture,
+  writeRaceCapture,
+} from '../solver/corpus/race-fixture.js';
 import { adminClient } from '../support/admin-client.js';
 import { createRuntime, log, type Runtime } from '../support/harness.js';
 import { ownedMulti } from '../support/owned-multi.js';
@@ -525,5 +533,90 @@ describe('the granted-while-retiring interleaving is admitted, and its credentia
     expect(control?.outcomes).toContain(`${controlQualificationId}:satisfied`);
     expect(control?.eligible, 'the control pair is not eligible — the oracle is dead').toBe(true);
     log('solver input: raced pair retired/ineligible, control pair satisfied/eligible');
+  });
+
+  it('(e) E1 CORPUS: the capture this race produces is current, and the validator REJECTS staffing it', async () => {
+    /* ADDED at OPUS-M4-002. Nothing above changed.
+     *
+     * Doc 35 §6d requires the E1 corpus to contain a race-produced
+     * retired-holding fixture "produced by the shipped interleaving harness or a
+     * snapshot captured from it, NEVER hand-written". This is where that
+     * capture is produced and where it is kept honest, because this is the only
+     * place the interleaving actually runs.
+     *
+     * Two directions, both here:
+     *
+     *  - the committed capture must still describe the state the race just
+     *    produced. Structural rather than byte-for-byte, because the uuids come
+     *    from a real database and differ every run — what must not drift is the
+     *    OUTCOME: the holding carried, the raced pair ineligible, the control
+     *    pair eligible. A capture that agreed with a race no longer producing
+     *    the case would be the worst possible fixture;
+     *  - the candidate validator must REJECT a candidate that staffs the raced
+     *    membership on the raced shift type. That is the property the corpus
+     *    membership exists for, and it is asserted against the LIVE snapshot
+     *    here (and against the committed capture in the corpus suite), so the
+     *    rejection is proven on the state the race made rather than on a copy.
+     */
+    const assembled = await run('corpus-capture', (uow) =>
+      assembleCanonicalInput(uow, { periodId, versionId, at: BUILD_AT }),
+    );
+    const live = {
+      document: assembled.document,
+      racedMembershipId: alpha().users.scheduler.membershipId,
+      racedShiftTypeId,
+      racedQualificationId,
+      controlShiftTypeId,
+    };
+
+    if (process.env[CAPTURE_ENV] !== undefined && process.env[CAPTURE_ENV] !== '') {
+      writeRaceCapture({
+        producedBy:
+          'apps/api/test/profiles/granted-while-retiring-inertness.test.ts case (e), from a live ' +
+          'granted-while-retiring interleaving on two real connections. Never hand-written.',
+        ...live,
+      });
+      log(`corpus capture REWRITTEN at ${RACE_FIXTURE_PATH}`);
+    }
+
+    const drift = captureDriftAgainstLive(readRaceCapture(), live);
+    expect(drift, `the committed race capture no longer matches the live race: ${drift.join('; ')}`)
+      .toHaveLength(0);
+
+    /* The rejection. A candidate staffing the raced membership on the raced
+     * shift type is exactly what a translation defect would produce, and the
+     * checker must refuse it — the holding is carried and in window, so ONLY
+     * the verdict's retirement-first rule stands between this candidate and a
+     * published schedule. */
+    const verdict = validateCandidate({
+      snapshot: assembled.document,
+      assignments: [
+        {
+          membershipId: alpha().users.scheduler.membershipId,
+          date: DATES[0],
+          shiftTypeId: racedShiftTypeId,
+          locationId: null,
+        },
+      ],
+      expectedInputHash: 'corpus-race-capture',
+      reportedInputHash: 'corpus-race-capture',
+    });
+    expect(verdict.usable, 'the validator ACCEPTED a candidate staffing a retired credential').toBe(
+      false,
+    );
+    /* `ineligible-assignment`, and the class exists BECAUSE of this fixture.
+     * Before OPUS-M4-002 the validator accepted this candidate: the holding is
+     * carried, in window and `valid`, this snapshot carries no HARD rule about
+     * the qualification, and nothing in the checker consulted the verdict at
+     * all. The solver model could not have produced the row — it builds no
+     * variable for an ineligible pair — which is exactly why the INDEPENDENT
+     * checker had to learn to refuse it. */
+    expect(verdict.rejections.map((rejection) => rejection.reason)).toContain(
+      'ineligible-assignment',
+    );
+    log(
+      `E1 corpus: capture current, and the validator refused the raced staffing with ` +
+        `${String(verdict.rejections.length)} rejection(s)`,
+    );
   });
 });

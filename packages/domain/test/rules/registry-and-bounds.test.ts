@@ -64,9 +64,12 @@ describe('the rule-kind registry is generated, not typed', () => {
     expect(new Set(notEvaluable)).toEqual(new Set(Object.keys(NOT_EVALUABLE_REASONS)));
     // Disjoint…
     expect(evaluated.filter((kind) => notEvaluable.includes(kind))).toEqual([]);
-    // …and total, asserted as two numbers so neither can drift alone.
-    expect(registry.counts.evaluated).toBe(6);
-    expect(registry.counts.notEvaluable).toBe(24);
+    /* …and total, asserted as two numbers so neither can drift alone.
+     * 6 + 24 at M3-008; **22 + 8 at OPUS-M4-002**, because the eleven RK-RULINGs
+     * answered the questions the twenty-four reasons named. The assertion class
+     * is unchanged; the numbers moved by ruling, and they come from code. */
+    expect(registry.counts.evaluated).toBe(22);
+    expect(registry.counts.notEvaluable).toBe(8);
     expect(registry.counts.evaluated + registry.counts.notEvaluable).toBe(30);
   });
 
@@ -78,21 +81,36 @@ describe('the rule-kind registry is generated, not typed', () => {
     expect(familyTotal).toBe(registry.counts.uniqueKinds);
   });
 
-  it('CORRECTS the three counts step-06 typed by hand', () => {
+  it('CORRECTS the three counts step-06 typed by hand, and RECORDS the rulings', () => {
     /* The whole reason the registry is generated. `step-06-node-kinds.md` §3b
      * headed its table "7 kinds" while the table held 8; §3c headed "7 kinds"
      * while the code puts `StaffOverLocumPriority` in `data-not-modelled-at-m3`,
      * leaving 6; and §5's prose said "Ten of the twenty-four are one ruling away"
-     * while its own table summed to eleven. */
+     * while its own table summed to eleven.
+     *
+     * OPUS-M4-002 emptied five of the six classes by ANSWERING them, not by
+     * deleting them: every RK-RULING keeps its stable id and carries its
+     * resolution (non-bypass rule 13), and `oneRulingAway` counts only the ones
+     * still reading OPEN. The two surviving classes are the honest ones — four
+     * kinds whose input a named later milestone owns, and four whose HARD
+     * authoring is a classification contradiction. */
     const byClass = new Map(registry.counts.byNotEvaluableClass.map((r) => [r.class, r.count]));
-    expect(byClass.get('semantics-not-pinned')).toBe(8);
-    expect(byClass.get('constrains-the-search-not-the-content')).toBe(6);
-    expect(byClass.get('grouping-unit-not-pinned')).toBe(3);
-    expect(byClass.get('identifier-domain-not-pinned')).toBe(3);
+    expect(byClass.get('semantics-not-pinned')).toBe(0);
+    expect(byClass.get('constrains-the-search-not-the-content')).toBe(0);
+    expect(byClass.get('grouping-unit-not-pinned')).toBe(0);
+    expect(byClass.get('identifier-domain-not-pinned')).toBe(0);
     expect(byClass.get('data-not-modelled-at-m3')).toBe(4);
+    expect(byClass.get('classification-contradiction')).toBe(4);
 
-    expect(registry.counts.oneRulingAway).toBe(11);
-    expect(registry.oneRulingAwayKinds).toHaveLength(11);
+    // No question is still open…
+    expect(registry.counts.oneRulingAway).toBe(0);
+    expect(registry.oneRulingAwayKinds).toHaveLength(0);
+    // …and all eleven ids are still cited, each carrying its answer. Deleting a
+    // ruling the day it was decided is the rule-13 failure this arm forbids.
+    expect(registry.counts.citedPendingRulings).toBe(11);
+    for (const cited of registry.citedRulings) {
+      expect(cited.ruling.resolution, cited.ruling.id).not.toBeNull();
+    }
   });
 
   it('every kind has an OWNER — nothing is dropped, deferred without one, or narrowed', () => {
@@ -102,7 +120,14 @@ describe('the rule-kind registry is generated, not typed', () => {
     for (const entry of registry.entries) {
       expect(entry.milestoneOwner).toBeTruthy();
       if (entry.evaluated) {
-        expect(entry.evaluationOwner).toBe('independent-checker');
+        /* `independent-checker` at M3-008; OPUS-M4-002 adds `solver-and-validator`
+         * for the sixteen the rulings unblocked — that owner's documented meaning
+         * is "compiled as a constraint AND independently re-checked, never one
+         * without the other", so it is the correct owner for a kind the solver
+         * models. The assertion class is unchanged: an EVALUATED kind never sits
+         * on an `awaiting-*` owner, which is the thing that would mean a HARD
+         * rule was being skipped. */
+        expect(['independent-checker', 'solver-and-validator']).toContain(entry.evaluationOwner);
         expect(entry.semanticRuling).not.toBeNull();
       } else {
         expect(['solver-and-validator', 'awaiting-ruling', 'awaiting-input']).toContain(

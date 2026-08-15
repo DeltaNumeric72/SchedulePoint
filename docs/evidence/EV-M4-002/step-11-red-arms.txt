@@ -1,0 +1,84 @@
+STEP 11 — the three NEW red-case arms, each verified in BOTH directions
+standalone before the battery (FAD-33(1) discipline).
+
+Commands run from the worktree root with the violation applied by hand, exactly
+as `scripts/red-cases/run.mjs` applies it, and the tree restored between arms.
+
+────────────────────────────────────────────────────────────────────────────────
+ARM 1 — solver-model-constraint-dropped
+  violation: the linkage constraint family (LinkedShifts / ImpliesAssignment /
+             MutuallyExclusive) dropped from solver/schedulepoint_solver/
+             cpsat_adapter.py. The CHECKER is untouched.
+
+  $ vitest run apps/api/test/solver/model-independence.test.ts \
+               apps/api/test/solver/corpus/corpus-agreement.test.ts
+  GREEN EXIT=0
+
+  with the patch applied:
+    ·       · THE CHECKER CAUGHT IT: 3 hard violation(s) across 6 assignment(s) — ci-mutex×3
+    × the E1 corpus … > agrees on every fixture …
+      → B-infeasible-contradictory-rules: not identified as infeasible:
+        expected 'OPTIMAL' to be 'INFEASIBLE'
+    × the independent checker would catch a model that lost a constraint > …
+    Tests  2 failed | 7 passed (9)
+  RED: FAILED as required.
+
+  The catch is CERTAIN rather than lucky: every solution to the contradictory
+  fixture breaches one of its two rules by construction, because any candidate
+  places AUX somewhere and that membership either also has EVE on the date
+  (breaching the exclusion) or does not (breaching the implication).
+
+────────────────────────────────────────────────────────────────────────────────
+ARM 2 — solver-checker-disabled
+  violation: the LinkedShifts arm of packages/domain/src/rules/hard-rule-check.ts
+             never reports a breach. `dist` is rebuilt between the patch and the
+             run, so the api-side arm genuinely observes it.
+
+  $ vitest run packages/domain/test/rules/ruled-kinds.test.ts \
+               apps/api/test/solver/incorrect-worker-output.test.ts
+  GREEN EXIT=0
+
+  with the patch applied and packages/domain rebuilt:
+    → expected [] to deeply equal [ 'breach:ls:m-aaaa' ]
+    → expected [] to deeply equal [ 'breach:ls:m-aaaa', …(1) ]
+    → LinkedShifts: EVE without the NGT it is linked to, on one date: the rule
+      that was supposed to catch it did not: expected [ 'rh-fixed', 'rh-min',
+      …(28) ] to include 'rh-linked'
+    Test Files  2 failed (2)
+    Tests  3 failed | 53 passed (56)
+  RED: FAILED as required, on BOTH files.
+
+  A REPAIR MADE BEFORE THIS ARM WAS ACCEPTED. The first run of this arm failed
+  only the domain file; apps/api/test/solver/incorrect-worker-output.test.ts
+  PASSED with the checker disabled. A probe showed why, and it was my test's
+  fault rather than the arm's: a candidate of one or two rows also under-fills
+  coverage on every other date, so rh-min/rh-required breach dozens of times and
+  every case in that file was passing on a breach it was not about. Case 5 now
+  names the rule that must catch each breach, so each case depends on the
+  evaluator it is written about. Without that repair this arm would have been
+  reported PROVEN while its api-side half was blind — the exact shape the
+  retired-verdict arm was repaired for at the 000C integration.
+
+────────────────────────────────────────────────────────────────────────────────
+ARM 3 — solver-fail-closed-kind-skipped
+  violation: THREE removals, because the fail-closed property is enforced at
+             three independent points and any two left standing still refuse:
+               1. the FAD-27 owner block in model.py `check_modellable`;
+               2. the "HARD kind with no constraint mapping" refusal, defeated by
+                  admitting LocumRestriction into HARD_KINDS;
+               3. the fall-through `raise` at the end of cpsat_adapter `_hard`.
+
+  $ vitest run apps/api/test/solver/corpus/corpus-agreement.test.ts
+  GREEN EXIT=0
+
+  with all three patches applied:
+    │ locum-shaped · B-locum-shaped · outcome OPTIMAL/completed · hardViolations 0
+    → B-locum-shaped (locum-shaped): the worker did not refuse:
+      expected 'OPTIMAL' to be 'FAILED'
+    Tests  1 failed | 7 passed (8)
+  RED: FAILED as required — a build produced while an ACTIVE HARD rule was
+  ignored, which is precisely what SPEC-04 §3.3 admits no path to.
+
+────────────────────────────────────────────────────────────────────────────────
+After every arm the tree was restored (`git checkout --`) and packages/domain
+rebuilt clean, so no later case inherits a patched source or a patched dist.

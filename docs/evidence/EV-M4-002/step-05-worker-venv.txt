@@ -1,0 +1,6 @@
+interpreter 3.9.6
+ortools 9.15.6755
+adapter + model import OK; HARD kinds mapped: 22
+SOFT tiers: ['fairness', 'preference', 'work-percentage']
+fail-closed owners: {'TemplateAdherence': 'templates-slice', 'RequestHonoured': 'M5-requests', 'StaffOverLocumPriority': 'locum-slice', 'LocumRestriction': 'locum-slice'}
+EXIT=0

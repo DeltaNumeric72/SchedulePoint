@@ -9,6 +9,7 @@ import { log } from '../support/harness.js';
 import {
   BEST_EFFORT_PARAMETERS,
   DETERMINISTIC_PARAMETERS,
+  SOLVED_STATUSES,
   applyHostileWorkerEnv,
   applySolverEnv,
 } from '../support/solver.js';
@@ -80,10 +81,18 @@ describe('the solver round trip, against the real worker subprocess', () => {
     log(`      · runtime ${outcome.runtime.languageRuntime} · ${outcome.runtime.solverVersion}`);
     log(`      · image   ${outcome.runtime.imageDigest}`);
 
-    /* FEASIBLE, not OPTIMAL. The stub is a greedy fill with no proof, and
-     * SPEC-04 §7 forbids an optimality claim for a feasible result — starting to
-     * violate that in the stub and fixing it later is how the violation ships. */
-    expect(outcome.status).toBe('FEASIBLE');
+    /* RE-ANCHORED at OPUS-M4-002 (disclosed; see the INDEX's re-anchoring
+     * table). This assertion read `toBe('FEASIBLE')` and its note said "FEASIBLE,
+     * not OPTIMAL. The stub is a greedy fill with no proof". Both halves were
+     * true OF THE STUB. The subject of the test is *a synthetic problem goes out
+     * and a believable candidate comes back*, and the real CP-SAT model closes
+     * this fixture and PROVES optimality — so `OPTIMAL` here is SPEC-04 §7
+     * honoured, not an optimality claim smuggled in.
+     *
+     * The two statuses stay distinct everywhere they mean something different:
+     * `response-refusals.test.ts` still refuses the impossible pairs by exact
+     * status, and nothing admits `OPTIMAL` where `FEASIBLE` is the property. */
+    expect(SOLVED_STATUSES).toContain(outcome.status);
     expect(outcome.terminationReason).toBe('completed');
     expect(outcome.assignments).not.toBeNull();
     expect((outcome.assignments ?? []).length).toBeGreaterThan(0);
@@ -102,6 +111,17 @@ describe('the solver round trip, against the real worker subprocess', () => {
     expect(outcome.runtime.languageRuntime).toMatch(/^cpython-3\./);
     expect(outcome.runtime.platformArch).toMatch(/^[a-z]+-/);
     expect(outcome.runtime.compilerVersion).not.toBe('unknown');
+
+    /* **The interpreter-wiring proof** (OPUS-M4-002). `runtime.py` reads the
+     * OR-Tools distribution from package METADATA and records `stub-only` when
+     * it is absent, so this one field distinguishes *the resolved interpreter
+     * reached the child* from *some Python reached the child*. It is the
+     * assertion that would have named step-08's cause 1 immediately: with the
+     * helper's hard-coded `python3` default winning over the operator's
+     * `SP_SOLVER_WORKER_COMMAND`, the child had no OR-Tools and could not have
+     * produced this string at all. */
+    expect(outcome.runtime.solverVersion).toContain('ortools-');
+    log(`      · interpreter carried OR-Tools: ${outcome.runtime.solverVersion}`);
 
     /* The FAD-7 substitution, stated in the record rather than hidden: with no
      * image to run in, the worker reports the interpreter it actually used.
@@ -202,7 +222,10 @@ describe('the solver round trip, against the real worker subprocess', () => {
         }),
       );
 
-      expect(outcome.status, `${label} was rejected`).toBe('FEASIBLE');
+      /* Re-anchored with the case above: the property is *the round trip
+       * completed*, and which of the two solved statuses the model reaches is
+       * not what this fixture is about. */
+      expect(SOLVED_STATUSES, `${label} was rejected`).toContain(outcome.status);
       expect(outcome.assignments).not.toBeNull();
       log(`      · ${label}: round trip completed`);
     },

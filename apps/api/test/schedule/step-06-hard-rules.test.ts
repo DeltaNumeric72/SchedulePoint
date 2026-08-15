@@ -299,7 +299,14 @@ describe('step 06 — a breached HARD rule BLOCKS publication, and disabling it 
         name: 'Synthetic: an unevaluable HARD rule',
         classification: 'HARD',
         scope: {},
-        // `RequiredCount`'s grouping unit is not pinned by SPEC-04 §3.1.
+        /* `RequiredCount` is EVALUABLE since OPUS-M4-002 (RK-RULING-01 pinned
+         * the grouping unit to date × shift type) — but only for a caller that
+         * supplies `candidateFacts`, and the publication path deliberately does
+         * not: it knows a version's rows, not the build horizon, so it cannot
+         * see an empty day. It therefore still reports `not-evaluable` and still
+         * BLOCKS, which is FAD-27 preserved byte for byte (FAD-38(6)). The
+         * reason assertion below is what makes that preservation observable
+         * rather than incidental. */
         predicate: { kind: 'RequiredCount', count: 4 },
       });
     });
@@ -307,6 +314,8 @@ describe('step 06 — a breached HARD rule BLOCKS publication, and disabling it 
     const findings = await run(async (uow) => findHardRuleFindings(uow, versionId));
     const mine = findings.filter((f) => f.ruleKey === 'coverage_not_evaluable');
     expect(mine[0]?.finding).toBe('not-evaluable');
+    /* The reason moved with the ruling; the BLOCKING did not. */
+    expect(mine[0]?.explanation).toContain('candidateFacts');
 
     await expect(publish(periodId, versionId, publicationKey('s06-uneval'))).rejects.toThrow(
       HardRuleBreachError,

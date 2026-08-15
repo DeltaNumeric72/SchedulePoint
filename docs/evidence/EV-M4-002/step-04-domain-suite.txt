@@ -1,0 +1,82 @@
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-002
+
+ DEPRECATED  'basic' reporter is deprecated and will be removed in Vitest v3.
+Remove 'basic' from 'reporters' option. To match 'basic' reporter 100%, use configuration:
+{
+  "test": {
+    "reporters": [
+      [
+        "default",
+        {
+          "summary": false
+        }
+      ]
+    ]
+  }
+}
+      · S-01 verbatim — whichever row the database returned last
+          caught by: instant of change — the exact start instant belongs to the NEW row
+      · S-01 tidied up — the first row
+          caught by: instant of change — one millisecond earlier still belongs to the OLD row
+      · the latest-starting row — `ORDER BY effective_from DESC LIMIT 1`
+          caught by: instant of change — the exact start instant belongs to the NEW row
+      · the open-ended row — "the one with no end date is the current one"
+          caught by: instant of change — the exact start instant belongs to the NEW row
+      · closed upper bound — `[from, to]` instead of `[from, to)`
+          caught by: future-dated row present — and it governs once its instant arrives
+ ✓ |domain| test/profiles/s01-defective-loader.test.ts (8 tests) 3ms
+ ✓ |domain| test/profiles/in-force.test.ts (36 tests) 6ms
+ ✓ |domain| test/rules/registry-and-bounds.test.ts (15 tests) 6ms
+stdout | test/authz/named-cases.test.ts > SPEC-06 §8.2 coverage ledger > prints the ledger, so the evidence bundle can quote it verbatim
+      · A-01: here — explicit deny + role allow
+      · A-02: here — explicit allow + unentitled module
+      · A-03: here — two-level dependency chain
+      · A-04: here — suspended membership + valid grant
+      · A-05: here (two instants) and apps/api/test/authz/http-authorization.test.ts (mid-session)
+      · A-06: DEFERRED — no WebSocket surface exists (SPEC-01 §5 / SPEC-02 milestone)
+      · A-07: DEFERRED (partial) — the job surface re-authorizes, but on OPUS-M1-001's role allow-list; apps/api/src/jobs/** is OPUS-M1-003's file scope. See EV-M1-AUTHZ §5 escalation 1
+      · A-08: DEFERRED — no report or artifact surface exists (SPEC-09 milestone)
+      · A-09: apps/api/test/authz/http-authorization.test.ts — disable, deny, re-enable, data intact
+      · A-10: here — PROXY_GRANTOR_DENIED
+      · A-11: here — credential surface, and the intersection rule
+      · A-12: apps/api/test/authz/schema.test.ts — the EXCLUDE constraint rejects the overlap
+      · A-13: DEFERRED — nothing caches an authorization decision in this milestone (see EV-M1-AUTHZ §5)
+      · A-14: apps/api/test/http/route-declarations.test.ts — `routeActionProblems` over the registered table
+      · A-15: packages/domain/test/authz/cross-product.test.ts — allow/deny pair per capability
+      · A-16: here — overlapping and duplicate capability keys
+      · A-17: here — organization role satisfies an organization-scoped action
+      · A-18: here — P-9: a group role never satisfies an organization-scoped action
+      · A-19: here — P-8: an organization role never reaches into a group
+      · A-20: here — organization membership suspended / expired / roleless
+      · A-21: DEFERRED — picklist fan-out does not exist (SPEC-02 milestone)
+      · A-22: DEFERRED — picklist fan-out does not exist (SPEC-02 milestone)
+      · A-23: DEFERRED — picklist fan-out does not exist (SPEC-02 milestone)
+      · 7 of 23 deferred, each with a named reason
+
+ ✓ |domain| test/authz/named-cases.test.ts (54 tests) 6ms
+ ✓ |domain| test/rules/compile.test.ts (7 tests) 4ms
+ ✓ |domain| test/rules/ast-validate.test.ts (15 tests) 6ms
+ ✓ |domain| test/calendar/calendar-date.test.ts (45 tests) 195ms
+ ✓ |domain| test/ports/provider-boundary.test.ts (5 tests) 2ms
+ ✓ |domain| test/catalogue/rules.test.ts (22 tests) 4ms
+ ✓ |domain| test/eligibility/verdict.test.ts (25 tests) 4ms
+ ✓ |domain| test/rules/hard-rule-check.test.ts (40 tests) 6ms
+ ✓ |domain| test/context-verification.test.ts (44 tests) 4ms
+ ✓ |domain| test/layering.test.ts (2 tests) 5ms
+ ✓ |domain| test/time/zoned-time.test.ts (47 tests) 2995ms
+   ✓ overnight shifts and the DST-day durations > R-B4a: NO (start, end) pair in any gap zone resolves to a non-positive interval  2961ms
+stdout | test/authz/cross-product.test.ts > SPEC-06 §8.1 — the full generated cross-product > every case agrees with the independent oracle
+      · 98415000 cases evaluated in 45286 ms, 0 disagreements
+      · outcomes: ALLOW=6416 L0.1 ORG_INACTIVE=49207500 L0.2 GROUP_INACTIVE=23490000 L1.1 NOT_ENTITLED=5143500 L1.2 ENTITLEMENT_REVOKED=5143500 L1.2 ENTITLEMENT_SUSPENDED=5143500 L1.3 ENTITLEMENT_EXPIRED=6858000 L1.4 MODULE_DEPENDENCY_UNSATISFIED=445500 L2.1 MODULE_UNAVAILABLE_IN_GROUP=1350000 L3.1 NO_MEMBERSHIP=270000 L3.1 NO_ORG_MEMBERSHIP=132300 L3.2 MEMBERSHIP_ENDED=307800 L3.2 MEMBERSHIP_INVITED=307800 L3.2 MEMBERSHIP_SUSPENDED=307800 L3.3 MEMBERSHIP_EXPIRED=153900 L4.1 EXPLICIT_DENY=51300 L4.2 NO_CAPABILITY=42450 L5.1 OBJECT_POLICY=20050 L6.1 PROXY_GRANTOR_DENIED=8020 L6.1 PROXY_INVALID=8020 L6.1 PROXY_SCOPE=8020 L6.2 IMPERSONATION_EXPIRED=3208 L6.2 IMPERSONATION_FORBIDDEN_SURFACE=6416
+
+ ✓ |domain| test/authz/cross-product.test.ts (19 tests) 681ms
+   ✓ SPEC-06 §8.1 — the full generated cross-product > both halves of the scope dimension are non-empty for every capability  671ms
+
+
+ Test Files  15 passed (15)
+      Tests  384 passed (384)
+   Start at  00:01:53
+   Duration  46.45s (transform 850ms, setup 0ms, collect 47.81s, tests 3.93s, environment 1ms, prepare 1.32s)
+
+EXIT=0

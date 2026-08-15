@@ -1,0 +1,133 @@
+STEP 20 — THE C-2 STARVATION, MEASURED: it is an `audit.checkpoint` job, and it
+          does not come from outbox-dispatch.test.ts
+
+FAD-40 records the mechanism as: outbox-dispatch.test.ts's I-11 arm leaves its
+AlwaysFailingSink job in the queue, graphile-worker reschedules it with
+exponential backoff, and crash-restart.test.ts's drain worker cannot take a
+future-`run_at` job. The grant follows from that reading.
+
+The reading is WRONG on every clause, and the fix built on it does not cure C-2.
+This step is the measurement that says so, and the one that identifies the real
+job. No file was edited to obtain it: the harness cluster is a real PostgreSQL
+listening on 127.0.0.1, so a superuser poller outside the Vitest process watched
+`graphile_worker._private_jobs` at 1.2 s intervals for the whole run.
+
+--------------------------------------------------------------------------------
+A. WHAT outbox-dispatch.test.ts ACTUALLY LEFT (measured, before the fix)
+
+Standalone, with a temporary dump in `afterAll` (scratch run, not retained):
+
+    jobs left = 20
+    every row: task `outbox.dispatch`, attempts 0, max_attempts 25,
+               run_at = created_at (i.e. NOW, not a backoff instant),
+               locked_at null, last_error null, is_available true
+
+Eleven rows from the owned fixture's seeded outbox events, nine from the tests.
+NOT ONE of them is in backoff, and not one of them has ever been attempted —
+this file starts no worker at all, it calls `dispatchOutboxEvent` directly. There
+is no "failing job rescheduled with exponential backoff" here to leave behind.
+
+--------------------------------------------------------------------------------
+B. THE FIX WORKS, AND C-2 IS UNMOVED
+
+With the granted fix in place, at the exposing ordering (seed 123456), SEVEN
+runs:
+
+    run  outcome           outbox-dispatch afterAll
+    ---  ----------------  ----------------------------------------------
+     1   EXIT=1  (C-2)     finalized 414 job(s); queue EMPTY
+     2   EXIT=0            —
+     3   EXIT=0            —
+     4   EXIT=1  (C-2)     finalized 396 job(s); queue EMPTY
+     5   EXIT=1  (C-2)     (poller mis-started; suite capture retained)
+     6   EXIT=0            —
+     7   EXIT=1  (C-2)     finalized 424 job(s); queue EMPTY
+
+4-of-7 failing, against 3-of-5 before the fix. The failure signature is
+byte-identical: "the queue still holds 1 job(s) after 45000 ms". The fix removed
+between 396 and 424 queued jobs from the backlog crash-restart inherits and moved
+the failure rate not at all — which is what an orthogonal change looks like.
+
+--------------------------------------------------------------------------------
+C. THE JOB THAT STARVES THE DRAIN (run 7, external poller)
+
+CHANGE 2026-08-15T14:45:43.500Z n=1 [{"id":"1351","identifier":"audit.checkpoint","attempts":0,"max_attempts":25,"run_at":"10:45:42.066","now":"10:45:43","locked":false,"locked_by":null,"last_error":null,"is_available":true,"payload":"{}"}]
+CHANGE 2026-08-15T14:45:55.529Z n=1 [{"id":"1352","identifier":"audit.checkpoint","attempts":1,"max_attempts":25,"run_at":"10:45:45.091","now":"10:45:55","locked":true,"locked_by":"pool-ff544f08fcafabf3ec","last_error":null,"is_available":false,"payload":"{}"}]
+
+Read the second row. During crash-restart's 45-second precondition drain the
+queue holds exactly one job and it is:
+
+    identifier    audit.checkpoint          ← NOT outbox.dispatch
+    attempts      1                         ← claimed once, never finished
+    locked        true, by pool-ff544f08fcafabf3ec
+    is_available  false
+    run_at        10:45:45.091              ← in the PAST, not a backoff instant
+    last_error    null                      ← it never failed
+
+and the tail of the poll shows it unchanged, still locked, 45 s later:
+
+SAME   2026-08-15T14:46:40.043Z n=1 [{"id":"1352","identifier":"audit.checkpoint","attempts":1,"max_attempts":25,"run_at":"10:45:45.091","now":"10:46:40","locked":true,"locked_by":"pool-ff544f08fcafabf3ec","last_error":null,"is_available":false,"payload":"{}"}]
+
+--------------------------------------------------------------------------------
+D. WHY THE DRAIN CAN NEVER TAKE IT — two independent reasons
+
+  1. `crash-restart.test.ts`'s drainer is started WITHOUT a signer, so
+     `startOutboxRunner` registers `outbox.dispatch` and NOTHING else
+     (`apps/api/src/outbox/runner.ts`: `periodicTasks` is `{}` when
+     `options.signer === undefined`). graphile-worker only claims jobs whose task
+     identifier is in the task list. An `audit.checkpoint` job is invisible to it
+     forever — no timeout, no error, no retry. Just a count that never reaches 0.
+
+  2. The row is LOCKED by a pool that no longer exists, and the drainer passes
+     `staleAfterMs: 3_600_000` precisely so that it will not reclaim anybody's
+     lease. Even a drainer that knew the task could not have it for an hour.
+
+--------------------------------------------------------------------------------
+E. WHERE THE JOB COMES FROM — `apps/api/test/audit/periodic.test.ts`
+
+Both `audit.checkpoint` rows in the poll are its. The poll shows the sequence:
+
+    10:45:42  job 1351 enqueued, attempts 0, available   (never runs — by design)
+    10:45:45  job 1352 enqueued, claimed by pool-ff544f08fcafabf3ec, attempts 1
+    10:45:55  job 1351 gone; job 1352 still locked, and stays locked to the end
+
+1351 is the job the test `a runner without a signer registers NO periodic task,
+loudly rather than silently` enqueues on purpose to prove nothing executes it.
+That test deletes every `audit.%` job in its `finally` — which is where 1351
+goes at ~10:45:5x.
+
+1352 is the job `enqueuing audit.checkpoint by name makes the real runner write a
+checkpoint` (R-03) enqueues; its own signer-bearing runner claims it
+(attempts→1). The test then polls `checkpointCount` until it increments and
+returns, and `finally { await runner.stop() }` stops the runner. The checkpoint
+row commits inside the task; the job's COMPLETION is written by graphile-worker
+after the task resolves. The poll shows a run in which the completion did not
+happen: the row stays `attempts=1, locked_at set, locked_by` a dead pool.
+
+Two conditions have to line up, and both are order- and race-dependent, which is
+exactly the observed 3-to-4-in-7 flakiness:
+
+    (i)  `--sequence.shuffle.tests` puts the no-signer test FIRST, so its
+         `delete from graphile_worker._private_jobs where task_id in (... 'audit.%')`
+         runs BEFORE R-03 enqueues 1352 and therefore cleans up nothing of R-03's;
+    (ii) R-03's `runner.stop()` races its own in-flight job and leaves it locked.
+
+Either one alone is survivable. Together they hand a permanently undrainable job
+to whatever file next tries to empty the queue.
+
+--------------------------------------------------------------------------------
+F. CONSEQUENCE FOR THIS PACKET
+
+The FAD-40 grant is `apps/api/test/audit/outbox-dispatch.test.ts` ONLY. None of
+the three places that could fix this is inside it:
+
+    apps/api/test/audit/periodic.test.ts   — the cleanup that does not always run,
+                                             and the stop/complete race  (not granted)
+    apps/api/test/audit/crash-restart.test.ts — the drainer's blind spot   (PROHIBITED)
+    apps/api/test/support/queue.ts         — the shared drain helper       (not granted)
+
+The granted change is retained: it is correct, it is proven, and it is FAD-40's
+own first exit condition (the file finalizes what it enqueues and asserts the
+queue it hands on is empty). It is simply not the cure for C-2.
+
+ESCALATED. No prohibited file was touched.

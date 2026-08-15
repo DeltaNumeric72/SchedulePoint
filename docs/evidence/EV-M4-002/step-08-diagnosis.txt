@@ -1,0 +1,32 @@
+DIAGNOSIS — the 17 unit failures in `corepack pnpm check` (step-06), all four files
+under apps/api/test/solver/**. TWO causes, both real, NEITHER FIXED.
+
+CAUSE 1 — the worker interpreter (environmental, FAD-7 class)
+  The round-trip proofs spawn `solverWorkerCommand()`, whose default command is
+  `python3` — this machine's system CPython 3.9.6, which has NO ortools. Since
+  OPUS-M4-002 the ordinary request routes to `cpsat_adapter`, so the child dies on
+  `from ortools.sat.python import cp_model` and the parent correctly attributes
+  `crashed` -> status FAILED. Exporting SP_SOLVER_WORKER_COMMAND in the shell did
+  NOT change the result (step-07), so the variable is not reaching the spawned
+  child through the vitest worker; the wiring, not the model, is the gap.
+
+  PROOF the model itself is fine — the SAME snapshot the failing round-trip test
+  builds (`syntheticProblem()`: 3 participants, 2 days, requiredCount 2), solved
+  directly under the venv interpreter:
+
+      $ SP_SOLVER_RPC_SECRET=… /Users/prabashan/.venvs/sp-solver/bin/python …
+      STATUS OPTIMAL n 4
+
+CAUSE 2 — a genuine RE-ANCHORING these proofs have not had yet
+  worker-round-trip.test.ts:86 asserts `expect(outcome.status).toBe('FEASIBLE')`.
+  That was correct for the STUB, which "never reports OPTIMAL: optimality is a
+  proof, and this has none". The real CP-SAT solve DOES prove it and returns
+  OPTIMAL — which is SPEC-04 §7 honoured, not violated. The assertion must be
+  re-anchored to admit OPTIMAL. It has NOT been.
+
+  Same class: `runtime.languageRuntime` asserted to match /^cpython-3\./ but read
+  'unknown', which is the parent's honest record for a worker that never produced
+  one (cause 1).
+
+NEITHER is fixed. Both are disclosed. No assertion was weakened to make the
+battery greener, and the battery is reported as it ran.

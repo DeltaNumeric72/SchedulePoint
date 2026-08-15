@@ -91,10 +91,150 @@ beforeAll(async () => {
   worker = createRuntime('app_worker');
 });
 
+/** The jobs only THIS file creates — and only a signer-bearing runner can execute. */
+async function auditJobs(): Promise<
+  { id: string; identifier: string; attempts: number; locked_by: string | null }[]
+> {
+  const { rows } = await admin.query<{
+    id: string;
+    identifier: string;
+    attempts: number;
+    locked_by: string | null;
+  }>(
+    `select j.id::text as id, t.identifier, j.attempts, j.locked_by
+       from graphile_worker._private_jobs j
+       join graphile_worker._private_tasks t on t.id = j.task_id
+      where t.identifier like 'audit.%'
+      order by j.id`,
+  );
+  return rows;
+}
+
+/**
+ * FAD-41 — this file finalizes the periodic jobs it creates, and asserts it.
+ *
+ * ## The defect this closes, measured rather than reasoned about
+ *
+ * An `audit.checkpoint` job created here survived the file and stalled the whole
+ * suite six files later. Captured in the act by a superuser poller outside the
+ * Vitest process (EV-M4-002 §21):
+ *
+ * ```
+ * id 1352 · identifier audit.checkpoint · attempts 1 · last_error null
+ * locked true, by pool-ff544f08fcafabf3ec · is_available false
+ * ```
+ *
+ * `crash-restart.test.ts`'s block B must empty the queue before it may start a
+ * crash worker, and its drainer could never take that row — for TWO independent
+ * reasons. It is started without a signer, so `startOutboxRunner` registers
+ * `outbox.dispatch` and nothing else and graphile-worker will not claim a task
+ * that is not in its task list; and the row is locked by a pool that is gone,
+ * while the drainer sets `staleAfterMs` to an hour precisely so it will not
+ * reclaim anybody's lease. The result is a count that never reaches zero, no
+ * error, and a 45-second precondition timeout. It failed 3-of-5 at shuffle seed
+ * 123456 before this hook, and the intermittency is this file's own test order:
+ * the `audit.%` cleanup used to live in ONE test's `finally`, so shuffling that
+ * test first meant nothing cleaned up after the other.
+ *
+ * ## Why the cleanup lives here now
+ *
+ * FAD-15 Layer 3: the queue is not a tenant table, and a job this file leaves is
+ * every later file's problem. A cleanup that only runs when the shuffle is kind
+ * is not a cleanup. `afterAll` runs however the tests are ordered.
+ *
+ * ## The two steps, and why each is the production-visible one
+ *
+ * **1. Unlock the orphan** with `graphile_worker.force_unlock_workers` — the
+ * library's OWN recovery function, and the exact call the production registry
+ * makes in `src/db/queue-pools.ts`'s `reclaimStalePools`. Never a hand-rolled
+ * `UPDATE` against graphile-worker's tables.
+ *
+ * The registry itself cannot be used here, and the reason is worth recording
+ * because it is a real gap rather than a test inconvenience: `reclaimStalePools`
+ * only considers pools `where released_at is null`, and a runner stopped through
+ * `stop()` releases its registry row. A pool that releases cleanly while still
+ * holding a locked job therefore leaves an orphan **no production sweep will
+ * ever reclaim.** That is what the capture shows, and it is why the unlock is
+ * expressed with the library's function directly.
+ *
+ * **2. Execute them** with a real `startOutboxRunner` that HAS the signer — so
+ * `audit.checkpoint` and `audit.verify` are registered and the jobs actually
+ * run, which is the whole point of R-03 below — and with the sweep's DEFAULT
+ * thresholds (100 entries, 24 hours), not the deliberately-permissive ones R-03
+ * uses. Defaults are what production runs, so this finalization checkpoints
+ * only what is genuinely due and stays a no-op for every other file's tenant.
+ *
+ * Then it asserts zero. Nothing is deleted, and no assertion anywhere in this
+ * file is relaxed: every test still measures what it measured.
+ */
+async function finalizeAuditJobs(timeoutMs = 45_000): Promise<number> {
+  const outstanding = await auditJobs();
+  if (outstanding.length === 0) return 0;
+
+  const holders = [...new Set(outstanding.map((j) => j.locked_by).filter((p) => p !== null))];
+  if (holders.length > 0) {
+    await admin.query('select graphile_worker.force_unlock_workers($1::text[])', [holders]);
+    log(
+      `finalize: released ${String(holders.length)} stale lease(s) with ` +
+        "graphile-worker's own force_unlock_workers (the reclaimStalePools call)",
+    );
+  }
+
+  const drainer = await startOutboxRunner({
+    worker: worker.runner,
+    sink: new DatabaseOutboxSink(worker.runner),
+    signer,
+    alerts: worker.alerts,
+    label: 'periodic-finalize',
+    pollIntervalMs: 50,
+    // Long: this runner is finishing a backlog, not exercising C-2, and it must
+    // not reclaim a lease that belongs to somebody still running.
+    staleAfterMs: 3_600_000,
+    sweepIntervalMs: 3_600_000,
+  });
+  try {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      if ((await auditJobs()).length === 0) break;
+      if (Date.now() > deadline) {
+        throw new Error(
+          `periodic-finalize: ${JSON.stringify(await auditJobs())} still queued after ` +
+            `${String(timeoutMs)} ms — this file would hand an undrainable job to the next one`,
+        );
+      }
+      await new Promise((resolveTimer) => setTimeout(resolveTimer, 50));
+    }
+  } finally {
+    await drainer.stop();
+  }
+  return outstanding.length;
+}
+
 afterAll(async () => {
+  let failure: unknown;
+  try {
+    const finalized = await finalizeAuditJobs();
+    expect(
+      (await auditJobs()).length,
+      'this file must leave NO audit.* job behind — no other drain in the suite can execute one',
+    ).toBe(0);
+    log(
+      `finalize: ${String(finalized)} periodic job(s) executed through a signer-bearing ` +
+        'runner; zero audit.* rows remain in the queue',
+    );
+  } catch (error) {
+    failure = error;
+  }
+
+  if (failure !== undefined) {
+    log(`UNFINALIZED audit.* JOBS: ${JSON.stringify(await auditJobs())}`);
+  }
+
   await runtime.destroy();
   await worker.destroy();
   await admin.end();
+
+  if (failure !== undefined) throw failure;
 });
 
 async function appendOne(correlationId: string): Promise<string> {

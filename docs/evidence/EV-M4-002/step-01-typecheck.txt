@@ -1,0 +1,2 @@
+$ tsc -b --force
+EXIT=0

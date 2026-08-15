@@ -125,6 +125,20 @@ export interface PendingRuling {
   readonly rulingAlone: boolean;
   /** What else is needed when `rulingAlone` is false. Empty otherwise. */
   readonly alsoNeeds: string;
+  /**
+   * How the owner ruled, or `null` while the question is open (OPUS-M4-002).
+   *
+   * The ids are **stable** (non-bypass rule 13): a ruling that is answered is
+   * recorded as answered here, never deleted and never renumbered. Deleting
+   * RK-RULING-07 the day it was decided would silently break every packet,
+   * decision record and test that cites it by name — and the citation would
+   * still look correct.
+   *
+   * `oneRulingAway` counts only the entries where this is `null`, so the
+   * headline number falls as questions are answered without the register losing
+   * its history.
+   */
+  readonly resolution: string | null;
 }
 
 export interface RuleKindMetadata {
@@ -164,6 +178,8 @@ const RK_01: PendingRuling = {
     'a date, a date × shift type, or a date × shift type × location?',
   rulingAlone: true,
   alsoNeeds: '',
+  resolution:
+    'RULED (doc 35 §6d): date × shift type within the version — the demand model\u2019s own unit (FAD-16 weekday defaults; period requirements per shift type). Location is NOT a coverage dimension in M4 (R-B6: display metadata; a shift without one is legal); a per-location dimension would be a demand-model schema change, recorded as a future owner question.',
 };
 const RK_02: PendingRuling = {
   id: 'RK-RULING-02',
@@ -172,12 +188,16 @@ const RK_02: PendingRuling = {
     'or staff_groups.id?',
   rulingAlone: true,
   alsoNeeds: '',
+  resolution:
+    'RULED (doc 35 §6d): `staff_groups.id`, never the name. A name is mutable display and a rename must not change a rule\u2019s historical meaning; authoring resolves name → id at save.',
 };
 const RK_03: PendingRuling = {
   id: 'RK-RULING-03',
   question: 'What identifier domain does ValidGroupRestriction.validGroup name — a name or an id?',
   rulingAlone: true,
   alsoNeeds: '',
+  resolution:
+    'RULED (doc 35 §6d): `valid_groups.id`, never the name. As RK-RULING-02.',
 };
 const RK_04: PendingRuling = {
   id: 'RK-RULING-04',
@@ -186,6 +206,8 @@ const RK_04: PendingRuling = {
     'PickPositionRestriction?',
   rulingAlone: true,
   alsoNeeds: '',
+  resolution:
+    'RULED (doc 35 §6d): out of scope of the restriction — a NULL pick position satisfies VACUOUSLY. The restriction speaks about pick positions; an assignment that has none makes no statement about one. Breaching on NULL would make every manual override a breach and would manufacture a violation from an absence (the FAD-23 class). Both arms pinned.',
 };
 const RK_05: PendingRuling = {
   id: 'RK-RULING-05',
@@ -194,6 +216,8 @@ const RK_05: PendingRuling = {
   alsoNeeds:
     'the in-force work profile and weekday FTE for each membership at the shift date, which ' +
     'reaches the evaluator as canonical solver input in M4-001',
+  resolution:
+    'AUTHORED by OPUS-M4-002 for FAD ratification: per weekday over the ACCOUNTING WINDOW (the rule\u2019s scope.dateRange intersected with the build horizon; the period when the scope names none), a membership\u2019s scoped assignments on weekday w may not exceed min(⌈node.fteFraction × N(w)⌉, ⌈profile.fteFraction(w) × N(w)⌉, profile.maxAssignments(w)) over whichever terms are present, N(w) = the count of w-dates in the window; the profile is the one in force at the build instant (S-03). MIN rather than \u201cthe profile overrides\u201d: SPEC-04 §3.3 forbids any path that RELAXES a HARD rule, so every present term binds and the tightest wins — the one departure from the packet\u2019s proposed wording, in the only direction §3.3 permits. weekday=holiday is not-evaluable: no holiday calendar is a snapshot constituent.',
 };
 const RK_06: PendingRuling = {
   id: 'RK-RULING-06',
@@ -202,6 +226,8 @@ const RK_06: PendingRuling = {
     'until the owner says whether it is a floor, a ceiling, or a tolerance band.',
   rulingAlone: false,
   alsoNeeds: 'the same in-force work-profile input as RK-RULING-05',
+  resolution:
+    'AUTHORED by OPUS-M4-002 for FAD ratification: a TARGET, never a bound. It compiles to a SOFT objective term penalising |achieved − target|, expressed in ASSIGNMENT UNITS — penalty(m) = |count(m) − round(targetPercentage/100 × B(m))| where B(m) is the number of dates in the accounting window — which is proportional to |achieved − target| by a constant factor and keeps the objective integral, so no rounding choice becomes a silent semantic one. E1 carries the basic penalty; weights are E2 (M4-004). A HARD authoring is a classification contradiction with no defined breach and blocks fail-closed.',
 };
 const RK_07: PendingRuling = {
   id: 'RK-RULING-07',
@@ -210,6 +236,8 @@ const RK_07: PendingRuling = {
     'meeting a start instant)?',
   rulingAlone: true,
   alsoNeeds: '',
+  resolution:
+    'RULED (doc 35 §6d): CONSECUTIVE CALENDAR DATES (start-date attribution), symmetric over the pair. Instant-gap semantics belong to MinimumRestBetween alone — one concern, one spelling.',
 };
 const RK_08: PendingRuling = {
   id: 'RK-RULING-08',
@@ -218,6 +246,8 @@ const RK_08: PendingRuling = {
     'third shift type breaks it), or its assignments in order (an intervening type does not)?',
   rulingAlone: true,
   alsoNeeds: '',
+  resolution:
+    'RULED (doc 35 §6d): the named shift-type sequence matched over consecutive calendar dates, in order; an intervening different scoped assignment on a date between them BREAKS the run. Pinned with an intervening-type arm and a gap-day arm.',
 };
 const RK_09: PendingRuling = {
   id: 'RK-RULING-09',
@@ -226,6 +256,8 @@ const RK_09: PendingRuling = {
     'MutuallyExclusive, exclusive over what window?',
   rulingAlone: true,
   alsoNeeds: '',
+  resolution:
+    'RULED (doc 35 §6d): binds the SAME MEMBERSHIP and the SAME CALENDAR DATE for LinkedShifts / ImpliesAssignment / MutuallyExclusive; MutuallyExclusive is exclusive over a single date. Wider windows are expressed through scope.dateRange, never invented per node.',
 };
 const RK_10: PendingRuling = {
   id: 'RK-RULING-10',
@@ -234,6 +266,8 @@ const RK_10: PendingRuling = {
     'assignment_identities carries only a uuid id.',
   rulingAlone: false,
   alsoNeeds: 'a stable key column on assignment_identities, which is a schema change',
+  resolution:
+    'RULED (doc 35 §6d) and CONFIRMED against snapshot v2 by OPUS-M4-002: the identifier domain is `assignment_identities.id` (uuid, opaque, UI-selected). The canonical input\u2019s fixedAssignments[] already carries assignmentIdentityId, so NO schema change is needed — the `alsoNeeds` line below described the v1 world and the ruling superseded it. A human-meaningful cross-period key remains a recorded future owner question.',
 };
 const RK_11: PendingRuling = {
   id: 'RK-RULING-11',
@@ -242,6 +276,8 @@ const RK_11: PendingRuling = {
     'the grid and D-1a already use), or to any working minute falling on the date?',
   rulingAlone: true,
   alsoNeeds: '',
+  resolution:
+    'RULED (doc 35 §6d): START-date attribution STANDS — consistent with the shipped evaluator, D-1a, the daily sheet and the grid. An overnight shift STARTING on the avoided date breaches; one starting the day before and spilling into it does not. An any-working-minute variant would be a NEW node kind (a schema change), never a reinterpretation.',
 };
 
 /** Every pending ruling, by id. Exported so a packet can cite one by name. */
@@ -276,9 +312,9 @@ export const RULE_KIND_METADATA: Readonly<Record<RuleNodeKind, RuleKindMetadata>
     family: 'coverage',
     naturalClassification: 'hard',
     requiredInput: ['assignment_snapshots', 'shifts', 'schedule_requirements'],
-    semanticRuling: null,
+    semanticRuling: 'RK-RULING-01: exactly `count` scoped assignments on EVERY (date, shift type) pair the scope admits within the accounting window — including pairs with none, which is the case a row-walking checker cannot see.',
     pendingRuling: RK_01,
-    evaluationOwner: 'awaiting-ruling',
+    evaluationOwner: 'solver-and-validator',
     milestoneOwner: 'M4-002',
     openAttributionQuestion: null,
   },
@@ -286,9 +322,9 @@ export const RULE_KIND_METADATA: Readonly<Record<RuleNodeKind, RuleKindMetadata>
     family: 'coverage',
     naturalClassification: 'hard',
     requiredInput: ['assignment_snapshots', 'shifts', 'schedule_requirements'],
-    semanticRuling: null,
+    semanticRuling: 'RK-RULING-01: at least `min` scoped assignments per (date, shift type). As RequiredCount.',
     pendingRuling: RK_01,
-    evaluationOwner: 'awaiting-ruling',
+    evaluationOwner: 'solver-and-validator',
     milestoneOwner: 'M4-002',
     openAttributionQuestion: null,
   },
@@ -296,9 +332,9 @@ export const RULE_KIND_METADATA: Readonly<Record<RuleNodeKind, RuleKindMetadata>
     family: 'coverage',
     naturalClassification: 'hard',
     requiredInput: ['assignment_snapshots', 'shifts', 'schedule_requirements'],
-    semanticRuling: null,
+    semanticRuling: 'RK-RULING-01: at most `max` scoped assignments per (date, shift type). As RequiredCount.',
     pendingRuling: RK_01,
-    evaluationOwner: 'awaiting-ruling',
+    evaluationOwner: 'solver-and-validator',
     milestoneOwner: 'M4-002',
     openAttributionQuestion: null,
   },
@@ -307,12 +343,7 @@ export const RULE_KIND_METADATA: Readonly<Record<RuleNodeKind, RuleKindMetadata>
   RequiresQualification: {
     family: 'eligibility',
     naturalClassification: 'hard',
-    requiredInput: [
-      'qualification_holdings',
-      'qualifications.key',
-      'qualifications.status',
-      'assignment_snapshots.date',
-    ],
+    requiredInput: ['qualification_holdings', 'qualifications.key → id (snapshot v2 vocabulary)', 'qualifications.status', 'assignment_snapshots.date'],
     semanticRuling:
       'Every scoped active assignment’s assignee held the named qualification, valid at the ' +
       'assignment’s date. validAt is a fixed literal shift_date in the AST.',
@@ -324,20 +355,20 @@ export const RULE_KIND_METADATA: Readonly<Record<RuleNodeKind, RuleKindMetadata>
   MemberOfStaffGroup: {
     family: 'eligibility',
     naturalClassification: 'hard',
-    requiredInput: ['staff_groups', 'staff_group_members'],
-    semanticRuling: null,
+    requiredInput: ['staff_groups.id', 'staff_group_members (snapshot v2)'],
+    semanticRuling: 'RK-RULING-02: every scoped assignment’s assignee is a member of the named `staff_groups.id`. An unknown id is not-evaluable, never “nobody is in it” — that reading would turn a typo into a breach of every row.',
     pendingRuling: RK_02,
-    evaluationOwner: 'awaiting-ruling',
+    evaluationOwner: 'solver-and-validator',
     milestoneOwner: 'M4-002',
     openAttributionQuestion: null,
   },
   ValidGroupRestriction: {
     family: 'eligibility',
     naturalClassification: 'hard',
-    requiredInput: ['valid_groups', 'valid_group_shift_types'],
-    semanticRuling: null,
+    requiredInput: ['valid_groups.id', 'valid_group_shift_types (snapshot v2)'],
+    semanticRuling: 'RK-RULING-03: no scoped assignment is on a shift type the named `valid_groups.id` does not admit (`valid_group_shift_types`).',
     pendingRuling: RK_03,
-    evaluationOwner: 'awaiting-ruling',
+    evaluationOwner: 'solver-and-validator',
     milestoneOwner: 'M4-002',
     openAttributionQuestion: null,
   },
@@ -345,9 +376,9 @@ export const RULE_KIND_METADATA: Readonly<Record<RuleNodeKind, RuleKindMetadata>
     family: 'eligibility',
     naturalClassification: 'hard',
     requiredInput: ['assignment_snapshots.pick_position'],
-    semanticRuling: null,
+    semanticRuling: 'RK-RULING-04: a real pick position outside `allowedPickPositions` breaches; a NULL one satisfies VACUOUSLY. An ABSENT column is neither — it makes the rule not-evaluable.',
     pendingRuling: RK_04,
-    evaluationOwner: 'awaiting-ruling',
+    evaluationOwner: 'solver-and-validator',
     milestoneOwner: 'M4-002',
     openAttributionQuestion: null,
   },
@@ -370,20 +401,20 @@ export const RULE_KIND_METADATA: Readonly<Record<RuleNodeKind, RuleKindMetadata>
     family: 'capacity',
     naturalClassification: 'hard',
     requiredInput: ['membership_weekday_fte.fte_fraction', 'membership_work_profiles'],
-    semanticRuling: null,
+    semanticRuling: 'RK-RULING-05 (authored by M4-002): per weekday over the accounting window, count ≤ min(⌈node.fteFraction × N(w)⌉, ⌈profile.fteFraction(w) × N(w)⌉, profile.maxAssignments(w)) over the present terms. MIN, because SPEC-04 §3.3 admits no path that relaxes a HARD rule.',
     pendingRuling: RK_05,
-    evaluationOwner: 'awaiting-input',
-    milestoneOwner: 'M4-001',
+    evaluationOwner: 'solver-and-validator',
+    milestoneOwner: 'M4-002',
     openAttributionQuestion: null,
   },
   WorkPercentageTarget: {
     family: 'capacity',
     naturalClassification: 'soft',
     requiredInput: ['membership_work_profiles.work_percentage'],
-    semanticRuling: null,
+    semanticRuling: 'RK-RULING-06 (authored by M4-002): a TARGET, never a bound. SOFT objective term penalising |achieved − target| in assignment units. A HARD authoring is a classification contradiction with no defined breach and blocks fail-closed.',
     pendingRuling: RK_06,
-    evaluationOwner: 'awaiting-input',
-    milestoneOwner: 'M4-001',
+    evaluationOwner: 'solver-and-validator',
+    milestoneOwner: 'M4-002',
     openAttributionQuestion: null,
   },
   MaxConsecutive: {
@@ -429,9 +460,9 @@ export const RULE_KIND_METADATA: Readonly<Record<RuleNodeKind, RuleKindMetadata>
     family: 'rest-and-spacing',
     naturalClassification: 'hard',
     requiredInput: ['assignment_snapshots.date', 'shift_types.code'],
-    semanticRuling: null,
+    semanticRuling: 'RK-RULING-07: the pair may not fall on consecutive calendar dates for one membership, in EITHER order. Instant-gap semantics belong to MinimumRestBetween alone.',
     pendingRuling: RK_07,
-    evaluationOwner: 'awaiting-ruling',
+    evaluationOwner: 'solver-and-validator',
     milestoneOwner: 'M4-002',
     openAttributionQuestion: null,
   },
@@ -439,9 +470,9 @@ export const RULE_KIND_METADATA: Readonly<Record<RuleNodeKind, RuleKindMetadata>
     family: 'rest-and-spacing',
     naturalClassification: 'hard',
     requiredInput: ['assignment_snapshots.date', 'shift_types.code'],
-    semanticRuling: null,
+    semanticRuling: 'RK-RULING-08: the named sequence matched over consecutive calendar dates, in order; an intervening scoped assignment or a gap day breaks the run.',
     pendingRuling: RK_08,
-    evaluationOwner: 'awaiting-ruling',
+    evaluationOwner: 'solver-and-validator',
     milestoneOwner: 'M4-002',
     openAttributionQuestion: null,
   },
@@ -451,9 +482,7 @@ export const RULE_KIND_METADATA: Readonly<Record<RuleNodeKind, RuleKindMetadata>
     family: 'pattern',
     naturalClassification: 'either',
     requiredInput: ['shifts', 'shift_types.code', 'group_holidays'],
-    semanticRuling:
-      'Constrains the SEARCH, not the content: a pattern prescribes what a build assigns. ' +
-      'Checking it against finished content would either always pass or invent a meaning.',
+    semanticRuling: 'Constrains the SEARCH, not the content: against a finished version a pattern prescribes what a build assigns, and that reason STANDS. Against a CANDIDATE the question is different and answerable as an implication (M4-002, FAD-38(5)): trigger on a listed weekday ⇒ every segment assigned to the same membership at its offset, where the offset falls inside the build horizon.',
     pendingRuling: null,
     evaluationOwner: 'solver-and-validator',
     milestoneOwner: 'M4-002',
@@ -463,7 +492,7 @@ export const RULE_KIND_METADATA: Readonly<Record<RuleNodeKind, RuleKindMetadata>
     family: 'pattern',
     naturalClassification: 'either',
     requiredInput: ['shifts', 'shift_types.code'],
-    semanticRuling: 'Constrains the SEARCH, not the content: as PatternRule.',
+    semanticRuling: 'Constrains the SEARCH, not the content: reason STANDS. Against a candidate (M4-002, FAD-38(5)): a membership’s `onShiftType` assignments fall in ONE week class modulo cycleWeeks, counted from the accounting window’s first date because the node carries no anchor.',
     pendingRuling: null,
     evaluationOwner: 'solver-and-validator',
     milestoneOwner: 'M4-002',
@@ -485,9 +514,9 @@ export const RULE_KIND_METADATA: Readonly<Record<RuleNodeKind, RuleKindMetadata>
     family: 'linkage',
     naturalClassification: 'hard',
     requiredInput: ['assignment_snapshots', 'shift_types.code'],
-    semanticRuling: null,
+    semanticRuling: 'RK-RULING-09: same membership, same calendar date — a membership holding ANY of the named types on a date holds ALL of them.',
     pendingRuling: RK_09,
-    evaluationOwner: 'awaiting-ruling',
+    evaluationOwner: 'solver-and-validator',
     milestoneOwner: 'M4-002',
     openAttributionQuestion: null,
   },
@@ -495,9 +524,9 @@ export const RULE_KIND_METADATA: Readonly<Record<RuleNodeKind, RuleKindMetadata>
     family: 'linkage',
     naturalClassification: 'hard',
     requiredInput: ['assignment_snapshots', 'shift_types.code'],
-    semanticRuling: null,
+    semanticRuling: 'RK-RULING-09: same membership, same calendar date — `ifShiftType` on a date requires `thenShiftType` on that date.',
     pendingRuling: RK_09,
-    evaluationOwner: 'awaiting-ruling',
+    evaluationOwner: 'solver-and-validator',
     milestoneOwner: 'M4-002',
     openAttributionQuestion: null,
   },
@@ -505,9 +534,9 @@ export const RULE_KIND_METADATA: Readonly<Record<RuleNodeKind, RuleKindMetadata>
     family: 'linkage',
     naturalClassification: 'hard',
     requiredInput: ['assignment_snapshots', 'shift_types.code'],
-    semanticRuling: null,
+    semanticRuling: 'RK-RULING-09: at most one of the named types per membership per calendar date. Exclusive over a single date; wider windows go through scope.dateRange.',
     pendingRuling: RK_09,
-    evaluationOwner: 'awaiting-ruling',
+    evaluationOwner: 'solver-and-validator',
     milestoneOwner: 'M4-002',
     openAttributionQuestion: null,
   },
@@ -539,7 +568,7 @@ export const RULE_KIND_METADATA: Readonly<Record<RuleNodeKind, RuleKindMetadata>
     family: 'preference',
     naturalClassification: 'either',
     requiredInput: ['assignment_snapshots.date'],
-    semanticRuling: 'No scoped assignment STARTS on the named date.',
+    semanticRuling: 'No scoped assignment STARTS on the named date. RK-RULING-11 ruled start-date attribution STANDS; the question is answered, not open.',
     pendingRuling: null,
     evaluationOwner: 'independent-checker',
     milestoneOwner: 'M3-008',
@@ -596,10 +625,10 @@ export const RULE_KIND_METADATA: Readonly<Record<RuleNodeKind, RuleKindMetadata>
   FixedAssignment: {
     family: 'fixed',
     naturalClassification: 'hard',
-    requiredInput: ['assignment_identities (no key column)', 'assignment_snapshots.is_pinned'],
-    semanticRuling: null,
+    requiredInput: ['assignment_identities.id', 'the build’s fixed inputs (snapshot fixedAssignments)'],
+    semanticRuling: 'RK-RULING-10: `assignment_identities.id`. The named identity appears in the candidate with the membership, date and shift type it was fixed at. Snapshot v2 carries it — no schema change.',
     pendingRuling: RK_10,
-    evaluationOwner: 'awaiting-ruling',
+    evaluationOwner: 'solver-and-validator',
     milestoneOwner: 'M4-002',
     openAttributionQuestion: null,
   },
@@ -607,9 +636,7 @@ export const RULE_KIND_METADATA: Readonly<Record<RuleNodeKind, RuleKindMetadata>
     family: 'fixed',
     naturalClassification: 'hard',
     requiredInput: ['assignment_snapshots.date'],
-    semanticRuling:
-      'Constrains the SEARCH, not the content: a protected range bounds what a build may CHANGE, ' +
-      'which finished content cannot violate.',
+    semanticRuling: 'Constrains the SEARCH, not the content: reason STANDS. Against a candidate (M4-002, FAD-38(5)): every fixed input dated inside the range appears in the candidate unchanged — the fixed inputs are what make “changed” decidable (SPEC-04 §6: recorded rather than inferred).',
     pendingRuling: null,
     evaluationOwner: 'solver-and-validator',
     milestoneOwner: 'M4-002',
@@ -627,7 +654,16 @@ export type NotEvaluableClass =
   | 'semantics-not-pinned'
   | 'identifier-domain-not-pinned'
   | 'constrains-the-search-not-the-content'
-  | 'data-not-modelled-at-m3';
+  | 'data-not-modelled-at-m3'
+  /**
+   * OPUS-M4-002. The kind IS pinned — as a SOFT objective term (SPEC-04 §3.3) —
+   * and a HARD authoring of it is a contradiction rather than a gap: there is no
+   * content a candidate could contain that would make "the preference was not
+   * honoured strongly enough" a breach. Distinct from `semantics-not-pinned`
+   * because nothing is waiting on a ruling; the ruling exists and says this kind
+   * is not a bound.
+   */
+  | 'classification-contradiction';
 
 /**
  * The class prefix of a recorded reason.
@@ -646,6 +682,7 @@ export function notEvaluableClassOf(reason: string): NotEvaluableClass {
     case 'identifier-domain-not-pinned':
     case 'constrains-the-search-not-the-content':
     case 'data-not-modelled-at-m3':
+    case 'classification-contradiction':
       return prefix;
     default:
       throw new Error(`Unknown not-evaluable reason class: ${JSON.stringify(prefix)}`);
@@ -724,10 +761,20 @@ export function buildRuleKindRegistry(): RuleKindRegistry {
     'identifier-domain-not-pinned',
     'constrains-the-search-not-the-content',
     'data-not-modelled-at-m3',
+    'classification-contradiction',
   ];
 
+  /* OPUS-M4-002: only rulings that are still OPEN count. A resolved ruling stays
+   * in the register with its stable id and its answer (rule 13), so this number
+   * falls as questions are decided rather than as history is deleted. */
   const oneRulingAwayKinds = entries
-    .filter((entry) => !entry.evaluated && (entry.pendingRuling?.rulingAlone ?? false))
+    .filter(
+      (entry) =>
+        !entry.evaluated &&
+        entry.pendingRuling !== null &&
+        entry.pendingRuling.rulingAlone &&
+        entry.pendingRuling.resolution === null,
+    )
     .map((entry) => entry.kind);
 
   const citedIds = new Map<string, { ruling: PendingRuling; kinds: RuleNodeKind[] }>();
@@ -808,9 +855,11 @@ export function renderRuleKindRegistry(registry: RuleKindRegistry): string {
   lines.push(
     `| Evaluated + not-evaluable | ${String(counts.evaluated + counts.notEvaluable)} (must equal the unique count; the two sets are disjoint) |`,
   );
-  lines.push(`| One owner ruling away, nothing else needed | ${String(counts.oneRulingAway)} |`);
+  lines.push(
+    `| Still ONE OPEN owner ruling away, nothing else needed | ${String(counts.oneRulingAway)} |`,
+  );
   lines.push(`| Awaiting input a named later milestone owns | ${String(counts.awaitingInput)} |`);
-  lines.push(`| Distinct pending rulings cited | ${String(counts.citedPendingRulings)} |`);
+  lines.push(`| Distinct rulings cited (open + ruled) | ${String(counts.citedPendingRulings)} |`);
   lines.push('');
   lines.push('### By not-evaluable class');
   lines.push('');
@@ -854,15 +903,26 @@ export function renderRuleKindRegistry(registry: RuleKindRegistry): string {
     );
   }
   lines.push('');
-  lines.push('## Pending rulings');
+  lines.push('## The ruling register');
   lines.push('');
-  lines.push('| Id | Ruling alone unblocks | Kinds | Question | Also needs |');
+  lines.push(
+    'Stable ids, never renumbered and never deleted (non-bypass rule 13). A ruling that has ' +
+      'been answered keeps its id and carries its answer; only the ones still reading OPEN ' +
+      'count towards "one ruling away".',
+  );
+  lines.push('');
+  lines.push('| Id | State | Kinds | Question | Ruling / also needs |');
   lines.push('|---|---|---|---|---|');
   for (const cited of registry.citedRulings) {
+    const state = cited.ruling.resolution === null ? '**OPEN**' : 'RULED';
+    const answer =
+      cited.ruling.resolution === null
+        ? cell(cited.ruling.alsoNeeds) || '—'
+        : cell(cited.ruling.resolution);
     lines.push(
-      `| \`${cited.ruling.id}\` | ${cited.ruling.rulingAlone ? 'yes' : 'no'} | ${cited.kinds
+      `| \`${cited.ruling.id}\` | ${state} | ${cited.kinds
         .map((kind) => `\`${kind}\``)
-        .join(', ')} | ${cell(cited.ruling.question)} | ${cell(cited.ruling.alsoNeeds) || '—'} |`,
+        .join(', ')} | ${cell(cited.ruling.question)} | ${answer} |`,
     );
   }
   lines.push('');

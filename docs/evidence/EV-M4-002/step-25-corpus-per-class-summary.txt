@@ -1,0 +1,70 @@
+STEP 25 — the E1 CORPUS PER-CLASS SUMMARY
+
+$ SP_SOLVER_WORKER_COMMAND=<venv python3> vitest run --project api test/solver/corpus/
+
+Fifteen §6d classes, each with its fixture's canonical-input hash, the solver's
+outcome, the INDEPENDENT checker's hard-violation count, and — for the infeasible
+classes — whether the reported cause matched the class's expected cause.
+--------------------------------------------------------------------
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-002
+
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-002/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-a050cba7045535d3b8)] INFO: Completed task 1 (outbox.dispatch, 7.15ms) with success
+[worker(worker-a050cba7045535d3b8)] INFO: Completed task 2 (outbox.dispatch, 2.49ms) with success
+[worker(worker-a050cba7045535d3b8)] INFO: Completed task 3 (outbox.dispatch, 2.19ms) with success
+[worker(worker-a050cba7045535d3b8)] INFO: Completed task 4 (outbox.dispatch, 2.20ms) with success
+[worker(worker-a050cba7045535d3b8)] INFO: Completed task 5 (outbox.dispatch, 2.26ms) with success
+[worker(worker-a050cba7045535d3b8)] INFO: Completed task 6 (outbox.dispatch, 2.14ms) with success
+[worker(worker-a050cba7045535d3b8)] INFO: Completed task 7 (outbox.dispatch, 2.15ms) with success
+[worker(worker-a050cba7045535d3b8)] INFO: Completed task 8 (outbox.dispatch, 2.20ms) with success
+[worker(worker-a050cba7045535d3b8)] INFO: Completed task 9 (outbox.dispatch, 2.05ms) with success
+[worker(worker-a050cba7045535d3b8)] INFO: Completed task 10 (outbox.dispatch, 2.34ms) with success
+[worker(worker-a050cba7045535d3b8)] INFO: Completed task 11 (outbox.dispatch, 2.15ms) with success
+stdout | test/solver/corpus/corpus-agreement.test.ts > the E1 corpus, solver against independent checker > records the per-class run summary
+      ·       ┌─ E1 CORPUS RUN SUMMARY ─────────────────────────────────────
+      ·       │ feasible-small                   · B-feasible-small                     · hash fe6cbb2d8440 · outcome OPTIMAL/completed      · hardViolations 0     · cause —
+      ·       │ feasible-medium                  · B-feasible-medium                    · hash 791c4710f309 · outcome OPTIMAL/completed      · hardViolations 0     · cause —
+      ·       │ feasible-large                   · B-feasible-large                     · hash dfd8574fa1d7 · outcome OPTIMAL/completed      · hardViolations 0     · cause —
+      ·       │ multisite                        · B-multisite                          · hash 300d6427ecef · outcome OPTIMAL/completed      · hardViolations 0     · cause —
+      ·       │ rule-heavy                       · B-ruleheavy                          · hash 89ff810ff670 · outcome OPTIMAL/completed      · hardViolations 0     · cause —
+      ·       │ progressive-pinned               · B-progressive-pinned                 · hash 32cd27e3a4e3 · outcome OPTIMAL/completed      · hardViolations 0     · cause —
+      ·       │ qualifications                   · B-qualifications                     · hash ec332922122d · outcome OPTIMAL/completed      · hardViolations 0     · cause —
+      ·       │ fte                              · B-fte                                · hash 4a457dbfea06 · outcome OPTIMAL/completed      · hardViolations 0     · cause —
+      ·       │ locum-shaped                     · B-locum-shaped                       · hash c37f6f7338c8 · outcome FAILED/rejected        · hardViolations n/a   · cause —
+      ·       │ fairness-shaped                  · B-fairness-shaped                    · hash 492e4d98422a · outcome OPTIMAL/completed      · hardViolations 0     · cause —
+      ·       │ infeasible-contradictory-rules   · B-infeasible-contradictory-rules     · hash ed2de3578cf9 · outcome INFEASIBLE/completed   · hardViolations n/a   · cause EXPLAINED_SUBSET T1[__demand__,ci-implies,ci-mutex]
+      ·       │ infeasible-missing-qualification · B-infeasible-missing-qualification   · hash 42e2de116235 · outcome INFEASIBLE/completed   · hardViolations n/a   · cause EXPLAINED_EXACT T0[no_eligible_member,no_eligible_member,no_eligible_member]
+      ·       │ infeasible-over-demand           · B-infeasible-over-demand             · hash f5a210d51e0a · outcome INFEASIBLE/completed   · hardViolations n/a   · cause EXPLAINED_EXACT T0[eligible_capacity_below_demand,eligible_capacity_below_demand,eligible_capacity_below_demand,day_demand_exceeds_participants,day_demand_exceeds_participants,day_demand_exceeds_participants] T1[__demand__]
+      ·       │ infeasible-fixed-conflict        · B-infeasible-fixed-conflict          · hash fc22e3adc59b · outcome INFEASIBLE/completed   · hardViolations n/a   · cause EXPLAINED_EXACT T0[conflicting_fixed_assignments] T1[__demand__]
+      ·       │ race-retired-holding             · B-race-retired-holding               · hash 6b4ececa0726 · outcome INFEASIBLE/completed   · hardViolations n/a   · cause EXPLAINED_EXACT T0[no_eligible_member]
+      ·       └─────────────────────────────────────────────────────────────
+
+stdout | test/solver/corpus/corpus-agreement.test.ts > the E1 corpus, solver against independent checker > rule-heavy: every M4-evaluable HARD kind is present, and all of them hold at once
+      ·       · rule-heavy: 22 HARD kinds, 30 assignments, 0 hard violations
+
+stdout | test/solver/corpus/corpus-agreement.test.ts > the E1 corpus, solver against independent checker > fairness-shaped: the E1 objective tiers are RECORDED, and SOFT never became HARD
+      ·       · fairness tiers: 10:preference(42) 20:work-percentage(6) 30:fairness(2)
+
+stdout | test/solver/corpus/corpus-agreement.test.ts > the E1 corpus, solver against independent checker > race-retired-holding: the validator REJECTS staffing the raced membership
+      ·       · raced staffing refused; the un-raced control staffing accepted
+
+ ✓ |api| test/solver/corpus/corpus-agreement.test.ts (8 tests) 11766ms
+stdout | test/solver/corpus/corpus-manifest.test.ts > the E1 corpus manifest > 1. covers every §6d class, exactly once
+      ·       · 15 fixtures across 15 classes
+
+stdout | test/solver/corpus/corpus-manifest.test.ts > the E1 corpus manifest > 2. regenerates byte-identically within one process
+      ·       · 14 generated fixtures reproduced byte for byte
+
+stdout | test/solver/corpus/corpus-manifest.test.ts > the E1 corpus manifest > 3. matches the committed manifest, hash for hash
+      ·       · 15 committed hashes all matched
+
+ ✓ |api| test/solver/corpus/corpus-manifest.test.ts (8 tests) 31ms
+
+ Test Files  2 passed (2)
+      Tests  16 passed (16)
+   Start at  11:32:18
+   Duration  13.53s (transform 250ms, setup 138ms, collect 61ms, tests 11.80s, environment 0ms, prepare 25ms)
+
+CORPUS EXIT=0

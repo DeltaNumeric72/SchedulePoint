@@ -1,0 +1,77 @@
+=== PROBE A — snapshot document surface (packages/domain/src/ports/solver-snapshot.ts) ===
+export interface SolverInputSnapshotDocument {
+  readonly snapshotSchemaVersion: number;
+  readonly compilerVersion: number;
+  readonly ruleSchemaVersion: number;
+
+  readonly organizationId: string;
+  readonly groupId: string;
+  readonly periodId: string;
+  readonly versionId: string;
+  readonly periodName: string;
+  readonly periodStatus: 'planning' | 'published' | 'closed';
+
+  readonly startDate: string;
+  readonly endDate: string;
+  readonly dayCount: number;
+  readonly timezone: SnapshotTimezone;
+
+  readonly locations: readonly SnapshotLocation[];
+  readonly shiftTypes: readonly SnapshotShiftType[];
+  readonly demand: readonly SnapshotDemandCell[];
+  readonly participants: readonly SnapshotParticipant[];
+  readonly fixedAssignments: readonly SnapshotFixedAssignment[];
+  readonly ruleRevisions: readonly SnapshotRuleRevision[];
+
+  /** Every constituent revision, sorted. The configuration-revision record. */
+  readonly constituents: readonly SnapshotConstituent[];
+}
+
+=== PROBE B — grep for staff-group / valid-group / qualification-key vocabulary on every solver surface ===
+$ grep -rn 'staffGroup|StaffGroup|validGroup|ValidGroup' packages/domain/src/ports/ packages/contracts/src/solver/ apps/api/src/solver/
+(no matches — the surfaces carry no staff-group or valid-group data at all)
+
+$ grep -n 'qualification' packages/contracts/src/solver/snapshot.ts
+41:      'qualification',
+45:      'qualificationHolding',
+143:    qualificationId: uuidSchema,
+155:    /** `qualificationId:outcome`, sorted, so a refusal can be explained. */
+
+=== PROBE C — the constituent kind enum (the only place a qualification KEY appears) ===
+export const snapshotConstituentSchema = z
+  .object({
+    kind: z.enum([
+      'rule',
+      'shiftType',
+      'location',
+      'qualification',
+      'shiftTypeQualification',
+      'weekdayDemand',
+      'requirement',
+      'qualificationHolding',
+      'timezoneBasis',
+      'period',
+      'version',
+    ]),
+    /** The STABLE identifier where one exists, the surrogate id otherwise. */
+    key: z.string().min(1),
+    /**
+     * Text, not a number. The counters are not all integers — the catalogue
+     * tables carry `integer` and the schedule spine carries `xid8` rendered as
+     * decimal — and coercing a 64-bit counter through a float64 is a silent
+     * precision loss at exactly the value a citation depends on.
+     */
+    revision: z.string().min(1),
+  })
+  .strict();
+
+=== PROBE D — the tables the rulings name DO exist in the schema ===
+911:  staff_groups: StaffGroupsTable;
+912:  staff_group_members: StaffGroupMembersTable;
+913:  valid_groups: ValidGroupsTable;
+914:  valid_group_shift_types: ValidGroupShiftTypesTable;
+1078:  { name: 'staff_groups', scope: 'organization-and-group' },
+1079:  { name: 'staff_group_members', scope: 'organization-and-group' },
+1080:  { name: 'valid_groups', scope: 'organization-and-group' },
+1081:  { name: 'valid_group_shift_types', scope: 'organization-and-group' },
+769:  pick_position: number | null;

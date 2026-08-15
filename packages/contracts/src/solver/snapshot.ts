@@ -46,6 +46,12 @@ export const snapshotConstituentSchema = z
       'timezoneBasis',
       'period',
       'version',
+      /* v2 (OPUS-M4-002, FAD-38). Appended, mirroring
+       * `SNAPSHOT_CONSTITUENT_KINDS`; `constituent-kind-parity` in
+       * `apps/api/test/solver/snapshot-contract.test.ts` asserts the two lists
+       * are the same list. */
+      'staffGroup',
+      'validGroup',
     ]),
     /** The STABLE identifier where one exists, the surrogate id otherwise. */
     key: z.string().min(1),
@@ -91,6 +97,8 @@ export const snapshotShiftTypeSchema = z
     endTime: z.string(),
     crossesMidnight: z.boolean(),
     isManualOnly: z.boolean(),
+    /** `shift_types.is_on_call` — what makes CallSpacing decidable (v2, FAD-39). */
+    isOnCall: z.boolean(),
     /** `numeric` as text, so `1.0` and `1.00` are not silently made equal. */
     creditWeight: z.string(),
     status: z.enum(['active', 'retired']),
@@ -200,6 +208,50 @@ export const snapshotRuleRevisionSchema = z
   })
   .strict();
 
+/* ── snapshot v2 vocabularies (OPUS-M4-002, FAD-38) ──────────────────────────
+ *
+ * The runtime half of the three additions. `.strict()` for the same reason every
+ * other object here is: an unknown key changes the canonical hash, so a field
+ * that arrived by accident makes an identical build look like a different
+ * problem. Each schema carries the STABLE identifier the ruling names and no
+ * display name — `staff_groups.name` is mutable and a rename must not move a
+ * rule's historical meaning. */
+
+export const snapshotStaffGroupSchema = z
+  .object({
+    /** `staff_groups.id` — RK-RULING-02's identifier domain. Never the name. */
+    staffGroupId: uuidSchema,
+    memberMembershipIds: z.array(uuidSchema),
+  })
+  .strict();
+
+export const snapshotValidGroupSchema = z
+  .object({
+    /** `valid_groups.id` — RK-RULING-03's identifier domain. */
+    validGroupId: uuidSchema,
+    /** Ascending, distinct — migration 0005's trigger owns the shape. */
+    allowedPickPositions: z.array(z.number().int().nonnegative()),
+    shiftTypeIds: z.array(uuidSchema),
+  })
+  .strict();
+
+/**
+ * The qualification vocabulary — the id↔key↔status triple.
+ *
+ * `requires_expiry` and `evidence_ref` are absent and the absence is enforced by
+ * `.strict()`: the first is a write-time control (0012/0017) no evaluation
+ * consults, and the second is the `SENSITIVE-PII` free-text field that must
+ * never cross this boundary (I-07, non-bypass rule 9).
+ */
+export const snapshotQualificationSchema = z
+  .object({
+    qualificationId: uuidSchema,
+    /** `qualifications.key` — the domain the AST's `qualification` field names. */
+    key: z.string().min(1),
+    status: z.string().min(1),
+  })
+  .strict();
+
 /** **The whole document.** What the hash covers and what the worker receives. */
 export const solverInputSnapshotSchema = z
   .object({
@@ -225,6 +277,16 @@ export const solverInputSnapshotSchema = z
     participants: z.array(snapshotParticipantSchema),
     fixedAssignments: z.array(snapshotFixedAssignmentSchema),
     ruleRevisions: z.array(snapshotRuleRevisionSchema),
+
+    /* v2 (FAD-38) — appended, required, never optional. An optional field would
+     * make "this group has no staff groups" and "the assembly forgot to carry
+     * them" the same document, and those two answers disagree about every
+     * staff-group-scoped rule. `snapshotSchemaVersion` 2 is what lets them be
+     * required: a v1 document is refused by version rather than misread. */
+    staffGroups: z.array(snapshotStaffGroupSchema),
+    validGroups: z.array(snapshotValidGroupSchema),
+    qualifications: z.array(snapshotQualificationSchema),
+
     constituents: z.array(snapshotConstituentSchema),
   })
   .strict();

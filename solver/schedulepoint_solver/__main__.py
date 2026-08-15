@@ -94,6 +94,42 @@ def _write_unsigned_refusal(
     _write_frame(auth.unsigned_auth_line(code) + auth.FRAME_SEPARATOR + body)
 
 
+def _dispatch(snapshot, parameters, control, channel):
+    """Route the solve. **The default path is the REAL CP-SAT model.**
+
+    OPUS-M4-002 replaced the stub model with `cpsat_adapter`, and the ordinary
+    request — no `stubBehaviour`, or `candidate` — goes there. `dwell` and
+    `wedged` are RETAINED, deliberately and narrowly: they are the only way to
+    exercise SPEC-04 §2's mechanism 3 (a solve that does not return, killed by
+    the parent) and a mid-solve cancellation with a *known* dwell, and M4-001's
+    kill/cancel/timeout proofs are anchored to them. Retiring them would retire
+    those proofs, which the packet forbids — they are re-anchored, not retired,
+    and the real solve is exercised for cancellation as well.
+
+    `wedged` remains a named hazard reachable only from an authenticated request
+    that asks for it by name.
+    """
+    behaviour = control.get("stubBehaviour", stub_solver.BEHAVIOUR_CANDIDATE)
+    if behaviour in (stub_solver.BEHAVIOUR_DWELL, stub_solver.BEHAVIOUR_WEDGED):
+        return stub_solver.solve(snapshot, parameters, control, channel)
+    if behaviour != stub_solver.BEHAVIOUR_CANDIDATE:
+        raise P.ProtocolError(
+            "unknown_stub_behaviour",
+            "control.stubBehaviour %r is not one of %s"
+            % (behaviour, list(stub_solver.BEHAVIOURS)),
+        )
+    # The one import of the one module allowed to import OR-Tools (ADR-0006).
+    # Imported HERE rather than at module scope because the spike measured
+    # `import ortools` at 200-630 ms and a refused request must not pay it.
+    from . import cpsat_adapter
+    from . import model as solver_model
+
+    try:
+        return cpsat_adapter.solve(snapshot, parameters, control, channel)
+    except solver_model.ModelError as exc:
+        raise P.ProtocolError(exc.code, exc.message)
+
+
 def main(argv: Optional[list] = None) -> int:
     del argv  # the worker takes no arguments; everything arrives in the envelope
 
@@ -185,7 +221,7 @@ def main(argv: Optional[list] = None) -> int:
     _event("solve_start", pid=os.getpid())
     started = time.monotonic()
     try:
-        result = stub_solver.solve(snapshot, parameters, control, channel)
+        result = _dispatch(snapshot, parameters, control, channel)
     except P.ProtocolError as exc:
         channel.stop()
         refuse(exc.code, exc.message)
@@ -215,6 +251,9 @@ def main(argv: Optional[list] = None) -> int:
         "terminationReason": result["terminationReason"],
         "assignments": result["assignments"],
         "unfilledDemand": result["unfilled"],
+        "objectiveTiers": result.get("objectiveTiers"),
+        "objectiveValue": result.get("objectiveValue"),
+        "explanation": result.get("explanation"),
         "runtime": R.runtime_record(parameters),
         "cancellation": channel.report(),
         "egressGuard": guard,

@@ -109,13 +109,20 @@ describe('the solver worker package', () => {
 
   it('imports `ortools` in at most one adapter module (ADR-0006)', () => {
     const importers = SOURCES.filter(([, text]) => /^\s*(from|import)\s+ortools\b/m.test(code(text)));
-    expect(importers.map(([name]) => name)).toEqual([]);
-    /* **Zero today, and that is the budget being kept rather than spent.**
-     * M4-001 ships the stub; `runtime.py` reads the library version from package
-     * METADATA instead of importing it, precisely so that M4-002's adapter is
-     * the FIRST importer rather than the second. A convenience import here would
-     * have spent ADR-0006's one-module allowance on a version string. */
-    log(`      · ortools importers: ${String(importers.length)} — the allowance is unspent`);
+    /* **The allowance is now SPENT, once** — OPUS-M4-002, the packet's
+     * "deliberate first spend". M4-001 asserted `[]` while the budget was
+     * unspent, which was the right pin for a milestone that shipped a stub; the
+     * assertion CLASS this test is named for has always been "at most ONE
+     * adapter module", and that is what is asserted now.
+     *
+     * Pinned to the exact filename rather than to a count, and that is the
+     * load-bearing part: a count of one would still pass if a SECOND module
+     * imported ortools and the adapter stopped. `runtime.py` still reads the
+     * library version from package METADATA rather than importing it, precisely
+     * so the adapter stays the only importer — the reason that mattered at
+     * M4-001 is the reason it matters now. */
+    expect(importers.map(([name]) => name)).toEqual(['cpsat_adapter.py']);
+    log(`      · ortools importers: ${String(importers.length)} — the allowance is spent, once`);
   });
 
   it('the stub solver never claims OPTIMAL or INFEASIBLE', () => {
