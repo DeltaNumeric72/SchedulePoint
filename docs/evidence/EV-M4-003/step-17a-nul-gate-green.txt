@@ -1,0 +1,3 @@
+$ node scripts/gates/raw-nul-scan.mjs
+PASS  raw-nul-scan (FAD-45(1)) — 1143 text file(s) scanned, 225 binary file(s) skipped by extension, 3 known violation(s) held at their pinned counts
+NUL-GREEN EXIT=0

@@ -334,6 +334,51 @@ export const AUDIT_EVENT_NAMES = [
   'settings.location.updated',
   /** A location was archived. Archive, never delete: everything referencing it stays. */
   'settings.location.archived',
+
+  /* ── OPUS-M4-003: the `build.*` namespace (doc 35 §6e, FAD-44(2)) ───────────
+   *
+   * The automated scheduling mechanism (I-05). Six names, one per act a HUMAN
+   * takes or a build genuinely completes, and not one more — the same discipline
+   * the `authorization.*` block records.
+   *
+   * Three choices are worth reading twice.
+   *
+   * **`build.run.state_changed` covers the system-driven transitions**, exactly
+   * as `schedule.version.state_changed` covers a version's. The payload carries
+   * the from- and to-state; a name per edge would be sixteen names describing
+   * one aggregate's lifecycle, and every query for "what happened to this build"
+   * would have to enumerate them.
+   *
+   * **`build.run.cancelled` and `build.run.approved` are their OWN names**
+   * although both are also state changes. They are the two moments a human takes
+   * responsibility for the outcome — "who cancelled the overnight build and
+   * when" and "who approved the schedule that got published" are the questions
+   * an incident actually asks, and they become answerable only by scanning
+   * payloads if both are filed under the generic name.
+   *
+   * **`build.run.applied` is separate from `schedule.version.created`.** The
+   * draft's creation is already audited by `createDraftVersion` under the
+   * schedule aggregate, and it must stay there — but "which build produced this
+   * draft" is a question about the BUILD, and filing it only under the version
+   * would make the build's own stream stop at approval.
+   *
+   * There is deliberately no `build.run.result_refused` name. A fenced worker is
+   * recorded in `build_run_events`, which is the build's own timeline; the chain
+   * records what happened to the AGGREGATE, and a refused write did not change
+   * it. */
+
+  /** A build run was created, in `draft_configuration`. Carries the configuration. */
+  'build.run.created',
+  /** A scheduler submitted a build for validation and readiness checking. */
+  'build.run.submitted',
+  /** A build moved between lifecycle states. Payload carries from and to. */
+  'build.run.state_changed',
+  /** A scheduler cancelled a build. Its own name: who, and when. */
+  'build.run.cancelled',
+  /** A scheduler approved a build — zero unresolved hard violations. */
+  'build.run.approved',
+  /** An approved candidate was applied to a NEW draft version. Never a publication. */
+  'build.run.applied',
 ] as const;
 
 export type AuditEventName = (typeof AUDIT_EVENT_NAMES)[number];
@@ -434,6 +479,13 @@ export const AUDIT_SUBJECT_TYPES = [
    * lifecycle, and filing its events under the group would bury them in that
    * same stream. */
   'location',
+  /* ── OPUS-M4-003 (FAD-44(2)) ────────────────────────────────────────────────
+   * A build run is its own aggregate and is NOT filed under the schedule version
+   * it may eventually produce — for the reason `capability_grant` is not filed
+   * under its membership. "Everything that happened to this build" is what a
+   * scheduling incident asks, and a build that was cancelled, or that failed, or
+   * that was superseded never produced a version to file it under at all. */
+  'build_run',
 ] as const;
 
 export type AuditSubjectType = (typeof AUDIT_SUBJECT_TYPES)[number];

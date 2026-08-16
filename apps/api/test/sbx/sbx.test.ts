@@ -21,6 +21,7 @@ import { buildHttpHarness, type HttpHarness } from '../support/http.js';
 import { ownedMulti } from '../support/owned-multi.js';
 import { seedRulesForSweep } from '../support/rules.js';
 import { seedLocationsForSweep } from '../support/settings.js';
+import { seedBuildLifecycleForSweep } from '../support/builds.js';
 import { seedSolverSnapshotsForSweep } from '../support/solver.js';
 import {
   ProbeFalsified,
@@ -247,6 +248,52 @@ beforeAll(async () => {
   log(
     `      · OPUS-M4-001: seeded ${String(seededSnapshots)} solver input snapshot(s) across two ` +
       'groups for SBX-004 (sweep floor raised)',
+  );
+
+  /* ── OPUS-M4-003: the six build-lifecycle tables (migration 0018) ──────────
+   *
+   * Same arrangement, fourth time: seeded HERE rather than in `provisionMulti`,
+   * because `test/support/multi.ts` is the single fixture owner and
+   * `test/support/builds.ts` is this packet's own file.
+   *
+   * `seedBuildLifecycleForSweep` drives one whole build per group through the
+   * PRODUCTION service — configure, create, transition, claim, persist the
+   * outcome — so every one of the six tables holds a row the application can
+   * actually produce. The candidate is deliberately refused by a synthetic
+   * `not-evaluable` finding, which is what puts a row in `build_run_violations`
+   * as well: a clean build would leave that table empty and the sweep's own
+   * non-vacuity check would (correctly) fail it. */
+  const buildsCatalogue = multi.catalogue('alpha');
+  const buildsShiftType = buildsCatalogue.shiftTypeIds[1];
+  const buildsSiblingShiftType = buildsCatalogue.sibling.shiftTypeIds[1];
+  if (buildsShiftType === undefined || buildsSiblingShiftType === undefined) {
+    throw new Error('the alpha catalogue seed produced no shift type for the build sweep');
+  }
+  const seededBuilds = await seedBuildLifecycleForSweep(seedRuntime.runner, [
+    {
+      label: 'alpha_one',
+      organizationId: alpha.organizationId,
+      groupId: alpha.groupOne.id,
+      membershipId: alpha.users.scheduler.membershipId,
+      userId: alpha.users.scheduler.id,
+      shiftTypeId: buildsShiftType,
+      startDate: '2041-01-07',
+      endDate: '2041-01-13',
+    },
+    {
+      label: 'alpha_two',
+      organizationId: alpha.organizationId,
+      groupId: buildsCatalogue.sibling.groupId,
+      membershipId: alpha.users.groupTwoScheduler.membershipId,
+      userId: alpha.users.groupTwoScheduler.id,
+      shiftTypeId: buildsSiblingShiftType,
+      startDate: '2041-02-04',
+      endDate: '2041-02-10',
+    },
+  ]);
+  log(
+    `      · OPUS-M4-003: seeded ${String(seededBuilds)} complete build(s) across two groups ` +
+      'for SBX-004 — six tables, sweep floor raised 48 -> 54',
   );
 }, 240_000);
 
@@ -753,7 +800,9 @@ describe('the G-ARCH tenancy subset', () => {
     // dedicated probe instead. So `sweep = registry − 1`, permanently, and a
     // runner line reading "47 of 47 tables observed" against a 48-entry registry
     // is the two counts agreeing rather than disagreeing.
-    expect(expectedTables.length, 'the tenant registry shrank').toBeGreaterThanOrEqual(48);
+    // 48 → 54 by OPUS-M4-003: migration 0018 adds the six build-lifecycle
+    // tables, kept non-vacuous by `seedBuildLifecycleForSweep` above.
+    expect(expectedTables.length, 'the tenant registry shrank').toBeGreaterThanOrEqual(54);
     expect(
       [...(sweep?.tables ?? [])].sort(),
       `tables exercised: ${sweep?.tables.join(', ')}`,

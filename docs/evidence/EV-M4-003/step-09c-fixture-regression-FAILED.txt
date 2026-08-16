@@ -1,0 +1,14 @@
+$ node scripts/sbx/fixture-regression.mjs
+FAD-15 fixture-isolation regression gate
+==============================================================================
+
+1. FIXED SEED SET — file order AND test order shuffled
+PASS  seed 1                                          112.7s  1319 passed (1319)
+PASS  seed 7                                          120.0s  1319 passed (1319)
+FAIL  seed 42                                         112.4s  1 failed | 1318 passed (1319)
+        FAIL  |api| test/builds/builds-http.test.ts > build runs > ALLOW: a scheduler creates a run, and the replay returns the recorded one
+FAIL  seed 424242                                     111.6s  1 failed | 1318 passed (1319)
+        FAIL  |api| test/builds/builds-http.test.ts > build runs > ALLOW: a scheduler creates a run, and the replay returns the recorded one
+FAIL  seed 20260803                                   118.2s  1 failed | 1318 passed (1319)
+        FAIL  |api| test/builds/builds-http.test.ts > build runs > ALLOW: a scheduler creates a run, and the replay returns the recorded one
+[ELIFECYCLE] Command failed.

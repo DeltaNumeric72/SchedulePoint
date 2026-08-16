@@ -1,8 +1,8 @@
 {
   "$comment": [
-    "Requests-per-interaction budgets — SP-HR-2 / I-10.",
+    "Requests-per-interaction budgets \u2014 SP-HR-2 / I-10.",
     "",
-    "'One user action produces one request — no amplification.' A budget is raised",
+    "'One user action produces one request \u2014 no amplification.' A budget is raised",
     "only with a recorded justification; the reviewer checklist treats a raised",
     "budget as an architecture change, not a tuning knob.",
     "",
@@ -91,7 +91,7 @@
       "id": "schedule-save-requirement",
       "description": "User saves a staffing requirement and the server accepts it.",
       "maxRequests": 2,
-      "note": "The PUT plus the requirement-list re-read. The write carries a compare-and-set token, so the re-read is also how the author learns the new token — patching the cache from the response would leave the client holding a revision the server never issued. Measured 2 at both viewports (OPUS-M3-004, review N-7)."
+      "note": "The PUT plus the requirement-list re-read. The write carries a compare-and-set token, so the re-read is also how the author learns the new token \u2014 patching the cache from the response would leave the client holding a revision the server never issued. Measured 2 at both viewports (OPUS-M3-004, review N-7)."
     },
     {
       "id": "schedule-pin-assignment",
@@ -127,13 +127,13 @@
       "id": "my-schedule-next-window",
       "description": "User clicks 'Next four weeks' on their own schedule.",
       "maxRequests": 1,
-      "note": "I-10 in its strictest form: one action, one read. A window the page has not seen cannot come from the cache, and nothing else is fetched — no prefetch of the window after it, no revalidation of the one behind. Measured 1 at both viewports (OPUS-M3-006)."
+      "note": "I-10 in its strictest form: one action, one read. A window the page has not seen cannot come from the cache, and nothing else is fetched \u2014 no prefetch of the window after it, no revalidation of the one behind. Measured 1 at both viewports (OPUS-M3-006)."
     },
     {
       "id": "daily-sheet-open-from-calendar",
       "description": "User presses Enter on a calendar day to open the daily assignment sheet.",
       "maxRequests": 1,
-      "note": "One navigation, one read. The sheet is a different question from the personal schedule — everyone working that date, not this person's shifts — so it cannot be answered from the page's data, and it is not prefetched for every day the calendar shows. Measured 1 on DESKTOP ONLY: the calendar is the desktop default and the narrow viewport opens on the list, so the e2e that records this interaction is skipped on mobile and no mobile recording exists (OPUS-M3-006)."
+      "note": "One navigation, one read. The sheet is a different question from the personal schedule \u2014 everyone working that date, not this person's shifts \u2014 so it cannot be answered from the page's data, and it is not prefetched for every day the calendar shows. Measured 1 on DESKTOP ONLY: the calendar is the desktop default and the narrow viewport opens on the list, so the e2e that records this interaction is skipped on mobile and no mobile recording exists (OPUS-M3-006)."
     },
     {
       "id": "daily-sheet-next-day",
@@ -145,13 +145,13 @@
       "id": "catalogue-open-new-shift-type",
       "description": "User clicks 'New shift type' to open the authoring form.",
       "maxRequests": 0,
-      "note": "I-13, and the reason the invariant exists: a control labelled New must persist nothing before a completed form and an explicit Save. ZERO is the only correct number here — this budget can never be raised without the invariant changing first. Measured 0 at both viewports."
+      "note": "I-13, and the reason the invariant exists: a control labelled New must persist nothing before a completed form and an explicit Save. ZERO is the only correct number here \u2014 this budget can never be raised without the invariant changing first. Measured 0 at both viewports."
     },
     {
       "id": "catalogue-save-shift-type-refused",
       "description": "User clicks Save and the server refuses the shift type with a 422.",
       "maxRequests": 1,
-      "note": "One Save, one request. A refused save does NOT refetch, because nothing changed and there is nothing new to fetch — which is what makes the two-request success budget below a property of the success path rather than of Save in general. Measured 1 at both viewports."
+      "note": "One Save, one request. A refused save does NOT refetch, because nothing changed and there is nothing new to fetch \u2014 which is what makes the two-request success budget below a property of the success path rather than of Save in general. Measured 1 at both viewports."
     },
     {
       "id": "authn-fill-activation-form",
@@ -169,13 +169,13 @@
       "id": "authn-submit-password-reset-request",
       "description": "User submits the password-reset request form.",
       "maxRequests": 1,
-      "note": "I-10 in its strictest form: one submit, one POST. There is no read-back, because the response is deliberately identical whatever the server found — there is nothing to re-read. Measured 1 at both viewports (OPUS-M3-001)."
+      "note": "I-10 in its strictest form: one submit, one POST. There is no read-back, because the response is deliberately identical whatever the server found \u2014 there is nothing to re-read. Measured 1 at both viewports (OPUS-M3-001)."
     },
     {
       "id": "catalogue-save-shift-type",
       "description": "User clicks Save and the server accepts the shift type (200).",
       "maxRequests": 2,
-      "note": "TWO, ruled and justified — not an I-10 exception. The POST plus the server-authoritative list refetch is the PO-DEC-18 display posture: after a mutation the client re-reads what the SERVER says the list is, rather than patching its own cache from the response and rendering a view no server ever produced. The second request is therefore the invariant's intent (one action, one authoritative round trip to re-establish truth) rather than amplification of it — amplification is N requests for one action's WORK, and this is one write plus one read-back. A one-request alternative exists (POST returns the row; the client updates the list from it) and is recorded as a later-packet option; it is deliberately NOT implemented, because it moves the rendered list's authority to the client. Ruled by Fable on the OPUS-M2-004 escalation (packet 30 §6a as amended). Measured 2 at both viewports: POST .../catalogue/shift-types, then GET .../catalogue/shift-types."
+      "note": "TWO, ruled and justified \u2014 not an I-10 exception. The POST plus the server-authoritative list refetch is the PO-DEC-18 display posture: after a mutation the client re-reads what the SERVER says the list is, rather than patching its own cache from the response and rendering a view no server ever produced. The second request is therefore the invariant's intent (one action, one authoritative round trip to re-establish truth) rather than amplification of it \u2014 amplification is N requests for one action's WORK, and this is one write plus one read-back. A one-request alternative exists (POST returns the row; the client updates the list from it) and is recorded as a later-packet option; it is deliberately NOT implemented, because it moves the rendered list's authority to the client. Ruled by Fable on the OPUS-M2-004 escalation (packet 30 \u00a76a as amended). Measured 2 at both viewports: POST .../catalogue/shift-types, then GET .../catalogue/shift-types."
     },
     {
       "id": "settings-open-new-location",
@@ -193,17 +193,17 @@
       "id": "settings-save-timezone-accepted",
       "description": "User acknowledges the published-schedule impact and saves a new group time zone (204).",
       "maxRequests": 2,
-      "note": "The PUT plus ONE re-read of the settings, same ruling as above — and here the read-back is load-bearing rather than cosmetic: the settings response carries the optimistic-concurrency token (groups.settings_version) that the next save must echo, so a client that patched its own cache would save against a version it invented. Measured 2 at both viewports: PUT .../settings/timezone, then GET .../settings (OPUS-M3-007)."
+      "note": "The PUT plus ONE re-read of the settings, same ruling as above \u2014 and here the read-back is load-bearing rather than cosmetic: the settings response carries the optimistic-concurrency token (groups.settings_version) that the next save must echo, so a client that patched its own cache would save against a version it invented. Measured 2 at both viewports: PUT .../settings/timezone, then GET .../settings (OPUS-M3-007)."
     },
     {
       "id": "settings-save-timezone-refused",
       "description": "User saves a time-zone change without acknowledging the published-schedule impact; the server refuses it with a 422.",
       "maxRequests": 1,
-      "note": "One Save, one request. A refused save does NOT refetch, because nothing changed and there is nothing new to read — which is what makes the two-request success budget above a property of the success path rather than of Save in general. Measured 1 at both viewports (OPUS-M3-007)."
+      "note": "One Save, one request. A refused save does NOT refetch, because nothing changed and there is nothing new to read \u2014 which is what makes the two-request success budget above a property of the success path rather than of Save in general. Measured 1 at both viewports (OPUS-M3-007)."
     },
     {
       "id": "publication-open-confirm",
-      "description": "User clicks 'Publish this version…' to open the confirmation panel.",
+      "description": "User clicks 'Publish this version\u2026' to open the confirmation panel.",
       "maxRequests": 0,
       "note": "I-13, on an act that is not a create but is irreversible: publication cannot be undone, only superseded, so nothing may reach the server before an explicit confirmation. ZERO is the only correct number and this budget can never be raised without the invariant changing first. Measured 0 at both viewports (OPUS-M3-005)."
     },
@@ -217,23 +217,23 @@
       "id": "publication-publish-accepted",
       "description": "User confirms a publication and the server accepts it.",
       "maxRequests": 2,
-      "note": "The POST plus ONE server-authoritative re-read of the review, under the PO-DEC-18 ruling the catalogue's accepted-save budget carries: after a mutation the client re-reads what the SERVER says rather than patching its own cache. The read-back is load-bearing here rather than cosmetic — the re-read carries the new blockers (the version is now published) and the new compare-and-set token. Measured 2 at both viewports: POST .../versions/:id/publication, then GET .../versions/:id/publication-review (OPUS-M3-005)."
+      "note": "The POST plus ONE server-authoritative re-read of the review, under the PO-DEC-18 ruling the catalogue's accepted-save budget carries: after a mutation the client re-reads what the SERVER says rather than patching its own cache. The read-back is load-bearing here rather than cosmetic \u2014 the re-read carries the new blockers (the version is now published) and the new compare-and-set token. Measured 2 at both viewports: POST .../versions/:id/publication, then GET .../versions/:id/publication-review (OPUS-M3-005)."
     },
     {
       "id": "publication-publish-refused",
       "description": "User confirms a publication and the server refuses it with a 422.",
       "maxRequests": 1,
-      "note": "One confirmation, one request. A refused publication does NOT refetch, because nothing changed — which is what makes the two-request success budget a property of the success path rather than of the confirm control in general. Measured 1 at both viewports (OPUS-M3-005)."
+      "note": "One confirmation, one request. A refused publication does NOT refetch, because nothing changed \u2014 which is what makes the two-request success budget a property of the success path rather than of the confirm control in general. Measured 1 at both viewports (OPUS-M3-005)."
     },
     {
       "id": "publication-open-clone-confirm",
-      "description": "User clicks 'Clone into a new draft…' on a published version.",
+      "description": "User clicks 'Clone into a new draft\u2026' on a published version.",
       "maxRequests": 0,
       "note": "I-13 in its literal form: a control that creates a draft must persist nothing before an explicit confirm. ZERO is the only correct number and this budget can never be raised without the invariant changing first. Measured 0 at both viewports (OPUS-M3-005)."
     },
     {
       "id": "publication-open-revert-confirm",
-      "description": "User clicks 'Revert to this version…' on a superseded version.",
+      "description": "User clicks 'Revert to this version\u2026' on a superseded version.",
       "maxRequests": 0,
       "note": "A revert publishes forward and changes the live schedule, so it earns the same treatment as publication: the control opens a typed confirmation and issues nothing. Measured 0 at both viewports (OPUS-M3-005)."
     },
@@ -241,7 +241,37 @@
       "id": "publication-change-comparison",
       "description": "User changes 'Compare against' on the version-comparison screen.",
       "maxRequests": 2,
-      "note": "TWO GETs, and both are load-bearing rather than amplification: the change-level comparison and the person-level affected-staff set are separate reads by design. The affected set is what a notification fan-out would use, so \"who would be told about this?\" has to be answerable on its own rather than depending on a client having fetched the whole change list first — the same reasoning the two endpoints were split under (VersionComparisonPage's docblock). One user action, one authoritative round trip per view, no third request and no re-read of the history the page already holds. Added on review finding N1: the interaction existed with no budget entry, so no gate held the count. Measured 2 at both viewports (OPUS-M3-005)."
+      "note": "TWO GETs, and both are load-bearing rather than amplification: the change-level comparison and the person-level affected-staff set are separate reads by design. The affected set is what a notification fan-out would use, so \"who would be told about this?\" has to be answerable on its own rather than depending on a client having fetched the whole change list first \u2014 the same reasoning the two endpoints were split under (VersionComparisonPage's docblock). One user action, one authoritative round trip per view, no third request and no re-read of the history the page already holds. Added on review finding N1: the interaction existed with no budget entry, so no gate held the count. Measured 2 at both viewports (OPUS-M3-005)."
+    },
+    {
+      "id": "builds-open-new-configuration",
+      "description": "User clicks 'New configuration' to open the build-configuration form.",
+      "maxRequests": 0,
+      "note": "I-13, in the same strict form as rules-open-new-rule and schedule-open-new-period. A control labelled New must persist nothing before a completed form and an explicit Save. ZERO is the only correct number and this budget can never be raised without the invariant changing first. Measured 0 at both viewports (OPUS-M4-003)."
+    },
+    {
+      "id": "builds-open-launch-form",
+      "description": "User clicks 'Start a build' to open the launch form for a configuration.",
+      "maxRequests": 0,
+      "note": "I-13 again, and it matters more here than anywhere: a control that started a solve on click would spend a worker slot and a build_run row before the scheduler had said which candidate this is. ZERO. Measured 0 at both viewports (OPUS-M4-003)."
+    },
+    {
+      "id": "builds-launch-accepted",
+      "description": "User clicks 'Create the build' and the server accepts it.",
+      "maxRequests": 2,
+      "note": "The write, and ONE re-read from the invalidation \u2014 PO-DEC-18's server-is-the-authority rule means the list is re-read rather than patched from the response. Measured 2 at both viewports (OPUS-M4-003)."
+    },
+    {
+      "id": "builds-open-cancel-confirm",
+      "description": "User clicks 'Cancel this build' to open the confirmation panel.",
+      "maxRequests": 0,
+      "note": "The I-13 discipline applied to a destructive act rather than a creative one: opening the confirmation must not signal the worker. The cancellation is requested only by the confirm button. Measured 0 at both viewports (OPUS-M4-003)."
+    },
+    {
+      "id": "builds-retry",
+      "description": "User clicks 'Retry as a new build' on a build that failed or timed out.",
+      "maxRequests": 2,
+      "note": "I-10. The write that creates the NEW build (SPEC-04 \u00a72 forbids an in-place retry), plus ONE re-read of this build from the invalidation. Measured 2 at both viewports. It was authored as 3 on the assumption that the period-list query would also re-read; it does not \u2014 that query is not mounted on the detail route, so its invalidation marks it stale without fetching. The delta review measured 2 independently. A budget with headroom nobody measured is a budget that stops detecting amplification (FAD-45(2), D-4)."
     }
   ]
 }

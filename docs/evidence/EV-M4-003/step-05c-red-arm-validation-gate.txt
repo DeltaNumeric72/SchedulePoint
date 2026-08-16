@@ -1,0 +1,121 @@
+$ vitest run apps/api/test/builds
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-003
+
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-003/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-64920f54f77af1f861)] INFO: Completed task 1 (outbox.dispatch, 7.10ms) with success
+[worker(worker-64920f54f77af1f861)] INFO: Completed task 2 (outbox.dispatch, 2.48ms) with success
+[worker(worker-64920f54f77af1f861)] INFO: Completed task 3 (outbox.dispatch, 2.17ms) with success
+[worker(worker-64920f54f77af1f861)] INFO: Completed task 4 (outbox.dispatch, 2.25ms) with success
+[worker(worker-64920f54f77af1f861)] INFO: Completed task 5 (outbox.dispatch, 2.18ms) with success
+[worker(worker-64920f54f77af1f861)] INFO: Completed task 6 (outbox.dispatch, 2.28ms) with success
+[worker(worker-64920f54f77af1f861)] INFO: Completed task 7 (outbox.dispatch, 2.14ms) with success
+[worker(worker-64920f54f77af1f861)] INFO: Completed task 8 (outbox.dispatch, 2.26ms) with success
+[worker(worker-64920f54f77af1f861)] INFO: Completed task 9 (outbox.dispatch, 2.15ms) with success
+[worker(worker-64920f54f77af1f861)] INFO: Completed task 10 (outbox.dispatch, 2.39ms) with success
+[worker(worker-64920f54f77af1f861)] INFO: Completed task 11 (outbox.dispatch, 2.17ms) with success
+ ❯ |api| test/builds/lifecycle.test.ts (24 tests | 1 failed) 735ms
+   ✓ the legal path > walks draft_configuration → … → approved, and records every edge 48ms
+   ✓ the legal path > D-4a: a second in-flight build of one configuration is refused by the index 11ms
+   ✓ illegal transitions > the service refuses, and the database refuses the SAME edge with the service bypassed 10ms
+   ✓ illegal transitions > the database refuses to re-point a build at another configuration or snapshot 8ms
+   ✓ illegal transitions > a build run is never deleted, by any role 8ms
+   ✓ claim fencing > a stale-epoch result is REFUSED by the service and RECORDED 28ms
+   ✓ claim fencing > the DATABASE refuses a stale-epoch result row with the service bypassed entirely 18ms
+   ✓ claim fencing > a heartbeat at a fenced epoch answers false rather than throwing 17ms
+   ✓ the reaper > moves a dead-heartbeat run to failed/crashed and advances the epoch 15ms
+   ✓ the validation gate > a candidate the checker refused settles in failed/rejected, never completed 22ms
+   × the validation gate > ARM: a hard-violating candidate can NEVER reach approved, even claimed usable 24ms
+     → promise resolved "{ …(41) }" instead of rejecting
+   ✓ the validation gate > a lying verdict carrying a BREACH is refused by the result CHECK itself 18ms
+   ✓ the validation gate > MUTATION CONTROL: the identical flow WITHOUT the finding reaches approved 21ms
+   ✓ the validation gate > a run with NO recorded result is not approvable — "not checked" never reads as "clean" 15ms
+   ✓ idempotent creation (D-17) > twelve concurrent requests with one key produce exactly one row 16ms
+   ✓ idempotent creation (D-17) > the same key naming a DIFFERENT request is refused explicitly 10ms
+   ✓ the audit chain > writes a `build.*` chain entry for every transition a human takes 27ms
+   ✓ the audit chain > names a cancellation as a cancellation, not as a generic state change 13ms
+   ✓ the audit chain > does NOT write a chain entry for a reap — that is a fact about a worker 15ms
+   ✓ selection > creates a NEW draft, leaves the source untouched, and carries R-8 pick positions 37ms
+   ✓ selection > refuses when the source draft moved since the build (FAD-26(2)) 22ms
+   ✓ selection > refuses a second selection of the same build (the state has moved) 26ms
+   ✓ selection > D-4d: two builds cannot be applied to one version — the index refuses the second 28ms
+   ✓ selection > approving supersedes the period’s other completed builds 32ms
+ ✓ |api| test/builds/builds-http.test.ts (11 tests) 425ms
+ ✓ |api| test/builds/transition-matrix.test.ts (7 tests) 215ms
+ ✓ |api| test/builds/migration-0018-populated-cycle.test.ts (2 tests) 169ms
+ ✓ |api| test/builds/outcome-and-readiness.test.ts (16 tests) 20ms
+ ✓ |api| test/builds/tenant-registry.test.ts (2 tests) 19ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |api| test/builds/lifecycle.test.ts > the validation gate > ARM: a hard-violating candidate can NEVER reach approved, even claimed usable
+AssertionError: promise resolved "{ …(41) }" instead of rejecting
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- Error {[39m
+[32m-   "message": "rejected promise",[39m
+[31m+ {[39m
+[31m+   "applied_at": null,[39m
+[31m+   "applied_to_version_id": null,[39m
+[31m+   "build_configuration_id": "8c89d301-e692-449e-bfbb-6b001167e18d",[39m
+[31m+   "candidate_label": "arm",[39m
+[31m+   "canonical_input_hash": "dc621eaf66cfd122b927354c80289426890e7cd857b4bfa8f2852a61bb530d31",[39m
+[31m+   "claim_epoch": 1,[39m
+[31m+   "claimed_at": 2026-08-16T02:02:55.008Z,[39m
+[31m+   "claimed_by": "proof.worker.one",[39m
+[31m+   "compiler_version": null,[39m
+[31m+   "created_at": 2026-08-16T02:02:55.000Z,[39m
+[31m+   "deterministic_worker_count": null,[39m
+[31m+   "finished_at": 2026-08-16T02:02:55.010Z,[39m
+[31m+   "group_id": "7c0aeb32-eff2-424a-a8d4-a6f1b3922bb3",[39m
+[31m+   "heartbeat_at": 2026-08-16T02:02:55.008Z,[39m
+[31m+   "id": "fc9657fe-7be1-45e8-8d9e-11e3154eacbb",[39m
+[31m+   "idempotency_key": "gate2.05229fc1-7591-",[39m
+[31m+   "initiated_by": "e4cca4e1-7c90-42f1-9ba0-6f8a64ccba1b",[39m
+[31m+   "organization_id": "d7ac846c-61c3-4902-bb54-7245287e523e",[39m
+[31m+   "parent_build_ids": [],[39m
+[31m+   "period_id": "9abc87d9-7250-4035-bb04-0223039ccb38",[39m
+[31m+   "platform_arch": null,[39m
+[31m+   "protected_assignment_identities": [],[39m
+[31m+   "random_seed": null,[39m
+[31m+   "readiness_findings": [],[39m
+[31m+   "reproducibility_mode": null,[39m
+[31m+   "retry_attempt": 0,[39m
+[31m+   "retry_of_build_run_id": null,[39m
+[31m+   "semantic_request_digest": "b997b4fe98f0c29cef62eb66e479ca0591b5b805c5d693e532b608b14f5e5b1e",[39m
+[31m+   "snapshot_id": "158ac600-4381-49d1-9754-493f354a94b1",[39m
+[31m+   "solver_image_digest": null,[39m
+[31m+   "solver_parameters": {},[39m
+[31m+   "solver_status": "FEASIBLE",[39m
+[31m+   "solver_version": null,[39m
+[31m+   "source_version_id": "91ce82ac-abef-4f6a-92b9-795a8e4598e6",[39m
+[31m+   "started_at": 2026-08-16T02:02:55.008Z,[39m
+[31m+   "state": "approved",[39m
+[31m+   "submitted_at": null,[39m
+[31m+   "superseded_by_build_run_id": null,[39m
+[31m+   "termination_reason": "completed",[39m
+[31m+   "updated_at": 2026-08-16T02:02:55.012Z,[39m
+[31m+   "validation_findings": [],[39m
+[2m  }[22m
+
+ ❯ test/builds/lifecycle.test.ts:690:5
+    688|         approveRun(uow, scheduleActor(schedulerUserId), created.buildR…
+    689|       ),
+    690|     ).rejects.toMatchObject({
+       |     ^
+    691|       message: expect.stringContaining('BUILD_HARD_VIOLATIONS_UNRESOLV…
+    692|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  1 failed | 61 passed (62)
+   Start at  22:02:52
+   Duration  3.57s (transform 351ms, setup 204ms, collect 160ms, tests 1.58s, environment 0ms, prepare 25ms)
+
+[ELIFECYCLE] Command failed with exit code 1.
+RED-ARM EXIT=1 (must be non-zero)

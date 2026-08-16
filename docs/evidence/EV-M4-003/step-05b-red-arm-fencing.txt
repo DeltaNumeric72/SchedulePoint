@@ -1,0 +1,80 @@
+$ vitest run apps/api/test/builds
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-003
+
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-003/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-6271413698ee99a873)] INFO: Completed task 1 (outbox.dispatch, 6.90ms) with success
+[worker(worker-6271413698ee99a873)] INFO: Completed task 2 (outbox.dispatch, 2.40ms) with success
+[worker(worker-6271413698ee99a873)] INFO: Completed task 3 (outbox.dispatch, 2.14ms) with success
+[worker(worker-6271413698ee99a873)] INFO: Completed task 4 (outbox.dispatch, 2.17ms) with success
+[worker(worker-6271413698ee99a873)] INFO: Completed task 5 (outbox.dispatch, 2.16ms) with success
+[worker(worker-6271413698ee99a873)] INFO: Completed task 6 (outbox.dispatch, 2.11ms) with success
+[worker(worker-6271413698ee99a873)] INFO: Completed task 7 (outbox.dispatch, 2.05ms) with success
+[worker(worker-6271413698ee99a873)] INFO: Completed task 8 (outbox.dispatch, 2.13ms) with success
+[worker(worker-6271413698ee99a873)] INFO: Completed task 9 (outbox.dispatch, 2.07ms) with success
+[worker(worker-6271413698ee99a873)] INFO: Completed task 10 (outbox.dispatch, 2.40ms) with success
+[worker(worker-6271413698ee99a873)] INFO: Completed task 11 (outbox.dispatch, 2.16ms) with success
+ ❯ |api| test/builds/lifecycle.test.ts (24 tests | 1 failed) 742ms
+   ✓ the legal path > walks draft_configuration → … → approved, and records every edge 48ms
+   ✓ the legal path > D-4a: a second in-flight build of one configuration is refused by the index 11ms
+   ✓ illegal transitions > the service refuses, and the database refuses the SAME edge with the service bypassed 10ms
+   ✓ illegal transitions > the database refuses to re-point a build at another configuration or snapshot 8ms
+   ✓ illegal transitions > a build run is never deleted, by any role 8ms
+   ✓ claim fencing > a stale-epoch result is REFUSED by the service and RECORDED 27ms
+   × claim fencing > the DATABASE refuses a stale-epoch result row with the service bypassed entirely 20ms
+     → promise resolved "undefined" instead of rejecting
+   ✓ claim fencing > a heartbeat at a fenced epoch answers false rather than throwing 17ms
+   ✓ the reaper > moves a dead-heartbeat run to failed/crashed and advances the epoch 18ms
+   ✓ the validation gate > a candidate the checker refused settles in failed/rejected, never completed 22ms
+   ✓ the validation gate > ARM: a hard-violating candidate can NEVER reach approved, even claimed usable 23ms
+   ✓ the validation gate > a lying verdict carrying a BREACH is refused by the result CHECK itself 18ms
+   ✓ the validation gate > MUTATION CONTROL: the identical flow WITHOUT the finding reaches approved 21ms
+   ✓ the validation gate > a run with NO recorded result is not approvable — "not checked" never reads as "clean" 15ms
+   ✓ idempotent creation (D-17) > twelve concurrent requests with one key produce exactly one row 16ms
+   ✓ idempotent creation (D-17) > the same key naming a DIFFERENT request is refused explicitly 11ms
+   ✓ the audit chain > writes a `build.*` chain entry for every transition a human takes 28ms
+   ✓ the audit chain > names a cancellation as a cancellation, not as a generic state change 14ms
+   ✓ the audit chain > does NOT write a chain entry for a reap — that is a fact about a worker 15ms
+   ✓ selection > creates a NEW draft, leaves the source untouched, and carries R-8 pick positions 38ms
+   ✓ selection > refuses when the source draft moved since the build (FAD-26(2)) 22ms
+   ✓ selection > refuses a second selection of the same build (the state has moved) 28ms
+   ✓ selection > D-4d: two builds cannot be applied to one version — the index refuses the second 28ms
+   ✓ selection > approving supersedes the period’s other completed builds 32ms
+ ✓ |api| test/builds/builds-http.test.ts (11 tests) 414ms
+ ✓ |api| test/builds/transition-matrix.test.ts (7 tests) 212ms
+ ✓ |api| test/builds/migration-0018-populated-cycle.test.ts (2 tests) 169ms
+ ✓ |api| test/builds/outcome-and-readiness.test.ts (16 tests) 19ms
+ ✓ |api| test/builds/tenant-registry.test.ts (2 tests) 19ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |api| test/builds/lifecycle.test.ts > claim fencing > the DATABASE refuses a stale-epoch result row with the service bypassed entirely
+AssertionError: promise resolved "undefined" instead of rejecting
+
+[32m- Expected:[39m 
+Error {
+  "message": "rejected promise",
+}
+
+[31m+ Received:[39m 
+undefined
+
+ ❯ test/builds/lifecycle.test.ts:545:5
+    543|                           'a result from a claim that has been superse…
+    544|       }),
+    545|     ).rejects.toMatchObject({ message: expect.stringContaining('BUILD_…
+       |     ^
+    546|   }, 180_000);
+    547| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  1 failed | 61 passed (62)
+   Start at  22:02:42
+   Duration  3.61s (transform 429ms, setup 204ms, collect 161ms, tests 1.58s, environment 0ms, prepare 25ms)
+
+[ELIFECYCLE] Command failed with exit code 1.
+RED-ARM EXIT=1 (must be non-zero)

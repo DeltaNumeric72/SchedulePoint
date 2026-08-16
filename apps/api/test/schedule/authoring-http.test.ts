@@ -729,3 +729,27 @@ describe('eligibility absent-vs-empty (the ruling this packet owns)', () => {
     }
   });
 });
+
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * FAD-44(1) — the `origin` parameter, from the MANUAL side
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+describe('assignment origin (FAD-44(1))', () => {
+  it('the manual authoring path still writes `manual`, with no caller change', async () => {
+    /* The default is what makes the grant byte-compatible: every existing caller
+     * omits the parameter and every existing row keeps its meaning. If this ever
+     * went the other way, the production mechanism and a human override would
+     * become indistinguishable in the data — the conflation rule 7 exists to
+     * prevent. Asserted from the HTTP surface, because that is the caller that
+     * did not change. */
+    const rows = await admin.query<{ origin: string }>(
+      `SELECT s.origin FROM assignment_snapshots s
+         JOIN schedule_versions v ON v.id = s.version_id
+        WHERE v.organization_id = $1 AND s.origin <> 'clone'`,
+      [multi().alpha.organizationId],
+    );
+    expect(rows.rows.length).toBeGreaterThan(0);
+    expect(rows.rows.every((row) => row.origin === 'manual')).toBe(true);
+  });
+});

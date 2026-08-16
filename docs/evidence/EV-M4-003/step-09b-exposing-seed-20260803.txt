@@ -1,0 +1,29 @@
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-003
+      Running tests with seed "20260803"
+
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-003/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-90d334ad41ad931dda)] INFO: Completed task 1 (outbox.dispatch, 7.07ms) with success
+[worker(worker-90d334ad41ad931dda)] INFO: Completed task 2 (outbox.dispatch, 2.41ms) with success
+[worker(worker-90d334ad41ad931dda)] INFO: Completed task 3 (outbox.dispatch, 2.13ms) with success
+[worker(worker-90d334ad41ad931dda)] INFO: Completed task 4 (outbox.dispatch, 2.11ms) with success
+[worker(worker-90d334ad41ad931dda)] INFO: Completed task 5 (outbox.dispatch, 2.27ms) with success
+[worker(worker-90d334ad41ad931dda)] INFO: Completed task 6 (outbox.dispatch, 2.18ms) with success
+[worker(worker-90d334ad41ad931dda)] INFO: Completed task 7 (outbox.dispatch, 2.11ms) with success
+[worker(worker-90d334ad41ad931dda)] INFO: Completed task 8 (outbox.dispatch, 2.11ms) with success
+[worker(worker-90d334ad41ad931dda)] INFO: Completed task 9 (outbox.dispatch, 2.10ms) with success
+[worker(worker-90d334ad41ad931dda)] INFO: Completed task 10 (outbox.dispatch, 2.30ms) with success
+[worker(worker-90d334ad41ad931dda)] INFO: Completed task 11 (outbox.dispatch, 2.32ms) with success
+ ✓ |api| test/builds/lifecycle.test.ts (21 tests) 643ms
+ ✓ |api| test/builds/tenant-registry.test.ts (2 tests) 20ms
+ ✓ |api| test/builds/outcome-and-readiness.test.ts (16 tests) 20ms
+ ✓ |api| test/builds/migration-0018-populated-cycle.test.ts (2 tests) 189ms
+ ✓ |api| test/builds/transition-matrix.test.ts (7 tests) 218ms
+ ✓ |api| test/builds/builds-http.test.ts (11 tests) 394ms
+
+ Test Files  6 passed (6)
+      Tests  59 passed (59)
+   Start at  20:44:38
+   Duration  3.55s (transform 437ms, setup 212ms, collect 160ms, tests 1.49s, environment 0ms, prepare 26ms)
+

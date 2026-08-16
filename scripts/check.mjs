@@ -127,6 +127,14 @@ const GATES = [
     args: ['run', 'gate:solver-kind-parity'],
   },
   { id: 'secret-scan', title: 'secret scan', command: 'pnpm', args: ['run', 'gate:secret-scan'] },
+  /* FAD-45(1). Beside the secret scan because it is the same shape of control:
+   * a byte-level property of the tracked tree that no reviewer can see by eye. */
+  {
+    id: 'raw-nul',
+    title: 'raw U+0000 scan (FAD-45(1))',
+    command: 'pnpm',
+    args: ['run', 'gate:raw-nul'],
+  },
   {
     id: 'build',
     title: 'production build (vite build)',

@@ -1,0 +1,30 @@
+$ vitest run apps/api/test/builds
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-003
+
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-003/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-a8cbfc1917591a9082)] INFO: Completed task 1 (outbox.dispatch, 7.23ms) with success
+[worker(worker-a8cbfc1917591a9082)] INFO: Completed task 2 (outbox.dispatch, 2.39ms) with success
+[worker(worker-a8cbfc1917591a9082)] INFO: Completed task 3 (outbox.dispatch, 2.19ms) with success
+[worker(worker-a8cbfc1917591a9082)] INFO: Completed task 4 (outbox.dispatch, 2.18ms) with success
+[worker(worker-a8cbfc1917591a9082)] INFO: Completed task 5 (outbox.dispatch, 2.27ms) with success
+[worker(worker-a8cbfc1917591a9082)] INFO: Completed task 6 (outbox.dispatch, 2.08ms) with success
+[worker(worker-a8cbfc1917591a9082)] INFO: Completed task 7 (outbox.dispatch, 2.08ms) with success
+[worker(worker-a8cbfc1917591a9082)] INFO: Completed task 8 (outbox.dispatch, 2.20ms) with success
+[worker(worker-a8cbfc1917591a9082)] INFO: Completed task 9 (outbox.dispatch, 2.10ms) with success
+[worker(worker-a8cbfc1917591a9082)] INFO: Completed task 10 (outbox.dispatch, 2.35ms) with success
+[worker(worker-a8cbfc1917591a9082)] INFO: Completed task 11 (outbox.dispatch, 2.11ms) with success
+ ✓ |api| test/builds/lifecycle.test.ts (21 tests) 676ms
+ ✓ |api| test/builds/builds-http.test.ts (11 tests) 440ms
+ ✓ |api| test/builds/transition-matrix.test.ts (7 tests) 218ms
+ ✓ |api| test/builds/migration-0018-populated-cycle.test.ts (2 tests) 168ms
+ ✓ |api| test/builds/outcome-and-readiness.test.ts (16 tests) 21ms
+ ✓ |api| test/builds/tenant-registry.test.ts (2 tests) 23ms
+
+ Test Files  6 passed (6)
+      Tests  59 passed (59)
+   Start at  21:46:30
+   Duration  3.83s (transform 560ms, setup 212ms, collect 207ms, tests 1.55s, environment 0ms, prepare 34ms)
+
+BUILDS-SUITE EXIT=0

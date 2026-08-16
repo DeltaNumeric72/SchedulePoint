@@ -17,6 +17,9 @@ import {
   PasswordResetRequestPage,
   SignInPage,
 } from './authn/pages.js';
+import { BuildComparisonPage } from './builds/BuildComparisonPage.js';
+import { BuildDetailPage } from './builds/BuildDetailPage.js';
+import { BuildsPage } from './builds/BuildsPage.js';
 import { DailySheetPage } from './my-schedule/DailySheetPage.js';
 import { MySchedulePage } from './my-schedule/MySchedulePage.js';
 import { RulesPage } from './rules/RulesPage.js';
@@ -285,6 +288,43 @@ const dailySheetRoute = createRoute({
   component: DailySheetPage,
 });
 
+/**
+ * The build routes (OPUS-M4-003).
+ *
+ * A SIBLING tree rather than a child of `schedule`, for the reason publication
+ * is one: building is a different act from manual authoring, performed under a
+ * different capability, and nesting it would make `aria-current` say the user is
+ * in the authoring section while they are running the production mechanism
+ * (I-05). The segments mirror the API's `/organizations/:o/groups/:g/builds/…`
+ * shape, so the client route tree and the server's policy-checked route table
+ * can be reconciled against each other rather than compared by eye.
+ *
+ * Each child is declared on its own line rather than mapped: `.map()` produces
+ * `Route[]` and TanStack Router derives the typed `to` union from the TUPLE of
+ * children, so a mapped tree type-checks while every build link becomes a type
+ * error at its call site.
+ */
+const buildsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/organizations/$organizationId/groups/$groupId/builds',
+  component: RootLayout,
+});
+const buildsPeriodRoute = createRoute({
+  getParentRoute: () => buildsRoute,
+  path: 'periods/$periodId',
+  component: BuildsPage,
+});
+const buildRunRoute = createRoute({
+  getParentRoute: () => buildsRoute,
+  path: 'runs/$buildRunId',
+  component: BuildDetailPage,
+});
+const buildComparisonRoute = createRoute({
+  getParentRoute: () => buildsRoute,
+  path: 'comparison',
+  component: BuildComparisonPage,
+});
+
 const routeTree = rootRoute.addChildren([
   myScheduleRoute,
   dailySheetRoute,
@@ -305,6 +345,7 @@ const routeTree = rootRoute.addChildren([
   ]),
   settingsRoute.addChildren([settingsGroupRoute, settingsLocationsRoute]),
   scheduleRoute.addChildren([schedulePeriodsRoute, scheduleVersionRoute]),
+  buildsRoute.addChildren([buildsPeriodRoute, buildRunRoute, buildComparisonRoute]),
   publicationRoute.addChildren([
     publishedScheduleRoute,
     versionHistoryRoute,

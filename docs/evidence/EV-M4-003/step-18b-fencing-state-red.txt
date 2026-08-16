@@ -1,0 +1,85 @@
+$ vitest run apps/api/test/builds
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-003
+
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-003/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-f06ff5101c88def33f)] INFO: Completed task 1 (outbox.dispatch, 7.23ms) with success
+[worker(worker-f06ff5101c88def33f)] INFO: Completed task 2 (outbox.dispatch, 2.38ms) with success
+[worker(worker-f06ff5101c88def33f)] INFO: Completed task 3 (outbox.dispatch, 2.13ms) with success
+[worker(worker-f06ff5101c88def33f)] INFO: Completed task 4 (outbox.dispatch, 2.21ms) with success
+[worker(worker-f06ff5101c88def33f)] INFO: Completed task 5 (outbox.dispatch, 2.37ms) with success
+[worker(worker-f06ff5101c88def33f)] INFO: Completed task 6 (outbox.dispatch, 2.28ms) with success
+[worker(worker-f06ff5101c88def33f)] INFO: Completed task 7 (outbox.dispatch, 2.10ms) with success
+[worker(worker-f06ff5101c88def33f)] INFO: Completed task 8 (outbox.dispatch, 2.22ms) with success
+[worker(worker-f06ff5101c88def33f)] INFO: Completed task 9 (outbox.dispatch, 2.12ms) with success
+[worker(worker-f06ff5101c88def33f)] INFO: Completed task 10 (outbox.dispatch, 2.32ms) with success
+[worker(worker-f06ff5101c88def33f)] INFO: Completed task 11 (outbox.dispatch, 2.20ms) with success
+ ❯ |api| test/builds/lifecycle.test.ts (29 tests | 1 failed) 806ms
+   ✓ the legal path > walks draft_configuration → … → approved, and records every edge 48ms
+   ✓ the legal path > D-4a: a second in-flight build of one configuration is refused by the index 12ms
+   ✓ illegal transitions > the service refuses, and the database refuses the SAME edge with the service bypassed 10ms
+   ✓ illegal transitions > the database refuses to re-point a build at another configuration or snapshot 8ms
+   ✓ illegal transitions > a build run is never deleted, by any role 8ms
+   ✓ claim fencing > a stale-epoch result is REFUSED by the service and RECORDED 28ms
+   ✓ claim fencing > the DATABASE refuses a stale-epoch result row with the service bypassed entirely 17ms
+   ✓ claim fencing > a heartbeat at a fenced epoch answers false rather than throwing 14ms
+   × the database controls, driven directly > R-3a: the SETTLED-RUN clause refuses an injection at the CURRENT epoch 18ms
+     → promise resolved "undefined" instead of rejecting
+   ✓ the database controls, driven directly > R-3b: the result tables are APPEND-ONLY — no UPDATE, no DELETE, any role 15ms
+   ✓ the database controls, driven directly > R-3c: BUILD_CLAIM_EPOCH_REGRESSED — the epoch moves forward only 14ms
+   ✓ the database controls, driven directly > R-3d: BUILD_IDENTITY_FROZEN — reached as the OWNER, past the grants 15ms
+   ✓ the database controls, driven directly > R-3e: a build run is never DELETED, as the OWNER 13ms
+   ✓ the reaper > moves a dead-heartbeat run to failed/crashed and advances the epoch 15ms
+   ✓ the validation gate > a candidate the checker refused settles in failed/rejected, never completed 18ms
+   ✓ the validation gate > ARM: a hard-violating candidate can NEVER reach approved, even claimed usable 23ms
+   ✓ the validation gate > a lying verdict carrying a BREACH is refused by the result CHECK itself 18ms
+   ✓ the validation gate > MUTATION CONTROL: the identical flow WITHOUT the finding reaches approved 20ms
+   ✓ the validation gate > a run with NO recorded result is not approvable — "not checked" never reads as "clean" 13ms
+   ✓ idempotent creation (D-17) > twelve concurrent requests with one key produce exactly one row 17ms
+   ✓ idempotent creation (D-17) > the same key naming a DIFFERENT request is refused explicitly 11ms
+   ✓ the audit chain > writes a `build.*` chain entry for every transition a human takes 27ms
+   ✓ the audit chain > names a cancellation as a cancellation, not as a generic state change 13ms
+   ✓ the audit chain > does NOT write a chain entry for a reap — that is a fact about a worker 15ms
+   ✓ selection > creates a NEW draft, leaves the source untouched, and carries R-8 pick positions 38ms
+   ✓ selection > refuses when the source draft moved since the build (FAD-26(2)) 24ms
+   ✓ selection > refuses a second selection of the same build (the state has moved) 27ms
+   ✓ selection > D-4d: two builds cannot be applied to one version — the index refuses the second 27ms
+   ✓ selection > approving supersedes the period’s other completed builds 31ms
+ ✓ |api| test/builds/builds-http.test.ts (11 tests) 421ms
+ ✓ |api| test/builds/transition-matrix.test.ts (7 tests) 212ms
+ ✓ |api| test/builds/migration-0018-populated-cycle.test.ts (2 tests) 172ms
+ ✓ |api| test/builds/outcome-and-readiness.test.ts (16 tests) 20ms
+ ✓ |api| test/builds/tenant-registry.test.ts (2 tests) 19ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |api| test/builds/lifecycle.test.ts > the database controls, driven directly > R-3a: the SETTLED-RUN clause refuses an injection at the CURRENT epoch
+AssertionError: promise resolved "undefined" instead of rejecting
+
+[32m- Expected:[39m 
+Error {
+  "message": "rejected promise",
+}
+
+[31m+ Received:[39m 
+undefined
+
+ ❯ test/builds/lifecycle.test.ts:659:5
+    657|     await expect(
+    658|       insertViolation(seeded, buildRunId, epoch, 'proof.injected.after…
+    659|     ).rejects.toMatchObject({
+       |     ^
+    660|       message: expect.stringContaining('BUILD_RESULT_NOT_RUNNING'),
+    661|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  1 failed | 66 passed (67)
+   Start at  01:34:46
+   Duration  3.75s (transform 438ms, setup 215ms, collect 162ms, tests 1.65s, environment 0ms, prepare 25ms)
+
+[ELIFECYCLE] Command failed with exit code 1.
+RED-ARM EXIT=1 (must be non-zero)

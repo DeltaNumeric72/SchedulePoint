@@ -1,0 +1,456 @@
+$ vitest run apps/api/test/builds
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-003
+
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-003/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-4711425261806b2632)] INFO: Completed task 1 (outbox.dispatch, 7.06ms) with success
+[worker(worker-4711425261806b2632)] INFO: Completed task 2 (outbox.dispatch, 2.51ms) with success
+[worker(worker-4711425261806b2632)] INFO: Completed task 3 (outbox.dispatch, 2.24ms) with success
+[worker(worker-4711425261806b2632)] INFO: Completed task 4 (outbox.dispatch, 2.21ms) with success
+[worker(worker-4711425261806b2632)] INFO: Completed task 5 (outbox.dispatch, 2.52ms) with success
+[worker(worker-4711425261806b2632)] INFO: Completed task 6 (outbox.dispatch, 2.24ms) with success
+[worker(worker-4711425261806b2632)] INFO: Completed task 7 (outbox.dispatch, 2.19ms) with success
+[worker(worker-4711425261806b2632)] INFO: Completed task 8 (outbox.dispatch, 2.49ms) with success
+[worker(worker-4711425261806b2632)] INFO: Completed task 9 (outbox.dispatch, 2.19ms) with success
+[worker(worker-4711425261806b2632)] INFO: Completed task 10 (outbox.dispatch, 2.25ms) with success
+[worker(worker-4711425261806b2632)] INFO: Completed task 11 (outbox.dispatch, 2.31ms) with success
+ ❯ |api| test/builds/lifecycle.test.ts (24 tests | 1 failed) 744ms
+   ✓ the legal path > walks draft_configuration → … → approved, and records every edge 49ms
+   ✓ the legal path > D-4a: a second in-flight build of one configuration is refused by the index 12ms
+   × illegal transitions > the service refuses, and the database refuses the SAME edge with the service bypassed 12ms
+     → expected error: BUILD_RESULT_MISSING: a build run … { …(15) } to match object { message: StringContaining{…} }
+(18 matching properties omitted from actual)
+   ✓ illegal transitions > the database refuses to re-point a build at another configuration or snapshot 8ms
+   ✓ illegal transitions > a build run is never deleted, by any role 8ms
+   ✓ claim fencing > a stale-epoch result is REFUSED by the service and RECORDED 28ms
+   ✓ claim fencing > the DATABASE refuses a stale-epoch result row with the service bypassed entirely 19ms
+   ✓ claim fencing > a heartbeat at a fenced epoch answers false rather than throwing 18ms
+   ✓ the reaper > moves a dead-heartbeat run to failed/crashed and advances the epoch 20ms
+   ✓ the validation gate > a candidate the checker refused settles in failed/rejected, never completed 20ms
+   ✓ the validation gate > ARM: a hard-violating candidate can NEVER reach approved, even claimed usable 22ms
+   ✓ the validation gate > a lying verdict carrying a BREACH is refused by the result CHECK itself 18ms
+   ✓ the validation gate > MUTATION CONTROL: the identical flow WITHOUT the finding reaches approved 21ms
+   ✓ the validation gate > a run with NO recorded result is not approvable — "not checked" never reads as "clean" 14ms
+   ✓ idempotent creation (D-17) > twelve concurrent requests with one key produce exactly one row 17ms
+   ✓ idempotent creation (D-17) > the same key naming a DIFFERENT request is refused explicitly 11ms
+   ✓ the audit chain > writes a `build.*` chain entry for every transition a human takes 27ms
+   ✓ the audit chain > names a cancellation as a cancellation, not as a generic state change 14ms
+   ✓ the audit chain > does NOT write a chain entry for a reap — that is a fact about a worker 15ms
+   ✓ selection > creates a NEW draft, leaves the source untouched, and carries R-8 pick positions 38ms
+   ✓ selection > refuses when the source draft moved since the build (FAD-26(2)) 22ms
+   ✓ selection > refuses a second selection of the same build (the state has moved) 28ms
+   ✓ selection > D-4d: two builds cannot be applied to one version — the index refuses the second 30ms
+   ✓ selection > approving supersedes the period’s other completed builds 33ms
+ ✓ |api| test/builds/builds-http.test.ts (11 tests) 430ms
+ ❯ |api| test/builds/transition-matrix.test.ts (7 tests | 4 failed) 186ms
+   ✓ the sixteen states > names exactly the sixteen report 21 §4 governs, in its order 0ms
+   ✓ the sixteen states > keeps `infeasible` and `failed` apart — neither reaches the other 0ms
+   ✓ the sixteen states > has no in-place retry edge — SPEC-04 §2 makes a retry a NEW run 0ms
+   × the transition matrix agrees at both layers > all 256 ordered pairs: the service table and the database function agree 83ms
+     → the two spellings of the transition rule have drifted: expected [ …(222) ] to deeply equal []
+   × the transition matrix agrees at both layers > refuses every self-edge — a state does not transition to itself 1ms
+     → expected true to be false // Object.is equality
+   × the transition matrix agrees at both layers > `archived` is absorbing at both layers 1ms
+     → expected true to be false // Object.is equality
+   × the transition matrix agrees at both layers > refuses a state name that is not one of the sixteen 0ms
+     → expected true to be false // Object.is equality
+ ❯ |api| test/builds/migration-0018-populated-cycle.test.ts (2 tests | 1 failed) 169ms
+   ✓ migration 0018 over a populated database > up → down → up, resolved and asserted BY NAME 56ms
+   × migration 0018 over a populated database > MUTATION CONTROL: the transition guard is enforcing again after the cycle 4ms
+     → expected error: BUILD_RESULT_MISSING: a build run … { …(15) } to match object { message: StringContaining{…} }
+(18 matching properties omitted from actual)
+ ✓ |api| test/builds/outcome-and-readiness.test.ts (16 tests) 20ms
+ ✓ |api| test/builds/tenant-registry.test.ts (2 tests) 19ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |api| test/builds/lifecycle.test.ts > illegal transitions > the service refuses, and the database refuses the SAME edge with the service bypassed
+AssertionError: expected error: BUILD_RESULT_MISSING: a build run … { …(15) } to match object { message: StringContaining{…} }
+(18 matching properties omitted from actual)
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- {[39m
+[32m-   "message": StringContaining "BUILD_TRANSITION_ILLEGAL",[39m
+[31m+ error {[39m
+[31m+   "message": "BUILD_RESULT_MISSING: a build run without an independently checked result is not approvable",[39m
+[31m+   "length": 223,[39m
+[31m+   "name": "error",[39m
+[31m+   "severity": "ERROR",[39m
+[31m+   "code": "23001",[39m
+[31m+   "detail": undefined,[39m
+[31m+   "hint": undefined,[39m
+[31m+   "position": undefined,[39m
+[31m+   "internalPosition": undefined,[39m
+[31m+   "internalQuery": undefined,[39m
+[31m+   "where": "PL/pgSQL function app_guard_build_run_transition() line 111 at RAISE",[39m
+[31m+   "schema": undefined,[39m
+[31m+   "table": undefined,[39m
+[31m+   "column": undefined,[39m
+[31m+   "dataType": undefined,[39m
+[31m+   "constraint": undefined,[39m
+[31m+   "file": "pl_exec.c",[39m
+[31m+   "line": "3911",[39m
+[31m+   "routine": "exec_stmt_raise",[39m
+[2m  }[22m
+
+ ❯ test/builds/lifecycle.test.ts:368:5
+    366| 
+    367|     /* Layer 2 — raw SQL as `app_runtime`, no service code in the path…
+    368|     await expect(
+       |     ^
+    369|       run(
+    370|         seeded.context,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  |api| test/builds/migration-0018-populated-cycle.test.ts > migration 0018 over a populated database > MUTATION CONTROL: the transition guard is enforcing again after the cycle
+AssertionError: expected error: BUILD_RESULT_MISSING: a build run … { …(15) } to match object { message: StringContaining{…} }
+(18 matching properties omitted from actual)
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- {[39m
+[32m-   "message": StringContaining "BUILD_TRANSITION_ILLEGAL",[39m
+[31m+ error {[39m
+[31m+   "message": "BUILD_RESULT_MISSING: a build run without an independently checked result is not approvable",[39m
+[31m+   "length": 223,[39m
+[31m+   "name": "error",[39m
+[31m+   "severity": "ERROR",[39m
+[31m+   "code": "23001",[39m
+[31m+   "detail": undefined,[39m
+[31m+   "hint": undefined,[39m
+[31m+   "position": undefined,[39m
+[31m+   "internalPosition": undefined,[39m
+[31m+   "internalQuery": undefined,[39m
+[31m+   "where": "PL/pgSQL function app_guard_build_run_transition() line 111 at RAISE",[39m
+[31m+   "schema": undefined,[39m
+[31m+   "table": undefined,[39m
+[31m+   "column": undefined,[39m
+[31m+   "dataType": undefined,[39m
+[31m+   "constraint": undefined,[39m
+[31m+   "file": "pl_exec.c",[39m
+[31m+   "line": "3911",[39m
+[31m+   "routine": "exec_stmt_raise",[39m
+[2m  }[22m
+
+ ❯ test/builds/migration-0018-populated-cycle.test.ts:192:5
+    190|     const buildRunId = await createOne('mutation-control');
+    191| 
+    192|     await expect(
+       |     ^
+    193|       run(
+    194|         async ({ query }) =>
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  |api| test/builds/transition-matrix.test.ts > the transition matrix agrees at both layers > all 256 ordered pairs: the service table and the database function agree
+AssertionError: the two spellings of the transition rule have drifted: expected [ …(222) ] to deeply equal []
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [][39m
+[31m+ [[39m
+[31m+   "draft_configuration -> draft_configuration: service says false, database says true",[39m
+[31m+   "draft_configuration -> readiness_check: service says false, database says true",[39m
+[31m+   "draft_configuration -> queued: service says false, database says true",[39m
+[31m+   "draft_configuration -> running: service says false, database says true",[39m
+[31m+   "draft_configuration -> completed: service says false, database says true",[39m
+[31m+   "draft_configuration -> completed_with_unmet_preferences: service says false, database says true",[39m
+[31m+   "draft_configuration -> infeasible: service says false, database says true",[39m
+[31m+   "draft_configuration -> failed: service says false, database says true",[39m
+[31m+   "draft_configuration -> cancelled: service says false, database says true",[39m
+[31m+   "draft_configuration -> reviewed: service says false, database says true",[39m
+[31m+   "draft_configuration -> progressively_extended: service says false, database says true",[39m
+[31m+   "draft_configuration -> approved: service says false, database says true",[39m
+[31m+   "draft_configuration -> applied_to_draft_schedule: service says false, database says true",[39m
+[31m+   "draft_configuration -> superseded: service says false, database says true",[39m
+[31m+   "draft_configuration -> archived: service says false, database says true",[39m
+[31m+   "validating -> validating: service says false, database says true",[39m
+[31m+   "validating -> queued: service says false, database says true",[39m
+[31m+   "validating -> running: service says false, database says true",[39m
+[31m+   "validating -> completed: service says false, database says true",[39m
+[31m+   "validating -> completed_with_unmet_preferences: service says false, database says true",[39m
+[31m+   "validating -> infeasible: service says false, database says true",[39m
+[31m+   "validating -> failed: service says false, database says true",[39m
+[31m+   "validating -> cancelled: service says false, database says true",[39m
+[31m+   "validating -> reviewed: service says false, database says true",[39m
+[31m+   "validating -> progressively_extended: service says false, database says true",[39m
+[31m+   "validating -> approved: service says false, database says true",[39m
+[31m+   "validating -> applied_to_draft_schedule: service says false, database says true",[39m
+[31m+   "validating -> superseded: service says false, database says true",[39m
+[31m+   "validating -> archived: service says false, database says true",[39m
+[31m+   "readiness_check -> validating: service says false, database says true",[39m
+[31m+   "readiness_check -> readiness_check: service says false, database says true",[39m
+[31m+   "readiness_check -> running: service says false, database says true",[39m
+[31m+   "readiness_check -> completed: service says false, database says true",[39m
+[31m+   "readiness_check -> completed_with_unmet_preferences: service says false, database says true",[39m
+[31m+   "readiness_check -> infeasible: service says false, database says true",[39m
+[31m+   "readiness_check -> failed: service says false, database says true",[39m
+[31m+   "readiness_check -> cancelled: service says false, database says true",[39m
+[31m+   "readiness_check -> reviewed: service says false, database says true",[39m
+[31m+   "readiness_check -> progressively_extended: service says false, database says true",[39m
+[31m+   "readiness_check -> approved: service says false, database says true",[39m
+[31m+   "readiness_check -> applied_to_draft_schedule: service says false, database says true",[39m
+[31m+   "readiness_check -> superseded: service says false, database says true",[39m
+[31m+   "readiness_check -> archived: service says false, database says true",[39m
+[31m+   "queued -> draft_configuration: service says false, database says true",[39m
+[31m+   "queued -> validating: service says false, database says true",[39m
+[31m+   "queued -> readiness_check: service says false, database says true",[39m
+[31m+   "queued -> queued: service says false, database says true",[39m
+[31m+   "queued -> completed: service says false, database says true",[39m
+[31m+   "queued -> completed_with_unmet_preferences: service says false, database says true",[39m
+[31m+   "queued -> infeasible: service says false, database says true",[39m
+[31m+   "queued -> failed: service says false, database says true",[39m
+[31m+   "queued -> reviewed: service says false, database says true",[39m
+[31m+   "queued -> progressively_extended: service says false, database says true",[39m
+[31m+   "queued -> approved: service says false, database says true",[39m
+[31m+   "queued -> applied_to_draft_schedule: service says false, database says true",[39m
+[31m+   "queued -> superseded: service says false, database says true",[39m
+[31m+   "queued -> archived: service says false, database says true",[39m
+[31m+   "running -> draft_configuration: service says false, database says true",[39m
+[31m+   "running -> validating: service says false, database says true",[39m
+[31m+   "running -> readiness_check: service says false, database says true",[39m
+[31m+   "running -> queued: service says false, database says true",[39m
+[31m+   "running -> running: service says false, database says true",[39m
+[31m+   "running -> reviewed: service says false, database says true",[39m
+[31m+   "running -> progressively_extended: service says false, database says true",[39m
+[31m+   "running -> approved: service says false, database says true",[39m
+[31m+   "running -> applied_to_draft_schedule: service says false, database says true",[39m
+[31m+   "running -> superseded: service says false, database says true",[39m
+[31m+   "running -> archived: service says false, database says true",[39m
+[31m+   "completed -> draft_configuration: service says false, database says true",[39m
+[31m+   "completed -> validating: service says false, database says true",[39m
+[31m+   "completed -> readiness_check: service says false, database says true",[39m
+[31m+   "completed -> queued: service says false, database says true",[39m
+[31m+   "completed -> running: service says false, database says true",[39m
+[31m+   "completed -> completed: service says false, database says true",[39m
+[31m+   "completed -> completed_with_unmet_preferences: service says false, database says true",[39m
+[31m+   "completed -> infeasible: service says false, database says true",[39m
+[31m+   "completed -> failed: service says false, database says true",[39m
+[31m+   "completed -> cancelled: service says false, database says true",[39m
+[31m+   "completed -> progressively_extended: service says false, database says true",[39m
+[31m+   "completed -> approved: service says false, database says true",[39m
+[31m+   "completed -> applied_to_draft_schedule: service says false, database says true",[39m
+[31m+   "completed_with_unmet_preferences -> draft_configuration: service says false, database says true",[39m
+[31m+   "completed_with_unmet_preferences -> validating: service says false, database says true",[39m
+[31m+   "completed_with_unmet_preferences -> readiness_check: service says false, database says true",[39m
+[31m+   "completed_with_unmet_preferences -> queued: service says false, database says true",[39m
+[31m+   "completed_with_unmet_preferences -> running: service says false, database says true",[39m
+[31m+   "completed_with_unmet_preferences -> completed: service says false, database says true",[39m
+[31m+   "completed_with_unmet_preferences -> completed_with_unmet_preferences: service says false, database says true",[39m
+[31m+   "completed_with_unmet_preferences -> infeasible: service says false, database says true",[39m
+[31m+   "completed_with_unmet_preferences -> failed: service says false, database says true",[39m
+[31m+   "completed_with_unmet_preferences -> cancelled: service says false, database says true",[39m
+[31m+   "completed_with_unmet_preferences -> progressively_extended: service says false, database says true",[39m
+[31m+   "completed_with_unmet_preferences -> approved: service says false, database says true",[39m
+[31m+   "completed_with_unmet_preferences -> applied_to_draft_schedule: service says false, database says true",[39m
+[31m+   "infeasible -> draft_configuration: service says false, database says true",[39m
+[31m+   "infeasible -> validating: service says false, database says true",[39m
+[31m+   "infeasible -> readiness_check: service says false, database says true",[39m
+[31m+   "infeasible -> queued: service says false, database says true",[39m
+[31m+   "infeasible -> running: service says false, database says true",[39m
+[31m+   "infeasible -> completed: service says false, database says true",[39m
+[31m+   "infeasible -> completed_with_unmet_preferences: service says false, database says true",[39m
+[31m+   "infeasible -> infeasible: service says false, database says true",[39m
+[31m+   "infeasible -> failed: service says false, database says true",[39m
+[31m+   "infeasible -> cancelled: service says false, database says true",[39m
+[31m+   "infeasible -> reviewed: service says false, database says true",[39m
+[31m+   "infeasible -> progressively_extended: service says false, database says true",[39m
+[31m+   "infeasible -> approved: service says false, database says true",[39m
+[31m+   "infeasible -> applied_to_draft_schedule: service says false, database says true",[39m
+[31m+   "infeasible -> superseded: service says false, database says true",[39m
+[31m+   "failed -> draft_configuration: service says false, database says true",[39m
+[31m+   "failed -> validating: service says false, database says true",[39m
+[31m+   "failed -> readiness_check: service says false, database says true",[39m
+[31m+   "failed -> queued: service says false, database says true",[39m
+[31m+   "failed -> running: service says false, database says true",[39m
+[31m+   "failed -> completed: service says false, database says true",[39m
+[31m+   "failed -> completed_with_unmet_preferences: service says false, database says true",[39m
+[31m+   "failed -> infeasible: service says false, database says true",[39m
+[31m+   "failed -> failed: service says false, database says true",[39m
+[31m+   "failed -> cancelled: service says false, database says true",[39m
+[31m+   "failed -> reviewed: service says false, database says true",[39m
+[31m+   "failed -> progressively_extended: service says false, database says true",[39m
+[31m+   "failed -> approved: service says false, database says true",[39m
+[31m+   "failed -> applied_to_draft_schedule: service says false, database says true",[39m
+[31m+   "failed -> superseded: service says false, database says true",[39m
+[31m+   "cancelled -> draft_configuration: service says false, database says true",[39m
+[31m+   "cancelled -> validating: service says false, database says true",[39m
+[31m+   "cancelled -> readiness_check: service says false, database says true",[39m
+[31m+   "cancelled -> queued: service says false, database says true",[39m
+[31m+   "cancelled -> running: service says false, database says true",[39m
+[31m+   "cancelled -> completed: service says false, database says true",[39m
+[31m+   "cancelled -> completed_with_unmet_preferences: service says false, database says true",[39m
+[31m+   "cancelled -> infeasible: service says false, database says true",[39m
+[31m+   "cancelled -> failed: service says false, database says true",[39m
+[31m+   "cancelled -> cancelled: service says false, database says true",[39m
+[31m+   "cancelled -> reviewed: service says false, database says true",[39m
+[31m+   "cancelled -> progressively_extended: service says false, database says true",[39m
+[31m+   "cancelled -> approved: service says false, database says true",[39m
+[31m+   "cancelled -> applied_to_draft_schedule: service says false, database says true",[39m
+[31m+   "cancelled -> superseded: service says false, database says true",[39m
+[31m+   "reviewed -> draft_configuration: service says false, database says true",[39m
+[31m+   "reviewed -> validating: service says false, database says true",[39m
+[31m+   "reviewed -> readiness_check: service says false, database says true",[39m
+[31m+   "reviewed -> queued: service says false, database says true",[39m
+[31m+   "reviewed -> running: service says false, database says true",[39m
+[31m+   "reviewed -> completed: service says false, database says true",[39m
+[31m+   "reviewed -> completed_with_unmet_preferences: service says false, database says true",[39m
+[31m+   "reviewed -> infeasible: service says false, database says true",[39m
+[31m+   "reviewed -> failed: service says false, database says true",[39m
+[31m+   "reviewed -> cancelled: service says false, database says true",[39m
+[31m+   "reviewed -> reviewed: service says false, database says true",[39m
+[31m+   "reviewed -> applied_to_draft_schedule: service says false, database says true",[39m
+[31m+   "progressively_extended -> draft_configuration: service says false, database says true",[39m
+[31m+   "progressively_extended -> validating: service says false, database says true",[39m
+[31m+   "progressively_extended -> readiness_check: service says false, database says true",[39m
+[31m+   "progressively_extended -> queued: service says false, database says true",[39m
+[31m+   "progressively_extended -> running: service says false, database says true",[39m
+[31m+   "progressively_extended -> completed: service says false, database says true",[39m
+[31m+   "progressively_extended -> completed_with_unmet_preferences: service says false, database says true",[39m
+[31m+   "progressively_extended -> infeasible: service says false, database says true",[39m
+[31m+   "progressively_extended -> failed: service says false, database says true",[39m
+[31m+   "progressively_extended -> cancelled: service says false, database says true",[39m
+[31m+   "progressively_extended -> progressively_extended: service says false, database says true",[39m
+[31m+   "progressively_extended -> approved: service says false, database says true",[39m
+[31m+   "progressively_extended -> applied_to_draft_schedule: service says false, database says true",[39m
+[31m+   "approved -> draft_configuration: service says false, database says true",[39m
+[31m+   "approved -> validating: service says false, database says true",[39m
+[31m+   "approved -> readiness_check: service says false, database says true",[39m
+[31m+   "approved -> queued: service says false, database says true",[39m
+[31m+   "approved -> running: service says false, database says true",[39m
+[31m+   "approved -> completed: service says false, database says true",[39m
+[31m+   "approved -> completed_with_unmet_preferences: service says false, database says true",[39m
+[31m+   "approved -> infeasible: service says false, database says true",[39m
+[31m+   "approved -> failed: service says false, database says true",[39m
+[31m+   "approved -> cancelled: service says false, database says true",[39m
+[31m+   "approved -> reviewed: service says false, database says true",[39m
+[31m+   "approved -> progressively_extended: service says false, database says true",[39m
+[31m+   "approved -> approved: service says false, database says true",[39m
+[31m+   "applied_to_draft_schedule -> draft_configuration: service says false, database says true",[39m
+[31m+   "applied_to_draft_schedule -> validating: service says false, database says true",[39m
+[31m+   "applied_to_draft_schedule -> readiness_check: service says false, database says true",[39m
+[31m+   "applied_to_draft_schedule -> queued: service says false, database says true",[39m
+[31m+   "applied_to_draft_schedule -> running: service says false, database says true",[39m
+[31m+   "applied_to_draft_schedule -> completed: service says false, database says true",[39m
+[31m+   "applied_to_draft_schedule -> completed_with_unmet_preferences: service says false, database says true",[39m
+[31m+   "applied_to_draft_schedule -> infeasible: service says false, database says true",[39m
+[31m+   "applied_to_draft_schedule -> failed: service says false, database says true",[39m
+[31m+   "applied_to_draft_schedule -> cancelled: service says false, database says true",[39m
+[31m+   "applied_to_draft_schedule -> reviewed: service says false, database says true",[39m
+[31m+   "applied_to_draft_schedule -> progressively_extended: service says false, database says true",[39m
+[31m+   "applied_to_draft_schedule -> approved: service says false, database says true",[39m
+[31m+   "applied_to_draft_schedule -> applied_to_draft_schedule: service says false, database says true",[39m
+[31m+   "superseded -> draft_configuration: service says false, database says true",[39m
+[31m+   "superseded -> validating: service says false, database says true",[39m
+[31m+   "superseded -> readiness_check: service says false, database says true",[39m
+[31m+   "superseded -> queued: service says false, database says true",[39m
+[31m+   "superseded -> running: service says false, database says true",[39m
+[31m+   "superseded -> completed: service says false, database says true",[39m
+[31m+   "superseded -> completed_with_unmet_preferences: service says false, database says true",[39m
+[31m+   "superseded -> infeasible: service says false, database says true",[39m
+[31m+   "superseded -> failed: service says false, database says true",[39m
+[31m+   "superseded -> cancelled: service says false, database says true",[39m
+[31m+   "superseded -> reviewed: service says false, database says true",[39m
+[31m+   "superseded -> progressively_extended: service says false, database says true",[39m
+[31m+   "superseded -> approved: service says false, database says true",[39m
+[31m+   "superseded -> applied_to_draft_schedule: service says false, database says true",[39m
+[31m+   "superseded -> superseded: service says false, database says true",[39m
+[31m+   "archived -> draft_configuration: service says false, database says true",[39m
+[31m+   "archived -> validating: service says false, database says true",[39m
+[31m+   "archived -> readiness_check: service says false, database says true",[39m
+[31m+   "archived -> queued: service says false, database says true",[39m
+[31m+   "archived -> running: service says false, database says true",[39m
+[31m+   "archived -> completed: service says false, database says true",[39m
+[31m+   "archived -> completed_with_unmet_preferences: service says false, database says true",[39m
+[31m+   "archived -> infeasible: service says false, database says true",[39m
+[31m+   "archived -> failed: service says false, database says true",[39m
+[31m+   "archived -> cancelled: service says false, database says true",[39m
+[31m+   "archived -> reviewed: service says false, database says true",[39m
+[31m+   "archived -> progressively_extended: service says false, database says true",[39m
+[31m+   "archived -> approved: service says false, database says true",[39m
+[31m+   "archived -> applied_to_draft_schedule: service says false, database says true",[39m
+[31m+   "archived -> superseded: service says false, database says true",[39m
+[31m+   "archived -> archived: service says false, database says true",[39m
+[31m+ ][39m
+
+ ❯ test/builds/transition-matrix.test.ts:134:84
+    132|     }
+    133| 
+    134|     expect(disagreements, 'the two spellings of the transition rule ha…
+       |                                                                                    ^
+    135|     /* A count, so that a matrix that quietly became "everything is le…
+    136|      * "nothing is legal" fails here rather than passing the agreement…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  |api| test/builds/transition-matrix.test.ts > the transition matrix agrees at both layers > refuses every self-edge — a state does not transition to itself
+AssertionError: expected true to be false // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+ ❯ test/builds/transition-matrix.test.ts:146:53
+    144|     for (const state of BUILD_RUN_STATES) {
+    145|       expect(isLegalTransition(state as BuildRunState, state as BuildR…
+    146|       expect(await databaseSaysLegal(state, state)).toBe(false);
+       |                                                     ^
+    147|     }
+    148|   }, 60_000);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+ FAIL  |api| test/builds/transition-matrix.test.ts > the transition matrix agrees at both layers > `archived` is absorbing at both layers
+AssertionError: expected true to be false // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+ ❯ test/builds/transition-matrix.test.ts:153:55
+    151|     expect(LEGAL_TRANSITIONS.archived).toEqual([]);
+    152|     for (const to of BUILD_RUN_STATES) {
+    153|       expect(await databaseSaysLegal('archived', to)).toBe(false);
+       |                                                       ^
+    154|     }
+    155|   }, 60_000);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯
+
+ FAIL  |api| test/builds/transition-matrix.test.ts > the transition matrix agrees at both layers > refuses a state name that is not one of the sixteen
+AssertionError: expected true to be false // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+ ❯ test/builds/transition-matrix.test.ts:160:62
+    158|     /* The CHECK constraint is the control on the column; this asserts…
+    159|      * function does not quietly admit an unknown word either. */
+    160|     expect(await databaseSaysLegal('queued', 'nearly_done')).toBe(fals…
+       |                                                              ^
+    161|     expect(await databaseSaysLegal('nearly_done', 'queued')).toBe(fals…
+    162|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯
+
+
+ Test Files  3 failed | 3 passed (6)
+      Tests  6 failed | 56 passed (62)
+   Start at  22:02:56
+   Duration  3.60s (transform 427ms, setup 204ms, collect 162ms, tests 1.57s, environment 0ms, prepare 24ms)
+
+[ELIFECYCLE] Command failed with exit code 1.
+RED-ARM EXIT=1 (must be non-zero)

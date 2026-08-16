@@ -824,6 +824,36 @@ export interface AddAssignmentInput {
    * (OPUS-M4-000B). `null` is a stated allowed state, not a missing value.
    */
   readonly locationId?: string | null;
+  /**
+   * **Who placed this assignment** — `'manual'` (a human) or `'solver'` (a build
+   * whose candidate was approved and selected). FAD-44(1), OPUS-M4-003.
+   *
+   * ## Why this parameter exists rather than a second writer
+   *
+   * Migration 0009 has admitted `origin ∈ {manual, clone, solver, picklist}`
+   * since the schedule spine landed, and this function could write only one of
+   * them. M4-003's selection therefore had a choice between recording every
+   * solver-produced assignment as `'manual'` — the exact conflation non-bypass
+   * rule 7 exists to prevent, and one that would also destroy the distinction
+   * report 21 §5 draws between "locked manual assignments" and "locked prior
+   * solver assignments" for the next progressive stage — or writing the rows
+   * itself, which would be a second spelling of the assignment write path.
+   *
+   * FAD-44(1) ruled: one parameter, one write path. **This function is the only
+   * writer of `assignment_snapshots` outside the clone**, and it stays that way.
+   *
+   * ## The default is `'manual'`, and that is load-bearing
+   *
+   * Every existing caller omits it and is byte-compatible: the manual authoring
+   * routes, the cell editor, the reassignment path. Nothing about the manual
+   * path changed, and `authoring-http.test.ts` is unmodified.
+   *
+   * `'clone'` and `'picklist'` are deliberately NOT in the union. A clone is
+   * written by `cloneVersion`'s `INSERT … SELECT`, which preserves the source
+   * row's origin verbatim and never comes through here; the picklist is M9. A
+   * union that admitted values no caller can legitimately pass would invite one.
+   */
+  readonly origin?: 'manual' | 'solver';
 }
 
 export interface AddedAssignment {
@@ -968,6 +998,9 @@ export async function addManualAssignment(
   const tenant = tenantOf(uow.context);
   const version = await loadVersion(uow, input.versionId);
   assertEditable(version);
+  /* FAD-44(1). Defaulted here rather than at each use, so the identity row and
+   * the snapshot row cannot disagree about who placed the assignment. */
+  const origin = input.origin ?? 'manual';
 
   /* Ordering, before anything else touches the database (OPUS-M4-000B, review
    * B-1). `assignment_snapshots_interval` (`ends_at > starts_at`) is the
@@ -999,7 +1032,10 @@ export async function addManualAssignment(
     identityId = randomUUID();
     await uow.query
       .insertInto('assignment_identities')
-      .values({ id: identityId, ...tenant, period_id: version.period_id, origin: 'manual' })
+      /* The identity carries the origin too, and it must: the identity is the
+       * thing that spans versions, so "was this assignment ever solver-made?"
+       * has to be answerable without reading every snapshot of it. */
+      .values({ id: identityId, ...tenant, period_id: version.period_id, origin })
       .execute();
   }
 
@@ -1019,7 +1055,7 @@ export async function addManualAssignment(
       date: input.date,
       starts_at: input.startsAt,
       ends_at: input.endsAt,
-      origin: 'manual',
+      origin,
       pick_position: input.pickPosition ?? null,
       is_pinned: input.isPinned ?? false,
       status: 'active',
@@ -1036,6 +1072,8 @@ export async function addManualAssignment(
       snapshot: snapshotId,
       membership: input.membershipId,
       pinned: input.isPinned ?? false,
+      // FAD-44(1): which mechanism placed it. A closed vocabulary, never text.
+      origin,
       // The reason TEXT is deliberately not here — only whether one was given.
       overridden: input.overrideReason != null,
     },

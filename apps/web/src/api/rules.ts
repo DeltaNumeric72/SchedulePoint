@@ -95,20 +95,3 @@ export async function createRule(
   }
 }
 
-export async function setRuleState(
-  scope: { organizationId: string; groupId: string },
-  ruleKey: string,
-  state: 'active' | 'disabled' | 'archived',
-): Promise<RuleResult> {
-  try {
-    return ruleResultSchema.parse(
-      await apiRequest(`${base(scope)}/${encodeURIComponent(ruleKey)}/state`, {
-        method: 'PUT',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ state }),
-      }),
-    );
-  } catch (error) {
-    return asValidationError(error);
-  }
-}

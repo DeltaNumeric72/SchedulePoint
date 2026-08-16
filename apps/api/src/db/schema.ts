@@ -890,6 +890,189 @@ export interface VersionSupersessionsTable {
   superseded_at: Date;
 }
 
+/* ────────────────────────────────────────────────────────────────────────────
+ * The build lifecycle (`migrations/0018_build_lifecycle.sql`, OPUS-M4-003).
+ *
+ * The sixteen states of report 21 §4 are spelled out in the union rather than
+ * typed as `string`, so a state that is not one of the sixteen is a compile
+ * error at the call site rather than a `restrict_violation` at run time. The
+ * database CHECK is still the control; this is the readable half.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** report 21 §4, in order. `infeasible` and `failed` are never conflated. */
+export type BuildRunState =
+  | 'draft_configuration'
+  | 'validating'
+  | 'readiness_check'
+  | 'queued'
+  | 'running'
+  | 'completed'
+  | 'completed_with_unmet_preferences'
+  | 'infeasible'
+  | 'failed'
+  | 'cancelled'
+  | 'reviewed'
+  | 'progressively_extended'
+  | 'approved'
+  | 'applied_to_draft_schedule'
+  | 'superseded'
+  | 'archived';
+
+/** FAD-34 / SPEC-04 §2. Mirrors `TERMINATION_REASONS` in the domain. */
+export type BuildTerminationReason =
+  | 'completed'
+  | 'deadline'
+  | 'user_cancelled'
+  | 'killed'
+  | 'crashed'
+  | 'rejected';
+
+export type BuildSolverStatus =
+  | 'OPTIMAL'
+  | 'FEASIBLE'
+  | 'INFEASIBLE'
+  | 'MODEL_INVALID'
+  | 'UNKNOWN'
+  | 'CANCELLED'
+  | 'TIMEOUT'
+  | 'FAILED';
+
+export interface BuildConfigurationsTable {
+  id: Generated<string>;
+  organization_id: string;
+  group_id: string;
+  period_id: string;
+  name: string;
+  random_seed: Generated<number>;
+  num_search_workers: Generated<number>;
+  max_time_seconds: string;
+  max_deterministic_time: string | null;
+  interleave_search: Generated<boolean>;
+  dispatch_timeout_ms: Generated<number>;
+  heartbeat_timeout_ms: Generated<number>;
+  retry_limit: Generated<number>;
+  created_by: string | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface BuildRunsTable {
+  id: Generated<string>;
+  organization_id: string;
+  group_id: string;
+  period_id: string;
+  build_configuration_id: string;
+  /** The draft the problem is posed AGAINST — never the one a candidate is written to. */
+  source_version_id: string;
+  state: Generated<BuildRunState>;
+  candidate_label: string;
+  snapshot_id: string | null;
+  canonical_input_hash: string | null;
+  retry_of_build_run_id: string | null;
+  retry_attempt: Generated<number>;
+  parent_build_ids: Generated<string[]>;
+  protected_assignment_identities: Generated<string[]>;
+  /** Monotonic. Incremented by every claim and every reap; never reset. */
+  claim_epoch: Generated<number>;
+  claimed_by: string | null;
+  claimed_at: Date | null;
+  heartbeat_at: Date | null;
+  termination_reason: BuildTerminationReason | null;
+  solver_status: BuildSolverStatus | null;
+  solver_version: string | null;
+  solver_image_digest: string | null;
+  compiler_version: string | null;
+  platform_arch: string | null;
+  solver_parameters: Generated<unknown>;
+  deterministic_worker_count: number | null;
+  random_seed: number | null;
+  reproducibility_mode: 'deterministic' | 'best-effort' | null;
+  validation_findings: Generated<unknown>;
+  readiness_findings: Generated<unknown>;
+  applied_to_version_id: string | null;
+  applied_at: Date | null;
+  superseded_by_build_run_id: string | null;
+  idempotency_key: string;
+  semantic_request_digest: string;
+  initiated_by: string | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+  submitted_at: Date | null;
+  started_at: Date | null;
+  finished_at: Date | null;
+}
+
+export interface BuildRunEventsTable {
+  id: Generated<string>;
+  organization_id: string;
+  group_id: string;
+  build_run_id: string;
+  kind: 'transition' | 'result_refused' | 'heartbeat_reaped' | 'claim' | 'cancel_requested';
+  from_state: string | null;
+  to_state: string | null;
+  claim_epoch: number;
+  current_claim_epoch: number | null;
+  reason: string | null;
+  detail: Generated<unknown>;
+  actor_membership_id: string | null;
+  occurred_at: Generated<Date>;
+}
+
+export interface BuildRunResultsTable {
+  id: Generated<string>;
+  organization_id: string;
+  group_id: string;
+  build_run_id: string;
+  claim_epoch: number;
+  solver_status: BuildSolverStatus;
+  termination_reason: BuildTerminationReason;
+  reported_input_hash: string;
+  /** The INDEPENDENT checker's verdict — never the worker's opinion. */
+  usable: boolean;
+  hard_violations: number;
+  assignment_count: number;
+  candidate_returned: boolean;
+  objective_value: string | null;
+  quality_metrics: Generated<unknown>;
+  objective_tiers: Generated<unknown>;
+  explanation_state: string | null;
+  explanation: Generated<unknown>;
+  rejections: Generated<unknown>;
+  elapsed_ms: number;
+  recorded_at: Generated<Date>;
+}
+
+export interface BuildRunViolationsTable {
+  id: Generated<string>;
+  organization_id: string;
+  group_id: string;
+  build_run_id: string;
+  claim_epoch: number;
+  finding: 'breach' | 'not-evaluable';
+  rule_key: string;
+  node_kind: string;
+  field: string;
+  explanation: string;
+  recorded_at: Generated<Date>;
+}
+
+export interface BuildRunCandidateAssignmentsTable {
+  id: Generated<string>;
+  organization_id: string;
+  group_id: string;
+  build_run_id: string;
+  claim_epoch: number;
+  ordinal: number;
+  membership_id: string;
+  date: string;
+  shift_type_id: string;
+  location_id: string | null;
+  /** R-8: the fixed input this row mirrors, when it mirrors one. */
+  mirrors_assignment_identity_id: string | null;
+  mirrors_pinned: Generated<boolean>;
+  pick_position: number | null;
+}
+
 export interface Database {
   organizations: OrganizationsTable;
   groups: GroupsTable;
@@ -935,6 +1118,13 @@ export interface Database {
   locations: LocationsTable;
   /* OPUS-M4-000A (`migrations/0012_staffing_input_integrity.sql`). */
   staffing_set_versions: StaffingSetVersionsTable;
+  /* OPUS-M4-003 (`migrations/0018_build_lifecycle.sql`). */
+  build_configurations: BuildConfigurationsTable;
+  build_runs: BuildRunsTable;
+  build_run_events: BuildRunEventsTable;
+  build_run_results: BuildRunResultsTable;
+  build_run_violations: BuildRunViolationsTable;
+  build_run_candidate_assignments: BuildRunCandidateAssignmentsTable;
 }
 
 /**
@@ -1238,4 +1428,28 @@ export const TENANT_TABLES: readonly TenantTable[] = [
    * the same reason: a snapshot the fixture could write directly is a snapshot
    * the application could forge. */
   { name: 'solver_input_snapshots', scope: 'organization-and-group' },
+
+  /* ── `migrations/0018_build_lifecycle.sql` (OPUS-M4-003) ────────────────────
+   *
+   * Six tables, registered in the SAME change as the migration that creates
+   * them. All `organization-and-group` with V-09's conjunctive group predicate:
+   * a build is a proposal about ONE group's period, and every one of these rows
+   * — the configuration, the run, its timeline, its result, its violations, and
+   * the candidate assignments themselves — names participants of that group.
+   * There is no organization-scoped policy on any of them, and there is no
+   * reading in which one would be correct.
+   *
+   * The sweep floor rises from 48 to 54. Non-vacuity is established by
+   * `apps/api/test/support/builds.ts::seedBuildLifecycleForSweep`, which drives
+   * a whole build — configure, submit, claim, record a result, review — in each
+   * swept group **through the production service**, so every one of the six
+   * tables has a row that the application really wrote. A row a fixture could
+   * insert directly is a row the application could forge; the same discipline
+   * `seedRulesForSweep` and `seedSolverSnapshotsForSweep` follow. */
+  { name: 'build_configurations', scope: 'organization-and-group' },
+  { name: 'build_runs', scope: 'organization-and-group' },
+  { name: 'build_run_events', scope: 'organization-and-group' },
+  { name: 'build_run_results', scope: 'organization-and-group' },
+  { name: 'build_run_violations', scope: 'organization-and-group' },
+  { name: 'build_run_candidate_assignments', scope: 'organization-and-group' },
 ] as const;

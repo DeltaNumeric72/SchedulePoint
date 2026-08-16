@@ -1,0 +1,171 @@
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-003
+
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-003/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-4148cb0e42356eac25)] INFO: Completed task 1 (outbox.dispatch, 7.20ms) with success
+[worker(worker-4148cb0e42356eac25)] INFO: Completed task 2 (outbox.dispatch, 2.80ms) with success
+[worker(worker-4148cb0e42356eac25)] INFO: Completed task 3 (outbox.dispatch, 2.26ms) with success
+[worker(worker-4148cb0e42356eac25)] INFO: Completed task 4 (outbox.dispatch, 2.22ms) with success
+[worker(worker-4148cb0e42356eac25)] INFO: Completed task 5 (outbox.dispatch, 2.28ms) with success
+[worker(worker-4148cb0e42356eac25)] INFO: Completed task 6 (outbox.dispatch, 2.16ms) with success
+[worker(worker-4148cb0e42356eac25)] INFO: Completed task 7 (outbox.dispatch, 2.20ms) with success
+[worker(worker-4148cb0e42356eac25)] INFO: Completed task 8 (outbox.dispatch, 2.33ms) with success
+[worker(worker-4148cb0e42356eac25)] INFO: Completed task 9 (outbox.dispatch, 2.22ms) with success
+[worker(worker-4148cb0e42356eac25)] INFO: Completed task 10 (outbox.dispatch, 2.46ms) with success
+[worker(worker-4148cb0e42356eac25)] INFO: Completed task 11 (outbox.dispatch, 2.24ms) with success
+ ✓ |api| test/builds/lifecycle.test.ts (24 tests) 741ms
+ ✓ |api| test/schedule/publication-concurrency.test.ts (2 tests) 1249ms
+   ✓ two publications racing for one period > exactly one of two DIFFERENT versions wins, 12 rounds  682ms
+   ✓ two publications racing for one period > the SAME key twice, concurrently, publishes once — 12 rounds  323ms
+ ✓ |api| test/schedule/publication-http.test.ts (23 tests) 812ms
+stdout | test/schedule/authoring-concurrency.test.ts > B-1: concurrent requirement writes carrying the SAME revision > over 12 rounds, exactly one set wins whole and the union never appears
+B-1 requirement whole-set race:
+  round 0: 200/409 stored=[{"date":"2030-01-02","requiredCount":2}]
+  round 1: 409/200 stored=[{"date":"2030-02-20","requiredCount":7}]
+  round 2: 200/409 stored=[{"date":"2030-03-02","requiredCount":2}]
+  round 3: 200/409 stored=[{"date":"2030-04-02","requiredCount":2}]
+  round 4: 200/409 stored=[{"date":"2030-05-02","requiredCount":2}]
+  round 5: 200/409 stored=[{"date":"2030-06-02","requiredCount":2}]
+  round 6: 200/409 stored=[{"date":"2030-07-02","requiredCount":2}]
+  round 7: 200/409 stored=[{"date":"2030-08-02","requiredCount":2}]
+  round 8: 200/409 stored=[{"date":"2030-09-02","requiredCount":2}]
+  round 9: 200/409 stored=[{"date":"2030-10-02","requiredCount":2}]
+  round 10: 200/409 stored=[{"date":"2030-11-02","requiredCount":2}]
+  round 11: 200/409 stored=[{"date":"2030-12-02","requiredCount":2}]
+
+stdout | test/schedule/authoring-concurrency.test.ts > B-2: concurrent adds into one empty cell > over 12 rounds, one lands and the other gets an explicit 409
+B-2 empty-cell add race:
+  round 0: 200/409 assignments=1
+  round 1: 200/409 assignments=1
+  round 2: 200/409 assignments=1
+  round 3: 200/409 assignments=1
+  round 4: 200/409 assignments=1
+  round 5: 200/409 assignments=1
+  round 6: 200/409 assignments=1
+  round 7: 200/409 assignments=1
+  round 8: 200/409 assignments=1
+  round 9: 200/409 assignments=1
+  round 10: 200/409 assignments=1
+  round 11: 200/409 assignments=1
+
+stdout | test/schedule/authoring-concurrency.test.ts > B-3: a concurrent add and remove in one cell > over 12 rounds, one wins and no merged state is ever produced
+B-3 add/remove race:
+  round 0: 200/409 assignments=2
+  round 1: 200/409 assignments=2
+  round 2: 200/409 assignments=2
+  round 3: 200/409 assignments=2
+  round 4: 200/409 assignments=2
+  round 5: 200/409 assignments=2
+  round 6: 200/409 assignments=2
+  round 7: 200/409 assignments=2
+  round 8: 200/409 assignments=2
+  round 9: 200/409 assignments=2
+  round 10: 200/409 assignments=2
+  round 11: 200/409 assignments=2
+
+ ✓ |api| test/schedule/authoring-concurrency.test.ts (3 tests) 704ms
+ ✓ |api| test/schedule/publication-invariants.test.ts (23 tests) 370ms
+ ✓ |api| test/schedule/authoring-http.test.ts (17 tests) 345ms
+stdout | test/schedule/v-harness.test.ts
+
+    SPEC-05 §8 proof table — 23 rows
+      · V-01: V1 published, is_current, version_number=1
+      · V-02: baseline content=354a8b1a1478 report=0972a0395871 feed=b477f2ba9262
+      · V-03: clone succeeded — impossible under the old D-1; 2 snapshots, identities preserved
+      · V-04: content digest unchanged by the clone (354a8b1a1478)
+      · V-05: V2 changed; V1 content digest unchanged
+      · V-06: D-15a raised SCHEDULE_PUBLISHED_IMMUTABLE on a published snapshot UPDATE and on INSERT (FAD-22(1)); content set stayed 2
+      · V-07: app_runtime refused by the absent DELETE grant; app_migrator refused by D-15c (SCHEDULE_VERSION_NO_DELETE)
+      · V-08: V2 current (n=2); V1 superseded; V1 content byte-identical; version row moved only in [state, is_current, superseded_at, superseded_by_version_id]
+      · V-09: report and calendar feed regenerated byte-identically (0972a0395871)
+      · V-10: V3 current (n=3) carrying V1 content; V1 and V2 both retained and readable
+      · V-11: V1 and V2 content digests both unchanged after the revert
+      · V-13: replay returned the recorded result; exactly 1 outbox event, 1 publication record
+      · V-14: D-1a exclusion rejected an in-version overlap for one membership
+      · V-14b: D-1a rejected a midnight-spanning overlap a date-keyed constraint would miss
+      · V-12a: same version raced: 1 winner, loser failed explicitly (VERSION_STATE_UNEXPECTED), 1 current, exactly 1 outbox event
+      · V-12b: different versions raced under the MANDATORY compare-and-set (FAD-22(2)): 1 winner, stale loser failed explicitly (CURRENT_VERSION_MOVED), exactly 1 current version
+      · V-15: D-1b aborted the PUBLISHING transaction on a cross-period double-booking; version left approved, not current
+      · V-15b: different memberships in different periods published concurrently — both succeeded; contention is per-membership, not global
+      · V-16: kill mid-publication: nothing committed (approved, no number, 0 reality rows, 0 publication records); reconciler returned a durable publishing row to approved
+      · V-15c: reality equals the active snapshots of every current version — 0 rows of drift
+      · V-17: is_current(true->false) permitted; state(published->superseded)+superseded_at+superseded_by permitted together; lock_state permitted by D-15b, refused by the §3.2 CHECK (as §4.1 predicts)
+      · V-18: all 15 frozen columns individually refused by D-15b (enumerated from information_schema, none skipped): change_summary, circulation_state, cloned_from_version_id, created_at, group_id, id, organization_id, period_id, published_at, published_by, source_build_id, timezone_basis, tzdb_version, updated_at, version_number
+      · V-19: 4 out-of-transition changes each raised: superseded_at set WITHOUT state -> superseded; superseded_by_version_id set WITHOUT state -> superseded; is_current false -> true on a row that is not being published; state published -> draft (not the permitted supersession)
+
+
+ ✓ |api| test/schedule/v-harness.test.ts (13 tests) 299ms
+ ✓ |api| test/schedule/composed-integration.test.ts (6 tests) 361ms
+ ✓ |api| test/schedule/step-06-hard-rules.test.ts (9 tests) 285ms
+ ✓ |api| test/builds/builds-http.test.ts (11 tests) 287ms
+stdout | test/schedule/views-http.test.ts > the personal published schedule > a member reads their OWN schedule, over the whole requested range
+      · personal view: 3 entries across 30 days, zone Pacific/Auckland
+
+stdout | test/schedule/views-http.test.ts > an overnight shift appears on both days, the second as a continuation > 22:00 → 06:00 is rendered on its start date AND on the following date
+      · overnight: 22:00→06:00 on 2029-06-06 and as a continuation on 2029-06-07
+
+stdout | test/schedule/views-http.test.ts > a draft version is invisible to staff > EACH clause of the predicate is individually load-bearing, against a state no CHECK forbids
+      · decoupled states: both clauses 0 rows · state-only 2 (published, not current) · is_current-only 1 (draft marked current)
+
+stdout | test/schedule/views-http.test.ts > a draft version is invisible to staff > the PREDICATE is the only thing hiding it — the same query without it selects the draft
+      · published-only predicate: 2 rows with it, 3 without — the difference is the draft
+
+stdout | test/schedule/views-http.test.ts > a draft version is invisible to staff > a superseded version is invisible too — the view is the CURRENT schedule
+      · after supersession the view reads version 2 only (1 entries)
+
+stdout | test/schedule/views-http.test.ts > self-scoping and denial > cross-group, non-existent and not-yours are BYTE-IDENTICAL
+      · the single 404 body: {"error":{"code":"NOT_FOUND","message":"Not found.","correlationId":"<id>"}}
+
+stdout | test/schedule/views-http.test.ts > the daily assignment sheet > shows everyone working that date, not only the caller
+      · daily sheet 2029-06-06: 2 entries, zone Pacific/Auckland
+
+ ✓ |api| test/schedule/views-http.test.ts (19 tests) 296ms
+stdout | test/schedule/migration-0014-populated-cycle.test.ts > migration 0014 over a populated database > up → down → up preserves every row 0014 touches
+      · populated: schedule_periods=1 schedule_versions=2 schedule_requirements=1 shifts=2 assignment_identities=2 assignment_snapshots=2 credits=1 current_published_assignments=1 publication_records=2 version_supersessions=1 locations=1
+
+stdout | test/schedule/migration-0014-populated-cycle.test.ts > migration 0014 over a populated database > up → down → up preserves every row 0014 touches
+      · cycle: 5 migration(s) down to 0014 (0018_build_lifecycle, 0017_requires_expiry_flip_serialization, 0016_solver_input_snapshots, 0015_rule_revisions_and_period_lifecycle, 0014_schedule_graph_locations_time) and back up; every census digest identical
+
+ ✓ |api| test/schedule/migration-0014-populated-cycle.test.ts (1 test) 270ms
+ ✓ |api| test/schedule/graph-invariants.test.ts (21 tests) 290ms
+ ✓ |api| test/schedule/publication-handoff.test.ts (25 tests) 261ms
+stdout | test/schedule/timezone-basis.test.ts > 1 — a new draft RECORDS its timezone basis > stores the group’s zone and the runtime tz rule set
+      · draft basis: America/Toronto @ tzdb 2026b
+
+stdout | test/schedule/timezone-basis.test.ts > 4 — a PUBLISHED version renders identically after a group tz change > the staff daily sheet shows the published wall clock, not the new zone’s
+      · published entry rendered 08:00–16:00 under America/Toronto before AND after the group moved to Australia/Sydney
+
+stdout | test/schedule/timezone-basis.test.ts > 5 — TIMEZONE_BASIS_STALE answers 409 with both zones, through the real route > publishing a stale draft over HTTP is 409 TIMEZONE_BASIS_STALE, naming both zones
+      · stale publish over HTTP -> 409 TIMEZONE_BASIS_STALE
+
+ ✓ |api| test/schedule/timezone-basis.test.ts (8 tests) 301ms
+ ✓ |api| test/schedule/publication-diff-parity.test.ts (5 tests) 223ms
+ ✓ |api| test/builds/transition-matrix.test.ts (7 tests) 201ms
+ ✓ |api| test/schedule/membership-semantics.test.ts (12 tests) 160ms
+ ✓ |api| test/builds/migration-0018-populated-cycle.test.ts (2 tests) 166ms
+ ✓ |api| test/schedule/seed-smoke.test.ts (2 tests) 170ms
+ ✓ |api| test/schedule/locations.test.ts (6 tests) 166ms
+stdout | test/schedule/qualification-requirement-gate.test.ts > the gate, with no authored rule anywhere > an uncredentialed assignee BLOCKS publication with the distinct outcome named
+      · uncredentialed assignee → QUALIFICATION_REQUIREMENT_BREACH (missing), version unmoved
+
+stdout | test/schedule/qualification-requirement-gate.test.ts > the gate, with no authored rule anywhere > the ENFORCEMENT read plane: the publisher cannot see the holding, and the gate still can
+      · holder invisible to the publisher, visible to the gate: published. The plane is load-bearing
+
+stdout | test/schedule/qualification-requirement-gate.test.ts > the gate, with no authored rule anywhere > MUTATION CONTROL: without the purpose token, the same computation under-reads
+      · mutation control: the holding exists, and the token-less publisher read is empty
+
+ ✓ |api| test/schedule/qualification-requirement-gate.test.ts (3 tests) 153ms
+ ✓ |api| test/schedule/calendar-agreement.test.ts (14 tests) 132ms
+ ✓ |api| test/schedule/period-length.test.ts (4 tests) 100ms
+ ✓ |api| test/schedule/authoring-time.test.ts (25 tests) 23ms
+ ✓ |api| test/schedule/views-time.test.ts (11 tests) 21ms
+ ✓ |api| test/builds/outcome-and-readiness.test.ts (16 tests) 21ms
+ ✓ |api| test/builds/tenant-registry.test.ts (2 tests) 19ms
+
+ Test Files  28 passed (28)
+      Tests  314 passed (314)
+   Start at  21:55:15
+   Duration  10.91s (transform 440ms, setup 569ms, collect 333ms, tests 8.43s, environment 0ms, prepare 26ms)
+
+FAD44-TARGETED EXIT=0

@@ -119,3 +119,12 @@ export * from './audit/index.js';
  * the snapshot table or the worker.
  */
 export * from './solver/index.js';
+
+/**
+ * OPUS-M4-003 — the build lifecycle (report 21 §4's sixteen states; SPEC-04
+ * §2/§6/§7). Read that module's header before adding to it: the state, the
+ * solver status and the termination reason are three separate fields on
+ * purpose, and `infeasible` and `failed` are different members of the same enum
+ * because one is a statement about the problem and the other about the system.
+ */
+export * from './builds/index.js';

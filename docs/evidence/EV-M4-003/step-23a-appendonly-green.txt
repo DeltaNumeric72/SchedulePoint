@@ -1,0 +1,30 @@
+$ vitest run apps/api/test/builds
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-003
+
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-003/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-089bd85d5e4c86b54d)] INFO: Completed task 1 (outbox.dispatch, 7.06ms) with success
+[worker(worker-089bd85d5e4c86b54d)] INFO: Completed task 2 (outbox.dispatch, 2.44ms) with success
+[worker(worker-089bd85d5e4c86b54d)] INFO: Completed task 3 (outbox.dispatch, 2.16ms) with success
+[worker(worker-089bd85d5e4c86b54d)] INFO: Completed task 4 (outbox.dispatch, 2.23ms) with success
+[worker(worker-089bd85d5e4c86b54d)] INFO: Completed task 5 (outbox.dispatch, 2.33ms) with success
+[worker(worker-089bd85d5e4c86b54d)] INFO: Completed task 6 (outbox.dispatch, 2.19ms) with success
+[worker(worker-089bd85d5e4c86b54d)] INFO: Completed task 7 (outbox.dispatch, 2.13ms) with success
+[worker(worker-089bd85d5e4c86b54d)] INFO: Completed task 8 (outbox.dispatch, 2.17ms) with success
+[worker(worker-089bd85d5e4c86b54d)] INFO: Completed task 9 (outbox.dispatch, 2.14ms) with success
+[worker(worker-089bd85d5e4c86b54d)] INFO: Completed task 10 (outbox.dispatch, 2.28ms) with success
+[worker(worker-089bd85d5e4c86b54d)] INFO: Completed task 11 (outbox.dispatch, 2.18ms) with success
+ ✓ |api| test/builds/lifecycle.test.ts (29 tests) 811ms
+ ✓ |api| test/builds/builds-http.test.ts (11 tests) 402ms
+ ✓ |api| test/builds/transition-matrix.test.ts (7 tests) 209ms
+ ✓ |api| test/builds/migration-0018-populated-cycle.test.ts (2 tests) 170ms
+ ✓ |api| test/builds/outcome-and-readiness.test.ts (16 tests) 20ms
+ ✓ |api| test/builds/tenant-registry.test.ts (2 tests) 19ms
+
+ Test Files  6 passed (6)
+      Tests  67 passed (67)
+   Start at  05:08:23
+   Duration  3.65s (transform 435ms, setup 216ms, collect 160ms, tests 1.63s, environment 0ms, prepare 25ms)
+
+GREEN EXIT=0

@@ -1,0 +1,167 @@
+$ vitest run apps/api/test/builds
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-003
+
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-003/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-42f4cfb62148814756)] INFO: Completed task 1 (outbox.dispatch, 7.21ms) with success
+[worker(worker-42f4cfb62148814756)] INFO: Completed task 2 (outbox.dispatch, 2.35ms) with success
+[worker(worker-42f4cfb62148814756)] INFO: Completed task 3 (outbox.dispatch, 2.23ms) with success
+[worker(worker-42f4cfb62148814756)] INFO: Completed task 4 (outbox.dispatch, 2.22ms) with success
+[worker(worker-42f4cfb62148814756)] INFO: Completed task 5 (outbox.dispatch, 2.21ms) with success
+[worker(worker-42f4cfb62148814756)] INFO: Completed task 6 (outbox.dispatch, 2.11ms) with success
+[worker(worker-42f4cfb62148814756)] INFO: Completed task 7 (outbox.dispatch, 2.15ms) with success
+[worker(worker-42f4cfb62148814756)] INFO: Completed task 8 (outbox.dispatch, 2.22ms) with success
+[worker(worker-42f4cfb62148814756)] INFO: Completed task 9 (outbox.dispatch, 2.04ms) with success
+[worker(worker-42f4cfb62148814756)] INFO: Completed task 10 (outbox.dispatch, 2.25ms) with success
+[worker(worker-42f4cfb62148814756)] INFO: Completed task 11 (outbox.dispatch, 2.14ms) with success
+ ❯ |api| test/builds/lifecycle.test.ts (29 tests | 1 failed) 827ms
+   ✓ the legal path > walks draft_configuration → … → approved, and records every edge 49ms
+   ✓ the legal path > D-4a: a second in-flight build of one configuration is refused by the index 12ms
+   ✓ illegal transitions > the service refuses, and the database refuses the SAME edge with the service bypassed 10ms
+   ✓ illegal transitions > the database refuses to re-point a build at another configuration or snapshot 8ms
+   ✓ illegal transitions > a build run is never deleted, by any role 8ms
+   ✓ claim fencing > a stale-epoch result is REFUSED by the service and RECORDED 23ms
+   ✓ claim fencing > the DATABASE refuses a stale-epoch result row with the service bypassed entirely 15ms
+   ✓ claim fencing > a heartbeat at a fenced epoch answers false rather than throwing 14ms
+   ✓ the database controls, driven directly > R-3a: the SETTLED-RUN clause refuses an injection at the CURRENT epoch 17ms
+   × the database controls, driven directly > R-3b: the result tables are APPEND-ONLY — the TRIGGER, past the grants 18ms
+     → promise resolved "Result{ command: 'UPDATE', …(9) }" instead of rejecting
+   ✓ the database controls, driven directly > R-3c: BUILD_CLAIM_EPOCH_REGRESSED — the epoch moves forward only 15ms
+   ✓ the database controls, driven directly > R-3d: BUILD_IDENTITY_FROZEN — reached as the OWNER, past the grants 15ms
+   ✓ the database controls, driven directly > R-3e: a build run is never DELETED, as the OWNER 13ms
+   ✓ the reaper > moves a dead-heartbeat run to failed/crashed and advances the epoch 16ms
+   ✓ the validation gate > a candidate the checker refused settles in failed/rejected, never completed 18ms
+   ✓ the validation gate > ARM: a hard-violating candidate can NEVER reach approved, even claimed usable 23ms
+   ✓ the validation gate > a lying verdict carrying a BREACH is refused by the result CHECK itself 18ms
+   ✓ the validation gate > MUTATION CONTROL: the identical flow WITHOUT the finding reaches approved 21ms
+   ✓ the validation gate > a run with NO recorded result is not approvable — "not checked" never reads as "clean" 13ms
+   ✓ idempotent creation (D-17) > twelve concurrent requests with one key produce exactly one row 16ms
+   ✓ idempotent creation (D-17) > the same key naming a DIFFERENT request is refused explicitly 12ms
+   ✓ the audit chain > writes a `build.*` chain entry for every transition a human takes 28ms
+   ✓ the audit chain > names a cancellation as a cancellation, not as a generic state change 14ms
+   ✓ the audit chain > does NOT write a chain entry for a reap — that is a fact about a worker 16ms
+   ✓ selection > creates a NEW draft, leaves the source untouched, and carries R-8 pick positions 38ms
+   ✓ selection > refuses when the source draft moved since the build (FAD-26(2)) 24ms
+   ✓ selection > refuses a second selection of the same build (the state has moved) 28ms
+   ✓ selection > D-4d: two builds cannot be applied to one version — the index refuses the second 28ms
+   ✓ selection > approving supersedes the period’s other completed builds 34ms
+ ✓ |api| test/builds/builds-http.test.ts (11 tests) 427ms
+ ✓ |api| test/builds/transition-matrix.test.ts (7 tests) 208ms
+ ✓ |api| test/builds/migration-0018-populated-cycle.test.ts (2 tests) 171ms
+ ✓ |api| test/builds/outcome-and-readiness.test.ts (16 tests) 20ms
+ ✓ |api| test/builds/tenant-registry.test.ts (2 tests) 19ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |api| test/builds/lifecycle.test.ts > the database controls, driven directly > R-3b: the result tables are APPEND-ONLY — the TRIGGER, past the grants
+AssertionError: promise resolved "Result{ command: 'UPDATE', …(9) }" instead of rejecting
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- Error {[39m
+[32m-   "message": "rejected promise",[39m
+[31m+ Result {[39m
+[31m+   "RowCtor": null,[39m
+[31m+   "_parsers": undefined,[39m
+[31m+   "_prebuiltEmptyResultObject": null,[39m
+[31m+   "_types": TypeOverrides {[39m
+[31m+     "_types": {[39m
+[31m+       "arrayParser": {[39m
+[31m+         "create": [Function create],[39m
+[31m+       },[39m
+[31m+       "builtins": {[39m
+[31m+         "ABSTIME": 702,[39m
+[31m+         "ACLITEM": 1033,[39m
+[31m+         "BIT": 1560,[39m
+[31m+         "BOOL": 16,[39m
+[31m+         "BPCHAR": 1042,[39m
+[31m+         "BYTEA": 17,[39m
+[31m+         "CHAR": 18,[39m
+[31m+         "CID": 29,[39m
+[31m+         "CIDR": 650,[39m
+[31m+         "CIRCLE": 718,[39m
+[31m+         "DATE": 1082,[39m
+[31m+         "FLOAT4": 700,[39m
+[31m+         "FLOAT8": 701,[39m
+[31m+         "GTSVECTOR": 3642,[39m
+[31m+         "INET": 869,[39m
+[31m+         "INT2": 21,[39m
+[31m+         "INT4": 23,[39m
+[31m+         "INT8": 20,[39m
+[31m+         "INTERVAL": 1186,[39m
+[31m+         "JSON": 114,[39m
+[31m+         "JSONB": 3802,[39m
+[31m+         "MACADDR": 829,[39m
+[31m+         "MACADDR8": 774,[39m
+[31m+         "MONEY": 790,[39m
+[31m+         "NUMERIC": 1700,[39m
+[31m+         "OID": 26,[39m
+[31m+         "PATH": 602,[39m
+[31m+         "PG_DEPENDENCIES": 3402,[39m
+[31m+         "PG_LSN": 3220,[39m
+[31m+         "PG_NDISTINCT": 3361,[39m
+[31m+         "PG_NODE_TREE": 194,[39m
+[31m+         "POLYGON": 604,[39m
+[31m+         "REFCURSOR": 1790,[39m
+[31m+         "REGCLASS": 2205,[39m
+[31m+         "REGCONFIG": 3734,[39m
+[31m+         "REGDICTIONARY": 3769,[39m
+[31m+         "REGNAMESPACE": 4089,[39m
+[31m+         "REGOPER": 2203,[39m
+[31m+         "REGOPERATOR": 2204,[39m
+[31m+         "REGPROC": 24,[39m
+[31m+         "REGPROCEDURE": 2202,[39m
+[31m+         "REGROLE": 4096,[39m
+[31m+         "REGTYPE": 2206,[39m
+[31m+         "RELTIME": 703,[39m
+[31m+         "SMGR": 210,[39m
+[31m+         "TEXT": 25,[39m
+[31m+         "TID": 27,[39m
+[31m+         "TIME": 1083,[39m
+[31m+         "TIMESTAMP": 1114,[39m
+[31m+         "TIMESTAMPTZ": 1184,[39m
+[31m+         "TIMETZ": 1266,[39m
+[31m+         "TINTERVAL": 704,[39m
+[31m+         "TSQUERY": 3615,[39m
+[31m+         "TSVECTOR": 3614,[39m
+[31m+         "TXID_SNAPSHOT": 2970,[39m
+[31m+         "UUID": 2950,[39m
+[31m+         "VARBIT": 1562,[39m
+[31m+         "VARCHAR": 1043,[39m
+[31m+         "XID": 28,[39m
+[31m+         "XML": 142,[39m
+[31m+       },[39m
+[31m+       "getTypeParser": [Function getTypeParser],[39m
+[31m+       "setTypeParser": [Function setTypeParser],[39m
+[31m+     },[39m
+[31m+     "binary": {},[39m
+[31m+     "text": {},[39m
+[31m+   },[39m
+[31m+   "command": "UPDATE",[39m
+[31m+   "fields": [],[39m
+[31m+   "oid": null,[39m
+[31m+   "rowAsArray": false,[39m
+[31m+   "rowCount": 1,[39m
+[31m+   "rows": [],[39m
+[2m  }[22m
+
+ ❯ test/builds/lifecycle.test.ts:717:5
+    715|         buildRunId,
+    716|       ]),
+    717|     ).rejects.toMatchObject({ message: expect.stringContaining('APPEND…
+       |     ^
+    718| 
+    719|     await expect(
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  1 failed | 66 passed (67)
+   Start at  05:08:37
+   Duration  3.74s (transform 440ms, setup 220ms, collect 160ms, tests 1.67s, environment 0ms, prepare 22ms)
+
+[ELIFECYCLE] Command failed with exit code 1.
+RED EXIT=1 (must be non-zero)

@@ -1408,6 +1408,137 @@ const CASES = [
       'scripts/red-cases/request-budget-missing/fixture',
     ],
   },
+  {
+    id: 'builds-fencing-trigger',
+    gate: 'build result fencing (doc 35 §6e (3)) — the DATABASE arm',
+    violation: 'the fencing trigger neutered, so only the service check is left',
+    /* THE FALSIFIABILITY CASE for the fence, and the one that matters.
+     *
+     * The service refuses a stale-epoch result first, and it should — a route
+     * needs a typed error and a refused worker needs a recorded reason. But a
+     * worker writing through ANY other path meets only the trigger: a psql
+     * session, a repair script, an ORM write, a future service that forgets.
+     * A trigger that has only ever been observed passing is not evidence.
+     *
+     * This makes `app_guard_build_result_fencing` return `NEW` unconditionally —
+     * leaving the service check, the epoch column and every other constraint
+     * intact — and `apps/api/test/builds/lifecycle.test.ts`'s arm "the DATABASE
+     * refuses a stale-epoch result row with the service bypassed entirely" must
+     * go red. If it does not, its refusal was coming from something else and the
+     * trigger is decorative.
+     *
+     * FAD-33(1) is satisfied structurally rather than by rebuilding: the patched
+     * file is a MIGRATION, applied by `globalSetup`'s up -> down -> up before
+     * every run, so the patched SQL is what the assertions meet. There is no
+     * `dist/` in the path at all. */
+    patch: [
+      {
+        file: 'apps/api/migrations/0018_build_lifecycle.sql',
+        find: "    IF NEW.claim_epoch <> v_epoch THEN",
+        replace: "    IF false THEN -- red case: the fence is neutered",
+      },
+    ],
+    greenCommand: ['run', 'gate:unit:builds'],
+    redCommand: ['run', 'gate:unit:builds'],
+  },
+  {
+    id: 'builds-validation-gate',
+    gate: 'no hard-violating candidate reaches `approved` (doc 35 §6e (4), FAD-27)',
+    violation: 'the approve guard no longer counts unresolved hard findings',
+    /* The gate the whole lifecycle exists to protect. `reviewed -> approved`
+     * requires zero unresolved hard findings, and the count is taken in the
+     * DATABASE precisely so that a caller who lies about a candidate's usability
+     * — a translation defect, a hand-built response, a compromised worker — is
+     * refused anyway.
+     *
+     * This removes the count and leaves everything else standing, so
+     * `apps/api/test/builds/lifecycle.test.ts`'s arm "a hard-violating candidate
+     * can NEVER reach approved, even claimed usable" must go red. Its own
+     * MUTATION CONTROL (the identical flow with the finding removed, which must
+     * stay green) is what proves the arm is not passing for some other reason;
+     * this proves the arm is not passing because nothing was ever checked. */
+    patch: [
+      {
+        file: 'apps/api/migrations/0018_build_lifecycle.sql',
+        find: "        IF v_blocking > 0 THEN",
+        replace: "        IF false THEN -- red case: the validation gate is neutered",
+      },
+    ],
+    greenCommand: ['run', 'gate:unit:builds'],
+    redCommand: ['run', 'gate:unit:builds'],
+  },
+  {
+    id: 'builds-transition-guard',
+    gate: 'illegal build transitions refused at the DATABASE (doc 35 §6e (1))',
+    violation: 'the transition guard admits every edge',
+    /* The service refuses an illegal edge with a typed error a route can map.
+     * The database refuses it for every writer including a psql session, and the
+     * whole reason the rule is written twice is that the second spelling is the
+     * one that still holds when somebody writes a repair script.
+     *
+     * This makes `app_build_run_transition_is_legal` return `true` for every
+     * ordered pair. Two things must then go red, and both are asserted:
+     * `transition-matrix.test.ts`'s 256-pair agreement check (the two spellings
+     * have drifted) and `lifecycle.test.ts`'s raw-SQL arm (the database no
+     * longer refuses `draft_configuration -> approved`). */
+    patch: [
+      {
+        file: 'apps/api/migrations/0018_build_lifecycle.sql',
+        find: "    SELECT\n        -- report 21 §4, edge for edge.",
+        replace: "    SELECT true OR -- red case: every edge is admitted\n        -- report 21 §4, edge for edge.",
+      },
+    ],
+    greenCommand: ['run', 'gate:unit:builds'],
+    redCommand: ['run', 'gate:unit:builds'],
+  },
+  {
+    id: 'raw-nul-scan',
+    gate: 'raw U+0000 scan (FAD-45(1))',
+    violation: 'a raw NUL byte reintroduced into a source file',
+    /* The gate mandated after the THIRD recurrence of this class. Its whole
+     * value is that it fires on a byte no reviewer can see, so a green run tells
+     * you nothing on its own — this is what tells you it can fail at all.
+     *
+     * The violation is spelled with `\u0000` in THIS file so that `run.mjs`
+     * itself stays clean: the patch writes a real zero byte into the target, the
+     * gate finds it, and the revert removes it. A red case that had to carry the
+     * defect it tests would be caught by the gate it is testing. */
+    patch: [
+      {
+        file: 'apps/api/src/builds/readiness.ts',
+        find: 'const findings: BuildFinding[] = [];',
+        replace: `const findings: BuildFinding[] = []; // red case:\u0000raw NUL`,
+      },
+    ],
+    greenCommand: ['run', 'gate:raw-nul'],
+    redCommand: ['run', 'gate:raw-nul'],
+  },
+  {
+    id: 'builds-fencing-state-clause',
+    gate: 'build result fencing — the SETTLED-RUN clause (FAD-45(3), review R-3)',
+    violation: 'the fencing trigger no longer checks that the run is still running',
+    /* THE reviewer's serious one, and the arm the first round did not have.
+     *
+     * `app_guard_build_result_fencing` refuses on two conditions, and they catch
+     * different attacks. The EPOCH clause catches a worker whose claim was
+     * superseded. The STATE clause is the sole refusal for a different and worse
+     * case: injecting candidate rows, violations or a result into a run that has
+     * already SETTLED — a `failed` build acquiring a usable candidate, or an
+     * `approved` one acquiring extra assignments after the gate that checked it.
+     * The epoch would still match, because nothing about settling changes it.
+     *
+     * This neuters ONLY the state clause and leaves the epoch clause standing,
+     * so the arm cannot pass on the other one's behalf. */
+    patch: [
+      {
+        file: 'apps/api/migrations/0018_build_lifecycle.sql',
+        find: "    IF v_state <> 'running' THEN",
+        replace: '    IF false THEN -- red case: the settled-run clause is neutered',
+      },
+    ],
+    greenCommand: ['run', 'gate:unit:builds'],
+    redCommand: ['run', 'gate:unit:builds'],
+  },
 ];
 
 /** @param {string[]} args */

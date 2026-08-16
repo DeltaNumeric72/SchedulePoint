@@ -1,0 +1,5 @@
+$ node scripts/gates/raw-nul-scan.mjs
+FAIL  raw-nul-scan (FAD-45(1)) — 1 problem(s)
+  - apps/api/src/builds/readiness.ts: 1 raw U+0000 byte(s) at offset(s) 2837 — spell it `\x00` (the escape produces an identical string; see apps/api/src/solver/candidate-validation.ts)
+[ELIFECYCLE] Command failed with exit code 1.
+NUL-RED EXIT=1

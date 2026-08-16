@@ -36,6 +36,7 @@ import {
 import { withSimulatedPoolerFault } from '../support/pooler-simulator.js';
 import { ownedMulti } from '../support/owned-multi.js';
 import { seedRulesForSweep } from '../support/rules.js';
+import { seedBuildLifecycleForSweep } from '../support/builds.js';
 import { seedSolverSnapshotsForSweep } from '../support/solver.js';
 import { seedLocationsForSweep } from '../support/settings.js';
 
@@ -288,6 +289,48 @@ beforeAll(async () => {
       shiftTypeId: solverSiblingShiftType,
       startDate: '2039-06-06',
       endDate: '2039-06-12',
+    },
+  ]);
+
+  /* ── OPUS-M4-003: the six build-lifecycle tables (migration 0018) ──────────
+   *
+   * Same arrangement, fourth time: seeded HERE rather than in `provisionMulti`,
+   * because `test/support/multi.ts` is the single fixture owner and
+   * `test/support/builds.ts` is this packet's own file.
+   *
+   * `seedBuildLifecycleForSweep` drives one whole build per group through the
+   * PRODUCTION service — configure, create, transition, claim, persist the
+   * outcome — so every one of the six tables holds a row the application can
+   * actually produce. The candidate is deliberately refused by a synthetic
+   * `not-evaluable` finding, which is what puts a row in `build_run_violations`
+   * as well: a clean build would leave that table empty and the sweep's own
+   * non-vacuity check would (correctly) fail it. */
+  const buildsCatalogue = multi.catalogue('alpha');
+  const buildsShiftType = buildsCatalogue.shiftTypeIds[1];
+  const buildsSiblingShiftType = buildsCatalogue.sibling.shiftTypeIds[1];
+  if (buildsShiftType === undefined || buildsSiblingShiftType === undefined) {
+    throw new Error('the alpha catalogue seed produced no shift type for the build sweep');
+  }
+  await seedBuildLifecycleForSweep(runtime.runner, [
+    {
+      label: 'alpha_one',
+      organizationId: multi().alpha.organizationId,
+      groupId: multi().alpha.groupOne.id,
+      membershipId: multi().alpha.users.scheduler.membershipId,
+      userId: multi().alpha.users.scheduler.id,
+      shiftTypeId: buildsShiftType,
+      startDate: '2041-05-06',
+      endDate: '2041-05-12',
+    },
+    {
+      label: 'alpha_two',
+      organizationId: multi().alpha.organizationId,
+      groupId: buildsCatalogue.sibling.groupId,
+      membershipId: multi().alpha.users.groupTwoScheduler.membershipId,
+      userId: multi().alpha.users.groupTwoScheduler.id,
+      shiftTypeId: buildsSiblingShiftType,
+      startDate: '2041-06-03',
+      endDate: '2041-06-09',
     },
   ]);
 }, 180_000);
