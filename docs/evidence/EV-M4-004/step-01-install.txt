@@ -1,0 +1,5 @@
+$ corepack pnpm install --frozen-lockfile
+Scope: all 5 workspace projects
+Already up to date
+Done in 153ms using pnpm v11.18.0
+INSTALL EXIT=0

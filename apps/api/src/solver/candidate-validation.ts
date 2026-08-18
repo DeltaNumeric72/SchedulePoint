@@ -14,6 +14,8 @@ import {
   type SolverInputSnapshotDocument,
 } from '@schedulepoint/domain';
 
+import { candidateDemandCoverage } from './quality-metrics.js';
+
 /**
  * **Independent re-validation of a solver candidate** — SPEC-04 §3.3, OPUS-M4-002.
  *
@@ -52,9 +54,12 @@ import {
  *  3. **a duplicate** — one membership placed twice on one date and shift type;
  *  4. **an ineligible assignment** — the snapshot's own verdict says this
  *     membership may not work this shift type. See below;
- *  5. **a hard violation** — found by the checker below.
+ *  5. **a dropped protected assignment** — a PINNED fixed input the candidate
+ *     did not reproduce (OPUS-M4-004). The model cannot produce this either,
+ *     which is precisely why it is checked here;
+ *  6. **a hard violation** — found by the checker below.
  *
- * All five make the candidate **unusable**, and `M4-003` owns what the build
+ * All six make the candidate **unusable**, and `M4-003` owns what the build
  * lifecycle then does with it. Nothing here persists anything.
  *
  * ## Why eligibility is a rejection class of its own (OPUS-M4-002)
@@ -86,6 +91,8 @@ export type CandidateRejection =
   | { readonly reason: 'unknown-reference'; readonly detail: string }
   | { readonly reason: 'duplicate-assignment'; readonly detail: string }
   | { readonly reason: 'ineligible-assignment'; readonly detail: string }
+  | { readonly reason: 'protected-assignment-dropped'; readonly detail: string }
+  | { readonly reason: 'demand-not-met'; readonly detail: string }
   | { readonly reason: 'hard-violation'; readonly findings: readonly HardRuleFinding[] };
 
 export interface CandidateVerdict {
@@ -178,6 +185,69 @@ export function validateCandidate(options: ValidateCandidateOptions): CandidateV
       });
     }
     seen.add(key);
+  }
+
+  /* ── the pins survived (OPUS-M4-004; doc 08 §5, SPEC-04 §6) ───────────────
+   *
+   * A pinned fixed input is an INPUT, not a suggestion: the model fixes its cell
+   * to 1 and cannot drop it. That is exactly why the check belongs here — the
+   * independent checker's whole job is not to assume the model did its job, and
+   * a progressive build whose protected assignments quietly moved is the one
+   * failure this feature exists to make impossible (SBX-017: "preserved
+   * **exactly** — not approximately, not usually").
+   *
+   * Only PINNED fixed inputs are required. An unpinned prior assignment is
+   * ordinary content the solver is free to re-decide, which is the whole point
+   * of a rebuild. */
+  for (const fixed of snapshot.fixedAssignments) {
+    if (!fixed.isPinned) continue;
+    if (seen.has(`${fixed.membershipId}|${fixed.date}|${fixed.shiftTypeId}`)) continue;
+    rejections.push({
+      reason: 'protected-assignment-dropped',
+      detail:
+        'a pinned fixed input is absent from the candidate; a protected assignment is an ' +
+        'input to the solve and may not be re-decided by it',
+    });
+  }
+
+  /* ── demand coverage, checked HERE rather than trusted (OPUS-M4-004, F-03) ──
+   *
+   * SPEC-04 §7 calls demand satisfaction "a hard rule; a shortfall is a
+   * violation, not a metric". Until this repair the only thing enforcing it was
+   * the MODEL's equality (`cpsat_adapter.py`: `sum(cells) == required`) — so the
+   * guarantee rested entirely on the solver continuing to post that constraint,
+   * and the metric that was supposed to notice a shortfall could not, because it
+   * counted assignments without matching them to cells.
+   *
+   * That is the D-4 shape exactly: a number sitting beside a verdict, asserting
+   * something no independent party had measured. So the checker measures it, on
+   * RK-RULING-01's date × shift-type unit, from the snapshot the model was given
+   * — and is entitled to disagree with the model, which is the only reason an
+   * independent checker is worth having.
+   *
+   * BOTH directions are refused, because the model constrains both and for a
+   * reason it states: a cell nobody asked for must not be staffed, or the solver
+   * can fill a day the scheduler deliberately left empty. */
+  const coverage = candidateDemandCoverage(snapshot, assignments);
+  if (coverage.shortfalls.length > 0) {
+    const worst = coverage.shortfalls[0]!;
+    rejections.push({
+      reason: 'demand-not-met',
+      detail:
+        `${String(coverage.shortfalls.length)} requirement cell(s) are not fully staffed ` +
+        `(${String(coverage.filledSlots)} of ${String(coverage.requiredSlots)} required slot(s) ` +
+        `filled; first shortfall places ${String(worst.filledCount)} of ` +
+        `${String(worst.requiredCount)}); a demand shortfall is a violation, not a metric`,
+    });
+  }
+  if (coverage.overfills.length > 0) {
+    rejections.push({
+      reason: 'demand-not-met',
+      detail:
+        `${String(coverage.overfills.length)} cell(s) are staffed beyond what the period asked ` +
+        'for; a cell nothing asked for must not be fillable, or a day left deliberately empty ' +
+        'can be staffed by the solve',
+    });
   }
 
   const findings = evaluateHardRules(compiledRulesOf(snapshot), checkedVersionOf(options));
@@ -299,9 +369,7 @@ function checkedVersionOf(options: ValidateCandidateOptions): CheckedVersion {
       new Set(g.shiftTypeIds.map((id) => shiftTypeById.get(id)?.code ?? '')),
     ]),
   );
-  const workProfiles = new Map(
-    snapshot.participants.map((p) => [p.membershipId, p.workProfile]),
-  );
+  const workProfiles = new Map(snapshot.participants.map((p) => [p.membershipId, p.workProfile]));
 
   const facts: CandidateFacts = {
     horizon: { from: snapshot.startDate, to: snapshot.endDate },

@@ -6,6 +6,7 @@ import {
   SolverResponseRejectedError,
   reproducibilityMode,
   solverResponseVerdict,
+  type ObjectiveTierRecordShape,
   type SolveOutcome,
   type SolveRequestSpec,
   type SolverCandidateAssignment,
@@ -14,6 +15,14 @@ import {
 
 import { assertOutsideUnitOfWork } from '../db/provider-boundary.js';
 import { DEFAULT_TERMINATION_GRACE_MS, solverRpcKey, solverWorkerCommand } from './config.js';
+import {
+  readObjectiveProfile,
+  readObjectiveTiers,
+  readStatistics,
+  requireObjectiveAgreement,
+  type ObjectiveProfileRecord,
+  type SolverStatisticsRecord,
+} from './objective-record.js';
 import { frameRequest, splitFrame, verifyResponseFrame } from './rpc-envelope.js';
 import { freshNonce } from './rpc-envelope.js';
 
@@ -106,42 +115,67 @@ export interface StructuralFinding {
 }
 
 /**
- * SPEC-04 §5's four explanation states.
+ * SPEC-04 §5's five explanation states.
  *
- * `EXPLAINED_MINIMAL` is deliberately NOT among them: CP-SAT returns a
- * *sufficient* assumption subset, not a minimal one (measured, EV-M4-002 probe
- * 02), and minimisation is T2 — M4-004's budget work.
+ * `EXPLAINED_MINIMAL` joined the set in OPUS-M4-004 with the T2 loop that can
+ * earn it, and **only** the T2 loop can: CP-SAT's own
+ * `SufficientAssumptionsForInfeasibility` returns a *sufficient* subset, not a
+ * minimal one (measured, EV-M4-002 probe 02), so T1 alone still reports
+ * `EXPLAINED_SUBSET` and always will. The state means "a full deletion pass
+ * completed inside both caps and every remaining rule was shown to be
+ * necessary" — nothing weaker is allowed to wear it.
  */
 export type ExplanationState =
   | 'EXPLAINED_EXACT'
   | 'EXPLAINED_SUBSET'
+  | 'EXPLAINED_MINIMAL'
   | 'EXPLANATION_BUDGET_EXCEEDED'
   | 'EXPLANATION_UNAVAILABLE';
+
+/** What the T2 minimisation loop did, and what it cost. */
+export interface ExplanationTier2Record {
+  readonly attempted: boolean;
+  readonly iterations: number;
+  readonly removed: number;
+  readonly budgetSeconds: number;
+  readonly maxIterations: number;
+  /** `true` when a cap bit before the pass completed — the reason for the state. */
+  readonly exhausted: boolean;
+}
 
 export interface SolverExplanationRecord {
   readonly state: ExplanationState;
   /** T0. Always attempted, exact when it fires. Never null on an INFEASIBLE. */
   readonly structural: readonly StructuralFinding[];
-  /** T1. The sufficient assumption subset, or empty. */
+  /** T1/T2. The conflicting subset — minimal only when the state says so. */
   readonly conflictingRuleKeys: readonly string[];
+  readonly tier2: ExplanationTier2Record | null;
+  readonly solveCount: number | null;
+  readonly elapsedSeconds: number | null;
 }
 
-/** One E1 objective tier, recorded so a scheduler can see WHAT was optimised. */
-export interface ObjectiveTierRecord {
-  readonly tier: number;
-  readonly name: string;
-  readonly weightScale: number;
-  readonly ruleKeys: readonly string[];
-  /** Rules in this tier the model could not map to a term. Named, never hidden. */
-  readonly unmappedRuleKeys: readonly string[];
-  readonly termCount: number;
-}
+/**
+ * One recorded objective tier — rank, multiplier, scale, and every component's
+ * scaled weight (doc 35 §6f required behaviour 1).
+ *
+ * `tier` is the RANK and `weightScale` the multiplier. They were one field in
+ * E1; separating them is what makes "the weights changed" and "the ranking
+ * changed" different observable facts.
+ */
+export type ObjectiveTierRecord = ObjectiveTierRecordShape;
 
 export interface SolveOutcomeDetail extends SolveOutcome {
   /** Present on INFEASIBLE; `null` whenever the worker had nothing to explain. */
   readonly explanation: SolverExplanationRecord | null;
   readonly objectiveTiers: readonly ObjectiveTierRecord[];
   readonly objectiveValue: number | null;
+  /**
+   * The objective profile the worker ran under. Never `null` on a response this
+   * platform accepted — {@link requireObjectiveAgreement} refuses first.
+   */
+  readonly objectiveProfile: ObjectiveProfileRecord | null;
+  /** SPEC-04 §4's search statistics. Absent fields are `null`, never zero. */
+  readonly statistics: SolverStatisticsRecord;
   /**
    * The worker's own refusal CODE, when it refused (`FAILED`/`rejected`).
    *
@@ -268,6 +302,12 @@ export async function solveOnWorker(
       explanation: null,
       objectiveTiers: [],
       objectiveValue: null,
+      /* A terminated worker reported no objective and did no measurable search.
+       * `null` throughout rather than the platform's own profile: recording what
+       * we would have used as what it used would be inventing agreement with a
+       * process that never spoke. */
+      objectiveProfile: null,
+      statistics: readStatistics(null),
       refusalCode: null,
     };
   }
@@ -303,6 +343,18 @@ export async function solveOnWorker(
   if (verdict.outcome === 'refused') throw new SolverResponseRejectedError(verdict.refusal);
 
   const body = parsed as Record<string, unknown>;
+
+  /* OPUS-M4-004. A REFUSAL a protocol refusal cannot be — the worker was
+   * authentic, well-formed and on-version, and it optimised a different
+   * objective than this platform compiles. Checked before anything is read out
+   * of the body, because everything below it is a measurement of that objective.
+   *
+   * A `FAILED`/`rejected` response is exempt: the worker refused before building
+   * a model, so it has no objective to report and demanding one would turn every
+   * honest structured refusal into a mismatch. */
+  const objectiveProfile = readObjectiveProfile(body['objectiveProfile']);
+  if (verdict.status !== 'FAILED') requireObjectiveAgreement(objectiveProfile);
+
   return {
     status: verdict.status,
     terminationReason: verdict.terminationReason,
@@ -313,6 +365,8 @@ export async function solveOnWorker(
     explanation: readExplanation(body['explanation']),
     objectiveTiers: readObjectiveTiers(body['objectiveTiers']),
     objectiveValue: typeof body['objectiveValue'] === 'number' ? body['objectiveValue'] : null,
+    objectiveProfile,
+    statistics: readStatistics(body['statistics']),
     refusalCode: readRefusalCode(body['error']),
   };
 }
@@ -519,6 +573,7 @@ function readRefusalCode(value: unknown): string | null {
 const EXPLANATION_STATES: readonly ExplanationState[] = [
   'EXPLAINED_EXACT',
   'EXPLAINED_SUBSET',
+  'EXPLAINED_MINIMAL',
   'EXPLANATION_BUDGET_EXCEEDED',
   'EXPLANATION_UNAVAILABLE',
 ];
@@ -526,12 +581,17 @@ const EXPLANATION_STATES: readonly ExplanationState[] = [
 /**
  * The explanation, read defensively — and CLOSED over its state set.
  *
- * A state outside the four SPEC-04 §5 names is discarded rather than carried
+ * A state outside the five SPEC-04 §5 names is discarded rather than carried
  * through, for the reason the section exists: an explanation the platform
- * cannot classify must present as *no explanation*, never as a fifth kind of
- * certainty. In particular a worker inventing `EXPLAINED_MINIMAL` would be
- * claiming a minimality CP-SAT does not provide, and it would arrive looking
- * exactly like a stronger answer.
+ * cannot classify must present as *no explanation*, never as a sixth kind of
+ * certainty.
+ *
+ * **`EXPLAINED_MINIMAL` is additionally EARNED, not merely spelled.** A response
+ * claiming it without a completed T2 pass — `tier2.attempted` false, or
+ * `tier2.exhausted` true — is downgraded to `EXPLAINED_SUBSET` here, on this
+ * side of the boundary, because the claim is the strongest thing an explanation
+ * can say and the worker is the least trusted component that ships. A scheduler
+ * who acts on a false minimality claim relaxes a rule for nothing.
  */
 function readExplanation(value: unknown): SolverExplanationRecord | null {
   if (typeof value !== 'object' || value === null) return null;
@@ -559,30 +619,35 @@ function readExplanation(value: unknown): SolverExplanationRecord | null {
     ? row['conflictingRuleKeys'].filter((key): key is string => typeof key === 'string')
     : [];
 
-  return { state: state as ExplanationState, structural, conflictingRuleKeys: conflicting };
+  const tier2 = readTier2(row['tier2']);
+  let claimed = state as ExplanationState;
+  if (claimed === 'EXPLAINED_MINIMAL' && (tier2 === null || !tier2.attempted || tier2.exhausted)) {
+    claimed = 'EXPLAINED_SUBSET';
+  }
+
+  return {
+    state: claimed,
+    structural,
+    conflictingRuleKeys: conflicting,
+    tier2,
+    solveCount: typeof row['solveCount'] === 'number' ? row['solveCount'] : null,
+    elapsedSeconds: typeof row['elapsedSeconds'] === 'number' ? row['elapsedSeconds'] : null,
+  };
 }
 
-function readObjectiveTiers(value: unknown): readonly ObjectiveTierRecord[] {
-  if (!Array.isArray(value)) return [];
-  const tiers: ObjectiveTierRecord[] = [];
-  for (const entry of value) {
-    if (typeof entry !== 'object' || entry === null) continue;
-    const row = entry as Record<string, unknown>;
-    if (typeof row['tier'] !== 'number' || typeof row['name'] !== 'string') continue;
-    const strings = (name: string): readonly string[] =>
-      Array.isArray(row[name])
-        ? (row[name] as unknown[]).filter((item): item is string => typeof item === 'string')
-        : [];
-    tiers.push({
-      tier: row['tier'],
-      name: row['name'],
-      weightScale: typeof row['weightScale'] === 'number' ? row['weightScale'] : 0,
-      ruleKeys: strings('ruleKeys'),
-      unmappedRuleKeys: strings('unmappedRuleKeys'),
-      termCount: typeof row['termCount'] === 'number' ? row['termCount'] : 0,
-    });
-  }
-  return tiers;
+function readTier2(value: unknown): ExplanationTier2Record | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const row = value as Record<string, unknown>;
+  const count = (name: string): number =>
+    typeof row[name] === 'number' && Number.isFinite(row[name]) ? (row[name] as number) : 0;
+  return {
+    attempted: row['attempted'] === true,
+    iterations: count('iterations'),
+    removed: count('removed'),
+    budgetSeconds: count('budgetSeconds'),
+    maxIterations: count('maxIterations'),
+    exhausted: row['exhausted'] === true,
+  };
 }
 
 /**

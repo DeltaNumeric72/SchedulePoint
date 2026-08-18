@@ -1,0 +1,11 @@
+# F-14 delta round: the four arms whose command list includes e2-objective.test.ts
+# launched 2026-08-18T03:09:15Z
+
+GREEN (clean tree) first:
+  green exit=0 | [2m      Tests [22m [1m[32m26 passed[39m[22m[90m (26)[39m
+solver-objective-scale-drift                 RED exit=1 gate failed as required | [31m⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 13 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+solver-t2-false-minimality                   RED exit=1 gate failed as required | [31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+solver-progressive-pin-unfixed               RED exit=1 gate failed as required | [31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+solver-demand-not-independently-checked      RED exit=1 gate failed as required | [31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 4 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+ARMS EXIT=0
+SCRIPT EXIT=0

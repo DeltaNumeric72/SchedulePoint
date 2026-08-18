@@ -16,13 +16,8 @@ import {
 } from '../components/Form.js';
 import { isPermissionDenied, SurfaceState } from '../components/SurfaceState.js';
 import { useNarrowViewport } from '../components/useNarrowViewport.js';
-import { BuildsLayout, STATE_LABELS } from './BuildsLayout.js';
-import {
-  createConfiguration,
-  createRun,
-  fetchConfigurations,
-  fetchRuns,
-} from './api.js';
+import { BuildsLayout, REPRODUCIBILITY_LABELS, STATE_LABELS } from './BuildsLayout.js';
+import { createConfiguration, createRun, fetchConfigurations, fetchRuns } from './api.js';
 
 /**
  * The period's builds: what has been configured, what has run, and what a
@@ -77,6 +72,10 @@ export function BuildsPage(): JSX.Element {
 
   const [name, setName] = useState('');
   const [maxSeconds, setMaxSeconds] = useState('10');
+  /* Opt-IN, defaulting off: the non-deterministic portfolio stays the default
+   * (doc 35 §6f ruling (3)). A default-on reproducible mode would pay the
+   * measured cost on every build for a property most builds do not need. */
+  const [deterministic, setDeterministic] = useState(false);
   const [label, setLabel] = useState('');
   const [sourceVersionId, setSourceVersionId] = useState('');
 
@@ -89,10 +88,22 @@ export function BuildsPage(): JSX.Element {
         periodId: period,
         name,
         maxTimeSeconds: Number(maxSeconds),
+        /* The FULL SPEC-04 §4 amended set, or none of it. A partial pinning —
+         * `interleaveSearch` without `maxDeterministicTime`, say — computes to
+         * `best-effort` server-side, so offering half the conditions would let a
+         * scheduler tick a box and get nothing. */
+        ...(deterministic
+          ? {
+              interleaveSearch: true,
+              maxDeterministicTime: Number(maxSeconds),
+              numSearchWorkers: 1,
+            }
+          : {}),
       }),
     onSuccess: () => {
       setIsConfiguring(false);
       setName('');
+      setDeterministic(false);
       setProblems([]);
       setMessage(null);
       /* PO-DEC-18: the SERVER is the authority. The list is re-read rather than
@@ -154,7 +165,11 @@ export function BuildsPage(): JSX.Element {
       periodId={period === '' ? null : period}
     >
       {message === null ? null : (
-        <p className="rounded-panel border border-border bg-surface-raised p-sp-3 text-text" role="alert" data-testid="builds-message">
+        <p
+          className="rounded-panel border border-border bg-surface-raised p-sp-3 text-text"
+          role="alert"
+          data-testid="builds-message"
+        >
           {message}
         </p>
       )}
@@ -180,9 +195,14 @@ export function BuildsPage(): JSX.Element {
               >
                 <span className="min-w-0 text-text">
                   <span className="font-medium">{configuration.name}</span>
-                  <span className="ml-sp-2 text-sm text-text-muted">
-                    {configuration.maxTimeSeconds}s limit · {configuration.reproducibilityMode} ·
-                    retries up to {configuration.retryLimit}
+                  <span
+                    className="ml-sp-2 text-sm text-text-muted"
+                    data-testid={`build-configuration-mode-${configuration.reproducibilityMode}`}
+                  >
+                    {configuration.maxTimeSeconds}s limit ·{' '}
+                    {REPRODUCIBILITY_LABELS[configuration.reproducibilityMode] ??
+                      configuration.reproducibilityMode}{' '}
+                    · retries up to {configuration.retryLimit}
                   </span>
                 </span>
                 <button
@@ -192,7 +212,9 @@ export function BuildsPage(): JSX.Element {
                     // I-13: local state only. Nothing is created, nothing is fetched.
                     setProblems([]);
                     setMessage(null);
-                    setLaunchKey(`ui.${Date.now().toString(36)}.${Math.random().toString(36).slice(2, 10)}`);
+                    setLaunchKey(
+                      `ui.${Date.now().toString(36)}.${Math.random().toString(36).slice(2, 10)}`,
+                    );
                     setIsLaunching(configuration.id);
                   }}
                   type="button"
@@ -253,6 +275,51 @@ export function BuildsPage(): JSX.Element {
                 />
               )}
             </Field>
+            {/* ── deterministic mode, opt-in, with its cost disclosed ──────
+                doc 35 §6f ruling (3): opt-in per build configuration, pinning
+                the FULL SPEC-04 §4 amended set. The checkbox does NOT set
+                `reproducibilityMode` — that is COMPUTED server-side from the
+                parameters, and a client-settable flag is exactly the claim the
+                amendment exists to stop (five runs, one seed, eight workers,
+                five different schedules). It sets the CONDITIONS: the
+                deterministic portfolio on, a deterministic time limit pinned,
+                and a single search worker. */}
+            <fieldset className="flex flex-col gap-sp-2 border-0 p-0">
+              <legend className="text-sm font-medium text-text">Reproducibility</legend>
+              <label className="flex items-start gap-sp-2 text-text">
+                <input
+                  checked={deterministic}
+                  className="mt-sp-1 min-h-target min-w-target"
+                  data-testid="build-configuration-deterministic"
+                  onChange={(event) => setDeterministic(event.target.checked)}
+                  type="checkbox"
+                />
+                <span>Deterministic mode — the same problem produces the same schedule</span>
+              </label>
+              {/* REPAIR F-04 (FAD-46). This previously quoted EV-M0-SPC H-7's
+                  TOY-instance figures — "12× slower on a small instance and
+                  faster on a hard one" — which is a measurement of a different
+                  program on a different problem, presented to a scheduler as
+                  though it described this build. THIS packet measured the cost on
+                  the E1 corpus (EV-M4-004 §5) and that is what is disclosed.
+
+                  The honest shape of that measurement: thirteen of fourteen
+                  classes solve in milliseconds, so their ≈1× is measuring worker
+                  STARTUP, not search. One class carries an objective large enough
+                  to search, and it cost 10×. H-7's other half — the deterministic
+                  portfolio running FASTER on a hard instance — did NOT reproduce,
+                  because the corpus has no instance that hard. That is a gap in
+                  the corpus, and claiming the speed-up anyway would be quoting a
+                  benefit this system has never observed. */}
+              <p className="text-sm text-text-muted" data-testid="build-deterministic-cost">
+                Deterministic mode replaces the parallel search with a single reproducible one and
+                stops on a machine-independent budget rather than a clock. Measured on this system’s
+                own build classes: about the same wall clock on classes whose solve is dominated by
+                worker startup, and about 10× slower on the one class with an objective large enough
+                to search — where it also returned a feasible schedule instead of proving an optimal
+                one. No speed target is set, and no benchmark band exists until M6.
+              </p>
+            </fieldset>
             <p className="flex flex-wrap gap-sp-2">
               <button
                 className={PRIMARY_BUTTON_CLASS}
@@ -300,7 +367,11 @@ export function BuildsPage(): JSX.Element {
               launch.mutate(isLaunching);
             }}
           >
-            <ValidationSummary fieldIds={launchFields} formName="build-launch" problems={problems} />
+            <ValidationSummary
+              fieldIds={launchFields}
+              formName="build-launch"
+              problems={problems}
+            />
             <Field
               help="How this candidate is named when you compare it with another."
               id={launchFields.candidateLabel}
@@ -434,7 +505,9 @@ export function BuildsPage(): JSX.Element {
                           type="checkbox"
                         />
                       </td>
-                      <td className="border-b border-border p-sp-2 text-text">{run.candidateLabel}</td>
+                      <td className="border-b border-border p-sp-2 text-text">
+                        {run.candidateLabel}
+                      </td>
                       <td className="border-b border-border p-sp-2 text-text-muted">
                         {run.configurationName}
                       </td>

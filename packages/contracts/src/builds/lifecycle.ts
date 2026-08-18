@@ -97,9 +97,7 @@ export const createBuildConfigurationRequestSchema = z
     retryLimit: z.number().int().min(0).max(10).optional(),
   })
   .strict();
-export type CreateBuildConfigurationRequest = z.infer<
-  typeof createBuildConfigurationRequestSchema
->;
+export type CreateBuildConfigurationRequest = z.infer<typeof createBuildConfigurationRequestSchema>;
 
 export const buildConfigurationListSchema = z
   .object({
@@ -158,6 +156,17 @@ export const buildRejectionSchema = z
       'unknown-reference',
       'duplicate-assignment',
       'ineligible-assignment',
+      /** OPUS-M4-004: a PINNED fixed input the candidate did not reproduce. */
+      'protected-assignment-dropped',
+      /**
+       * OPUS-M4-004 repair F-14: demand the candidate left unmet, or a cell
+       * nobody asked for that it staffed anyway.
+       *
+       * A reason the validator can produce and this enum cannot carry is a
+       * refusal with no reason: the read path drops it, the client renders an
+       * empty list, and a scheduler sees a candidate refused for nothing.
+       */
+      'demand-not-met',
       'hard-violation',
     ]),
     detail: z.string().min(1).max(2000),
@@ -165,12 +174,61 @@ export const buildRejectionSchema = z
   .strict();
 export type BuildRejection = z.infer<typeof buildRejectionSchema>;
 
+/**
+ * PO-DEC-13's four conflict classes, on the wire.
+ *
+ * Four, closed, in the decision's own severity order. `blocksApproval` and
+ * `banded` travel WITH each conflict rather than being re-derived by the client:
+ * a surface that had to look up whether a class blocks approval is a surface
+ * that can look it up wrongly, and `fairness-outlier` — the one class with no
+ * band at all, because no band is set until the M6 benchmark — is exactly the one a client would
+ * be most tempted to render as a failure.
+ */
+export const conflictClassSchema = z.enum([
+  'hard-breach',
+  'unmet-demand',
+  'eligibility-failure',
+  'fairness-outlier',
+]);
+export type ConflictClassWire = z.infer<typeof conflictClassSchema>;
+
+export const buildConflictSchema = z
+  .object({
+    conflictClass: conflictClassSchema,
+    /** 1 is most severe. The list arrives sorted by it. */
+    severityRank: z.number().int().positive(),
+    blocksApproval: z.boolean(),
+    /** `false` where no threshold is defined — a measurement, not a verdict. */
+    banded: z.boolean(),
+    /** Which producer raised it. Identifiers only; never user text. */
+    source: z.enum(['violation', 'rejection', 'structural', 'demand', 'fairness']),
+    code: z.string().min(1).max(200),
+    subject: z.string().max(200).nullable(),
+    detail: z.string().min(1).max(2000),
+  })
+  .strict();
+export type BuildConflict = z.infer<typeof buildConflictSchema>;
+
+/** One rule's recorded contribution: the SCALED weight it carried (doc 08 §3.4). */
+export const objectiveComponentSchema = z
+  .object({
+    ruleKey: z.string().min(1).max(200),
+    scaledWeight: z.number(),
+  })
+  .strict();
+export type ObjectiveComponent = z.infer<typeof objectiveComponentSchema>;
+
 export const objectiveTierSchema = z
   .object({
+    /** The RANK. 1 carries the largest multiplier. */
     tier: z.number().int(),
     name: z.string().min(1).max(120),
+    /** The tier's multiplier. Separate from the rank since OPUS-M4-004. */
     weightScale: z.number(),
+    /** The global integer scaling factor in force (doc 08 §3.4). */
+    scale: z.number().int().positive(),
     ruleKeys: z.array(z.string().min(1).max(200)),
+    components: z.array(objectiveComponentSchema),
     unmappedRuleKeys: z.array(z.string().min(1).max(200)),
     termCount: z.number().int().nonnegative(),
   })
@@ -192,17 +250,57 @@ export const buildQualityMetricsSchema = z
     hardViolations: z.number().int().nonnegative(),
     softPenaltyTotal: z.number().nullable(),
     solveWallClockMs: z.number().int().nonnegative(),
+    /* OPUS-M4-004 — the rest of SPEC-04 §7's table. The two `null`s below are
+     * load-bearing: requests are M5 and `TemplateAdherence` is fail-closed at M4
+     * (FAD-27), so a `0` would claim every request was refused and every
+     * template ignored. `null` says "not measured", which is what is true. */
+    requestHonourRate: z.number().min(0).max(1).nullable(),
+    templateAdherenceRate: z.number().min(0).max(1).nullable(),
+    /** §7's `fairness_dispersion` — the coefficient of variation. Band-less. */
+    fairnessDispersion: z.number().nullable(),
+    /** The recorded basis. A dispersion whose basis is unstated is unreadable. */
+    fairnessNormalisation: z.string().min(1).max(64),
+    fairnessMeasuredParticipants: z.number().int().nonnegative(),
+    /** Participants with no in-force FTE. Reported, never assumed full-time. */
+    fairnessUnmeasuredParticipants: z.number().int().nonnegative(),
+    explanationLatencyMs: z.number().int().nonnegative().nullable(),
+    /** Two results are comparable iff same snapshot AND same digest. */
+    objectiveWeightsDigest: z
+      .string()
+      .regex(/^[0-9a-f]{64}$/)
+      .nullable(),
+    objectiveScale: z.number().int().nonnegative(),
+    objectiveProfileId: z.string().max(64),
+    /** SPEC-04 §4's search statistics. Counts and durations; never a model. */
+    solverStatistics: z.record(z.string(), z.number().nullable()),
   })
   .strict();
 export type BuildQualityMetrics = z.infer<typeof buildQualityMetricsSchema>;
+
+/** What the T2 minimisation loop did, and what stopped it (SPEC-04 §5). */
+export const explanationTier2Schema = z
+  .object({
+    attempted: z.boolean(),
+    iterations: z.number().int().nonnegative(),
+    removed: z.number().int().nonnegative(),
+    budgetSeconds: z.number().nonnegative(),
+    maxIterations: z.number().int().nonnegative(),
+    /** `true` when a cap bit before the pass completed — why the state degraded. */
+    exhausted: z.boolean(),
+  })
+  .strict();
+export type ExplanationTier2 = z.infer<typeof explanationTier2Schema>;
 
 export const buildExplanationSchema = z
   .object({
     state: explanationStateSchema.nullable(),
     /** T0 structural findings — always attempted, exact when they fire. */
     structural: z.array(buildFindingSchema),
-    /** T1/T2's conflicting subset. Possibly not minimal, and labelled so. */
+    /** T1/T2's conflicting subset. Minimal ONLY when the state says so. */
     conflictingRuleKeys: z.array(z.string().min(1).max(200)),
+    tier2: explanationTier2Schema.nullable(),
+    solveCount: z.number().int().nonnegative().nullable(),
+    elapsedSeconds: z.number().nonnegative().nullable(),
   })
   .strict();
 export type BuildExplanation = z.infer<typeof buildExplanationSchema>;
@@ -231,13 +329,7 @@ export type BuildResult = z.infer<typeof buildResultSchema>;
 
 export const buildRunEventSchema = z
   .object({
-    kind: z.enum([
-      'transition',
-      'result_refused',
-      'heartbeat_reaped',
-      'claim',
-      'cancel_requested',
-    ]),
+    kind: z.enum(['transition', 'result_refused', 'heartbeat_reaped', 'claim', 'cancel_requested']),
     fromState: buildRunStateSchema.nullable(),
     toState: buildRunStateSchema.nullable(),
     claimEpoch: z.number().int().nonnegative(),
@@ -259,7 +351,10 @@ export const buildRunSummarySchema = z
     state: buildRunStateSchema,
     solverStatus: solverStatusSchema.nullable(),
     terminationReason: terminationReasonSchema.nullable(),
-    canonicalInputHash: z.string().regex(/^[0-9a-f]{64}$/).nullable(),
+    canonicalInputHash: z
+      .string()
+      .regex(/^[0-9a-f]{64}$/)
+      .nullable(),
     claimEpoch: z.number().int().nonnegative(),
     heartbeatAt: z.string().min(1).nullable(),
     retryOfBuildRunId: uuidSchema.nullable(),
@@ -281,6 +376,13 @@ export const buildRunDetailSchema = z
     readinessFindings: z.array(buildFindingSchema),
     result: buildResultSchema.nullable(),
     violations: z.array(buildViolationSchema),
+    /**
+     * PO-DEC-13's taxonomy over everything this build produced, sorted by
+     * severity. A projection over `violations`, `result.rejections`,
+     * `result.explanation.structural` and the measured quality — one classified
+     * list, so a scheduler reads one ordering instead of reconciling four.
+     */
+    conflicts: z.array(buildConflictSchema),
     events: z.array(buildRunEventSchema),
     /**
      * The source draft's material-input digest AS IT IS NOW. The selection CAS
@@ -320,13 +422,39 @@ export const candidateComparisonRowSchema = z
   .strict();
 export type CandidateComparisonRow = z.infer<typeof candidateComparisonRowSchema>;
 
+/**
+ * **Comparability, as a first-class answer** (OPUS-M4-004; doc 35 §6f required
+ * behaviour 1).
+ *
+ * > two results are comparable iff same snapshot + same weights, and the
+ * > comparison service enforces exactly that.
+ *
+ * A refusal is a 200 carrying `comparable: false` and a reason rather than an
+ * error, deliberately: the scheduler asked a legitimate question and the honest
+ * answer is "these two cannot be put in one column, and here is why". An error
+ * would read as a fault and invite a retry that cannot succeed.
+ */
+export const comparabilitySchema = z.discriminatedUnion('comparable', [
+  z.object({ comparable: z.literal(true) }).strict(),
+  z
+    .object({
+      comparable: z.literal(false),
+      reason: z.enum(['cross-snapshot', 'weights-differ']),
+    })
+    .strict(),
+]);
+export type Comparability = z.infer<typeof comparabilitySchema>;
+
 export const candidateComparisonSchema = z
   .object({
     runs: z.array(buildRunSummarySchema),
-    quality: z.array(
-      z.object({ runId: uuidSchema, quality: buildQualityMetricsSchema }).strict(),
-    ),
-    /** Only the rows that DIFFER; a full agreement projection is the empty list. */
+    quality: z.array(z.object({ runId: uuidSchema, quality: buildQualityMetricsSchema }).strict()),
+    comparability: comparabilitySchema,
+    /**
+     * Only the rows that DIFFER; a full agreement projection is the empty list.
+     * **Empty whenever `comparability.comparable` is false** — a difference list
+     * across two different problems is a list of coincidences.
+     */
     differences: z.array(candidateComparisonRowSchema),
     sharedAssignmentCount: z.number().int().nonnegative(),
     correlationId: z.string().min(1),

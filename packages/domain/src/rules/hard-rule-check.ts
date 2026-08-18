@@ -503,6 +503,20 @@ function byMembership(
  * snapshot id so equal instants never depend on the database's row order. A
  * checker whose findings depend on read order is a checker whose red case passes
  * on Tuesday.
+ *
+ * **LOAD-BEARING for the model/checker equivalence — FAD-43(5), executed here by
+ * OPUS-M4-004.** The rest and spacing kinds are stated in this checker over
+ * *chronologically adjacent* assignments, and `cpsat_adapter.py` posts a
+ * constraint for *every pair whose gap is short*. Those two formulations accept
+ * exactly the same schedules only because this sort really is chronological: if
+ * some pair (a, c) is too close then a's immediate successor b satisfies
+ * `start(b) ≤ start(c)`, so the adjacent pair (a, b) is at least as close and
+ * breaches too. Change this ordering — sort by date string, by shift code, by
+ * insertion — and that argument silently stops holding: the model would forbid
+ * pairs the checker permits, or worse, permit pairs it forbids, and the symptom
+ * would be a build reported as `OPTIMAL` and then refused by the checker with no
+ * rule to point at. The comparator is the proof's premise, not a tidiness
+ * choice.
  */
 function chronological(assignments: readonly CheckedAssignment[]): CheckedAssignment[] {
   return [...assignments].sort(

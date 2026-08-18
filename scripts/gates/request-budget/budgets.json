@@ -272,6 +272,12 @@
       "description": "User clicks 'Retry as a new build' on a build that failed or timed out.",
       "maxRequests": 2,
       "note": "I-10. The write that creates the NEW build (SPEC-04 \u00a72 forbids an in-place retry), plus ONE re-read of this build from the invalidation. Measured 2 at both viewports. It was authored as 3 on the assumption that the period-list query would also re-read; it does not \u2014 that query is not mounted on the detail route, so its invalidation marks it stale without fetching. The delta review measured 2 independently. A budget with headroom nobody measured is a budget that stops detecting amplification (FAD-45(2), D-4)."
+    },
+    {
+      "id": "builds-toggle-deterministic",
+      "description": "Tick the deterministic-mode checkbox in the build configuration form",
+      "maxRequests": 0,
+      "note": "Measured 0 at both viewports (OPUS-M4-004). I-13 one level down: ticking a box is local form state and nothing is created, validated, or probed. The budget exists so that a later 'let us check what this would cost' request cannot be added without the invariant changing first \u2014 which is exactly the shape a reproducibility toggle invites."
     }
   ]
 }

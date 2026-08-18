@@ -53,7 +53,7 @@ if __package__ in (None, ""):  # allow `python solver/schedulepoint_solver/__mai
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     __package__ = "schedulepoint_solver"
 
-from . import auth, protocol as P, runtime as R, stub_solver
+from . import auth, model as solver_model, protocol as P, runtime as R, stub_solver
 from .cancellation import CancelChannel
 from .egress_guard import install as install_egress_guard
 
@@ -122,7 +122,6 @@ def _dispatch(snapshot, parameters, control, channel):
     # Imported HERE rather than at module scope because the spike measured
     # `import ortools` at 200-630 ms and a refused request must not pay it.
     from . import cpsat_adapter
-    from . import model as solver_model
 
     try:
         return cpsat_adapter.solve(snapshot, parameters, control, channel)
@@ -253,6 +252,23 @@ def main(argv: Optional[list] = None) -> int:
         "unfilledDemand": result["unfilled"],
         "objectiveTiers": result.get("objectiveTiers"),
         "objectiveValue": result.get("objectiveValue"),
+        # OPUS-M4-004. The objective this WORKER BUILD carries, and the search
+        # the solve actually did (SPEC-04 §4's reproduction record). Counts and
+        # durations only — the model is never emitted, in full or in part.
+        #
+        # The profile is stated HERE rather than by whichever code path ran,
+        # because it is a property of the worker package and not of the model:
+        # the question the platform asks with it is "are you the build I
+        # compiled against?", and a `dwell` or `wedged` path that answered
+        # nothing would make that question unaskable exactly where the
+        # cancellation and kill proofs live. Every response carries it; what the
+        # solve DID with it is `objectiveTiers`, which is a different fact.
+        "objectiveProfile": {
+            "profileId": solver_model.OBJECTIVE_PROFILE_ID,
+            "scale": solver_model.OBJECTIVE_SCALE,
+            "digest": solver_model.objective_profile_digest(),
+        },
+        "statistics": result.get("statistics"),
         "explanation": result.get("explanation"),
         "runtime": R.runtime_record(parameters),
         "cancellation": channel.report(),

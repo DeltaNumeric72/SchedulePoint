@@ -125,6 +125,65 @@ export {
   type RuleKindRegistry,
 } from './registry.js';
 
+/* OPUS-M4-004 — E2. The ONE integer scale and the ONE objective profile (doc 08
+ * §3.4, §3.3), the SPEC-04 §7 fairness measurement with its recorded
+ * normalisation, and PO-DEC-13's four-class conflict taxonomy. Nothing here
+ * carries a band: every band except `hard_violations = 0` is undefined until the
+ * benchmark corpus is run at M6 (SPEC-04 §7). */
+export {
+  E2_OBJECTIVE_PROFILE,
+  OBJECTIVE_SCALE,
+  UNMAPPED_SOFT_TIER_KEY,
+  UNMAPPED_SOFT_TIER_RANK,
+  objectiveProfileCanonicalString,
+  objectiveTierOf,
+  resultsAreComparable,
+  scaleWeight,
+  type ComparabilityVerdict,
+  type ComparableResultFacts,
+  type ObjectiveComponentRecord,
+  type ObjectiveProfile,
+  type ObjectiveTierRecordShape,
+  type ObjectiveTierSpec,
+} from './objective.js';
+
+export {
+  FAIRNESS_NORMALISATION,
+  fairnessDispersion,
+  fairnessExtremes,
+  type FairnessCreditInput,
+  type FairnessDispersion,
+  type FairnessDispersionInput,
+  type FairnessExtremes,
+  type FairnessLoad,
+  type FairnessNormalisationBasis,
+  type FairnessParticipantInput,
+} from './quality.js';
+
+/* OPUS-M4-004 repair F-03 — coverage over RK-RULING-01's date × shift-type cell,
+ * read by BOTH the §7 metric and the independent checker. */
+export {
+  demandCoverage,
+  type DemandCoverage,
+  type DemandOverfill,
+  type DemandPlacement,
+  type DemandRequirementCell,
+  type DemandShortfall,
+} from './demand-coverage.js';
+
+export {
+  CONFLICT_CLASSES,
+  CONFLICT_TAXONOMY,
+  compareConflictClasses,
+  conflictClassOfDemandShortfall,
+  conflictClassOfRejection,
+  conflictClassOfStructuralFinding,
+  conflictClassOfViolation,
+  conflictClassSpec,
+  type ConflictClass,
+  type ConflictClassSpec,
+} from './conflict-taxonomy.js';
+
 export {
   EVALUATED_HARD_RULE_KINDS,
   NOT_EVALUABLE_REASONS,

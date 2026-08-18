@@ -14,6 +14,7 @@ import type { Kysely } from 'kysely';
 import type { BuildRunState, Database } from '../db/schema.js';
 import { requireScheduleCapability, type ScheduleActor } from '../schedule/actions.js';
 import { createBuildInput, dispatchBuild, validateBuildOutcome } from '../solver/build-input.js';
+import { qualityMetrics } from '../solver/quality-metrics.js';
 import { readSnapshot, SnapshotIdempotencyConflictError } from '../solver/snapshot-store.js';
 import type { SolveOutcomeDetail } from '../solver/solver-client.js';
 import {
@@ -149,6 +150,11 @@ export async function submitBuild(
     return {
       run: validating,
       snapshotKey: `build.${await chainRootId(uow, validating)}`,
+      /* OPUS-M4-004. The reader `protected_assignment_identities` never had.
+       * Read inside the same transaction that takes the submission edge, so the
+       * protections that go into the snapshot are the ones the run recorded —
+       * not whatever the row says by the time assembly gets there. */
+      protectedAssignmentIdentities: [...validating.protected_assignment_identities],
     };
   });
 
@@ -162,6 +168,7 @@ export async function submitBuild(
       versionId: prepared.run.source_version_id,
       at: new Date(),
       idempotencyKey: prepared.snapshotKey,
+      protectedAssignmentIdentities: prepared.protectedAssignmentIdentities,
     });
     document = persisted.document;
     snapshotId = persisted.snapshotId;
@@ -548,7 +555,14 @@ export async function persistOutcome(uow: Uow, input: PersistOutcomeInput): Prom
   }
 
   /* ── the result ─────────────────────────────────────────────────────────── */
-  const quality = qualityMetricsOf(input.document, assignments.length, input.outcome);
+  const quality = qualityMetrics({
+    snapshot: input.document,
+    assignments,
+    outcome: input.outcome,
+    /* The CHECKER's count. E1 wrote the literal `0` here beside a verdict that
+     * already knew the real number — right by accident, and unfalsifiable. */
+    hardViolations: input.verdict?.hardViolations ?? null,
+  });
   await uow.query
     .insertInto('build_run_results')
     .values({
@@ -570,6 +584,13 @@ export async function persistOutcome(uow: Uow, input: PersistOutcomeInput): Prom
       explanation: JSON.stringify({
         structural: input.outcome.explanation?.structural ?? [],
         conflictingRuleKeys: input.outcome.explanation?.conflictingRuleKeys ?? [],
+        /* SPEC-04 §5's T2 record: what the minimisation loop did and what
+         * stopped it. Persisted beside the state because "minimised within
+         * budget" and "the budget ran out" are the same list of rule keys with
+         * two entirely different meanings, and only this tells them apart. */
+        tier2: input.outcome.explanation?.tier2 ?? null,
+        solveCount: input.outcome.explanation?.solveCount ?? null,
+        elapsedSeconds: input.outcome.explanation?.elapsedSeconds ?? null,
         refusalCode: input.outcome.refusalCode,
       }),
       rejections: JSON.stringify(
@@ -583,6 +604,29 @@ export async function persistOutcome(uow: Uow, input: PersistOutcomeInput): Prom
       ),
       elapsed_ms: input.outcome.elapsedMs,
     })
+    .execute();
+
+  /* ── SPEC-04 §4's provenance, recorded on the run itself ────────────────── */
+  /* OPUS-M4-004. Migration 0018 created these columns and nothing wrote them:
+   * every build carried `solver_version = NULL`, `platform_arch = NULL`,
+   * `reproducibility_mode = NULL`, and the detail route rendered that absence as
+   * a blank. The reproducibility record is what makes a historical result
+   * re-derivable at all (SPEC-04 §4), and a record that is never written is a
+   * promise the schema makes and the code does not keep.
+   *
+   * The runtime record comes from the worker; `reproducibilityMode` inside it is
+   * RECOMPUTED by the client from the dispatched parameters and is never the
+   * worker's claim. */
+  await uow.query
+    .updateTable('build_runs')
+    .set({
+      solver_version: input.outcome.runtime.solverVersion,
+      solver_image_digest: input.outcome.runtime.imageDigest,
+      compiler_version: input.outcome.runtime.compilerVersion,
+      platform_arch: input.outcome.runtime.platformArch,
+      reproducibility_mode: input.outcome.runtime.reproducibilityMode,
+    })
+    .where('id', '=', run.id)
     .execute();
 
   /* ── and only now, the state ────────────────────────────────────────────── */
@@ -646,36 +690,6 @@ async function pickPositionsFor(
     if (row.pick_position !== null) map.set(row.assignment_identity_id, row.pick_position);
   }
   return map;
-}
-
-/**
- * SPEC-04 §7's measurable metrics.
- *
- * Counts and ratios only. Every band except `hard_violations = 0` is undefined
- * until the benchmark corpus is run, so nothing here carries a threshold, a
- * rating, or a verdict — a number with an invented band attached is worse than
- * no number, because it looks actionable.
- */
-function qualityMetricsOf(
-  document: SolverInputSnapshotDocument,
-  assignmentCount: number,
-  outcome: SolveOutcomeDetail,
-): Record<string, number | null> {
-  let requiredSlots = 0;
-  for (const cell of document.demand) {
-    if (cell.source !== 'period-requirement') continue;
-    if (!Number.isInteger(cell.requiredCount)) continue;
-    if (cell.requiredCount > 0) requiredSlots += cell.requiredCount;
-  }
-  const filledSlots = Math.min(assignmentCount, requiredSlots);
-  return {
-    demandSatisfactionRate: requiredSlots === 0 ? null : filledSlots / requiredSlots,
-    requiredSlots,
-    filledSlots,
-    hardViolations: 0,
-    softPenaltyTotal: outcome.objectiveValue,
-    solveWallClockMs: outcome.elapsedMs,
-  };
 }
 
 /* ────────────────────────────────────────────────────────────────────────────

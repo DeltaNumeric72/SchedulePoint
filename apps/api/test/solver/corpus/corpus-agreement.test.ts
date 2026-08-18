@@ -138,6 +138,9 @@ describe('the E1 corpus, solver against independent checker', () => {
         [
           'EXPLAINED_EXACT',
           'EXPLAINED_SUBSET',
+          /* OPUS-M4-004: T2 can now EARN this, and only by earning it — the
+           * arm below proves the claim is not merely spellable. */
+          'EXPLAINED_MINIMAL',
           'EXPLANATION_BUDGET_EXCEEDED',
           'EXPLANATION_UNAVAILABLE',
         ],
@@ -146,14 +149,57 @@ describe('the E1 corpus, solver against independent checker', () => {
     }
   });
 
-  it('NEVER claims EXPLAINED_MINIMAL — CP-SAT returns sufficient, not minimal', () => {
-    /* Measured in EV-M4-002 probe 02 and stated in SPEC-04 §5. A subset that
-     * called itself minimal would be a stronger claim than anything the library
-     * makes, arriving in the shape of a better answer. */
+  it('EXPLAINED_MINIMAL is EARNED — never claimed without a completed T2 pass', () => {
+    /* The E1 arm here was a blanket prohibition, and it was correct for E1: T1
+     * alone returns a SUFFICIENT assumption subset (measured, EV-M4-002 probe
+     * 02) and calling that minimal would be a stronger claim than the library
+     * makes. OPUS-M4-004 adds the T2 loop that can establish minimality, so the
+     * prohibition becomes a CONDITION rather than disappearing — which is the
+     * only honest way to relax it.
+     *
+     * The condition, stated exactly: the state may be `EXPLAINED_MINIMAL` only
+     * when the loop was attempted AND no cap bit AND it examined at least one
+     * candidate. Anything else must degrade. */
     for (const run of runs) {
-      expect(run.outcome.explanation?.state ?? 'EXPLANATION_UNAVAILABLE').not.toBe(
-        'EXPLAINED_MINIMAL',
+      const explanation = run.outcome.explanation;
+      const state = explanation?.state ?? 'EXPLANATION_UNAVAILABLE';
+      if (state !== 'EXPLAINED_MINIMAL') continue;
+      const tier2 = explanation?.tier2 ?? null;
+      expect(tier2, `${run.fixture.name}: minimal claimed with no T2 record`).not.toBeNull();
+      expect(tier2?.attempted, `${run.fixture.name}: minimal claimed without a T2 pass`).toBe(
+        true,
       );
+      expect(tier2?.exhausted, `${run.fixture.name}: minimal claimed after a cap bit`).toBe(
+        false,
+      );
+      expect(
+        tier2?.iterations ?? 0,
+        `${run.fixture.name}: minimal claimed with no probe run`,
+      ).toBeGreaterThan(0);
+      expect(
+        tier2?.iterations ?? 0,
+        `${run.fixture.name}: the iteration cap was exceeded`,
+      ).toBeLessThanOrEqual(tier2?.maxIterations ?? 0);
+      log(
+        `      · ${run.fixture.name}: EXPLAINED_MINIMAL after ${String(tier2?.iterations ?? 0)} ` +
+          `probe(s), ${String(tier2?.removed ?? 0)} rule(s) removed, ` +
+          `subset ${String((explanation?.conflictingRuleKeys ?? []).length)}`,
+      );
+    }
+  });
+
+  it('T1 alone never claims minimality — a subset without a T2 pass stays a subset', () => {
+    /* The other direction, and the one that would catch a loop wired to always
+     * report success: every run whose T2 was NOT attempted must report a state
+     * strictly weaker than minimal. */
+    for (const run of runs) {
+      const explanation = run.outcome.explanation;
+      if (explanation === null) continue;
+      if (explanation.tier2?.attempted === true) continue;
+      expect(
+        explanation.state,
+        `${run.fixture.name}: minimal claimed with no T2 attempt`,
+      ).not.toBe('EXPLAINED_MINIMAL');
     }
   });
 

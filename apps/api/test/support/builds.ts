@@ -1,6 +1,14 @@
-import type { SolverInputSnapshotDocument } from '@schedulepoint/domain';
+import {
+  E2_OBJECTIVE_PROFILE,
+  OBJECTIVE_SCALE,
+  type SolverInputSnapshotDocument,
+} from '@schedulepoint/domain';
 
 import { claimQueuedBuild } from '../../src/builds/claim.js';
+import {
+  OBJECTIVE_PROFILE_DIGEST,
+  readStatistics,
+} from '../../src/solver/objective-record.js';
 import { persistOutcome } from '../../src/builds/runner.js';
 import {
   createConfiguration,
@@ -80,6 +88,15 @@ export function syntheticOutcome(
     explanation: null,
     objectiveTiers: [],
     objectiveValue: null,
+    /* OPUS-M4-004. The platform's OWN profile, because this outcome stands in
+     * for a worker that agreed — a fixture reporting a mismatching digest would
+     * be seeding a state `solveOnWorker` refuses to produce. */
+    objectiveProfile: {
+      profileId: E2_OBJECTIVE_PROFILE.profileId,
+      scale: OBJECTIVE_SCALE,
+      digest: OBJECTIVE_PROFILE_DIGEST,
+    },
+    statistics: readStatistics(null),
     refusalCode: null,
   };
 }

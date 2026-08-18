@@ -71,6 +71,15 @@ export interface CreateBuildInputOptions {
   /** Idempotency: one key identifies one request, hash included. */
   readonly idempotencyKey: string;
   readonly expectedRevisions?: SnapshotRevisionExpectation;
+  /**
+   * A progressive stage's protected assignment identities (OPUS-M4-004).
+   *
+   * Carried into the snapshot, which is what makes the protection reproducible:
+   * the pins are part of the pinned problem and part of its `input_hash`, so a
+   * re-run of a progressive build re-poses the same protections rather than
+   * whatever the build row happens to say at the time of the re-run.
+   */
+  readonly protectedAssignmentIdentities?: readonly string[];
 }
 
 /**
@@ -99,6 +108,9 @@ export async function createBuildInput(
       ...(options.expectedRevisions === undefined
         ? {}
         : { expectedRevisions: options.expectedRevisions }),
+      ...(options.protectedAssignmentIdentities === undefined
+        ? {}
+        : { protectedAssignmentIdentities: options.protectedAssignmentIdentities }),
     });
     return persistCanonicalInput(uow, {
       document: assembled.document,

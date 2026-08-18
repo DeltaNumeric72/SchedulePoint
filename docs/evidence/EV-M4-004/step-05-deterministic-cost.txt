@@ -1,0 +1,68 @@
+$ SP_MEASURE_DETERMINISTIC_COST=1 corepack pnpm exec vitest run apps/api/test/solver/deterministic-cost.test.ts
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-004
+
+[core] INFO: Failed to read crontab file '/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-004/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-1fa1bc20826df0d169)] INFO: Completed task 1 (outbox.dispatch, 7.73ms) with success
+[worker(worker-1fa1bc20826df0d169)] INFO: Completed task 2 (outbox.dispatch, 2.85ms) with success
+[worker(worker-1fa1bc20826df0d169)] INFO: Completed task 3 (outbox.dispatch, 2.51ms) with success
+[worker(worker-1fa1bc20826df0d169)] INFO: Completed task 4 (outbox.dispatch, 2.34ms) with success
+[worker(worker-1fa1bc20826df0d169)] INFO: Completed task 5 (outbox.dispatch, 2.30ms) with success
+[worker(worker-1fa1bc20826df0d169)] INFO: Completed task 6 (outbox.dispatch, 2.17ms) with success
+[worker(worker-1fa1bc20826df0d169)] INFO: Completed task 7 (outbox.dispatch, 2.07ms) with success
+[worker(worker-1fa1bc20826df0d169)] INFO: Completed task 8 (outbox.dispatch, 2.15ms) with success
+[worker(worker-1fa1bc20826df0d169)] INFO: Completed task 9 (outbox.dispatch, 2.04ms) with success
+[worker(worker-1fa1bc20826df0d169)] INFO: Completed task 10 (outbox.dispatch, 2.35ms) with success
+[worker(worker-1fa1bc20826df0d169)] INFO: Completed task 11 (outbox.dispatch, 2.19ms) with success
+stdout | test/solver/deterministic-cost.test.ts > deterministic mode, measured per corpus class
+      · 
+      · CLASS                               DETERMINISTIC  BEST-EFFORT  RATIO   DET STATUS  BE STATUS
+      · ----------------------------------  -------------  -----------  ------  ----------  ----------
+      · B-feasible-small                           804 ms       753 ms   1.07×  OPTIMAL     OPTIMAL
+      · B-feasible-medium                          781 ms       810 ms   0.96×  OPTIMAL     OPTIMAL
+      · B-feasible-large                           896 ms       880 ms   1.02×  OPTIMAL     OPTIMAL
+      · B-multisite                                773 ms       786 ms   0.98×  OPTIMAL     OPTIMAL
+      · B-ruleheavy                                785 ms       783 ms   1.00×  OPTIMAL     OPTIMAL
+      · B-progressive-pinned                       748 ms       747 ms   1.00×  OPTIMAL     OPTIMAL
+      · B-qualifications                           749 ms       747 ms   1.00×  OPTIMAL     OPTIMAL
+      · B-fte                                      743 ms       742 ms   1.00×  OPTIMAL     OPTIMAL
+      · B-locum-shaped                             723 ms       723 ms   1.00×  FAILED      FAILED
+      · B-fairness-shaped                        10143 ms      1009 ms  10.05×  FEASIBLE    OPTIMAL
+      · B-infeasible-contradictory-rules           753 ms       749 ms   1.01×  INFEASIBLE  INFEASIBLE
+      · B-infeasible-missing-qualification         746 ms       744 ms   1.00×  INFEASIBLE  INFEASIBLE
+      · B-infeasible-over-demand                   744 ms       742 ms   1.00×  INFEASIBLE  INFEASIBLE
+      · B-infeasible-fixed-conflict                745 ms       751 ms   0.99×  INFEASIBLE  INFEASIBLE
+      · ----------------------------------  -------------  -----------  ------  ----------  ----------
+      · 
+      · RATIO = deterministic wall clock / best-effort wall clock, on THIS machine.
+      · It is a MEASUREMENT, not a band. PO-DEC-23 is pending and no performance
+      · target is set by this run or by any surface that displays it.
+      · 
+      · Where the two STATUS columns differ, the deterministic budget stopped the
+      · search before optimality was PROVEN. Both answers are true and both are
+      · about the same problem; the difference is part of the cost being measured.
+      · 
+
+ ✓ |api| test/solver/deterministic-cost.test.ts (14 tests) 31130ms
+   ✓ deterministic mode, measured per corpus class > measures B-feasible-small  1558ms
+   ✓ deterministic mode, measured per corpus class > measures B-feasible-medium  1591ms
+   ✓ deterministic mode, measured per corpus class > measures B-feasible-large  1776ms
+   ✓ deterministic mode, measured per corpus class > measures B-multisite  1559ms
+   ✓ deterministic mode, measured per corpus class > measures B-ruleheavy  1568ms
+   ✓ deterministic mode, measured per corpus class > measures B-progressive-pinned  1495ms
+   ✓ deterministic mode, measured per corpus class > measures B-qualifications  1496ms
+   ✓ deterministic mode, measured per corpus class > measures B-fte  1484ms
+   ✓ deterministic mode, measured per corpus class > measures B-locum-shaped  1446ms
+   ✓ deterministic mode, measured per corpus class > measures B-fairness-shaped  11152ms
+   ✓ deterministic mode, measured per corpus class > measures B-infeasible-contradictory-rules  1502ms
+   ✓ deterministic mode, measured per corpus class > measures B-infeasible-missing-qualification  1490ms
+   ✓ deterministic mode, measured per corpus class > measures B-infeasible-over-demand  1486ms
+   ✓ deterministic mode, measured per corpus class > measures B-infeasible-fixed-conflict  1496ms
+
+ Test Files  1 passed (1)
+      Tests  14 passed (14)
+   Start at  07:59:42
+   Duration  33.06s (transform 383ms, setup 120ms, collect 51ms, tests 31.13s, environment 0ms, prepare 29ms)
+
+DETERMINISTIC-COST EXIT=0

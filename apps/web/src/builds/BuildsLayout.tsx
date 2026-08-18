@@ -1,5 +1,9 @@
 import { Link } from '@tanstack/react-router';
-import type { BuildRunStateWire } from '@schedulepoint/contracts';
+import type {
+  BuildRunStateWire,
+  ConflictClassWire,
+  ExplanationStateWire,
+} from '@schedulepoint/contracts';
 import type { JSX, ReactNode } from 'react';
 
 import { useGroupScope } from '../catalogue/CatalogueLayout.js';
@@ -172,4 +176,94 @@ export const TERMINATION_LABELS: Readonly<Record<string, string>> = {
   killed: 'was terminated by the platform',
   crashed: 'stopped without reporting why',
   rejected: 'produced a candidate the independent check refused',
+};
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * OPUS-M4-004 — the E2 vocabularies. Same rule, same reason: one table, so two
+ * screens cannot say two different things about one fact.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * **PO-DEC-13's four conflict classes, in words.**
+ *
+ * Four, closed, in the decision's own severity order. The wording carries the
+ * distinction the taxonomy exists to make: the first three are things that are
+ * WRONG with a candidate, and the fourth is a MEASUREMENT with no threshold —
+ * SPEC-04 §7 leaves every band undefined until the benchmark corpus is run and
+ * no band is set until the M6 benchmark, so nothing here calls a dispersion too large.
+ */
+export const CONFLICT_CLASS_LABELS: Readonly<Record<ConflictClassWire, string>> = {
+  'hard-breach': 'Hard breach',
+  'unmet-demand': 'Unmet demand',
+  'eligibility-failure': 'Eligibility failure',
+  'fairness-outlier': 'Fairness outlier',
+};
+
+export const CONFLICT_CLASS_EXPLANATIONS: Readonly<Record<ConflictClassWire, string>> = {
+  'hard-breach':
+    'A hard rule was broken, or could not be checked at all. A candidate carrying one can never become a schedule.',
+  'unmet-demand':
+    'A required slot was not filled. A shortfall is a hard-rule violation, not a quality score.',
+  'eligibility-failure':
+    'Someone was placed on work they are not eligible for, or nobody eligible exists for a slot.',
+  'fairness-outlier':
+    'A measured extreme in the distribution of burden. There is no threshold for this — it is reported so you can look, not because anything is wrong.',
+};
+
+/**
+ * **The five explanation states** (SPEC-04 §5's table, verbatim in meaning).
+ *
+ * The two degraded states are first-class here, not a fallback branch. SPEC-04
+ * §5 spends a paragraph on exactly why:
+ *
+ * > A scheduler is better served by "we could not isolate the cause in 60
+ * > seconds, here is what we do know" than by a system that appears to hang or
+ * > invents a confident-sounding but wrong answer.
+ */
+export const EXPLANATION_LABELS: Readonly<Record<ExplanationStateWire, string>> = {
+  EXPLAINED_EXACT: 'Cause identified exactly',
+  EXPLAINED_SUBSET: 'Conflicting rules identified',
+  EXPLAINED_MINIMAL: 'Conflicting rules narrowed to a minimal set',
+  EXPLANATION_BUDGET_EXCEEDED: 'The cause could not be isolated within the time budget',
+  EXPLANATION_UNAVAILABLE: 'No explanation could be produced',
+};
+
+export const EXPLANATION_DETAIL: Readonly<Record<ExplanationStateWire, string>> = {
+  EXPLAINED_EXACT:
+    'A structural check found the cause before any search was needed. This answer is exact.',
+  EXPLAINED_SUBSET:
+    'These rules conflict. The set is sufficient to explain the infeasibility but is not necessarily the smallest such set.',
+  EXPLAINED_MINIMAL:
+    'These rules conflict, and each one was shown to be necessary: removing any single rule from this set would not resolve it on its own.',
+  EXPLANATION_BUDGET_EXCEEDED:
+    'Infeasible. The cause could not be isolated within the time budget. What was established is shown below, and it is partial.',
+  EXPLANATION_UNAVAILABLE:
+    'Infeasible. The explanation step itself did not produce an answer. This says nothing about why the period is infeasible — only that we could not narrow it here.',
+};
+
+/**
+ * Deterministic mode, in words — and its cost, disclosed rather than implied.
+ *
+ * `reproducibilityMode` is COMPUTED from the parameters and is never a flag a
+ * caller sets (SPEC-04 §4 as amended). The wording says what the mode buys and
+ * what it costs, because a toggle offered without its cost would be a trap.
+ *
+ * REPAIR F-04 (FAD-46): the cost quoted is THIS packet's own measurement on the
+ * E1 corpus (EV-M4-004 §5) — ≈1× on the thirteen startup-dominated classes,
+ * 10.05× on `B-fairness-shaped`, the only class with an objective large enough to
+ * search, where deterministic mode also returned FEASIBLE where best-effort
+ * proved OPTIMAL. EV-M0-SPC H-7's toy-instance figures used to stand here; H-7's
+ * faster-on-a-hard-instance half is NOT reproduced by this corpus, so it is not
+ * claimed.
+ */
+export const REPRODUCIBILITY_LABELS: Readonly<Record<string, string>> = {
+  deterministic: 'Deterministic — reproducible',
+  'best-effort': 'Best effort — not reproducible',
+};
+
+export const REPRODUCIBILITY_DETAIL: Readonly<Record<string, string>> = {
+  deterministic:
+    'The full pinned parameter set is in force, so the same problem run again on the same worker build produces the same schedule.',
+  'best-effort':
+    'The same problem run again may produce a different schedule of the same quality. A fixed seed alone is not enough — the parallel search synchronises on thread timing.',
 };

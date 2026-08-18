@@ -74,17 +74,112 @@ HARD_KINDS = (
     "AlternatingWeek",
 )
 
-#: SOFT-natural kinds and the E1 objective tier each belongs to. The tier list is
-#: recorded in every response (doc 35 §6d required behaviour 6) so a scheduler can
-#: see WHAT was optimised and in what order, even though the weights themselves
-#: are M4-004's to tune.
+# ---------------------------------------------------------------------------
+# The E2 objective — OPUS-M4-004, doc 08 §3.3 and §3.4
+#
+# ## This is a MIRROR, and the mirror is checked
+#
+# The authority is `packages/domain/src/rules/objective.ts`. Python cannot import
+# it, so the two are kept honest the way the status vocabulary is: the platform
+# digests its profile, this file digests its own, and the worker ECHOES its
+# digest on every response. A divergence is refused at the boundary rather than
+# discovered in a comparison six weeks later, when two objective values that were
+# never comparable have already been read side by side.
+#
+# ## §3.4, executed: one factor, one converter
+#
+# Decide the scaling factor once, globally, and document it. `scale_weight` is
+# the only place a rule's authored weight becomes an integer, and it ROUNDS. The
+# E1 code did `int(float(weight))`, which truncates — a SOFT rule authored at
+# 0.5 contributed nothing at all, and the schedule that came back was
+# indistinguishable from one where the rule had simply not bitten.
+#
+# Every value below is an int or an ASCII string. Deliberately: `1.0` renders as
+# `1.0` here and as `1` in JavaScript, and a float in the profile would make the
+# two digests disagree for a reason that has nothing to do with the objective.
+# ---------------------------------------------------------------------------
+
+OBJECTIVE_SCALE = 10000
+
+OBJECTIVE_PROFILE_ID = "e2-default-v1"
+
+#: `(rank, key, tierWeight, kinds)` — the mirror of `E2_OBJECTIVE_PROFILE.tiers`.
+#: Rank 1 carries the largest multiplier. This is a WEIGHTED sum and the worker
+#: claims nothing more: no amount of a lower tier is promised to be outranked by
+#: any amount of a higher one, and no response says otherwise.
+OBJECTIVE_TIERS = (
+    (1, "fairness", 100, ("CreditDistribution", "FairnessBalance")),
+    (2, "work-percentage", 10, ("WorkPercentageTarget",)),
+    (3, "preference", 1, ("AvoidDate", "ShiftPreference")),
+)
+
+#: The tier a SOFT rule of an unmapped kind is REPORTED in. It contributes
+#: nothing and exists so the omission is a line rather than an absence.
+UNMAPPED_SOFT_TIER_KEY = "unmapped-soft"
+UNMAPPED_SOFT_TIER_RANK = 99
+
+#: kind -> (rank, key, tierWeight). Derived, so the table above stays the source.
 SOFT_TIERS = {
-    "ShiftPreference": (10, "preference"),
-    "AvoidDate": (10, "preference"),
-    "WorkPercentageTarget": (20, "work-percentage"),
-    "FairnessBalance": (30, "fairness"),
-    "CreditDistribution": (30, "fairness"),
+    kind: (rank, key, tier_weight)
+    for rank, key, tier_weight, kinds in OBJECTIVE_TIERS
+    for kind in kinds
 }
+
+
+def scale_weight(weight):
+    """A rule's authored weight, as the integer the model uses. Rounds; refuses NaN."""
+    value = float(weight)
+    if value != value or value in (float("inf"), float("-inf")):
+        raise ModelError(
+            "unmodellable_rule",
+            "a SOFT rule carries a non-finite weight, which cannot become an objective term",
+        )
+    # `int(x + 0.5)` rather than `round`: Python 3 rounds halves to EVEN and
+    # JavaScript's `Math.round` rounds halves UP, so a weight of exactly
+    # 0.00005 would scale to 0 here and 1 there. Matching JavaScript is what
+    # keeps the two implementations identical OVER THE DOMAIN THEY ARE GIVEN.
+    #
+    # REPAIR F-05 (FAD-46): "arithmetically identical" was too strong, and the
+    # reviewer's probe-01 found where. On NEGATIVE half-values the two disagree —
+    # `Math.round(-0.5)` is `-0` (JavaScript rounds halves toward +inf) while the
+    # branch below rounds away from zero and yields -1.
+    #
+    # That divergence is unreachable rather than harmless, and the reason is a
+    # contract, not luck: a SOFT rule must carry a weight GREATER THAN ZERO, and
+    # `packages/domain/src/rules/validate.ts` refuses `weight <= 0` with "A soft
+    # rule must carry a weight greater than zero." A negative weight never reaches
+    # either implementation. It is recorded here rather than silently relied upon,
+    # because the day that contract is relaxed this comment is the only thing that
+    # says the two scalers stop agreeing.
+    return int(value * OBJECTIVE_SCALE + 0.5) if value >= 0 else -int(-value * OBJECTIVE_SCALE + 0.5)
+
+
+def objective_profile():
+    """The profile, as a plain dict. Rendered and digested by `canonical_dumps`."""
+    return {
+        "profileId": OBJECTIVE_PROFILE_ID,
+        "scale": OBJECTIVE_SCALE,
+        "tiers": [
+            {"kinds": list(kinds), "key": key, "rank": rank, "tierWeight": tier_weight}
+            for rank, key, tier_weight, kinds in OBJECTIVE_TIERS
+        ],
+    }
+
+
+def objective_profile_digest():
+    """SHA-256 over the canonical rendering — the value the platform compares.
+
+    ``canonical_dumps`` is REUSED rather than re-spelled here. It is already the
+    function whose byte-for-byte agreement with ``canonicalStringify`` the RPC
+    depends on, and a second local rendering would be a second thing that could
+    drift — with the symptom being an honest worker refused for a forged
+    objective.
+    """
+    import hashlib
+
+    from .protocol import canonical_dumps
+
+    return hashlib.sha256(canonical_dumps(objective_profile()).encode("utf-8")).hexdigest()
 
 #: Later-milestone kinds, with the owner each one waits on. A HARD rule of one of
 #: these FAILS THE MODEL CLOSED and the refusal names both (FAD-27).
@@ -477,6 +572,163 @@ def scope_window(rule: Dict[str, Any], problem: Problem) -> Tuple[str, str]:
     start = max(str(date_range.get("from")), problem.start_date)
     end = min(str(date_range.get("to")), problem.end_date)
     return start, end
+
+
+# ---------------------------------------------------------------------------
+# Fairness — OPUS-M4-004, the E2 half of doc 08 §3.3 and SPEC-04 §7
+#
+# ## What E1 did, and why it had to change
+#
+# E1 minimised the SPREAD OF RAW ASSIGNMENT COUNTS and said so honestly: "the
+# crudest honest fairness term there is". It ignored both parameters the AST
+# node carries. A `FairnessBalance(metric='credits', normalisation='per_fte')`
+# rule and a `FairnessBalance(metric='assignments', normalisation='none')` rule
+# compiled to the identical objective term — two different authored intentions,
+# one behaviour, and nothing anywhere saying which one had been honoured. That is
+# the silent-skip shape SPEC-04 §3.3 forbids, wearing a SOFT rule's clothes.
+#
+# E2 honours both. `metric` decides what a unit of burden IS; `normalisation`
+# decides what it is divided by. Both are recorded on the result, because a
+# dispersion number whose basis is unstated is a number two people read as two
+# different facts.
+#
+# ## The rulings this file authors (for FAD ratification)
+#
+# * **`weekend_load`** means an assignment whose START date is a Saturday or a
+#   Sunday. Start-date attribution, the same rule RK-RULING-11 fixed for
+#   `AvoidDate` — one spelling of "which day is this shift on", everywhere.
+# * **`call_load`** means an assignment of a shift type whose `isOnCall` flag is
+#   true; the flag is snapshot v2's (FAD-39) and a snapshot that omits it makes
+#   the rule REFUSED rather than silently zero, exactly as `CallSpacing` is.
+# * **`CreditDistribution` normalises `per_fte`.** The node carries no
+#   normalisation field, and SPEC-04 §7 defines `fairness_dispersion` as the
+#   coefficient of variation of *normalised* credits — an un-normalised credit
+#   distribution would report a half-time participant carrying half the burden as
+#   an unfairness.
+# * **`per_eligible_day`** divides by the number of dates in the rule's
+#   accounting window on which the membership is eligible for at least one
+#   in-scope shift type, floored at 1. A participant eligible on no day in the
+#   window contributes no term at all rather than dividing by zero.
+#
+# ## Integer arithmetic, and where the scale goes
+#
+# Coefficients are expressed in units of `FAIRNESS_UNIT` so a divisor keeps four
+# decimal digits of precision. The tier's own multiplier then DIVIDES that scale
+# back out (`cpsat_adapter._fairness_coefficient`), so "tier weight 100" means
+# the same thing in this tier as in every other one — otherwise fairness would
+# outweigh preference by the accident of a scaling constant rather than by the
+# recorded decision.
+# ---------------------------------------------------------------------------
+
+FAIRNESS_UNIT = OBJECTIVE_SCALE
+
+
+def fairness_parameters(kind: str, predicate: Dict[str, Any]) -> Tuple[str, str]:
+    """`(metric, normalisation)` for a fairness node. Both recorded on the result."""
+    metric = str(predicate.get("metric") or "assignments")
+    if kind == "CreditDistribution":
+        # Authored ruling: the node carries no normalisation and SPEC-04 §7's
+        # metric is "normalised credits", so `per_fte` is the reading of record.
+        return metric, "per_fte"
+    return metric, str(predicate.get("normalisation") or "none")
+
+
+def _fairness_metric_units(problem: "Problem", metric: str, date: str, shift_type_id: str) -> int:
+    """How much burden one assignment of this cell carries, in FAIRNESS_UNITs."""
+    if metric == "assignments":
+        return FAIRNESS_UNIT
+    if metric == "weekend_load":
+        return FAIRNESS_UNIT if weekday_of(date) in ("sat", "sun") else 0
+    if metric == "call_load":
+        on_call = problem.on_call.get(shift_type_id)
+        if on_call is None:
+            raise ModelError(
+                "rule_input_not_in_snapshot",
+                "a fairness rule measures call_load and shift type %s carries no isOnCall flag; "
+                "measuring it as zero would be a silent skip (SPEC-04 3.3)" % shift_type_id,
+            )
+        return FAIRNESS_UNIT if on_call else 0
+    if metric == "credits":
+        for shift_type in problem.snapshot["shiftTypes"]:
+            if str(shift_type["shiftTypeId"]) != shift_type_id:
+                continue
+            return scale_weight(shift_type.get("creditWeight") or 0)
+        return 0
+    raise ModelError(
+        "rule_input_not_in_snapshot",
+        "a fairness rule names metric %r, which this worker has no measure for" % metric,
+    )
+
+
+def fairness_coefficients(
+    rule: Dict[str, Any],
+    problem: "Problem",
+    kind: str,
+    predicate: Dict[str, Any],
+    admits,
+) -> Tuple[Dict[Tuple[str, str, str], int], str, str]:
+    """Per-cell integer burden coefficients, plus the recorded metric/normalisation.
+
+    `admits(membership_id, date, shift_type_id)` is the rule's scope filter,
+    passed in rather than re-derived so there is one spelling of scope.
+    """
+    metric, normalisation = fairness_parameters(kind, predicate)
+    start, end = scope_window(rule, problem)
+    window_dates = [d for d in problem.dates if start <= d <= end]
+
+    divisors = {}  # type: Dict[str, float]
+    for membership_id in problem.membership_ids:
+        if normalisation == "none":
+            divisors[membership_id] = 1.0
+            continue
+        if normalisation == "per_fte":
+            participant = problem.participant_of.get(membership_id) or {}
+            profile = participant.get("workProfile")
+            percentage = None
+            if isinstance(profile, dict):
+                percentage = profile.get("workPercentage")
+            if not isinstance(percentage, (int, float)) or percentage <= 0:
+                # No in-force profile carries an FTE. The membership is left OUT
+                # of the term rather than assumed full-time: assuming would state
+                # a fact about a person the snapshot does not carry one for.
+                continue
+            divisors[membership_id] = float(percentage) / 100.0
+            continue
+        if normalisation == "per_eligible_day":
+            days = 0
+            for date in window_dates:
+                for shift_type_id in problem.shift_type_ids:
+                    if (membership_id, shift_type_id) not in problem.eligible:
+                        continue
+                    if not admits(membership_id, date, shift_type_id):
+                        continue
+                    days += 1
+                    break
+            if days == 0:
+                continue
+            divisors[membership_id] = float(days)
+            continue
+        raise ModelError(
+            "rule_input_not_in_snapshot",
+            "a fairness rule names normalisation %r, which this worker cannot apply"
+            % normalisation,
+        )
+
+    coefficients = {}  # type: Dict[Tuple[str, str, str], int]
+    for membership_id, divisor in divisors.items():
+        for date in window_dates:
+            for shift_type_id in problem.shift_type_ids:
+                if (membership_id, shift_type_id) not in problem.eligible:
+                    continue
+                if not admits(membership_id, date, shift_type_id):
+                    continue
+                units = _fairness_metric_units(problem, metric, date, shift_type_id)
+                if units == 0:
+                    continue
+                coefficients[(membership_id, date, shift_type_id)] = int(
+                    units / divisor + 0.5
+                )
+    return coefficients, metric, normalisation
 
 
 def scope_admits(

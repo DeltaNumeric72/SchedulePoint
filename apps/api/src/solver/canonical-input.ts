@@ -16,6 +16,7 @@ import {
   type SnapshotLocation,
   type SnapshotParticipant,
   type SnapshotQualification,
+  type SnapshotRefusal,
   type SnapshotRevisionExpectation,
   type SnapshotRuleRevision,
   type SnapshotShiftType,
@@ -114,6 +115,32 @@ export interface AssembleCanonicalInputOptions {
    * is NOT the same as agreeing.
    */
   readonly expectedRevisions?: SnapshotRevisionExpectation;
+  /**
+   * **The progressive stage's protected inputs** (OPUS-M4-004; doc 08 §5,
+   * SPEC-04 §6, report 21 §5).
+   *
+   * `build_runs.protected_assignment_identities[]` has existed since migration
+   * 0018 and **nothing read it**. A progressive build recorded what it intended
+   * to protect and then solved a problem in which those assignments were free to
+   * move — which is the worst possible shape for this feature, because the
+   * record said the protection had happened.
+   *
+   * Passing the identities here marks the matching fixed assignments
+   * `isPinned` in the document, and a pin is already a hard input on both sides:
+   * `cpsat_adapter` fixes the cell to 1, and `validateCandidate` refuses a
+   * candidate that dropped one. So the protection travels through the ONE
+   * mechanism that already exists rather than through a second one that would
+   * have to agree with it.
+   *
+   * Expressed against the **stable identity**, per doc 08 §5's V-23 amendment:
+   * protection must survive a clone into the next candidate version, which a
+   * per-version row reference cannot express.
+   *
+   * An identity that names no assignment on the source version is a REFUSAL, not
+   * a silent no-op — "I protected it" and "there was nothing there" must not be
+   * the same outcome.
+   */
+  readonly protectedAssignmentIdentities?: readonly string[];
 }
 
 export interface AssembledCanonicalInput {
@@ -562,13 +589,34 @@ export async function assembleCanonicalInput(
      ORDER BY s.date, sh.shift_type_id, s.membership_id
   `.execute(query);
 
+  /* OPUS-M4-004 — the progressive stage's protected identities, applied.
+   *
+   * `protected` UNIONS with the version's own pins; it never clears one. A
+   * progressive stage protects MORE than the draft already did, and a stage that
+   * silently unpinned something the scheduler had pinned by hand would be the
+   * "explicit unlocking" report 21 §5 requires to be a deliberate action,
+   * happening as a side effect of regeneration. */
+  const protectedIdentities = new Set(options.protectedAssignmentIdentities ?? []);
+  const presentIdentities = new Set(fixedRows.rows.map((row) => row.assignment_identity_id));
+  const protectionRefusals: SnapshotRefusal[] = [];
+  for (const identity of [...protectedIdentities].sort()) {
+    if (presentIdentities.has(identity)) continue;
+    protectionRefusals.push({
+      reason: 'missing-required-input',
+      subject: `protectedAssignmentIdentities.${identity}`,
+      detail:
+        'a progressive build protects an assignment identity that is not on the source ' +
+        'version; protecting nothing and protecting something must not be the same outcome',
+    });
+  }
+
   const fixedAssignments: SnapshotFixedAssignment[] = fixedRows.rows.map((row) => ({
     assignmentIdentityId: row.assignment_identity_id,
     membershipId: row.membership_id,
     date: calendarText(row.date),
     shiftTypeId: row.shift_type_id,
     locationId: row.location_id,
-    isPinned: row.is_pinned,
+    isPinned: row.is_pinned || protectedIdentities.has(row.assignment_identity_id),
     origin: row.origin,
     creditedMembershipId: row.credited_membership_id,
     creditWeight: row.weight,
@@ -741,7 +789,11 @@ export async function assembleCanonicalInput(
     constituents,
   };
 
-  const refusals = snapshotRefusals(document, options.expectedRevisions ?? []);
+  /* The document's own refusals FIRST, then this assembly's. `snapshotRefusals`
+   * is the shared, pure statement of what makes a snapshot unposeable and it
+   * cannot see a caller-supplied protection list, so the two lists are
+   * concatenated rather than one of them being taught about the other. */
+  const refusals = [...snapshotRefusals(document, options.expectedRevisions ?? []), ...protectionRefusals];
   if (refusals.length > 0) throw new SnapshotRefusedError(refusals);
 
   return { document, constituents };

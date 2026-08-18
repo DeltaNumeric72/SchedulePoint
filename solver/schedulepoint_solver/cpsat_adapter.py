@@ -49,6 +49,7 @@ infeasible.
 from __future__ import annotations
 
 import threading
+import time
 from typing import Any, Dict, List, Optional, Tuple
 
 from ortools.sat.python import cp_model
@@ -594,13 +595,24 @@ def _soft(built, problem, rule, rule_key, kind, predicate):
         # rather than refused: a SOFT rule is not a promise, so omitting it costs
         # quality rather than correctness — and the omission is REPORTED in the
         # tier list, never silent.
-        _tier_for(built, 90, "unmapped-soft")["unmapped"].append(rule_key)
+        _tier_for(built, M.UNMAPPED_SOFT_TIER_RANK, M.UNMAPPED_SOFT_TIER_KEY, 0)[
+            "unmapped"
+        ].append(rule_key)
         return
-    scale, name = tier
+    rank, name, tier_weight = tier
     m = built.model
-    weight = int(float(rule.get("weight") or 1))
-    entry = _tier_for(built, scale, name)
+
+    # OPUS-M4-004, doc 08 §3.4. `scale_weight` ROUNDS at the one global factor;
+    # the E1 spelling `int(float(weight))` truncated, so an authored 0.5 became a
+    # rule that was listed everywhere and present in the objective nowhere. An
+    # absent weight means 1 — an unweighted SOFT rule still counts once.
+    raw_weight = rule.get("weight")
+    scaled_weight = M.scale_weight(1 if raw_weight is None else raw_weight)
+    coefficient = tier_weight * scaled_weight
+
+    entry = _tier_for(built, rank, name, tier_weight)
     entry["ruleKeys"].append(rule_key)
+    entry["components"].append({"ruleKey": rule_key, "scaledWeight": scaled_weight})
 
     if kind in ("ShiftPreference", "AvoidDate"):
         if kind == "AvoidDate":
@@ -611,12 +623,12 @@ def _soft(built, problem, rule, rule_key, kind, predicate):
             if not M.scope_admits(rule, problem, mid, d, sid):
                 continue
             if avoid is not None and d == avoid:
-                entry["_terms"].append(scale * weight * var)
+                entry["_terms"].append(coefficient * var)
             elif wanted is not None and problem.code_of.get(sid) == wanted:
                 strength = str(predicate.get("strength", "prefer"))
                 sign = -1 if strength in ("prefer", "strong_prefer") else 1
                 magnitude = 2 if strength.startswith("strong_") else 1
-                entry["_terms"].append(sign * magnitude * scale * weight * var)
+                entry["_terms"].append(sign * magnitude * coefficient * var)
         return
 
     if kind == "WorkPercentageTarget":
@@ -639,50 +651,110 @@ def _soft(built, problem, rule, rule_key, kind, predicate):
             deviation = m.NewIntVar(0, basis, "wpt_%s_%s" % (rule_key, membership_id))
             m.Add(deviation >= sum(variables) - target)
             m.Add(deviation >= target - sum(variables))
-            entry["_terms"].append(scale * weight * deviation)
+            entry["_terms"].append(coefficient * deviation)
         return
 
     if kind in ("FairnessBalance", "CreditDistribution"):
-        # E1 carries the SPREAD (max − min assignment count), which is the
-        # crudest honest fairness term there is and is labelled as such: the
-        # normalisation SPEC-04 §3.1 names is M4-004's, and inventing one here
-        # would put an unreviewed weighting into a shipped objective.
-        counts = []
-        for membership_id in problem.membership_ids:
-            variables = [
-                var
-                for (mid, d, sid), var in sorted(built.cells.items())
-                if mid == membership_id and M.scope_admits(rule, problem, mid, d, sid)
-            ]
-            if variables:
-                counts.append(sum(variables))
-        if len(counts) < 2:
+        # OPUS-M4-004. The SPREAD of the NORMALISED BURDEN, where both halves come
+        # from the node's own parameters (`metric`, `normalisation`) rather than
+        # being ignored as they were in E1. `model.fairness_coefficients` owns
+        # every ruling and is testable without a solver; this branch only turns
+        # its integers into linear statements.
+        coefficients, metric, normalisation = M.fairness_coefficients(
+            rule,
+            problem,
+            kind,
+            predicate,
+            lambda mid, d, sid: M.scope_admits(rule, problem, mid, d, sid),
+        )
+        loads = {}  # type: Dict[str, List[Any]]
+        for (mid, d, sid), burden in sorted(coefficients.items()):
+            key = (mid, d, sid)
+            if key not in built.cells:
+                continue
+            loads.setdefault(mid, []).append(burden * built.cells[key])
+        if len(loads) < 2:
+            # One measurable participant is not a distribution. Recorded on the
+            # tier rather than dropped, so "this fairness rule produced no term"
+            # is visible instead of being read as "fairness was balanced".
+            entry["notes"].append(
+                {"ruleKey": rule_key, "code": "fewer_than_two_measurable_participants"}
+            )
             return
-        upper = len(problem.dates) * max(1, len(problem.shift_type_ids))
+        upper = 0
+        for burden in coefficients.values():
+            upper += max(0, burden)
         high = m.NewIntVar(0, upper, "fair_hi_%s" % rule_key)
         low = m.NewIntVar(0, upper, "fair_lo_%s" % rule_key)
-        for total in counts:
+        for membership_id in sorted(loads):
+            total = sum(loads[membership_id])
             m.Add(high >= total)
             m.Add(low <= total)
-        entry["_terms"].append(scale * weight * (high - low))
+        # The coefficients are in FAIRNESS_UNITs, so the tier's multiplier divides
+        # that scale back out. Without this a tier weight would mean something
+        # different in this tier than in every other one, and fairness would
+        # outrank preference by an accident of arithmetic rather than by the
+        # recorded decision. Floored at 1: a rule weighted below the unit's
+        # resolution still contributes, because a term that rounds to zero is a
+        # rule that was silently dropped.
+        fairness_coefficient = max(1, coefficient // M.FAIRNESS_UNIT)
+        entry["_terms"].append(fairness_coefficient * (high - low))
+        entry["notes"].append(
+            {"ruleKey": rule_key, "metric": metric, "normalisation": normalisation}
+        )
         return
 
 
-def _tier_for(built, scale, name):
+def _tier_for(built, rank, name, tier_weight):
+    """The recorded tier for a rank, created on first use.
+
+    `tier` carries the RANK and `weightScale` the tier's multiplier. The two were
+    one field in E1 (the multiplier doubled as the identifier), which made a
+    weight change look like a new tier and a re-ranking look like a weight
+    change. They are separate facts and are recorded separately.
+    """
     for entry in built.objective_tiers:
-        if entry["tier"] == scale:
+        if entry["tier"] == rank:
             return entry
     entry = {
-        "tier": scale,
+        "tier": rank,
         "name": name,
-        "weightScale": scale,
+        "weightScale": tier_weight,
+        "scale": M.OBJECTIVE_SCALE,
         "ruleKeys": [],
+        "components": [],
+        "notes": [],
         "unmapped": [],
         "_terms": [],
     }
     built.objective_tiers.append(entry)
     built.objective_tiers.sort(key=lambda item: item["tier"])
     return entry
+
+
+def _recorded_tiers(built):
+    """The objective, as the response records it — components, weights and all.
+
+    doc 35 §6f required behaviour 1: "every tier/component/weight is recorded in
+    the response AND persisted". A tier list that named only the rules would let
+    two results with different weights sit in one comparison column looking
+    comparable; the SCALED weight each rule actually carried is what the
+    objective value is made of, so it is what is recorded.
+    """
+    return [
+        {
+            "tier": entry["tier"],
+            "name": entry["name"],
+            "weightScale": entry["weightScale"],
+            "scale": entry["scale"],
+            "ruleKeys": sorted(entry["ruleKeys"]),
+            "components": sorted(entry["components"], key=lambda item: item["ruleKey"]),
+            "notes": sorted(entry["notes"], key=lambda item: item["ruleKey"]),
+            "unmappedRuleKeys": sorted(entry["unmapped"]),
+            "termCount": len(entry["_terms"]),
+        }
+        for entry in built.objective_tiers
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -769,6 +841,40 @@ def _configure(solver, parameters):
         solver.parameters.max_deterministic_time = float(deterministic)
 
 
+def _statistics(solver, built, explanation_solves, explanation_seconds):
+    """SPEC-04 §4's reproduction record, the half only the solve can supply.
+
+    Counts and durations. **No model dump and no payload** (SPEC-04 §1.1: "the
+    model is never logged in full"), so nothing here can carry a participant, a
+    date or a rule's content across the boundary — `deterministicTimeUnits` is
+    the one number that says how much *search* a run did independently of the
+    machine it ran on, which is exactly what a reproduction attempt needs and
+    what a wall clock cannot give.
+    """
+    def number(call, default=None):
+        try:
+            return call()
+        except Exception:  # noqa: BLE001 — a missing statistic is recorded absent
+            return default
+
+    return {
+        "branches": number(solver.NumBranches, None),
+        "conflicts": number(solver.NumConflicts, None),
+        "wallTimeSeconds": number(lambda: round(solver.WallTime(), 6), None),
+        "userTimeSeconds": number(lambda: round(solver.UserTime(), 6), None),
+        "deterministicTimeUnits": number(
+            lambda: round(solver.ResponseProto().deterministic_time, 6), None
+        ),
+        "bestObjectiveBound": number(
+            lambda: int(solver.BestObjectiveBound()) if built.objective_tiers else None, None
+        ),
+        "booleanVariables": len(built.cells),
+        "hardRuleCount": len(built.hard_rule_keys),
+        "explanationSolves": explanation_solves,
+        "explanationSeconds": round(explanation_seconds, 6),
+    }
+
+
 def solve(
     snapshot: Dict[str, Any],
     parameters: Dict[str, Any],
@@ -802,22 +908,20 @@ def solve(
         stop.set()
         watcher.join(timeout=1.0)
 
-    tiers = [
-        {
-            "tier": entry["tier"],
-            "name": entry["name"],
-            "weightScale": entry["weightScale"],
-            "ruleKeys": sorted(entry["ruleKeys"]),
-            "unmappedRuleKeys": sorted(entry["unmapped"]),
-            "termCount": len(entry["_terms"]),
-        }
-        for entry in built.objective_tiers
-    ]
+    tiers = _recorded_tiers(built)
+    statistics = _statistics(solver, built, 0, 0.0)
 
     if channel.is_cancelled():
         # H-6, honoured: a cancelled solve is CANCELLED. Reporting it as a
         # timeout would send a scheduler to look at a budget that was fine.
-        return _result(P.STATUS_CANCELLED, P.TERMINATION_USER_CANCELLED, None, None, tiers)
+        return _result(
+            P.STATUS_CANCELLED,
+            P.TERMINATION_USER_CANCELLED,
+            None,
+            None,
+            tiers,
+            statistics=statistics,
+        )
 
     if status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
         assignments = []
@@ -842,10 +946,19 @@ def solve(
             0,
             tiers,
             objective=int(solver.ObjectiveValue()) if built.objective_tiers else 0,
+            statistics=statistics,
         )
 
     if status == cp_model.INFEASIBLE:
         explanation = explain(problem, rules, parameters, control)
+        # The explanation's own solve budget is folded into the record, so
+        # "where did the ninety seconds go" is answerable without a second run.
+        statistics = _statistics(
+            solver,
+            built,
+            explanation.get("solveCount", 0),
+            explanation.get("elapsedSeconds", 0.0),
+        )
         return _result(
             P.STATUS_INFEASIBLE,
             P.TERMINATION_COMPLETED,
@@ -853,26 +966,92 @@ def solve(
             None,
             tiers,
             explanation=explanation,
+            statistics=statistics,
         )
 
     if status == cp_model.MODEL_INVALID:
-        return _result(P.STATUS_MODEL_INVALID, P.TERMINATION_REJECTED, None, None, tiers)
+        return _result(
+            P.STATUS_MODEL_INVALID,
+            P.TERMINATION_REJECTED,
+            None,
+            None,
+            tiers,
+            statistics=statistics,
+        )
 
     # UNKNOWN. "I stopped without deciding" — which, when the wall clock ran out,
     # is a TIMEOUT and not a completion. The two are different things a scheduler
     # responds to differently, so they are not collapsed (SPEC-04 §2).
     if solver.WallTime() >= float(parameters["maxTimeInSeconds"]):
-        return _result(P.STATUS_TIMEOUT, P.TERMINATION_DEADLINE, None, None, tiers)
-    return _result(P.STATUS_UNKNOWN, P.TERMINATION_COMPLETED, None, None, tiers)
+        return _result(
+            P.STATUS_TIMEOUT, P.TERMINATION_DEADLINE, None, None, tiers, statistics=statistics
+        )
+    return _result(
+        P.STATUS_UNKNOWN, P.TERMINATION_COMPLETED, None, None, tiers, statistics=statistics
+    )
+
+
+# ---------------------------------------------------------------------------
+# T2 — minimisation, under HARD caps (SPEC-04 §5; OPUS-M4-004)
+#
+#     | **T2 · Minimisation** | Iteratively shrink the T1 subset by re-solving |
+#     | **Hard iteration and wall-clock cap** | **A locally minimal subset if
+#     | the budget suffices** |
+#
+# ## The loop, and what "locally minimal" is allowed to mean
+#
+# Deletion-based minimisation: for each candidate rule in the T1 subset, re-solve
+# with that one rule's assumption RELEASED. If the remainder is still infeasible,
+# the released rule was not needed and is dropped; if it becomes feasible or the
+# answer is UNKNOWN, the rule is KEPT. A rule kept because the probe returned
+# UNKNOWN is kept for the honest reason — we did not establish that it could go —
+# and that is why an interrupted pass can never be reported as minimal.
+#
+# `EXPLAINED_MINIMAL` is claimed if and only if the loop completed a FULL PASS
+# over every remaining element within both caps AND every probe returned a
+# definite answer. That is exactly the statement "every rule still in this set was
+# shown to be necessary", which is what local minimality is. The moment either
+# cap bites, or any probe comes back UNKNOWN, the state is
+# `EXPLANATION_BUDGET_EXCEEDED` and the PARTIAL subset rides along — SPEC-04 §5's
+# "plus the partial subset and the T0 findings".
+#
+# The distinction is not decorative. A subset presented as minimal is a claim
+# that removing any one of these rules resolves the conflict, and a scheduler who
+# acts on a false minimality claim relaxes a rule for nothing and is left with an
+# infeasible period and less protection than they started with.
+# ---------------------------------------------------------------------------
+
+#: The iteration cap. One re-solve per candidate rule per pass, and a deletion
+#: pass is single-sweep, so this bounds the loop at a fixed number of solves
+#: regardless of how large the T1 subset is. Chosen above any plausible
+#: conflicting-rule count and far below anything that could outlive its own
+#: wall-clock cap.
+T2_MAX_ITERATIONS = 64
+
+#: The share of the explanation budget T2 may spend. T1 must get its solve first —
+#: a subset that is possibly-not-minimal beats no subset at all — so T2 runs on
+#: what is left and stops when it is gone.
+T2_BUDGET_SHARE = 0.6
 
 
 def explain(problem, rules, parameters, control):
-    """T0 always; T1 as a separate, budgeted, failable solve (SPEC-04 §5)."""
+    """T0 always; T1 budgeted and failable; T2 minimisation under HARD caps."""
+    started = time.monotonic()
     t0 = structural_findings(problem)
+    # REPAIR F-10 (FAD-46): the PLATFORM does not currently send
+    # `explanationBudgetSeconds`, so every explanation in practice runs under the
+    # 5.0 s default below — a worker-side constant, not a configured allowance.
+    # That is recorded rather than plumbed here because the budget is a solver
+    # parameter and the configuration surface that would own it is not in this
+    # packet's included paths. What the response reports is the REAL allowance
+    # actually used (`budgetSeconds` below is derived from this same `budget`),
+    # so no reader is told a number the run did not honour.
     budget = control.get("explanationBudgetSeconds", 5.0)
     try:
         budget = float(budget)
     except (TypeError, ValueError):
+        budget = 5.0
+    if not budget > 0:
         budget = 5.0
 
     if t0:
@@ -883,25 +1062,26 @@ def explain(problem, rules, parameters, control):
     else:
         state, subset = "EXPLANATION_UNAVAILABLE", []
 
+    solve_count = 0
+    t2 = {
+        "attempted": False,
+        "iterations": 0,
+        "removed": 0,
+        "budgetSeconds": round(budget * T2_BUDGET_SHARE, 6),
+        "maxIterations": T2_MAX_ITERATIONS,
+        "exhausted": False,
+    }
+
     try:
         reified = build(problem, rules, reify=True)
         if reified.assumptions:
             keys = sorted(reified.assumptions)
-            reified.model.AddAssumptions([reified.assumptions[k] for k in keys])
-            solver = cp_model.CpSolver()
-            solver.parameters.random_seed = int(parameters["randomSeed"])
-            solver.parameters.num_search_workers = 1
-            solver.parameters.max_time_in_seconds = budget
-            status = solver.Solve(reified.model)
+            status, subset_keys, solves = _assumption_solve(
+                reified, keys, parameters, budget * (1.0 - T2_BUDGET_SHARE)
+            )
+            solve_count += solves
             if status == cp_model.INFEASIBLE:
-                indices = set(solver.SufficientAssumptionsForInfeasibility())
-                subset = [
-                    key for key in keys if reified.assumptions[key].Index() in indices
-                ]
-                # NEVER `EXPLAINED_MINIMAL`: CP-SAT returns a SUFFICIENT subset,
-                # not a minimal one (measured, EV-M4-002 probe 02). Minimisation
-                # is T2 and is M4-004's budget work.
-                #
+                subset = subset_keys
                 # T0 OUTRANKS T1. A structural finding is EXACT — no search makes
                 # it go away — while a T1 subset is merely sufficient, so a T0 hit
                 # keeps `EXPLAINED_EXACT` and the subset rides along as extra
@@ -909,18 +1089,144 @@ def explain(problem, rules, parameters, control):
                 # would report less certainty than was actually established.
                 if subset and state != "EXPLAINED_EXACT":
                     state = "EXPLAINED_SUBSET"
+
+                # ── T2 ────────────────────────────────────────────────────────
+                # Attempted only where it can CHANGE the answer: with T0 already
+                # exact there is a stronger explanation on the table and spending
+                # a budget to relabel a rider would be spending it for nothing.
+                if state == "EXPLAINED_SUBSET" and len(subset) > 1:
+                    t2["attempted"] = True
+                    # REPAIR F-08 (FAD-46). This passed `started` — the clock
+                    # from the top of `explain()`, which includes T0 and the
+                    # whole of T1. T1's elapsed time was therefore charged
+                    # against T2's allowance while `budgetSeconds` below recorded
+                    # the FULL share, so a T1 that ran long left T2 with a
+                    # fraction of the budget the record said it had. A recorded
+                    # allowance that the run did not actually grant is worse than
+                    # no record: `EXPLANATION_BUDGET_EXCEEDED` then looks like a
+                    # hard problem when it was really a clock already spent.
+                    #
+                    # T2 now times from its OWN start, which is what makes
+                    # `budgetSeconds` true. The two shares still cannot exceed the
+                    # total: T1 is capped at (1 - share) and T2 at share.
+                    minimal, subset, iterations, removed, solves = _minimise(
+                        reified,
+                        subset,
+                        parameters,
+                        time.monotonic(),
+                        budget * T2_BUDGET_SHARE,
+                    )
+                    solve_count += solves
+                    t2["iterations"] = iterations
+                    t2["removed"] = removed
+                    t2["exhausted"] = not minimal
+                    state = "EXPLAINED_MINIMAL" if minimal else "EXPLANATION_BUDGET_EXCEEDED"
             elif status == cp_model.UNKNOWN and state != "EXPLAINED_EXACT":
                 state = "EXPLANATION_BUDGET_EXCEEDED"
     except Exception:  # noqa: BLE001 — an explanation failure is never a schedule failure
         # SPEC-04 §5: explanation failure is reported as itself. It must never be
-        # reported as scheduling infeasibility, and it must never hang.
-        if state == "EXPLANATION_UNAVAILABLE":
+        # reported as scheduling infeasibility, and it must never hang. The
+        # caller has already decided INFEASIBLE from the ORDINARY solve; nothing
+        # in this function can move that, and nothing here is allowed to try.
+        if state not in ("EXPLAINED_EXACT", "EXPLAINED_SUBSET"):
             state = "EXPLANATION_UNAVAILABLE"
 
-    return {"state": state, "structural": t0, "conflictingRuleKeys": sorted(subset)}
+    return {
+        "state": state,
+        "structural": t0,
+        "conflictingRuleKeys": sorted(subset),
+        "tier2": t2,
+        "solveCount": solve_count,
+        "elapsedSeconds": round(time.monotonic() - started, 6),
+    }
 
 
-def _result(status, reason, assignments, unfilled, tiers, objective=None, explanation=None):
+def _explanation_solver(parameters, seconds):
+    """One probe solver. Single-worker and wall-clock bounded, always."""
+    solver = cp_model.CpSolver()
+    solver.parameters.random_seed = int(parameters["randomSeed"])
+    # ONE worker for every explanation probe, whatever the build asked for. A
+    # parallel portfolio makes the stopping point thread-dependent, and an
+    # explanation that varies run to run is an explanation nobody can act on.
+    solver.parameters.num_search_workers = 1
+    solver.parameters.max_time_in_seconds = max(0.05, float(seconds))
+    return solver
+
+
+def _assumption_solve(reified, keys, parameters, seconds):
+    """T1: solve with every HARD group behind its literal; read the subset back."""
+    reified.model.ClearAssumptions()
+    reified.model.AddAssumptions([reified.assumptions[key] for key in keys])
+    solver = _explanation_solver(parameters, seconds)
+    status = solver.Solve(reified.model)
+    if status != cp_model.INFEASIBLE:
+        return status, [], 1
+    indices = set(solver.SufficientAssumptionsForInfeasibility())
+    return (
+        status,
+        [key for key in keys if reified.assumptions[key].Index() in indices],
+        1,
+    )
+
+
+def _minimise(reified, subset, parameters, started, seconds):
+    """Deletion-based minimisation. Returns `(minimal, subset, iterations, removed, solves)`.
+
+    `started` is T2's OWN start (F-08). It used to be the start of the whole
+    explanation, which silently spent T1's elapsed time out of T2's budget while
+    the recorded `budgetSeconds` claimed the full share.
+
+    `minimal` is `True` only when a full pass completed inside both caps with a
+    definite answer for every candidate. Anything else — a cap, an UNKNOWN, a
+    solver refusal — returns `False` with whatever shrinking was achieved, which
+    is a strictly better answer than the T1 subset and is labelled as exactly
+    that rather than as a proof.
+    """
+    remaining = list(subset)
+    iterations = 0
+    removed = 0
+    solves = 0
+
+    for candidate in list(subset):
+        if iterations >= T2_MAX_ITERATIONS:
+            return False, remaining, iterations, removed, solves
+        elapsed = time.monotonic() - started
+        if elapsed >= seconds:
+            return False, remaining, iterations, removed, solves
+        if len(remaining) <= 1:
+            # A single-element subset is minimal by construction: the ordinary
+            # solve was infeasible, so the empty set cannot explain it.
+            break
+
+        trial = [key for key in remaining if key != candidate]
+        iterations += 1
+        status, _subset, count = _assumption_solve(
+            reified, trial, parameters, seconds - elapsed
+        )
+        solves += count
+        if status == cp_model.INFEASIBLE:
+            # Still infeasible without it — it was not needed.
+            remaining = trial
+            removed += 1
+        elif status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+            # UNKNOWN or a refusal. We did NOT establish that this rule is
+            # necessary, so the pass cannot claim minimality — the rule stays and
+            # the claim does not.
+            return False, remaining, iterations, removed, solves
+
+    return True, remaining, iterations, removed, solves
+
+
+def _result(
+    status,
+    reason,
+    assignments,
+    unfilled,
+    tiers,
+    objective=None,
+    explanation=None,
+    statistics=None,
+):
     return {
         "status": status,
         "terminationReason": reason,
@@ -929,4 +1235,5 @@ def _result(status, reason, assignments, unfilled, tiers, objective=None, explan
         "objectiveTiers": tiers,
         "objectiveValue": objective,
         "explanation": explanation,
+        "statistics": statistics,
     }

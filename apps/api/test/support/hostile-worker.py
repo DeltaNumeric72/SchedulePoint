@@ -36,6 +36,22 @@ Modes, each matching one arm of `solverResponseVerdict`:
                     make the proof vacuous and is therefore reported distinctly
                     rather than collapsed into "fine"
 
+Added by OPUS-M4-004, each hostile about exactly one E2 property:
+
+``objective-mismatch``  an authentic, on-version, otherwise-honest response
+                        produced under a DIFFERENT objective profile — the
+                        deployment-skew case the echoed digest exists to catch
+``objective-absent``    a pre-E2 worker that says nothing about the objective.
+                        An absent claim is not agreement
+``false-minimality``    ``EXPLAINED_MINIMAL`` with no completed T2 pass behind
+                        it — the strongest claim an explanation can make,
+                        asserted by the least trusted component that ships
+
+Every other mode reports the REAL package's objective profile, deliberately: the
+platform refuses a mismatch before it believes anything else in the body, so a
+fixture that got the profile wrong everywhere would make each arm above pass for
+the wrong reason and prove nothing about its own subject.
+
 It reads the request so that ``wrong-nonce`` and ``hash-mismatch`` can be
 *plausible* — a fixture that could not echo the context would be refused for the
 wrong reason and the proof would pass without testing anything.
@@ -59,6 +75,7 @@ sys.path.insert(0, os.path.join(_ROOT, "solver"))
 # Reused rather than respelled: the MAC is over the CANONICAL form, so a fixture
 # with its own serialiser would produce responses that fail to verify for a
 # formatting reason and the proofs would pass without testing the property.
+from schedulepoint_solver import model as solver_model  # noqa: E402
 from schedulepoint_solver.protocol import canonical_dumps  # noqa: E402
 
 RESPONSE_DOMAIN = "SP-SOLVER-RPC-v1|response|"
@@ -144,6 +161,22 @@ def main() -> int:
             "languageRuntime": "hostile-fixture",
             "reproducibilityMode": "best-effort",
         },
+        # OPUS-M4-004. The REAL worker package's objective profile, deliberately.
+        #
+        # The platform refuses any response whose profile digest does not match
+        # its own, and that refusal happens before the body's other fields are
+        # believed. A hostile fixture that reported a wrong profile would
+        # therefore be refused for the WRONG REASON in every mode below, and each
+        # of those proofs — the auth arms, the dishonest-pair arm, the
+        # environment probe — would pass while proving nothing about its own
+        # subject. Only `objective-mismatch` is hostile about the objective, and
+        # it is hostile about that alone.
+        "objectiveProfile": {
+            "profileId": solver_model.OBJECTIVE_PROFILE_ID,
+            "scale": solver_model.OBJECTIVE_SCALE,
+            "digest": solver_model.objective_profile_digest(),
+        },
+        "statistics": None,
         "error": None,
     }
 
@@ -164,6 +197,41 @@ def main() -> int:
         response["terminationReason"] = "deadline"
     elif mode == "hash-mismatch":
         response["canonicalInputHash"] = "f" * 64
+    elif mode == "objective-mismatch":
+        # OPUS-M4-004: a worker built against a DIFFERENT objective profile —
+        # the deployment-skew case the echoed digest exists to catch. Everything
+        # else about this response is honest, which is what makes the arm a test
+        # of the objective check rather than of the auth or protocol checks.
+        response["objectiveProfile"] = {
+            "profileId": "e2-not-this-one",
+            "scale": solver_model.OBJECTIVE_SCALE,
+            "digest": "0" * 64,
+        }
+    elif mode == "objective-absent":
+        # A pre-E2 worker: authentic, on-version, and silent about the objective.
+        # Refused rather than assumed to agree — an absent claim is not a claim.
+        response["objectiveProfile"] = None
+    elif mode == "false-minimality":
+        # Claims `EXPLAINED_MINIMAL` with no completed T2 pass behind it. The
+        # strongest thing an explanation can say, asserted by the least trusted
+        # component that ships — so the platform downgrades it.
+        response["status"] = "INFEASIBLE"
+        response["assignments"] = None
+        response["explanation"] = {
+            "state": "EXPLAINED_MINIMAL",
+            "structural": [],
+            "conflictingRuleKeys": ["r-one", "r-two"],
+            "tier2": {
+                "attempted": False,
+                "iterations": 0,
+                "removed": 0,
+                "budgetSeconds": 0,
+                "maxIterations": 0,
+                "exhausted": False,
+            },
+            "solveCount": 1,
+            "elapsedSeconds": 0.1,
+        }
 
     body = canonical_dumps(response).encode("utf-8")
 

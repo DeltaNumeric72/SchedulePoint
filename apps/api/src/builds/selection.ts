@@ -67,15 +67,33 @@ import {
  * too, because there is only one path to reach. Previously each was either
  * duplicated or silently skipped.
  *
- * ## Credits are deliberately not carried
+ * ## Credits: a build-produced draft STARTS WITHOUT CREDITS — the ruling, not a gap
  *
- * `cloneCredits` maps credits by the source version's snapshot rows. A
- * build-produced draft's snapshot set is GENERATED, not cloned, so a credit
- * copied across could point at an assignment the solver did not reproduce.
- * Carrying credits into a build-produced draft is stated as an M4-004 question
- * rather than approximated here. A credit that matters is re-expressed on the
- * draft, which is the path SPEC-05 already requires for a post-publication
- * correction.
+ * **doc 35 §6f ruling (1), closing the FAD-44(4) carried question.** M4-003
+ * left this open and said so; it is now decided, and the decision is that the
+ * absence is CORRECT rather than merely convenient:
+ *
+ *  * a credit records **human adjudication of burden** (doc 07). It is somebody
+ *    deciding that a person carried something. A schedule produced by
+ *    optimization has not been adjudicated by anyone yet;
+ *  * the solver's fairness terms **read** prior-period credit history from the
+ *    snapshot — that is exactly what `fairnessDispersion`'s `priorCredits` are —
+ *    and they never write credits. Manufacturing credits from a build would
+ *    launder an objective value into a human record, and the next build would
+ *    then read its own output back as history;
+ *  * mechanically it could not be honest anyway: `cloneCredits` maps credits by
+ *    the SOURCE version's snapshot rows, and a build-produced draft's snapshot
+ *    set is generated rather than cloned, so a copied credit could point at an
+ *    assignment the solver did not reproduce.
+ *
+ * The scheduler assigns credits on the new draft through the existing M3
+ * surfaces, which continue to work on it unchanged. **FAD-32(6) — voided credits
+ * are cloned — continues to govern CLONES only**; a build-produced draft is a
+ * new version, not a clone, and the two paths stay distinct.
+ *
+ * Pinned both ways: `e2-quality-and-credits.test.ts` asserts that
+ * apply-selection produces ZERO credit rows, and that the M3 credit surface then
+ * writes one on the resulting draft.
  */
 
 type Uow = UnitOfWork<Kysely<Database>>;

@@ -9,6 +9,12 @@ import { isPermissionDenied, SurfaceState } from '../components/SurfaceState.js'
 import { useNarrowViewport } from '../components/useNarrowViewport.js';
 import {
   BuildsLayout,
+  CONFLICT_CLASS_EXPLANATIONS,
+  CONFLICT_CLASS_LABELS,
+  EXPLANATION_DETAIL,
+  EXPLANATION_LABELS,
+  REPRODUCIBILITY_DETAIL,
+  REPRODUCIBILITY_LABELS,
   STATE_EXPLANATIONS,
   STATE_LABELS,
   TERMINATION_LABELS,
@@ -63,7 +69,9 @@ function FindingList({
       {findings.map((finding, index) => (
         <li className="text-sm text-text" key={`${finding.code}-${String(index)}`}>
           <span className="font-medium">{finding.code}</span>
-          {finding.date === null ? null : <span className="text-text-muted"> · {finding.date}</span>}
+          {finding.date === null ? null : (
+            <span className="text-text-muted"> · {finding.date}</span>
+          )}
           <span className="text-text-muted"> — {finding.detail}</span>
         </li>
       ))}
@@ -252,13 +260,26 @@ export function BuildDetailPage(): JSX.Element {
                 </p>
               )}
               <p className="text-sm text-text-muted">
-                Candidate <span className="font-medium">{run.candidateLabel}</span> ·
-                configuration {run.configurationName} · attempt {run.retryAttempt} of{' '}
-                {run.retryLimit}
+                Candidate <span className="font-medium">{run.candidateLabel}</span> · configuration{' '}
+                {run.configurationName} · attempt {run.retryAttempt} of {run.retryLimit}
                 {run.canonicalInputHash === null
                   ? null
                   : ` · input ${run.canonicalInputHash.slice(0, 12)}…`}
               </p>
+              {/* OPUS-M4-004. `reproducibility` has been on the wire since
+                  0018 and was never rendered, so a build that could be
+                  reproduced and one that could not looked identical. The mode is
+                  COMPUTED from the parameters (SPEC-04 §4 amended) — it is not a
+                  claim anybody made. */}
+              {data.reproducibility === null ? null : (
+                <p
+                  className="text-sm text-text-muted"
+                  data-testid={`build-reproducibility-${data.reproducibility}`}
+                >
+                  {REPRODUCIBILITY_LABELS[data.reproducibility] ?? data.reproducibility}.{' '}
+                  {REPRODUCIBILITY_DETAIL[data.reproducibility] ?? ''}
+                </p>
+              )}
               {run.supersededByBuildRunId === null ? null : (
                 <p className="text-sm text-text-muted" data-testid="build-superseded-note">
                   A later build for this period was approved, so this one is superseded.
@@ -288,7 +309,10 @@ export function BuildDetailPage(): JSX.Element {
                 <h2 className="text-lg font-semibold text-text" id="findings-heading">
                   Why this build went back to configuration
                 </h2>
-                <FindingList findings={data.validationFindings} testId="build-validation-findings" />
+                <FindingList
+                  findings={data.validationFindings}
+                  testId="build-validation-findings"
+                />
                 <FindingList findings={data.readinessFindings} testId="build-readiness-findings" />
               </section>
             )}
@@ -313,7 +337,10 @@ export function BuildDetailPage(): JSX.Element {
                     : 'The independent check REFUSED this candidate. It can never become a schedule.'}
                 </p>
 
-                <dl className="grid grid-cols-1 gap-sp-2 sm:grid-cols-3" data-testid="build-quality">
+                <dl
+                  className="grid grid-cols-1 gap-sp-2 sm:grid-cols-3"
+                  data-testid="build-quality"
+                >
                   <div>
                     <dt className="text-sm text-text-muted">Assignments</dt>
                     <dd className="text-text">{data.result.assignmentCount}</dd>
@@ -340,51 +367,155 @@ export function BuildDetailPage(): JSX.Element {
                     <dt className="text-sm text-text-muted">Solve time</dt>
                     <dd className="text-text">{data.result.quality.solveWallClockMs} ms</dd>
                   </div>
+                  {/* OPUS-M4-004 — the rest of SPEC-04 §7's table. Each one a
+                      measurement; `not measured` is written out rather than
+                      shown as a zero, because a zero rate is a specific claim. */}
+                  <div>
+                    <dt className="text-sm text-text-muted">Demand satisfied</dt>
+                    <dd className="text-text" data-testid="build-quality-demand">
+                      {data.result.quality.demandSatisfactionRate === null
+                        ? 'nothing was required'
+                        : `${String(Math.round(data.result.quality.demandSatisfactionRate * 100))}%`}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm text-text-muted">Fairness dispersion</dt>
+                    <dd className="text-text" data-testid="build-quality-fairness">
+                      {data.result.quality.fairnessDispersion === null
+                        ? 'not measurable'
+                        : data.result.quality.fairnessDispersion.toFixed(3)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm text-text-muted">Fairness basis</dt>
+                    <dd className="text-text" data-testid="build-quality-fairness-basis">
+                      {data.result.quality.fairnessNormalisation} ·{' '}
+                      {data.result.quality.fairnessMeasuredParticipants} measured
+                      {data.result.quality.fairnessUnmeasuredParticipants === 0
+                        ? ''
+                        : `, ${String(data.result.quality.fairnessUnmeasuredParticipants)} with no FTE on record`}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm text-text-muted">Requests honoured</dt>
+                    <dd className="text-text">
+                      {data.result.quality.requestHonourRate === null
+                        ? 'not measured — requests are not in this milestone'
+                        : `${String(Math.round(data.result.quality.requestHonourRate * 100))}%`}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm text-text-muted">Template adherence</dt>
+                    <dd className="text-text">
+                      {data.result.quality.templateAdherenceRate === null
+                        ? 'not measured — templates are not evaluated yet'
+                        : `${String(Math.round(data.result.quality.templateAdherenceRate * 100))}%`}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm text-text-muted">Explanation time</dt>
+                    <dd className="text-text">
+                      {/* REPAIR F-13 (FAD-46). This said "no explanation was
+                          attempted", which is a claim about whether the worker
+                          RAN one — and it was printed from a missing LATENCY.
+                          A build can carry a populated T2 record directly below
+                          this line while its latency is unrecorded, and the two
+                          then contradict each other on one screen. An absent
+                          measurement is an absent measurement. */}
+                      {data.result.quality.explanationLatencyMs === null
+                        ? 'not recorded'
+                        : `${String(data.result.quality.explanationLatencyMs)} ms`}
+                    </dd>
+                  </div>
                 </dl>
                 {/* SPEC-04 §7: every band except `hard_violations = 0` is
                     UNDEFINED until the benchmark corpus is run, and saying so is
                     the honest position. No rating, no colour, no threshold. */}
                 <p className="text-sm text-text-muted" data-testid="build-quality-caveat">
-                  These are measurements, not ratings. Acceptable ranges for everything except
-                  “hard violations must be zero” are not established yet.
+                  These are measurements, not ratings. Acceptable ranges for everything except “hard
+                  violations must be zero” are not established yet.
                 </p>
 
                 {data.result.objectiveTiers.length === 0 ? null : (
-                  <div className="min-w-0 overflow-x-auto" tabIndex={0}>
-                    <table className="w-full border-collapse text-left" data-testid="build-soft-tiers">
-                      <caption className="sr-only">Soft-rule objective tiers</caption>
-                      <thead>
-                        <tr>
-                          <th className="border-b border-border p-sp-2" scope="col">
-                            Tier
-                          </th>
-                          <th className="border-b border-border p-sp-2" scope="col">
-                            Name
-                          </th>
-                          <th className="border-b border-border p-sp-2" scope="col">
-                            Rules
-                          </th>
-                          <th className="border-b border-border p-sp-2" scope="col">
-                            Terms
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {data.result.objectiveTiers.map((tier) => (
-                          <tr key={`${String(tier.tier)}-${tier.name}`}>
-                            <td className="border-b border-border p-sp-2 text-text">{tier.tier}</td>
-                            <td className="border-b border-border p-sp-2 text-text">{tier.name}</td>
-                            <td className="border-b border-border p-sp-2 text-text-muted">
-                              {tier.ruleKeys.join(', ') || '—'}
-                            </td>
-                            <td className="border-b border-border p-sp-2 text-text">
-                              {tier.termCount}
-                            </td>
+                  <>
+                    <div className="min-w-0 overflow-x-auto" tabIndex={0}>
+                      <table
+                        className="w-full border-collapse text-left"
+                        data-testid="build-soft-tiers"
+                      >
+                        <caption className="sr-only">
+                          Objective tiers, their weights, and each rule&rsquo;s recorded weight
+                        </caption>
+                        <thead>
+                          <tr>
+                            <th className="border-b border-border p-sp-2" scope="col">
+                              Rank
+                            </th>
+                            <th className="border-b border-border p-sp-2" scope="col">
+                              Name
+                            </th>
+                            <th className="border-b border-border p-sp-2" scope="col">
+                              Tier weight
+                            </th>
+                            <th className="border-b border-border p-sp-2" scope="col">
+                              Rules and their weights
+                            </th>
+                            <th className="border-b border-border p-sp-2" scope="col">
+                              Terms
+                            </th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody>
+                          {data.result.objectiveTiers.map((tier) => (
+                            <tr key={`${String(tier.tier)}-${tier.name}`}>
+                              <td className="border-b border-border p-sp-2 text-text">
+                                {tier.tier}
+                              </td>
+                              <td className="border-b border-border p-sp-2 text-text">
+                                {tier.name}
+                              </td>
+                              <td className="border-b border-border p-sp-2 text-text">
+                                {tier.weightScale}
+                              </td>
+                              {/* doc 35 §6f behaviour 1: the components AND the
+                                  weights, recorded and rendered. A tier list
+                                  naming only the rules would let two results
+                                  under different weights sit in one column
+                                  looking comparable. */}
+                              <td className="border-b border-border p-sp-2 text-text-muted">
+                                {tier.components.length > 0
+                                  ? tier.components
+                                      .map(
+                                        (component) =>
+                                          `${component.ruleKey} ×${String(component.scaledWeight)}`,
+                                      )
+                                      .join(', ')
+                                  : tier.ruleKeys.join(', ') || '—'}
+                                {tier.unmappedRuleKeys.length === 0
+                                  ? ''
+                                  : ` · not modelled: ${tier.unmappedRuleKeys.join(', ')}`}
+                              </td>
+                              <td className="border-b border-border p-sp-2 text-text">
+                                {tier.termCount}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <p className="text-sm text-text-muted" data-testid="build-objective-record">
+                      {/* doc 08 §3.4: one scaling factor, decided once and
+                          recorded, so two objective values can be interpreted.
+                          The digest is what makes "same weights" checkable. */}
+                      Objective profile {data.result.quality.objectiveProfileId || 'unrecorded'},
+                      weights ×{data.result.quality.objectiveScale}
+                      {data.result.quality.objectiveWeightsDigest === null
+                        ? ''
+                        : ` · ${data.result.quality.objectiveWeightsDigest.slice(0, 12)}…`}
+                      . Weights order the tiers by magnitude; this is a weighted total, not a strict
+                      priority between them.
+                    </p>
+                  </>
                 )}
 
                 {data.result.rejections.length === 0 ? null : (
@@ -416,17 +547,21 @@ export function BuildDetailPage(): JSX.Element {
                       No explanation was attempted — this build found a schedule.
                     </p>
                   ) : (
-                    <p className="text-sm text-text" data-testid={`build-explanation-${data.result.explanation.state}`}>
-                      {data.result.explanation.state === 'EXPLAINED_EXACT'
-                        ? 'The structural check found the cause exactly.'
-                        : data.result.explanation.state === 'EXPLAINED_SUBSET'
-                          ? 'A conflicting set of rules was found. It may not be the smallest one.'
-                          : data.result.explanation.state === 'EXPLAINED_MINIMAL'
-                            ? 'A locally minimal conflicting set of rules was found within the budget.'
-                            : data.result.explanation.state === 'EXPLANATION_BUDGET_EXCEEDED'
-                              ? 'Infeasible. The cause could not be isolated within the time budget — what is below is partial.'
-                              : 'The explanation itself failed. Nothing below should be read as the cause.'}
-                    </p>
+                    /* SPEC-04 §5's five states, from the ONE wording table.
+                       The nested ternary that used to live here was a second
+                       spelling of the same five sentences, which is how one
+                       screen's copy drifts from another's. */
+                    <>
+                      <p
+                        className="text-sm font-medium text-text"
+                        data-testid={`build-explanation-${data.result.explanation.state}`}
+                      >
+                        {EXPLANATION_LABELS[data.result.explanation.state]}
+                      </p>
+                      <p className="text-sm text-text-muted">
+                        {EXPLANATION_DETAIL[data.result.explanation.state]}
+                      </p>
+                    </>
                   )}
                   <FindingList
                     findings={data.result.explanation.structural}
@@ -437,7 +572,85 @@ export function BuildDetailPage(): JSX.Element {
                       Conflicting rules: {data.result.explanation.conflictingRuleKeys.join(', ')}
                     </p>
                   )}
+                  {/* What the minimisation actually did, and what stopped it.
+                      "Minimised within budget" and "the budget ran out" are the
+                      same list of rule keys with two different meanings, and
+                      this is the only thing that tells them apart. */}
+                  {data.result.explanation.tier2 === null ||
+                  !data.result.explanation.tier2.attempted ? null : (
+                    <p className="text-sm text-text-muted" data-testid="build-explanation-tier2">
+                      Narrowing: {data.result.explanation.tier2.iterations} of at most{' '}
+                      {data.result.explanation.tier2.maxIterations} probes,{' '}
+                      {data.result.explanation.tier2.removed} rule(s) ruled out
+                      {data.result.explanation.tier2.exhausted
+                        ? ', and the budget ran out before every remaining rule had been checked'
+                        : ', and every remaining rule was checked'}
+                      .
+                    </p>
+                  )}
                 </div>
+              </section>
+            )}
+
+            {/* ── PO-DEC-13's conflict taxonomy ───────────────────────────── */}
+            {data.conflicts.length === 0 ? null : (
+              <section
+                aria-labelledby="conflicts-heading"
+                className="flex flex-col gap-sp-3 rounded-panel border border-border bg-surface-raised p-sp-4"
+              >
+                <h2 className="text-lg font-semibold text-text" id="conflicts-heading">
+                  Conflicts
+                </h2>
+                <p className="text-sm text-text-muted" data-testid="build-conflicts-caveat">
+                  Ordered by severity. A fairness outlier is a measurement with no threshold behind
+                  it — it never blocks approval.
+                </p>
+                {(
+                  [
+                    'hard-breach',
+                    'unmet-demand',
+                    'eligibility-failure',
+                    'fairness-outlier',
+                  ] as const
+                )
+                  .map((conflictClass) => ({
+                    conflictClass,
+                    items: data.conflicts.filter(
+                      (conflict) => conflict.conflictClass === conflictClass,
+                    ),
+                  }))
+                  .filter((group) => group.items.length > 0)
+                  .map((group) => (
+                    <div
+                      className="flex flex-col gap-sp-1"
+                      data-testid={`build-conflict-class-${group.conflictClass}`}
+                      key={group.conflictClass}
+                    >
+                      <h3 className="font-medium text-text">
+                        {CONFLICT_CLASS_LABELS[group.conflictClass]} ({group.items.length})
+                        {/* Words, never colour alone. The blocking/advisory
+                            distinction is the one a scheduler acts on. */}
+                        {group.items[0]?.blocksApproval === true
+                          ? ' — blocks approval'
+                          : ' — advisory'}
+                      </h3>
+                      <p className="text-sm text-text-muted">
+                        {CONFLICT_CLASS_EXPLANATIONS[group.conflictClass]}
+                      </p>
+                      <ul className="flex flex-col gap-sp-1">
+                        {group.items.map((conflict, index) => (
+                          <li
+                            className="text-sm text-text"
+                            key={`${conflict.code}-${conflict.subject ?? ''}-${String(index)}`}
+                          >
+                            <span className="font-medium">{conflict.code}</span>
+                            {conflict.subject === null ? '' : ` (${conflict.subject})`} —{' '}
+                            {conflict.detail}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
               </section>
             )}
 
@@ -509,8 +722,8 @@ export function BuildDetailPage(): JSX.Element {
             )}
             {retriedRunId === null ? null : (
               <p className="text-text" data-testid="build-retried" role="status">
-                A new build was created to retry this one. It carries the same pinned input,
-                and this build is kept as the record of what happened.
+                A new build was created to retry this one. It carries the same pinned input, and
+                this build is kept as the record of what happened.
               </p>
             )}
             {appliedVersionId === null ? null : (
@@ -705,7 +918,10 @@ export function BuildDetailPage(): JSX.Element {
               </h2>
               <ol className="flex flex-col gap-sp-1" data-testid="build-timeline">
                 {data.events.map((event, index) => (
-                  <li className="text-sm text-text-muted" key={`${event.occurredAt}-${String(index)}`}>
+                  <li
+                    className="text-sm text-text-muted"
+                    key={`${event.occurredAt}-${String(index)}`}
+                  >
                     {event.kind === 'result_refused' ? (
                       <span className="text-text" data-testid="build-fenced-event">
                         A result from a superseded claim (epoch {event.claimEpoch}) was refused; the

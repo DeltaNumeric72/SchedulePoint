@@ -17,7 +17,7 @@ import type { SolverInputSnapshotDocument } from '@schedulepoint/domain';
  * milliseconds.
  *
  * The duplication is therefore deliberate and is PROVEN rather than assumed:
- * `readiness.test.ts` builds a snapshot for each finding class and asserts that
+ * `outcome-and-readiness.test.ts` builds a snapshot for each finding class and asserts that
  * this pass and the worker's `structural_findings` name the same codes. The
  * codes below are the worker's own tokens for that reason — a scheduler who sees
  * `no_eligible_member` at readiness and `no_eligible_member` in an explanation

@@ -1539,6 +1539,209 @@ const CASES = [
     greenCommand: ['run', 'gate:unit:builds'],
     redCommand: ['run', 'gate:unit:builds'],
   },
+
+  /* ──────────────────────────────────────────────────────────────────────────
+   * OPUS-M4-004 — E2. Four arms, each falsifying one claim the packet makes.
+   *
+   * All four patch either the Python worker or the TypeScript SOURCE that the
+   * api-side tests resolve through `dist/`. The Python ones need no rebuild
+   * (the interpreter reads the file); the domain one carries the
+   * `prepare`/`restore` rebuild pair for the reason the `retired-verdict` arm
+   * records in full — without it the api-side test observes the OLD `dist` and
+   * the arm reads PROVEN while proving nothing.
+   * ────────────────────────────────────────────────────────────────────────── */
+  {
+    id: 'solver-objective-scale-drift',
+    gate: 'the integer scaling factor is SINGLE-SOURCED (doc 08 §3.4, doc 35 §6f)',
+    violation: 'the worker scales weights by 10^3 while the platform scales by 10^4',
+    /* The packet's scaling-constant mutation, in its purest form: change the
+     * factor in ONE place. Nothing about the resulting build looks wrong — the
+     * solver still solves, the schedule is still valid, the objective value is
+     * simply a tenth of what every other result recorded, and it would sit in a
+     * comparison column beside them looking comparable.
+     *
+     * Two independent things catch it, and the arm runs both: the digest the
+     * worker echoes stops matching (every solve refuses at the boundary), and
+     * the Python↔TypeScript parity test compares the rendered profiles
+     * directly. Either alone would be enough; having both is what makes the
+     * single-sourcing a property rather than a convention. */
+    patch: [
+      {
+        file: 'solver/schedulepoint_solver/model.py',
+        find: 'OBJECTIVE_SCALE = 10000',
+        replace: 'OBJECTIVE_SCALE = 1000  # red case: the factor drifts on one side only',
+      },
+    ],
+    greenCommand: ['exec', 'vitest', 'run', 'apps/api/test/solver/e2-objective.test.ts'],
+    redCommand: ['exec', 'vitest', 'run', 'apps/api/test/solver/e2-objective.test.ts'],
+  },
+  {
+    id: 'solver-t2-false-minimality',
+    gate: 'EXPLAINED_MINIMAL is EARNED (SPEC-04 §5, doc 35 §6f behaviour 3)',
+    violation: 'the T2 loop reports a completed pass without running one',
+    /* The minimality-claim mutation. `_minimise` returns `minimal = True` from
+     * its first line, so every T1 subset is relabelled minimal — the strongest
+     * thing an explanation can say, applied to a set nobody narrowed.
+     *
+     * A scheduler who acts on a false minimality claim relaxes a rule for
+     * nothing and is left with an infeasible period and less protection than
+     * they started with. That is why the claim is checked on BOTH sides: the
+     * loop must earn it, and `readExplanation` downgrades it if the record does
+     * not support it — so the violation has to defeat both, and it does not.
+     *
+     * The `iterations` counter stays 0 under the patch, which is exactly what
+     * the corpus arm and the E2 proof assert against. */
+    patch: [
+      {
+        file: 'solver/schedulepoint_solver/cpsat_adapter.py',
+        find: '    remaining = list(subset)\n    iterations = 0',
+        replace:
+          '    return True, list(subset), 0, 0, 0  # red case: minimality claimed, never established\n'
+          + '    remaining = list(subset)\n    iterations = 0',
+      },
+    ],
+    greenCommand: [
+      'exec',
+      'vitest',
+      'run',
+      'apps/api/test/solver/e2-objective.test.ts',
+      'apps/api/test/solver/corpus/corpus-agreement.test.ts',
+    ],
+    redCommand: [
+      'exec',
+      'vitest',
+      'run',
+      'apps/api/test/solver/e2-objective.test.ts',
+      'apps/api/test/solver/corpus/corpus-agreement.test.ts',
+    ],
+  },
+  {
+    id: 'solver-progressive-pin-unfixed',
+    gate: 'a protected assignment is HARD-FIXED in the model (doc 08 §5, SBX-017)',
+    violation: 'the model stops fixing pinned fixed inputs to 1',
+    /* SBX-017: protected assignments are "preserved **exactly** — not
+     * approximately, not usually". The patch removes the model's fix, and the
+     * `would-have-moved` fixture is built precisely so that removing it CHANGES
+     * THE ANSWER: an unprotected twin is strictly cheaper, so the optimizer
+     * moves the assignment and improves its objective.
+     *
+     * Without that fixture this arm could not exist. An assignment that was
+     * never going to move cannot demonstrate that anything held it, and a pin
+     * over a forced choice would keep passing with the constraint gone. */
+    patch: [
+      {
+        file: 'solver/schedulepoint_solver/cpsat_adapter.py',
+        find: '        if key in built.cells:\n            m.Add(built.cells[key] == 1)',
+        replace: '        if False:  # red case: the pin is no longer an input\n            m.Add(built.cells[key] == 1)',
+      },
+    ],
+    greenCommand: ['exec', 'vitest', 'run', 'apps/api/test/solver/e2-objective.test.ts'],
+    redCommand: ['exec', 'vitest', 'run', 'apps/api/test/solver/e2-objective.test.ts'],
+  },
+  {
+    id: 'builds-comparability-unenforced',
+    gate: 'comparison is refused across snapshots or weight sets (doc 35 §6f behaviour 1)',
+    violation: 'every pair of results is declared comparable',
+    /* "two results are comparable iff same snapshot + same weights, and the
+     * comparison service enforces exactly that". The patch makes the domain
+     * verdict unconditionally `true`, which is the shape the feature had before
+     * this packet: a difference list across two different problems, in one
+     * table, one careless read away from a conclusion.
+     *
+     * Compile-clean by construction — the parameter is still read by the length
+     * guard above it — so the `prepare` rebuild succeeds and the api-side arm
+     * genuinely observes the patched `dist`. That is the `retired-verdict`
+     * lesson applied: a violation that fails to compile makes the arm read NOT
+     * PROVEN, which proves nothing at all. */
+    patch: [
+      {
+        file: 'packages/domain/src/rules/objective.ts',
+        find: '  if (results.length < 2) return { comparable: true };',
+        replace:
+          '  if (results.length < 2) return { comparable: true };\n'
+          + '  if (results.length >= 2) return { comparable: true }; // red case: nothing is refused',
+      },
+    ],
+    greenCommand: [
+      'exec',
+      'sh',
+      '-c',
+      'vitest run packages/domain/test/rules/e2-objective-and-quality.test.ts apps/api/test/builds/e2-quality-and-credits.test.ts',
+    ],
+    /* `dist` carries the violation, or the api-side half of this arm is blind. */
+    prepare: [['exec', 'tsc', '-b', 'packages/domain', '--force']],
+    redCommand: [
+      'exec',
+      'sh',
+      '-c',
+      'vitest run packages/domain/test/rules/e2-objective-and-quality.test.ts apps/api/test/builds/e2-quality-and-credits.test.ts',
+    ],
+    restore: [['exec', 'tsc', '-b', 'packages/domain', '--force']],
+  },
+  {
+    id: 'solver-demand-not-independently-checked',
+    gate: 'demand coverage is measured by the INDEPENDENT checker (SPEC-04 §7, FAD-46 F-03)',
+    violation: 'the MODEL stops posting demand as a hard equality',
+    /* The D-4 lesson, applied to demand. Before FAD-46's repair, demand was
+     * enforced in exactly one place — the model's `sum(cells) == required` — and
+     * the metric that was supposed to notice a shortfall counted assignments
+     * without matching them to cells, so it scored a candidate that staffed
+     * nothing but the wrong dates a flawless 1.
+     *
+     * This arm removes the constraint from the MODEL ONLY. Nothing in the
+     * checker is touched. If the checker's demand measurement were ever deleted,
+     * weakened, or quietly made to read the model's own word for it, this arm
+     * would go green while the solver returned candidates that staffed nothing —
+     * which is the whole failure this repair exists to make impossible.
+     *
+     * Python, so no rebuild is needed; the worker is re-executed per solve. */
+    patch: [
+      {
+        file: 'solver/schedulepoint_solver/cpsat_adapter.py',
+        find: '            enforce(m.Add(sum(variables) == required), "__demand__")',
+        replace:
+          '            if False:  # red case: the model stops posting demand as hard\n'
+          + '                enforce(m.Add(sum(variables) == required), "__demand__")',
+      },
+    ],
+    greenCommand: [
+      'exec',
+      'vitest',
+      'run',
+      'apps/api/test/solver/e2-objective.test.ts',
+      'apps/api/test/solver/corpus/corpus-agreement.test.ts',
+    ],
+    redCommand: [
+      'exec',
+      'vitest',
+      'run',
+      'apps/api/test/solver/e2-objective.test.ts',
+      'apps/api/test/solver/corpus/corpus-agreement.test.ts',
+    ],
+  },
+  {
+    id: 'builds-optimality-wording',
+    gate: 'no surface claims optimality for a merely feasible result (SPEC-04 §7)',
+    violation: 'the completed-state label calls the schedule optimal',
+    /* The status-conflation arm, at the place the conflation actually happens:
+     * the copy. `OPTIMAL` is a proof the solver either produced or did not, and
+     * it is already carried beside the state as `solverStatus`. The moment the
+     * word enters a STATE label it applies to every result that reaches that
+     * branch — including every merely feasible one — and no API change is needed
+     * for the product to start making a claim it cannot support.
+     *
+     * The patched wording is the one somebody would actually write: it reads
+     * better than the true sentence, which is what makes it dangerous. */
+    patch: [
+      {
+        file: 'apps/web/src/builds/BuildsLayout.tsx',
+        find: "  completed: 'Completed — all preferences met',",
+        replace: "  completed: 'Completed — optimal schedule found',",
+      },
+    ],
+    greenCommand: ['exec', 'vitest', 'run', 'apps/web/test/build-vocabulary.test.ts'],
+    redCommand: ['exec', 'vitest', 'run', 'apps/web/test/build-vocabulary.test.ts'],
+  },
 ];
 
 /** @param {string[]} args */

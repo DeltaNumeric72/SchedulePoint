@@ -527,6 +527,7 @@ export default function buildRoutes(app: FastifyInstance): void {
           readinessFindings: findingsOf(row.readiness_findings),
           result: detail.result,
           violations: detail.violations,
+          conflicts: detail.conflicts,
           events: detail.events,
           sourceDigest: await builds.sourceDigestOf(uow, row),
           reproducibility: row.reproducibility_mode,
@@ -716,7 +717,24 @@ export default function buildRoutes(app: FastifyInstance): void {
         kind: 'ok' as const,
         value: {
           runs: summaries,
+          /* REPAIR F-02 (FAD-46). This list is per-candidate FACT — each entry
+           * carries the objective profile and digest it was measured under — so
+           * it is sent whether or not the candidates are comparable, and the
+           * client renders it one candidate at a time on a refusal.
+           *
+           * What must never happen is the side-by-side TABLE: one column each,
+           * under a notice saying they cannot be compared. The verdict below
+           * travels in the same response precisely so the renderer can tell
+           * those two arrangements apart, and the page is gated on it. Withholding
+           * the measurements entirely would be the other error — a candidate's own
+           * measurement is not invalidated by the existence of an incomparable
+           * sibling. */
           quality,
+          /* OPUS-M4-004. The comparability verdict travels WITH the projection,
+           * and the projection is empty whenever it refuses. A client cannot
+           * accidentally render a difference list across two snapshots because
+           * there is no difference list to render. */
+          comparability: projection.comparability,
           differences: projection.differences,
           sharedAssignmentCount: projection.sharedAssignmentCount,
         },

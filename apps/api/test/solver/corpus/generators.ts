@@ -1312,6 +1312,67 @@ export function restAcrossGapDayProblem(minHours: number): SolverInputSnapshotDo
 }
 
 /**
+ * **The would-have-moved fixture: a pin that the optimizer is PAID to break**
+ * (OPUS-M4-004; doc 35 §6f required behaviour 5, SBX-017).
+ *
+ * Two participants, one date, demand of exactly one — so exactly one of them
+ * works it. Participant 0 is PINNED onto it. A SOFT `ShiftPreference` then makes
+ * participant 1 strictly cheaper: with the pin removed from the model the
+ * optimizer moves the assignment to participant 1 and *improves* its objective,
+ * which is the only construction under which "the pin bound" is a real claim
+ * rather than a coincidence of tie-breaking.
+ *
+ * The two modes exist so the fixture proves both directions with one shape:
+ *
+ * | Mode | Pin | What the run must show |
+ * |---|---|---|
+ * | `pinned` | `isPinned: true` | participant 0 works it — the pin outranks a strictly better objective |
+ * | `unpinned` | `isPinned: false` | participant 1 works it — the optimizer really would have moved it |
+ *
+ * Without the second mode the first proves nothing: an assignment that was never
+ * going to move cannot demonstrate that anything held it.
+ */
+export function protectedPinWouldMoveProblem(
+  mode: 'pinned' | 'unpinned',
+): SolverInputSnapshotDocument {
+  const seed = 'e2.progressive.wouldmove';
+  const date = datesFrom(DEFAULT_START, 1)[0] ?? DEFAULT_START;
+  return buildSnapshot({
+    seed,
+    corpusClass: 'progressive-pinned',
+    dayCount: 1,
+    shiftTypes: [{ code: 'DAY' }, { code: 'EVE', startTime: '16:00:00', endTime: '23:00:00' }],
+    participants: [
+      { index: 0, workPercentage: 100, weekdayTargets: WEEK_FULL },
+      { index: 1, workPercentage: 100, weekdayTargets: WEEK_FULL },
+    ],
+    demand: [[date, 'DAY', 1]],
+    fixed: [
+      {
+        label: 'protected-day',
+        participantIndex: 0,
+        date,
+        code: 'DAY',
+        isPinned: mode === 'pinned',
+      },
+    ],
+    rules: [
+      {
+        /* Scoped to participant 1, so the model is rewarded — by a large,
+         * unambiguous margin — for placing THEM instead. A tie would make the
+         * outcome depend on variable ordering, and the proof would measure the
+         * solver's iteration order rather than the pin. */
+        ruleKey: 'wm-prefer-second',
+        classification: 'SOFT',
+        weight: '50.00',
+        scope: { memberships: [corpusId(seed, 'membership:1')] },
+        predicate: { kind: 'ShiftPreference', shiftType: 'DAY', strength: 'strong_prefer' },
+      },
+    ],
+  });
+}
+
+/**
  * **A HARD rule scoped to a staff group that resolves to NOBODY** (FAD-42 R-6).
  *
  * One participant, two dates, demand on both, and one HARD `AvoidDate` rule on

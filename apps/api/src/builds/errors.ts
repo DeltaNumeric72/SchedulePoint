@@ -8,7 +8,7 @@ import type { BuildRunState } from '../db/schema.js';
  * is not an answer a scheduler can act on. **The database remains the control**
  * in every case — these are raised by the service *before* the statement that
  * would have been refused anyway, so removing one weakens the message and
- * nothing else. `fencing.test.ts` proves that by driving each refusal with the
+ * nothing else. `lifecycle.test.ts` proves that by driving each refusal with the
  * service check removed and showing the database still refuses.
  */
 
