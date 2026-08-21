@@ -216,8 +216,15 @@ export interface SolveRequestSpec {
  * seed plus worker count is **not** sufficient, so a build that claims
  * reproducibility must pin `interleaveSearch` (the deterministic portfolio) and
  * use a **deterministic** time limit rather than a wall clock. Both are here,
- * both are recorded, and {@link reproducibilityMode} refuses to call a run
- * reproducible when they are not set.
+ * both are recorded, and {@link reproducibilityMode} refuses to **dispatch** a
+ * run as reproducible when they are not set.
+ *
+ * **That is a statement about the REQUEST, and it is not the whole promise.**
+ * `maxTimeInSeconds` is set alongside `maxDeterministicTime` and the engine
+ * stops at whichever arrives first, so a correctly-pinned request can still be
+ * ended by the wall clock and produce a result nobody can reproduce.
+ * {@link resultReproducibility} is the half that reads what the run actually
+ * did. See EV-M4-005 §20a for the measurement and §21 for why both exist.
  */
 export interface SolverParameters {
   readonly randomSeed: number;
@@ -231,12 +238,21 @@ export interface SolverParameters {
 }
 
 /**
- * `'deterministic'` only when every condition SPEC-04 §4 (amended) names is met.
+ * **The DISPATCH statement**: `'deterministic'` only when every condition
+ * SPEC-04 §4 (amended) names is met *in the request*.
  *
  * Stated as a computed verdict rather than a flag a caller sets, because a flag
  * a caller sets is a claim, and the whole point of the amendment is that the
  * claim was being made without the conditions. Five runs, one seed, eight
  * workers, five different schedules.
+ *
+ * **What this function does NOT say.** It is computed from the parameters the
+ * platform dispatched, before any search has happened, so it cannot know how
+ * the search ended. It is correct, it is worth recording, and **it is not a
+ * statement that the result can be reproduced** — that is
+ * {@link resultReproducibility}, and conflating the two is the defect EV-M4-005
+ * §20 diagnosed. This docblock used to claim the function "refuses to call a
+ * RUN reproducible", which the measurement falsified.
  */
 export function reproducibilityMode(
   parameters: SolverParameters,
@@ -244,6 +260,224 @@ export function reproducibilityMode(
   if (!parameters.interleaveSearch) return 'best-effort';
   if (parameters.maxDeterministicTime === null) return 'best-effort';
   return 'deterministic';
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * The RESULT-side reproducibility verdict (FAD-49; EV-M4-005 §21)
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * The fraction of `maxTimeInSeconds` at or above which the wall clock is taken
+ * to have STOPPED the search rather than merely bounded it.
+ *
+ * Not `1.0`, because CP-SAT stops at or a little under its deadline: the stops
+ * measured against a 10-second budget (EV-M4-005 §20a) were 9.497948, 9.491109,
+ * 9.969748 and 10.003466 — 94.9% at the low end. `0.9` sits below every observed
+ * stop and far above any run the deterministic budget ended (76.70 units is
+ * 32.6s against a 900s budget, or 3.6%).
+ *
+ * **One threshold, one definition.** The test fixtures consume this constant
+ * rather than restating it; a second spelling of a safety predicate is the S-01
+ * class of defect, where the two copies drift and the weaker one is the one
+ * that ships.
+ */
+export const WALL_CLOCK_BINDING_FRACTION = 0.9;
+
+/**
+ * What ended the run, in the product's own words — one sentence per
+ * {@link TerminationReason} (FAD-50 B-1).
+ *
+ * A table rather than a formatted enum name, because these are read by a
+ * scheduler deciding what to do next and the actions differ: a cancelled build
+ * is re-run, a deadline is given a bigger budget, a crash is reported. FAD-34's
+ * refusal to collapse four terminations into one word is the same argument, and
+ * this is that argument applied to the reproducibility line.
+ *
+ * `completed` is present so the map is total over the closed set, and is
+ * unreachable through the interruption branch by construction.
+ */
+const INTERRUPTION_DETAIL: Readonly<Record<TerminationReason, string>> = {
+  completed: 'This build ran to completion.',
+  user_cancelled: 'A person cancelled this build, so the search stopped where they stopped it.',
+  deadline: 'A deadline ended this build before the search finished.',
+  killed: 'The worker running this build was terminated before the search finished.',
+  crashed: 'The worker running this build crashed before the search finished.',
+  rejected: 'The worker refused this request, so no search ran at all.',
+};
+
+/**
+ * What a completed run may honestly claim about being re-runnable.
+ *
+ * Deliberately NOT a termination reason and NOT a solver status: FAD-34's
+ * vocabulary is untouched by this. A wall-clock-truncated `FEASIBLE` result is
+ * still `FEASIBLE`, still `completed`, and still a perfectly usable schedule —
+ * the only thing it cannot do is promise that running it again gives the same
+ * one.
+ */
+export type ResultReproducibility =
+  /** The deterministic budget, or a completed proof, ended the search. */
+  | 'reproducible'
+  /** Pinned deterministic, but the WALL CLOCK ended the search. Not re-runnable. */
+  | 'wall-clock-truncated'
+  /**
+   * Something ENDED this search before it finished on its own — a person
+   * cancelled it, a deadline fired, the worker was killed or crashed, or the
+   * request was refused before any search ran.
+   *
+   * Distinct from `unrecorded` and never to be conflated with it: here the
+   * facts are PRESENT and they say the run was interrupted. There it is the
+   * facts themselves that are missing. One is a finding; the other is a gap.
+   */
+  | 'interrupted'
+  /** The request never claimed reproducibility. Unchanged behaviour. */
+  | 'best-effort'
+  /** The facts needed to decide were not recorded. Never a claim either way. */
+  | 'unrecorded';
+
+export interface ResultReproducibilityVerdict {
+  readonly verdict: ResultReproducibility;
+  /** The single question a surface should branch on. `true` for exactly one verdict. */
+  readonly reproducible: boolean;
+  /** Why, in the product's own terms. Never empty; names the reason for a refusal. */
+  readonly detail: string;
+}
+
+/**
+ * **Does this RESULT support a reproducibility claim?** Derived, never stored.
+ *
+ * SPEC-04 §4 as amended requires the reproducibility basis to be the
+ * deterministic budget, **never a wall clock**. `reproducibilityMode` checks
+ * that the request pinned one. This checks the fact the request cannot know:
+ * that the wall clock did not get there first.
+ *
+ * Derived rather than persisted, from facts already on the row — the run's
+ * `solver_parameters`, its recorded termination, and the result's recorded
+ * `wallTimeSeconds` — because a stored verdict would freeze each build under
+ * whatever the predicate said the day it ran, exactly as `conflictsOf` is
+ * derived on read for the same reason. No schema change, no worker change
+ * (FAD-49(1), FAD-50 B-1).
+ *
+ * **It fails CLOSED.** An absent wall time is `'unrecorded'`, not `'reproducible'`:
+ * a run that crashed, was killed, or predates the statistics being recorded has
+ * not earned the claim, and silence is not evidence.
+ *
+ * ## The termination fact, and the defect that put it here (FAD-50 B-1)
+ *
+ * The first version of this function decided from the parameters and the wall
+ * time alone. A **CANCELLED** deterministic run has a SHORT wall time — a
+ * person pressed stop — and its statistics are persisted like any other, so it
+ * sailed through both guards and was rendered `reproducible`, carrying the exact
+ * promise sentence FAD-49 exists to delete. The reviewer reproduced it against
+ * real CP-SAT (`CANCELLED`, 2.35s of wall, 5.6 of 100 deterministic units) and
+ * through the shipped route.
+ *
+ * The lesson is that "the wall clock did not stop it" was never the same claim
+ * as "it finished". **Only a `completed` termination may reach `reproducible`;**
+ * everything else is {@link ResultReproducibility 'interrupted'} and names what
+ * ended it. `deadline` and `killed` would usually also be caught by the wall
+ * clock or by an absent wall time, and are checked here anyway — the belt and
+ * braces are deliberate, because each of those inputs has now been observed to
+ * be reachable without the other.
+ */
+export function resultReproducibility(input: {
+  readonly parameters: SolverParameters;
+  /** From the recorded solver statistics. `null` when the run recorded none. */
+  readonly wallTimeSeconds: number | null;
+  /**
+   * What ENDED the run (`build_runs.termination_reason`). `null` when the run
+   * recorded none — which is a gap, not a completion, and is treated as one.
+   *
+   * Required rather than optional: B-1 was a caller that did not have to think
+   * about this fact, and a defaulted parameter would rebuild that hole.
+   */
+  readonly terminationReason: TerminationReason | null;
+  /**
+   * The recorded solver status (`build_runs.solver_status`), for the second
+   * belt: `isTerminalOutcomeHonest` already refuses a `CANCELLED` reported as
+   * `completed`, and a verdict that trusted one field alone would depend on that
+   * refusal never being bypassed.
+   */
+  readonly status: SolverStatus | null;
+}): ResultReproducibilityVerdict {
+  const { parameters, wallTimeSeconds, terminationReason, status } = input;
+
+  if (reproducibilityMode(parameters) === 'best-effort') {
+    return {
+      verdict: 'best-effort',
+      reproducible: false,
+      detail:
+        'This build was not posed under the deterministic parameter set, so no ' +
+        'reproduction claim was ever made for it.',
+    };
+  }
+
+  /* Before anything about budgets: did this run FINISH? A search somebody
+   * stopped reproduces nothing, however comfortably it sat inside its clock. */
+  if (terminationReason === null) {
+    return {
+      verdict: 'unrecorded',
+      reproducible: false,
+      detail:
+        'The deterministic parameter set was in force, but this build recorded no ' +
+        'termination reason, so whether it ran to completion cannot be established.',
+    };
+  }
+
+  const interruptedStatus = status === 'CANCELLED' || status === 'TIMEOUT' || status === 'FAILED';
+  if (terminationReason !== 'completed') {
+    return {
+      verdict: 'interrupted',
+      reproducible: false,
+      detail: `${INTERRUPTION_DETAIL[terminationReason]} Reproduction describes a search that ran to its own end; this one did not.`,
+    };
+  }
+  if (interruptedStatus) {
+    /* The two recorded facts DISAGREE. `isTerminalOutcomeHonest` refuses this
+     * combination on the way in, so reaching it means something upstream was
+     * bypassed — and the safe reading of a contradiction is the one that claims
+     * less. Said plainly rather than resolved silently in either direction. */
+    return {
+      verdict: 'interrupted',
+      reproducible: false,
+      detail:
+        `This build recorded a '${status}' status against a 'completed' termination. ` +
+        'Those two cannot both be true, so no reproduction claim is made for it.',
+    };
+  }
+
+  if (wallTimeSeconds === null) {
+    return {
+      verdict: 'unrecorded',
+      reproducible: false,
+      detail:
+        'The deterministic parameter set was in force, but this build recorded no ' +
+        'search time, so whether the wall clock ended the search cannot be established.',
+    };
+  }
+
+  const threshold = parameters.maxTimeInSeconds * WALL_CLOCK_BINDING_FRACTION;
+  if (wallTimeSeconds >= threshold) {
+    return {
+      verdict: 'wall-clock-truncated',
+      reproducible: false,
+      detail:
+        `The search ran for ${String(wallTimeSeconds)}s against a ` +
+        `${String(parameters.maxTimeInSeconds)}s wall-clock limit, so the WALL CLOCK ` +
+        'ended it rather than the deterministic budget. How much search fits in that ' +
+        'time depends on the machine, so the same problem run again may produce a ' +
+        'different schedule of the same quality.',
+    };
+  }
+
+  return {
+    verdict: 'reproducible',
+    reproducible: true,
+    detail:
+      `The deterministic budget or a completed proof ended the search after ` +
+      `${String(wallTimeSeconds)}s, well inside the ` +
+      `${String(parameters.maxTimeInSeconds)}s wall-clock limit, so the same problem ` +
+      'run again on the same worker build produces the same schedule.',
+  };
 }
 
 /** One assignment the solver proposes. Solver-neutral; no engine type appears. */

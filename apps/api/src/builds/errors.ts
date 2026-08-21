@@ -1,4 +1,5 @@
 import type { BuildRunState } from '../db/schema.js';
+import type { StalenessVerdict } from './constituent-diff.js';
 
 /**
  * The build lifecycle's typed refusals (OPUS-M4-003).
@@ -114,5 +115,33 @@ export class BuildRetryLimitError extends BuildPreconditionError {
     this.name = 'BuildRetryLimitError';
     this.retryLimit = retryLimit;
     this.lastTerminationReason = lastTerminationReason;
+  }
+}
+
+/**
+ * **doc 35 §6g ruling 4** — an input revision moved after snapshot assembly.
+ *
+ * Distinct from {@link BuildSourceMovedError}, and the distinction is the whole
+ * finding. That one answers "the draft you were building on has been edited";
+ * this one answers "the PROBLEM has changed" — a rule revised, a shift type
+ * archived, a qualification expired, demand re-set, the group timezone changed.
+ * A scheduler told the first will look at the draft; a scheduler told the second
+ * has to re-pose the build. Collapsing them into one message would send half of
+ * them to the wrong place.
+ *
+ * It carries the changes rather than a count, because the remedy depends on
+ * WHICH input moved. The list is bounded and the true total travels with it.
+ */
+export class BuildInputsMovedError extends BuildPreconditionError {
+  readonly staleness: StalenessVerdict;
+
+  constructor(staleness: StalenessVerdict) {
+    super(
+      'STALE_BUILD_INPUTS',
+      'the inputs this build was posed against have changed since it was assembled; ' +
+        'a candidate computed from them cannot become the current draft',
+    );
+    this.name = 'BuildInputsMovedError';
+    this.staleness = staleness;
   }
 }

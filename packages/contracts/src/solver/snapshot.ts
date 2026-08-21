@@ -16,7 +16,8 @@ import { uuidSchema } from '../identifiers.js';
  * still exactly the document that was assembled rather than something that
  * merely type-checks.
  *
- * The two are held together by `apps/api/test/solver/snapshot-contract.test.ts`,
+ * The two are held together by `apps/api/test/solver/canonical-input.test.ts`'s
+ * "the persisted document parses against the wire contract, holdings narrowed",
  * which parses a real assembled document against this schema. A schema nothing
  * parses is a second definition waiting to drift; a schema a proof parses is the
  * one that catches the drift.
@@ -47,9 +48,16 @@ export const snapshotConstituentSchema = z
       'period',
       'version',
       /* v2 (OPUS-M4-002, FAD-38). Appended, mirroring
-       * `SNAPSHOT_CONSTITUENT_KINDS`; `constituent-kind-parity` in
-       * `apps/api/test/solver/snapshot-contract.test.ts` asserts the two lists
-       * are the same list. */
+       * `SNAPSHOT_CONSTITUENT_KINDS`.
+       *
+       * The parity is asserted by
+       * `apps/api/test/solver/constituent-kind-parity.test.ts`. It did NOT used
+       * to be: this comment cited a `snapshot-contract.test.ts` that has never
+       * existed, and the citation sweep (OPUS-M4-005) found not just a dead path
+       * but a claim with nothing behind it — no test anywhere imported
+       * `SNAPSHOT_CONSTITUENT_KINDS`. The test was written rather than the claim
+       * withdrawn, because two hand-maintained copies of one closed vocabulary
+       * are exactly what drifts. */
       'staffGroup',
       'validGroup',
     ]),

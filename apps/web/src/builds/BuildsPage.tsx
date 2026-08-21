@@ -482,6 +482,11 @@ export function BuildsPage(): JSX.Element {
                     <th className="border-b border-border p-sp-2" scope="col">
                       State
                     </th>
+                    {/* F-12 (OPUS-M4-005). See BuildComparisonPage for why the raw
+                        token and not a gloss. */}
+                    <th className="border-b border-border p-sp-2" scope="col">
+                      Solver status
+                    </th>
                     <th className="border-b border-border p-sp-2" scope="col">
                       Open
                     </th>
@@ -513,6 +518,15 @@ export function BuildsPage(): JSX.Element {
                       </td>
                       <td className="border-b border-border p-sp-2 text-text">
                         {STATE_LABELS[run.state]}
+                      </td>
+                      <td
+                        className="border-b border-border p-sp-2 text-text-muted"
+                        data-testid={`build-solver-status-${run.id}`}
+                      >
+                        {/* An em dash, not a blank and not "none": a build that has
+                            not reached the solver has no status, and saying so is
+                            different from having one nobody rendered. */}
+                        {run.solverStatus ?? '—'}
                       </td>
                       <td className="border-b border-border p-sp-2">
                         <Link

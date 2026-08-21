@@ -1,0 +1,72 @@
+=== OPUS-M4-005 continuation, POST-REPAIR VERIFICATION A: the targeted test STANDALONE x3 (EV-M4-005 §20e) ===
+Three serial runs on a calm machine, same command and same machine as the pre-repair
+runs in transcript 25 part A, which were 2 pass / 1 FAIL. Post-repair: 3 pass / 0 fail.
+The arm now also carries its own precondition control ('the precondition BITES'), which
+is why the file reports 27 tests where it previously reported 26.
+
+NOTE ON THE `HEAD:` LINES BELOW. Every run reports HEAD 06c702e because the repair
+was still an uncommitted working-tree change when these ran; the three modified files
+are apps/api/test/{support/solver.ts,solver/e2-objective.test.ts,solver/real-solve-lifecycle.test.ts}
+and nothing else (`git status --porcelain` showed exactly those three). The commit that
+carries them is recorded in §20f.
+
+--- run 1 of 3 ---
+    === POST-REPAIR A1: e2-objective.test.ts STANDALONE (run 1 of 3) ===
+    start:   2026-08-21T03:06:47Z
+    uptime:  23:06  up 3 days, 17:36, 1 user, load averages: 2.80 5.33 5.32
+    cwd:     /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-005
+    branch:  opus/m4-005-integration
+    HEAD:    06c702ed4d1c5a1207a658158aa242ae17addba6
+    command: node node_modules/vitest/vitest.mjs run --project api apps/api/test/solver/e2-objective.test.ts
+    detached: foreground, serial; nothing else running
+    === BEGIN ===
+    
+       ✓ S-08t under E2 objectives — bit-identical on a soft-rule-bearing class > reproduces B-fairness-shaped bit for bit under the FULL pinned set  67456ms
+       ✓ S-08t under E2 objectives — bit-identical on a soft-rule-bearing class > the precondition BITES: with the old 10s wall clock the search is wall-bound  10311ms
+          Tests  27 passed (27)
+       Duration  225.63s (transform 293ms, setup 123ms, collect 50ms, tests 223.57s, environment 0ms, prepare 33ms)
+    EXIT=0
+    finish:  2026-08-21T03:10:33Z
+
+--- run 2 of 3 ---
+    === POST-REPAIR A2: e2-objective.test.ts STANDALONE (run 2 of 3) ===
+    start:   2026-08-21T03:10:33Z
+    uptime:  23:10  up 3 days, 17:39, 1 user, load averages: 3.49 4.45 4.94
+    cwd:     /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-005
+    branch:  opus/m4-005-integration
+    HEAD:    06c702ed4d1c5a1207a658158aa242ae17addba6
+    command: node node_modules/vitest/vitest.mjs run --project api apps/api/test/solver/e2-objective.test.ts
+    detached: foreground, serial; nothing else running
+    === BEGIN ===
+    
+       ✓ S-08t under E2 objectives — bit-identical on a soft-rule-bearing class > reproduces B-fairness-shaped bit for bit under the FULL pinned set  66888ms
+       ✓ S-08t under E2 objectives — bit-identical on a soft-rule-bearing class > the precondition BITES: with the old 10s wall clock the search is wall-bound  10297ms
+          Tests  27 passed (27)
+       Duration  226.24s (transform 319ms, setup 127ms, collect 52ms, tests 224.21s, environment 0ms, prepare 37ms)
+    EXIT=0
+    finish:  2026-08-21T03:14:20Z
+
+--- run 3 of 3 ---
+    === POST-REPAIR A3: e2-objective.test.ts STANDALONE (run 3 of 3) ===
+    start:   2026-08-21T03:17:09Z
+    uptime:  23:17  up 3 days, 17:46, 1 user, load averages: 2.62 3.41 4.26
+    cwd:     /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-005
+    branch:  opus/m4-005-integration
+    HEAD:    06c702ed4d1c5a1207a658158aa242ae17addba6
+    command: node node_modules/vitest/vitest.mjs run --project api apps/api/test/solver/e2-objective.test.ts
+    detached: background, serial
+    === BEGIN ===
+    
+       ✓ S-08t under E2 objectives — bit-identical on a soft-rule-bearing class > reproduces B-fairness-shaped bit for bit under the FULL pinned set  68005ms
+       ✓ S-08t under E2 objectives — bit-identical on a soft-rule-bearing class > the precondition BITES: with the old 10s wall clock the search is wall-bound  10331ms
+          Tests  27 passed (27)
+       Duration  227.31s (transform 312ms, setup 121ms, collect 50ms, tests 225.38s, environment 0ms, prepare 34ms)
+    EXIT=0
+    finish:  2026-08-21T03:20:57Z
+
+--- the S-08t arm's own log line, run 3 (what the repaired arm now records) ---
+          ·       · S-08t/E2: 14 assignments and objective 4120000 reproduced bit for bit; status OPTIMAL, 76.702882 deterministic units in 33.273764s against a 900s net
+    
+          ·       · precondition control: wall 9.519356s of 10s ended the search after only 21.660444 of 100 deterministic units, and the platform still reported 'deterministic'
+    
+    stdout | test/solver/e2-objective.test.ts > T2: EXPLAINED_MINIMAL is earned, and a false claim is refused > narrows the T1 subset and reports what it did

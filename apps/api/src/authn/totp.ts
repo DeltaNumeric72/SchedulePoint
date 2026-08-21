@@ -10,7 +10,8 @@ import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
  * the HMAC. Adding a dependency for forty lines would mean a licence review and
  * a supply-chain surface (T-33) for code that is fully specified in a published
  * RFC and fully testable against that RFC's own vectors — which
- * `apps/api/test/authn/totp.test.ts` does, against the appendix-B vectors for
+ * `apps/api/test/authn/mfa.test.ts`'s "RFC 6238 appendix B" does, against the
+ * published vectors for
  * SHA-1 and SHA-256.
  *
  * ## The time step is the unit of replay

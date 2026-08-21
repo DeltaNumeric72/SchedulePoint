@@ -139,9 +139,88 @@ function tenantTableDetectors(): { pattern: RegExp; label: string }[] {
   }));
 }
 
+/**
+ * **NR-16 — the bare-line detector** (FAD-33; doc 35 §6g Included (E)).
+ *
+ * The detector above requires a quote character EARLIER ON THE SAME LINE, which
+ * is how a single-line SQL literal looks. A multi-line template literal does not
+ * look like that:
+ *
+ * ```ts
+ *   await sql`
+ *     select id
+ *       from memberships          <- no quote on this line. Undetected.
+ *      where organization_id = ${x}
+ *   `.execute(client);
+ * ```
+ *
+ * So the arm that is supposed to catch "a direct query naming a tenant table"
+ * could be evaded by pressing Enter. The connection detectors were unaffected —
+ * which is why the gap scored low — but the tenant-table arm was the half that
+ * would notice a query written against a connection somebody had already been
+ * permitted to hold.
+ *
+ * This matches a line that IS a bare SQL fragment naming a tenant table: the
+ * clause keyword at the start of the line, the table straight after it, and no
+ * quote anywhere on the line. Requiring the keyword at the START is what keeps
+ * it from firing on prose and on ordinary TypeScript — `const from = x` has no
+ * table after it, and `.innerJoin('shifts', …)` carries its quotes.
+ */
+function bareLineTenantTableDetectors(): { pattern: RegExp; label: string }[] {
+  return TENANT_TABLES.map((table) => ({
+    pattern: new RegExp(
+      String.raw`^\s*(?:from|into|update|join|delete\s+from)\s+${table.name}\b`,
+      'i',
+    ),
+    label:
+      `names the tenant table \`${table.name}\` on a BARE SQL line — a multi-line ` +
+      'template literal is still a direct query (NR-16)',
+  }));
+}
+
+/**
+ * Files carrying a bare-line hit that predates the detector, pinned by path AND
+ * count — the NUL gate's baseline pattern, and for the same reasons.
+ *
+ * NR-16's register entry names the situation: "live instances exist in
+ * `publication.ts`", and "tightening ripples across existing modules so it needs
+ * its own packet scope". Each entry below is a module that legitimately holds
+ * multi-line SQL inside a unit of work, where the scanner cannot tell a
+ * `uow.query` template from a `client.query` one — the detector is a
+ * lexical control, not a dataflow one, and pretending otherwise would be worse
+ * than pinning them.
+ *
+ * The pin is by COUNT, so:
+ *
+ *  * a NEW bare-line query anywhere fails;
+ *  * a new one in a pinned FILE fails too — the pin says "exactly this many at
+ *    this path", never "this path is exempt";
+ *  * removing one fails, so the baseline shrinks deliberately rather than
+ *    rotting.
+ */
+export const BARE_LINE_BASELINE: ReadonlyMap<string, number> = new Map([
+  ['audit/checkpoints.ts', 1],
+  ['audit/reader.ts', 1],
+  ['audit/verification.ts', 2],
+  ['authn/store.ts', 19],
+  ['http/routes/schedule-publication.route.ts', 6],
+  ['outbox/dispatcher.ts', 3],
+  ['rules/service.ts', 2],
+  ['schedule/publication.ts', 4],
+  ['schedule/review-identity.ts', 7],
+  ['solver/canonical-input.ts', 2],
+  ['solver/snapshot-store.ts', 2],
+]);
+
 export interface ScanOptions {
   /** Files (relative to `root`, forward slashes) exempt from the scan. */
   readonly permitted?: readonly string[];
+  /**
+   * The pinned bare-line counts to reconcile against. **Empty unless supplied**
+   * — see {@link BARE_LINE_BASELINE}, which the real `apps/api/src` scan passes
+   * and which a fixture scan deliberately does not.
+   */
+  readonly bareLineBaseline?: ReadonlyMap<string, number>;
 }
 
 /**
@@ -154,8 +233,20 @@ export function scanForDirectTenantAccess(
   options: ScanOptions = {},
 ): DirectAccessFinding[] {
   const permitted = new Set(options.permitted ?? CONNECTION_OWNERS.map((owner) => owner.file));
-  const detectors = [...DIRECT_ACCESS_DETECTORS, ...tenantTableDetectors()];
+  const detectors = [
+    ...DIRECT_ACCESS_DETECTORS,
+    ...tenantTableDetectors(),
+    ...bareLineTenantTableDetectors(),
+  ];
   const findings: DirectAccessFinding[] = [];
+  const bareLineCounts = new Map<string, number>();
+  const bareLineTables = new Map<string, Set<string>>();
+  /* Empty by DEFAULT, and the caller opts in. The baseline is a statement about
+   * `apps/api/src` and means nothing about a fixture directory — a default that
+   * applied everywhere made every red-case scratch scan report eleven "the
+   * baseline shrank" findings, which is the shrink rule working against a
+   * question nobody asked it. */
+  const baseline = options.bareLineBaseline ?? new Map<string, number>();
 
   for (const absolute of walk(root)) {
     if (!absolute.endsWith('.ts')) continue;
@@ -171,11 +262,53 @@ export function scanForDirectTenantAccess(
         const typeOnlyImport = /^\s*import\s+type\b/.test(code);
         for (const detector of detectors) {
           if (typeOnlyImport && detector.label.startsWith('imports the pg driver')) continue;
+          const isBareLine = detector.label.includes('BARE SQL line');
+          /* A bare line inside a quoted single-line literal is already the other
+           * detector's business; requiring the absence of any quote keeps the
+           * two from double-reporting one site. */
+          if (isBareLine && /['"`]/.test(code)) continue;
           if (detector.pattern.test(code)) {
+            if (isBareLine) {
+              bareLineCounts.set(file, (bareLineCounts.get(file) ?? 0) + 1);
+              /* The TABLES, not only a number. A count tells a reader a file has
+               * three of these; the names tell them which query to go and look
+               * at, which is the difference between a finding and a chore. */
+              const tables = bareLineTables.get(file) ?? new Set<string>();
+              tables.add(detector.label.split('`')[1] ?? 'unknown');
+              bareLineTables.set(file, tables);
+              continue;
+            }
             findings.push({ file, line: index + 1, detail: detector.label });
           }
         }
       });
+  }
+
+  /* The bare-line findings are reconciled against the baseline AFTER the sweep,
+   * because the question is per FILE and per COUNT rather than per line. */
+  for (const [file, count] of bareLineCounts) {
+    const allowed = baseline.get(file);
+    if (allowed === count) continue;
+    findings.push({
+      file,
+      line: 0,
+      detail:
+        allowed === undefined
+          ? `${String(count)} bare SQL line(s) naming a tenant table (NR-16): ` +
+            [...(bareLineTables.get(file) ?? [])].sort().join(', ')
+          : `${String(count)} bare SQL line(s) naming a tenant table, but the baseline pins ` +
+            `exactly ${String(allowed)} — a pinned file is not exempt, its count is pinned`,
+    });
+  }
+  for (const [file, allowed] of baseline) {
+    if (bareLineCounts.has(file)) continue;
+    findings.push({
+      file,
+      line: 0,
+      detail:
+        `the baseline pins ${String(allowed)} bare SQL line(s) naming a tenant table and there ` +
+        'are now none — remove the entry, the baseline shrinks deliberately',
+    });
   }
 
   return findings;

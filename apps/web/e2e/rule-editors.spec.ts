@@ -1,6 +1,7 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
 
 import { recordRequests } from './support/request-budget.js';
+import { mockDeclaredContext } from './support/declared-context.js';
 
 /**
  * Every one of the thirty rule node kinds, authored → listed → edited through
@@ -290,6 +291,17 @@ async function applyStep(page: Page, step: Step): Promise<void> {
   else if (step.type === 'check') await control.check();
   else await control.click();
 }
+
+/**
+ * The context read every capability request now depends on (FAD-48).
+ *
+ * This spec intercepts the API, so the client's `GET /me/context` has to be
+ * intercepted too or it falls through to the static preview server. It is
+ * plumbing, not a claim: see `support/declared-context.ts`.
+ */
+test.beforeEach(async ({ page }) => {
+  await mockDeclaredContext(page, { organizationId: ORGANIZATION, groupIds: [GROUP] });
+});
 
 test.describe('every rule node kind is authorable end to end', () => {
   test('the fixture list covers the closed node set exactly', async ({ page }) => {

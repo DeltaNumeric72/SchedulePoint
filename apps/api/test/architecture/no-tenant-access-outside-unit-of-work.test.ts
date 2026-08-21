@@ -7,6 +7,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 
 import { log } from '../support/harness.js';
 import {
+  BARE_LINE_BASELINE,
   CONNECTION_OWNERS,
   scanForDirectTenantAccess,
   type DirectAccessFinding,
@@ -48,7 +49,11 @@ function describeFindings(findings: readonly DirectAccessFinding[]): string {
 
 describe('no tenant access outside the unit of work (I-15)', () => {
   it('GREEN: no module outside the connection owners touches a connection or a tenant table', () => {
-    const findings = scanForDirectTenantAccess(SRC);
+    /* The bare-line baseline (NR-16) is passed EXPLICITLY and only here: it is a
+     * statement about this directory's history, and a default that applied to
+     * every fixture scan below would report eleven phantom "the baseline shrank"
+     * findings against directories the baseline was never about. */
+    const findings = scanForDirectTenantAccess(SRC, { bareLineBaseline: BARE_LINE_BASELINE });
     expect(findings, describeFindings(findings)).toEqual([]);
     log(
       `scanned apps/api/src; ${String(CONNECTION_OWNERS.length)} permitted connection owner(s): ${CONNECTION_OWNERS.map((o) => o.file).join(', ')}`,
@@ -92,6 +97,86 @@ describe('no tenant access outside the unit of work (I-15)', () => {
     expect(details).toContain('issues a raw statement outside the unit of work');
     expect(details).toContain('names the tenant table `memberships` in a SQL string literal');
     log(`red case: ${String(findings.length)} finding(s) — ${[...new Set(details)].join(' · ')}`);
+  });
+
+  it('RED (NR-16): a BARE-LINE tenant query inside a template literal is caught', () => {
+    /* The gap FAD-33 recorded and this packet closes. The quoted-literal detector
+     * requires a quote earlier ON THE SAME LINE, so the same query written across
+     * three lines was invisible — the arm that catches a direct tenant query
+     * could be evaded by pressing Enter.
+     *
+     * The fixture is the shape somebody actually writes: a readable multi-line
+     * SQL template. Nothing about it is contrived to trip a regex. */
+    const dir = scratch();
+    writeFileSync(
+      join(dir, 'multiline.handler.ts'),
+      [
+        'export async function listMemberships(client: { query(t: string): Promise<unknown> }) {',
+        '  return client.query(`',
+        '    select id',
+        '      from memberships',
+        '     where organization_id = $1',
+        '  `);',
+        '}',
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+
+    const findings = scanForDirectTenantAccess(dir);
+    const bare = findings.filter((f) => f.detail.includes('bare SQL line'));
+    expect(bare, describeFindings(findings)).toHaveLength(1);
+    expect(bare[0]?.detail).toContain('memberships');
+
+    /* MUTATION CONTROL. The same query on ONE line is the other detector's, and
+     * must NOT also be reported as a bare line — a detector that fired on both
+     * would double-count every quoted literal in the tree and its baseline would
+     * be meaningless. */
+    const single = scratch();
+    writeFileSync(
+      join(single, 'single.handler.ts'),
+      'export const statement = "select id from memberships";\n',
+      'utf8',
+    );
+    const singleFindings = scanForDirectTenantAccess(single);
+    expect(singleFindings.filter((f) => f.detail.includes('bare SQL line'))).toEqual([]);
+    expect(singleFindings.some((f) => f.detail.includes('SQL string literal'))).toBe(true);
+
+    log(`NR-16: bare-line detector fires once on a multi-line query, and not on a single-line one`);
+  });
+
+  it('RED (NR-16): the bare-line BASELINE is pinned by count, not by path', () => {
+    /* The NUL gate's baseline discipline, restated here because it is what makes
+     * the eleven pre-existing entries a record rather than an amnesty. A pinned
+     * file that acquires a SECOND bare-line query must fail, and a pinned file
+     * that loses its last one must fail too so the list shrinks deliberately. */
+    const dir = scratch();
+    writeFileSync(
+      join(dir, 'pinned.ts'),
+      ['export const q = `', '  select id', '    from memberships', '`;', ''].join('\n'),
+      'utf8',
+    );
+
+    // Pinned at the count it actually has: no finding.
+    expect(
+      scanForDirectTenantAccess(dir, { bareLineBaseline: new Map([['pinned.ts', 1]]) }).filter((f) =>
+        f.detail.includes('bare SQL line'),
+      ),
+    ).toEqual([]);
+
+    // Pinned LOWER than reality: the file is not exempt, its count is pinned.
+    const grew = scanForDirectTenantAccess(dir, {
+      bareLineBaseline: new Map([['pinned.ts', 0]]),
+    }).filter((f) => f.detail.includes('bare SQL line'));
+    expect(grew).toHaveLength(1);
+    expect(grew[0]?.detail).toContain('the baseline pins');
+
+    // Pinned for a file that no longer has one: the baseline must shrink.
+    const shrank = scanForDirectTenantAccess(dir, {
+      bareLineBaseline: new Map([['pinned.ts', 1], ['gone.ts', 2]]),
+    }).filter((f) => f.file === 'gone.ts');
+    expect(shrank).toHaveLength(1);
+    expect(shrank[0]?.detail).toContain('shrinks deliberately');
   });
 
   it('RED: each detector fires on its own, so no one of them is carrying the others', () => {

@@ -31,7 +31,7 @@ const scrypt = promisify(scryptCallback) as (
  * 32-byte salt, 32-byte digest, `maxmem` raised to admit N=2^15 (Node's default
  * 32 MiB is below the ~64 MiB this needs and the failure is an opaque throw).
  * That is ~64 MiB and roughly 100 ms per verification on this machine — measured
- * in `apps/api/test/authn/password-hashing.test.ts`, not asserted here.
+ * in `apps/api/test/authn/primitives.test.ts`, not asserted here.
  * ─────────────────────────────────────────────────────────────────────────────
  *
  * ## The stored form is self-describing

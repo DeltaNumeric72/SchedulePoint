@@ -96,7 +96,7 @@ export interface AuthnServiceOptions {
    * **A reduced parameter set does not weaken any assertion.** The encoded hash
    * carries its own parameters, so verification is exercised identically; the
    * cost is what changes, and the cost is measured against the PRODUCTION
-   * parameters in `apps/api/test/authn/password-hashing.test.ts`.
+   * parameters in `apps/api/test/authn/primitives.test.ts`.
    */
   readonly scrypt?: ScryptParameters;
 }

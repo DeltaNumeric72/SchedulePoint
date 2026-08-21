@@ -18,7 +18,7 @@ import { adminClient } from '../support/admin-client.js';
 import { groupContext } from '../support/fixtures.js';
 import { createRuntime, log, type Runtime } from '../support/harness.js';
 import { ownedMulti } from '../support/owned-multi.js';
-import { drainQueue } from '../support/queue.js';
+import { drainableJobCount, drainQueue } from '../support/queue.js';
 
 /**
  * FAD-15 Layer 2 — this file owns its tenant.
@@ -202,11 +202,31 @@ async function outboxRow(id: string) {
   return rows[0];
 }
 
+/**
+ * The jobs THIS FILE's drain can actually consume — not every job in the queue.
+ *
+ * ## NR-15's residual, diagnosed and repaired at the seam that produced it
+ *
+ * The drain was repaired (§14b) so that it waits on the namespaces it registered
+ * a handler for — `outbox.*` and `audit.*` — because a `build.solve` job it has
+ * no handler for made the loop unsatisfiable, a deadlock by construction.
+ * **The assertion that follows the drain was NOT repaired with it**, and it
+ * counted every row in `graphile_worker._private_jobs`. So under a shuffled file
+ * order the drain correctly ignored a foreign job and the assertion correctly
+ * counted it, and the file failed. Measured across the full seed set: five of
+ * eight seeds, with `expected 23 to be 0` on seed 31337 — twenty-three foreign
+ * jobs, none of them this file's.
+ *
+ * A drain and the assertion that it worked MUST use the same predicate. They now
+ * do: `drainableJobCount` is the one definition, in `support/queue.ts`, and a
+ * task added inside the namespace joins it automatically.
+ *
+ * `queuedJobCount` in `support/queue.ts` still counts EVERYTHING and is
+ * deliberately left alone — "how many jobs exist" is a real question, it is just
+ * not the question a drain's postcondition asks.
+ */
 async function queuedJobs(): Promise<number> {
-  const { rows } = await admin.query<{ n: string }>(
-    'select count(*)::text as n from graphile_worker._private_jobs',
-  );
-  return Number(rows[0]?.n ?? '-1');
+  return drainableJobCount(admin);
 }
 
 describe('the outbox write is atomic with the domain change', () => {

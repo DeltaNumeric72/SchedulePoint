@@ -30,9 +30,16 @@ import { SESSION_COOKIE_NAME, decodeSessionCookie, encodeSessionCookie } from '.
  *
  * ## The cookie is written by exactly these two functions
  *
- * `apps/api/test/authn/cookie-posture.test.ts` drives every route that touches
- * the cookie through the real server and asserts the attributes on the wire, so
- * a handler that hand-rolled a `Set-Cookie` would be caught rather than reviewed.
+ * `apps/api/test/authn/http-flows.test.ts` drives the sign-in and sign-out
+ * routes through the real server and asserts the attributes ON THE WIRE, so a
+ * handler that hand-rolled a `Set-Cookie` would be caught rather than reviewed.
+ *
+ * Scope, stated exactly rather than rounded up (OPUS-M4-005): these functions
+ * have three call sites in `http/routes/authn.route.ts` — sign-in, sign-out and
+ * the password-reset completion — and the wire assertions cover the first two.
+ * The reset path is exercised end to end but its `Set-Cookie` is not asserted.
+ * The previous wording said "every route", which was a claim wider than the
+ * coverage, and that is the same defect class as the citation it replaces.
  */
 
 /** Fastify's minimal cookie parse. No dependency: one header, one split. */

@@ -1,0 +1,504 @@
+=== FABLE ACCEPTANCE 5/6: migration populated cycle 0001-0019 by name, on the final candidate ===
+start:   2026-08-21T18:11:18Z
+uptime: 14:11  up 4 days,  8:40, 1 user, load averages: 2.36 2.63 2.50
+HEAD:    4f419355b946a4242394727ade7fd56e6100609b
+note:    sbx finished 9/9 exit 0 (transcript 41), result read and validated; nothing else running
+command: (cd apps/api && corepack pnpm exec tsx test/support/migrate-cycle-cli.ts)
+=== BEGIN ===
+cluster: started (embedded PostgreSQL, FAD-7 substitution)
+bootstrap: role app_migrator: created (LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS)
+bootstrap: role app_runtime: created (LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS)
+bootstrap: role app_worker: created (LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS)
+bootstrap: role app_readonly_support: created (LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS)
+bootstrap: role app_breakglass: created (LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT BYPASSRLS)
+bootstrap: database schedulepoint_test: created, owned by app_migrator
+bootstrap: schema public: owned by app_migrator, PUBLIC revoked
+
+--- up -> down -> up -------------------------------------------
+  Can't determine timestamp for 0002
+  Can't determine timestamp for 0001
+  Can't determine timestamp for 0003
+  Can't determine timestamp for 0002
+  Can't determine timestamp for 0004
+  Can't determine timestamp for 0003
+  Can't determine timestamp for 0005
+  Can't determine timestamp for 0004
+  Can't determine timestamp for 0006
+  Can't determine timestamp for 0005
+  Can't determine timestamp for 0007
+  Can't determine timestamp for 0006
+  Can't determine timestamp for 0008
+  Can't determine timestamp for 0007
+  Can't determine timestamp for 0009
+  Can't determine timestamp for 0008
+  Can't determine timestamp for 0010
+  Can't determine timestamp for 0009
+  Can't determine timestamp for 0011
+  Can't determine timestamp for 0010
+  Can't determine timestamp for 0012
+  Can't determine timestamp for 0011
+  Can't determine timestamp for 0013
+  Can't determine timestamp for 0012
+  Can't determine timestamp for 0014
+  Can't determine timestamp for 0013
+  Can't determine timestamp for 0015
+  Can't determine timestamp for 0014
+  Can't determine timestamp for 0016
+  Can't determine timestamp for 0015
+  Can't determine timestamp for 0017
+  Can't determine timestamp for 0016
+  Can't determine timestamp for 0018
+  Can't determine timestamp for 0017
+  Can't determine timestamp for 0019
+  Can't determine timestamp for 0018
+  Can't determine timestamp for 0001
+  Can't determine timestamp for 0002
+  Can't determine timestamp for 0003
+  Can't determine timestamp for 0006
+  Can't determine timestamp for 0008
+  Can't determine timestamp for 0009
+  Can't determine timestamp for 0004
+  Can't determine timestamp for 0007
+  Can't determine timestamp for 0005
+  Can't determine timestamp for 0010
+  Can't determine timestamp for 0011
+  Can't determine timestamp for 0012
+  Can't determine timestamp for 0015
+  Can't determine timestamp for 0013
+  Can't determine timestamp for 0016
+  Can't determine timestamp for 0014
+  Can't determine timestamp for 0017
+  Can't determine timestamp for 0018
+  Can't determine timestamp for 0019
+  > Migrating files:
+  > - 0001_tenancy_core
+  > - 0002_authorization
+  > - 0003_audit_outbox
+  > - 0004_work_profiles_qualifications
+  > - 0005_shift_catalogue
+  > - 0006_shift_type_qualifications
+  > - 0007_authentication_sessions_invitations
+  > - 0008_typed_rules
+  > - 0009_schedule_publication
+  > - 0010_group_settings_locations
+  > - 0011_period_length_and_audit_scope
+  > - 0012_staffing_input_integrity
+  > - 0013_work_profile_delete_capability
+  > - 0014_schedule_graph_locations_time
+  > - 0015_rule_revisions_and_period_lifecycle
+  > - 0016_solver_input_snapshots
+  > - 0017_requires_expiry_flip_serialization
+  > - 0018_build_lifecycle
+  > - 0019_build_concurrency_capacity
+  ### MIGRATION 0001_tenancy_core (UP) ###
+  ### MIGRATION 0002_authorization (UP) ###
+  ### MIGRATION 0003_audit_outbox (UP) ###
+  ### MIGRATION 0004_work_profiles_qualifications (UP) ###
+  ### MIGRATION 0005_shift_catalogue (UP) ###
+  ### MIGRATION 0006_shift_type_qualifications (UP) ###
+  ### MIGRATION 0007_authentication_sessions_invitations (UP) ###
+  ### MIGRATION 0008_typed_rules (UP) ###
+  ### MIGRATION 0009_schedule_publication (UP) ###
+  ### MIGRATION 0010_group_settings_locations (UP) ###
+  ### MIGRATION 0011_period_length_and_audit_scope (UP) ###
+  ### MIGRATION 0012_staffing_input_integrity (UP) ###
+  ### MIGRATION 0013_work_profile_delete_capability (UP) ###
+  ### MIGRATION 0014_schedule_graph_locations_time (UP) ###
+  ### MIGRATION 0015_rule_revisions_and_period_lifecycle (UP) ###
+  ### MIGRATION 0016_solver_input_snapshots (UP) ###
+  ### MIGRATION 0017_requires_expiry_flip_serialization (UP) ###
+  ### MIGRATION 0018_build_lifecycle (UP) ###
+  ### MIGRATION 0019_build_concurrency_capacity (UP) ###
+  Can't determine timestamp for 0002
+  Can't determine timestamp for 0001
+  Can't determine timestamp for 0003
+  Can't determine timestamp for 0002
+  Can't determine timestamp for 0004
+  Can't determine timestamp for 0003
+  Can't determine timestamp for 0005
+  Can't determine timestamp for 0004
+  Can't determine timestamp for 0006
+  Can't determine timestamp for 0005
+  Can't determine timestamp for 0007
+  Can't determine timestamp for 0006
+  Can't determine timestamp for 0008
+  Can't determine timestamp for 0007
+  Can't determine timestamp for 0009
+  Can't determine timestamp for 0008
+  Can't determine timestamp for 0010
+  Can't determine timestamp for 0009
+  Can't determine timestamp for 0011
+  Can't determine timestamp for 0010
+  Can't determine timestamp for 0012
+  Can't determine timestamp for 0011
+  Can't determine timestamp for 0013
+  Can't determine timestamp for 0012
+  Can't determine timestamp for 0014
+  Can't determine timestamp for 0013
+  Can't determine timestamp for 0015
+  Can't determine timestamp for 0014
+  Can't determine timestamp for 0016
+  Can't determine timestamp for 0015
+  Can't determine timestamp for 0017
+  Can't determine timestamp for 0016
+  Can't determine timestamp for 0018
+  Can't determine timestamp for 0017
+  Can't determine timestamp for 0019
+  Can't determine timestamp for 0018
+  Can't determine timestamp for 0001
+  Can't determine timestamp for 0002
+  Can't determine timestamp for 0004
+  Can't determine timestamp for 0005
+  Can't determine timestamp for 0003
+  Can't determine timestamp for 0007
+  Can't determine timestamp for 0009
+  Can't determine timestamp for 0008
+  Can't determine timestamp for 0010
+  Can't determine timestamp for 0012
+  Can't determine timestamp for 0011
+  Can't determine timestamp for 0013
+  Can't determine timestamp for 0014
+  Can't determine timestamp for 0015
+  Can't determine timestamp for 0016
+  Can't determine timestamp for 0017
+  Can't determine timestamp for 0006
+  Can't determine timestamp for 0018
+  Can't determine timestamp for 0019
+  > Migrating files:
+  > - 0019_build_concurrency_capacity
+  > - 0018_build_lifecycle
+  > - 0017_requires_expiry_flip_serialization
+  > - 0016_solver_input_snapshots
+  > - 0015_rule_revisions_and_period_lifecycle
+  > - 0014_schedule_graph_locations_time
+  > - 0013_work_profile_delete_capability
+  > - 0012_staffing_input_integrity
+  > - 0011_period_length_and_audit_scope
+  > - 0010_group_settings_locations
+  > - 0009_schedule_publication
+  > - 0008_typed_rules
+  > - 0007_authentication_sessions_invitations
+  > - 0006_shift_type_qualifications
+  > - 0005_shift_catalogue
+  > - 0004_work_profiles_qualifications
+  > - 0003_audit_outbox
+  > - 0002_authorization
+  > - 0001_tenancy_core
+  ### MIGRATION 0019_build_concurrency_capacity (DOWN) ###
+  ### MIGRATION 0018_build_lifecycle (DOWN) ###
+  ### MIGRATION 0017_requires_expiry_flip_serialization (DOWN) ###
+  ### MIGRATION 0016_solver_input_snapshots (DOWN) ###
+  ### MIGRATION 0015_rule_revisions_and_period_lifecycle (DOWN) ###
+  ### MIGRATION 0014_schedule_graph_locations_time (DOWN) ###
+  ### MIGRATION 0013_work_profile_delete_capability (DOWN) ###
+  ### MIGRATION 0012_staffing_input_integrity (DOWN) ###
+  ### MIGRATION 0011_period_length_and_audit_scope (DOWN) ###
+  ### MIGRATION 0010_group_settings_locations (DOWN) ###
+  ### MIGRATION 0009_schedule_publication (DOWN) ###
+  ### MIGRATION 0008_typed_rules (DOWN) ###
+  ### MIGRATION 0007_authentication_sessions_invitations (DOWN) ###
+  ### MIGRATION 0006_shift_type_qualifications (DOWN) ###
+  ### MIGRATION 0005_shift_catalogue (DOWN) ###
+  ### MIGRATION 0004_work_profiles_qualifications (DOWN) ###
+  ### MIGRATION 0003_audit_outbox (DOWN) ###
+  ### MIGRATION 0002_authorization (DOWN) ###
+  ### MIGRATION 0001_tenancy_core (DOWN) ###
+  Can't determine timestamp for 0002
+  Can't determine timestamp for 0001
+  Can't determine timestamp for 0003
+  Can't determine timestamp for 0002
+  Can't determine timestamp for 0004
+  Can't determine timestamp for 0003
+  Can't determine timestamp for 0005
+  Can't determine timestamp for 0004
+  Can't determine timestamp for 0006
+  Can't determine timestamp for 0005
+  Can't determine timestamp for 0007
+  Can't determine timestamp for 0006
+  Can't determine timestamp for 0008
+  Can't determine timestamp for 0007
+  Can't determine timestamp for 0009
+  Can't determine timestamp for 0008
+  Can't determine timestamp for 0010
+  Can't determine timestamp for 0009
+  Can't determine timestamp for 0011
+  Can't determine timestamp for 0010
+  Can't determine timestamp for 0012
+  Can't determine timestamp for 0011
+  Can't determine timestamp for 0013
+  Can't determine timestamp for 0012
+  Can't determine timestamp for 0014
+  Can't determine timestamp for 0013
+  Can't determine timestamp for 0015
+  Can't determine timestamp for 0014
+  Can't determine timestamp for 0016
+  Can't determine timestamp for 0015
+  Can't determine timestamp for 0017
+  Can't determine timestamp for 0016
+  Can't determine timestamp for 0018
+  Can't determine timestamp for 0017
+  Can't determine timestamp for 0019
+  Can't determine timestamp for 0018
+  Can't determine timestamp for 0001
+  Can't determine timestamp for 0002
+  Can't determine timestamp for 0006
+  Can't determine timestamp for 0008
+  Can't determine timestamp for 0010
+  Can't determine timestamp for 0011
+  Can't determine timestamp for 0012
+  Can't determine timestamp for 0007
+  Can't determine timestamp for 0013
+  Can't determine timestamp for 0004
+  Can't determine timestamp for 0014
+  Can't determine timestamp for 0015
+  Can't determine timestamp for 0016
+  Can't determine timestamp for 0003
+  Can't determine timestamp for 0009
+  Can't determine timestamp for 0005
+  Can't determine timestamp for 0019
+  Can't determine timestamp for 0018
+  Can't determine timestamp for 0017
+  > Migrating files:
+  > - 0001_tenancy_core
+  > - 0002_authorization
+  > - 0003_audit_outbox
+  > - 0004_work_profiles_qualifications
+  > - 0005_shift_catalogue
+  > - 0006_shift_type_qualifications
+  > - 0007_authentication_sessions_invitations
+  > - 0008_typed_rules
+  > - 0009_schedule_publication
+  > - 0010_group_settings_locations
+  > - 0011_period_length_and_audit_scope
+  > - 0012_staffing_input_integrity
+  > - 0013_work_profile_delete_capability
+  > - 0014_schedule_graph_locations_time
+  > - 0015_rule_revisions_and_period_lifecycle
+  > - 0016_solver_input_snapshots
+  > - 0017_requires_expiry_flip_serialization
+  > - 0018_build_lifecycle
+  > - 0019_build_concurrency_capacity
+  ### MIGRATION 0001_tenancy_core (UP) ###
+  ### MIGRATION 0002_authorization (UP) ###
+  ### MIGRATION 0003_audit_outbox (UP) ###
+  ### MIGRATION 0004_work_profiles_qualifications (UP) ###
+  ### MIGRATION 0005_shift_catalogue (UP) ###
+  ### MIGRATION 0006_shift_type_qualifications (UP) ###
+  ### MIGRATION 0007_authentication_sessions_invitations (UP) ###
+  ### MIGRATION 0008_typed_rules (UP) ###
+  ### MIGRATION 0009_schedule_publication (UP) ###
+  ### MIGRATION 0010_group_settings_locations (UP) ###
+  ### MIGRATION 0011_period_length_and_audit_scope (UP) ###
+  ### MIGRATION 0012_staffing_input_integrity (UP) ###
+  ### MIGRATION 0013_work_profile_delete_capability (UP) ###
+  ### MIGRATION 0014_schedule_graph_locations_time (UP) ###
+  ### MIGRATION 0015_rule_revisions_and_period_lifecycle (UP) ###
+  ### MIGRATION 0016_solver_input_snapshots (UP) ###
+  ### MIGRATION 0017_requires_expiry_flip_serialization (UP) ###
+  ### MIGRATION 0018_build_lifecycle (UP) ###
+  ### MIGRATION 0019_build_concurrency_capacity (UP) ###
+
+up   : 0001_tenancy_core, 0002_authorization, 0003_audit_outbox, 0004_work_profiles_qualifications, 0005_shift_catalogue, 0006_shift_type_qualifications, 0007_authentication_sessions_invitations, 0008_typed_rules, 0009_schedule_publication, 0010_group_settings_locations, 0011_period_length_and_audit_scope, 0012_staffing_input_integrity, 0013_work_profile_delete_capability, 0014_schedule_graph_locations_time, 0015_rule_revisions_and_period_lifecycle, 0016_solver_input_snapshots, 0017_requires_expiry_flip_serialization, 0018_build_lifecycle, 0019_build_concurrency_capacity
+down : 0019_build_concurrency_capacity, 0018_build_lifecycle, 0017_requires_expiry_flip_serialization, 0016_solver_input_snapshots, 0015_rule_revisions_and_period_lifecycle, 0014_schedule_graph_locations_time, 0013_work_profile_delete_capability, 0012_staffing_input_integrity, 0011_period_length_and_audit_scope, 0010_group_settings_locations, 0009_schedule_publication, 0008_typed_rules, 0007_authentication_sessions_invitations, 0006_shift_type_qualifications, 0005_shift_catalogue, 0004_work_profiles_qualifications, 0003_audit_outbox, 0002_authorization, 0001_tenancy_core
+up   : 0001_tenancy_core, 0002_authorization, 0003_audit_outbox, 0004_work_profiles_qualifications, 0005_shift_catalogue, 0006_shift_type_qualifications, 0007_authentication_sessions_invitations, 0008_typed_rules, 0009_schedule_publication, 0010_group_settings_locations, 0011_period_length_and_audit_scope, 0012_staffing_input_integrity, 0013_work_profile_delete_capability, 0014_schedule_graph_locations_time, 0015_rule_revisions_and_period_lifecycle, 0016_solver_input_snapshots, 0017_requires_expiry_flip_serialization, 0018_build_lifecycle, 0019_build_concurrency_capacity
+
+--- down again, then verify the schema is empty ----------------
+  Can't determine timestamp for 0002
+  Can't determine timestamp for 0001
+  Can't determine timestamp for 0003
+  Can't determine timestamp for 0002
+  Can't determine timestamp for 0004
+  Can't determine timestamp for 0003
+  Can't determine timestamp for 0005
+  Can't determine timestamp for 0004
+  Can't determine timestamp for 0006
+  Can't determine timestamp for 0005
+  Can't determine timestamp for 0007
+  Can't determine timestamp for 0006
+  Can't determine timestamp for 0008
+  Can't determine timestamp for 0007
+  Can't determine timestamp for 0009
+  Can't determine timestamp for 0008
+  Can't determine timestamp for 0010
+  Can't determine timestamp for 0009
+  Can't determine timestamp for 0011
+  Can't determine timestamp for 0010
+  Can't determine timestamp for 0012
+  Can't determine timestamp for 0011
+  Can't determine timestamp for 0013
+  Can't determine timestamp for 0012
+  Can't determine timestamp for 0014
+  Can't determine timestamp for 0013
+  Can't determine timestamp for 0015
+  Can't determine timestamp for 0014
+  Can't determine timestamp for 0016
+  Can't determine timestamp for 0015
+  Can't determine timestamp for 0017
+  Can't determine timestamp for 0016
+  Can't determine timestamp for 0018
+  Can't determine timestamp for 0017
+  Can't determine timestamp for 0019
+  Can't determine timestamp for 0018
+  Can't determine timestamp for 0001
+  Can't determine timestamp for 0002
+  Can't determine timestamp for 0003
+  Can't determine timestamp for 0004
+  Can't determine timestamp for 0006
+  Can't determine timestamp for 0008
+  Can't determine timestamp for 0007
+  Can't determine timestamp for 0009
+  Can't determine timestamp for 0011
+  Can't determine timestamp for 0010
+  Can't determine timestamp for 0005
+  Can't determine timestamp for 0014
+  Can't determine timestamp for 0013
+  Can't determine timestamp for 0012
+  Can't determine timestamp for 0016
+  Can't determine timestamp for 0017
+  Can't determine timestamp for 0018
+  Can't determine timestamp for 0015
+  Can't determine timestamp for 0019
+  > Migrating files:
+  > - 0019_build_concurrency_capacity
+  > - 0018_build_lifecycle
+  > - 0017_requires_expiry_flip_serialization
+  > - 0016_solver_input_snapshots
+  > - 0015_rule_revisions_and_period_lifecycle
+  > - 0014_schedule_graph_locations_time
+  > - 0013_work_profile_delete_capability
+  > - 0012_staffing_input_integrity
+  > - 0011_period_length_and_audit_scope
+  > - 0010_group_settings_locations
+  > - 0009_schedule_publication
+  > - 0008_typed_rules
+  > - 0007_authentication_sessions_invitations
+  > - 0006_shift_type_qualifications
+  > - 0005_shift_catalogue
+  > - 0004_work_profiles_qualifications
+  > - 0003_audit_outbox
+  > - 0002_authorization
+  > - 0001_tenancy_core
+  ### MIGRATION 0019_build_concurrency_capacity (DOWN) ###
+  ### MIGRATION 0018_build_lifecycle (DOWN) ###
+  ### MIGRATION 0017_requires_expiry_flip_serialization (DOWN) ###
+  ### MIGRATION 0016_solver_input_snapshots (DOWN) ###
+  ### MIGRATION 0015_rule_revisions_and_period_lifecycle (DOWN) ###
+  ### MIGRATION 0014_schedule_graph_locations_time (DOWN) ###
+  ### MIGRATION 0013_work_profile_delete_capability (DOWN) ###
+  ### MIGRATION 0012_staffing_input_integrity (DOWN) ###
+  ### MIGRATION 0011_period_length_and_audit_scope (DOWN) ###
+  ### MIGRATION 0010_group_settings_locations (DOWN) ###
+  ### MIGRATION 0009_schedule_publication (DOWN) ###
+  ### MIGRATION 0008_typed_rules (DOWN) ###
+  ### MIGRATION 0007_authentication_sessions_invitations (DOWN) ###
+  ### MIGRATION 0006_shift_type_qualifications (DOWN) ###
+  ### MIGRATION 0005_shift_catalogue (DOWN) ###
+  ### MIGRATION 0004_work_profiles_qualifications (DOWN) ###
+  ### MIGRATION 0003_audit_outbox (DOWN) ###
+  ### MIGRATION 0002_authorization (DOWN) ###
+  ### MIGRATION 0001_tenancy_core (DOWN) ###
+tables remaining after down: (none)
+policies remaining after down: 0
+
+--- up, to leave a usable schema ------------------------------
+  Can't determine timestamp for 0002
+  Can't determine timestamp for 0001
+  Can't determine timestamp for 0003
+  Can't determine timestamp for 0002
+  Can't determine timestamp for 0004
+  Can't determine timestamp for 0003
+  Can't determine timestamp for 0005
+  Can't determine timestamp for 0004
+  Can't determine timestamp for 0006
+  Can't determine timestamp for 0005
+  Can't determine timestamp for 0007
+  Can't determine timestamp for 0006
+  Can't determine timestamp for 0008
+  Can't determine timestamp for 0007
+  Can't determine timestamp for 0009
+  Can't determine timestamp for 0008
+  Can't determine timestamp for 0010
+  Can't determine timestamp for 0009
+  Can't determine timestamp for 0011
+  Can't determine timestamp for 0010
+  Can't determine timestamp for 0012
+  Can't determine timestamp for 0011
+  Can't determine timestamp for 0013
+  Can't determine timestamp for 0012
+  Can't determine timestamp for 0014
+  Can't determine timestamp for 0013
+  Can't determine timestamp for 0015
+  Can't determine timestamp for 0014
+  Can't determine timestamp for 0016
+  Can't determine timestamp for 0015
+  Can't determine timestamp for 0017
+  Can't determine timestamp for 0016
+  Can't determine timestamp for 0018
+  Can't determine timestamp for 0017
+  Can't determine timestamp for 0019
+  Can't determine timestamp for 0018
+  Can't determine timestamp for 0001
+  Can't determine timestamp for 0002
+  Can't determine timestamp for 0003
+  Can't determine timestamp for 0004
+  Can't determine timestamp for 0005
+  Can't determine timestamp for 0008
+  Can't determine timestamp for 0007
+  Can't determine timestamp for 0009
+  Can't determine timestamp for 0010
+  Can't determine timestamp for 0011
+  Can't determine timestamp for 0012
+  Can't determine timestamp for 0013
+  Can't determine timestamp for 0006
+  Can't determine timestamp for 0015
+  Can't determine timestamp for 0014
+  Can't determine timestamp for 0016
+  Can't determine timestamp for 0017
+  Can't determine timestamp for 0019
+  Can't determine timestamp for 0018
+  > Migrating files:
+  > - 0001_tenancy_core
+  > - 0002_authorization
+  > - 0003_audit_outbox
+  > - 0004_work_profiles_qualifications
+  > - 0005_shift_catalogue
+  > - 0006_shift_type_qualifications
+  > - 0007_authentication_sessions_invitations
+  > - 0008_typed_rules
+  > - 0009_schedule_publication
+  > - 0010_group_settings_locations
+  > - 0011_period_length_and_audit_scope
+  > - 0012_staffing_input_integrity
+  > - 0013_work_profile_delete_capability
+  > - 0014_schedule_graph_locations_time
+  > - 0015_rule_revisions_and_period_lifecycle
+  > - 0016_solver_input_snapshots
+  > - 0017_requires_expiry_flip_serialization
+  > - 0018_build_lifecycle
+  > - 0019_build_concurrency_capacity
+  ### MIGRATION 0001_tenancy_core (UP) ###
+  ### MIGRATION 0002_authorization (UP) ###
+  ### MIGRATION 0003_audit_outbox (UP) ###
+  ### MIGRATION 0004_work_profiles_qualifications (UP) ###
+  ### MIGRATION 0005_shift_catalogue (UP) ###
+  ### MIGRATION 0006_shift_type_qualifications (UP) ###
+  ### MIGRATION 0007_authentication_sessions_invitations (UP) ###
+  ### MIGRATION 0008_typed_rules (UP) ###
+  ### MIGRATION 0009_schedule_publication (UP) ###
+  ### MIGRATION 0010_group_settings_locations (UP) ###
+  ### MIGRATION 0011_period_length_and_audit_scope (UP) ###
+  ### MIGRATION 0012_staffing_input_integrity (UP) ###
+  ### MIGRATION 0013_work_profile_delete_capability (UP) ###
+  ### MIGRATION 0014_schedule_graph_locations_time (UP) ###
+  ### MIGRATION 0015_rule_revisions_and_period_lifecycle (UP) ###
+  ### MIGRATION 0016_solver_input_snapshots (UP) ###
+  ### MIGRATION 0017_requires_expiry_flip_serialization (UP) ###
+  ### MIGRATION 0018_build_lifecycle (UP) ###
+  ### MIGRATION 0019_build_concurrency_capacity (UP) ###
+up   : 0001_tenancy_core, 0002_authorization, 0003_audit_outbox, 0004_work_profiles_qualifications, 0005_shift_catalogue, 0006_shift_type_qualifications, 0007_authentication_sessions_invitations, 0008_typed_rules, 0009_schedule_publication, 0010_group_settings_locations, 0011_period_length_and_audit_scope, 0012_staffing_input_integrity, 0013_work_profile_delete_capability, 0014_schedule_graph_locations_time, 0015_rule_revisions_and_period_lifecycle, 0016_solver_input_snapshots, 0017_requires_expiry_flip_serialization, 0018_build_lifecycle, 0019_build_concurrency_capacity
+
+MIGRATION CYCLE CLEAN — up -> down -> up -> down -> up, 1098ms
+cluster: stopped
+=== END ===
+EXIT=0
+finish:  2026-08-21T18:11:20Z

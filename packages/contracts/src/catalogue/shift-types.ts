@@ -13,7 +13,7 @@ import { z } from 'zod';
  *    imports zod and nothing else — the layering rule, enforced by
  *    `.dependency-cruiser.cjs` — so the palette keys, text styles and day names
  *    cannot come from `@schedulepoint/domain`. They are duplicated **and
- *    asserted**: `packages/domain/test/catalogue/display.test.ts` compares the two
+ *    asserted**: `apps/api/test/catalogue/schema.test.ts` compares the two
  *    lists and the database CHECK, so drift is a failing test rather than a
  *    silent rejection at save time.
  *  - **No response body carries a denial reason** (P-3, SPEC-01 §2.4). These

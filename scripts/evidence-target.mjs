@@ -38,7 +38,7 @@
  * `scripts/` is outside every TypeScript project here, so the vitest harness
  * cannot import this module and carries the same three lines in
  * `apps/api/test/support/evidence-target.ts`. That duplication is *asserted* by
- * `apps/api/test/architecture/evidence-target.test.ts`, which executes THIS file
+ * `apps/api/test/architecture/evidence-and-preview-target.test.ts`, which executes THIS file
  * in a child process and compares answers — the same control the derived test
  * port has, for the same reason.
  */

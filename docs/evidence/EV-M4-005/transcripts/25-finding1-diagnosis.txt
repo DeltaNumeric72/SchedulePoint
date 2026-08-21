@@ -1,0 +1,170 @@
+=== OPUS-M4-005 continuation, FINDING 1 DIAGNOSIS: the S-08t/E2 bit-identity failure — reproduction, instrumentation, and the deliberate-load comparison (EV-M4-005 §20a) ===
+start:   2026-08-21T02:48:00Z
+cwd:     /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-005
+branch:  opus/m4-005-integration
+HEAD:    06c702ed4d1c5a1207a658158aa242ae17addba6  (pre-repair, the tree transcripts 23/24 measured)
+solver:  SP_SOLVER_WORKER_COMMAND=/Users/prabashan/.venvs/sp-solver/bin/python3
+note:    every run below is SERIAL on an otherwise idle machine except where a
+         deliberate load is stated; no two runs overlap.
+
+This file has four parts:
+  A. the targeted test STANDALONE x3 on a calm machine  (procedure step 1)
+  B. the instrumented capture of both solves' COMPLETE reproducibility material
+     under the shipped pinned set and under a raised wall clock  (step 4)
+  C. the deliberate-load comparison, in a SEPARATE throwaway git worktree  (step 3)
+  D. the discrimination: which hypothesis each observation rules in or out  (step 5)
+
+=== PART A — three STANDALONE runs of the targeted test, calm machine, pre-repair ===
+--- run 1 ---
+    start:   2026-08-21T02:50:43Z
+    uptime:  22:50  up 3 days, 17:20, 1 user, load averages: 1.70 3.22 5.47
+    command: node node_modules/vitest/vitest.mjs run --project api apps/api/test/solver/e2-objective.test.ts
+    uptime:  22:51  up 3 days, 17:21, 1 user, load averages: 2.43 3.09 5.23
+       × S-08t under E2 objectives — bit-identical on a soft-rule-bearing class > reproduces B-fairness-shaped bit for bit under the FULL pinned set 21414ms
+          Tests  1 failed | 25 passed (26)
+       Duration  74.36s (transform 331ms, setup 129ms, collect 56ms, tests 71.98s, environment 0ms, prepare 37ms)
+    EXIT=1
+--- run 2 ---
+    start:   2026-08-21T02:51:58Z
+    uptime:  22:51  up 3 days, 17:21, 1 user, load averages: 2.43 3.09 5.23
+    command: node node_modules/vitest/vitest.mjs run --project api apps/api/test/solver/e2-objective.test.ts
+    uptime:  22:53  up 3 days, 17:22, 1 user, load averages: 2.40 2.90 4.97
+       ✓ S-08t under E2 objectives — bit-identical on a soft-rule-bearing class > reproduces B-fairness-shaped bit for bit under the FULL pinned set  20403ms
+          Tests  26 passed (26)
+       Duration  70.81s (transform 289ms, setup 124ms, collect 50ms, tests 68.92s, environment 0ms, prepare 25ms)
+    EXIT=0
+--- run 3 ---
+    start:   2026-08-21T02:53:10Z
+    uptime:  22:53  up 3 days, 17:22, 1 user, load averages: 2.40 2.90 4.97
+    command: node node_modules/vitest/vitest.mjs run --project api apps/api/test/solver/e2-objective.test.ts
+    uptime:  22:54  up 3 days, 17:23, 1 user, load averages: 3.02 2.99 4.84
+       ✓ S-08t under E2 objectives — bit-identical on a soft-rule-bearing class > reproduces B-fairness-shaped bit for bit under the FULL pinned set  20615ms
+          Tests  26 passed (26)
+       Duration  70.83s (transform 290ms, setup 126ms, collect 50ms, tests 68.93s, environment 0ms, prepare 27ms)
+    EXIT=0
+
+READING (part A). The premise carried into this continuation — "the test PASSES
+standalone" — is FALSE. It failed run 1 of 3 on an idle machine in a single-file
+run. Load is therefore NOT the discriminator, and (c) process/run-state
+contamination from a shuffled sibling is ruled out here rather than argued.
+
+The second fact is in the durations: the arm takes ~20.5s whether it passes or
+fails, and DETERMINISTIC_PARAMETERS pins maxTimeInSeconds: 10. Two solves, each
+running the wall clock out, every single time.
+
+=== PART B — the instrumented capture (temporary diagnostic, since removed) ===
+    command: node node_modules/vitest/vitest.mjs run --project api apps/api/test/solver/zz-diag-s08t.test.ts
+    The diagnostic performed the SAME two solves the arm performs and dumped the
+    complete recorded material of each: canonical input digest, objective profile
+    and digest, seed, worker count, interleave setting, deterministic-time limit,
+    status, objective value and tiers, the full statistics record, the runtime
+    record (image/version/compiler/arch/language) and the assignments.
+    It asserted nothing and was deleted before any battery ran.
+
+    DIAG params {"randomSeed":20270301,"numSearchWorkers":1,"maxTimeInSeconds":10,"maxDeterministicTime":100,"interleaveSearch":true}
+    DIAG shipped/first  {"canonicalInputHash":"492e4d98422a9e2a8f5f6f554de3528196c20c2348542a49316708cb353732b0","status":"FEASIBLE","terminationReason":"completed","reportedHash":"492e4d98422a9e2a8f5f6f554de3528196c20c2348542a49316708cb353732b0","reproducibilityMode":"deterministic","solverVersion":"stub-1+ortools-9.15.6755","platformArch":"darwin-arm64","languageRuntime":"cpython-3.9.6","compilerVersion":"0","imageDigest":"venv:/Users/prabashan/.venvs/sp-solver/bin/python3","objectiveValue":4120000,"objectiveProfile":{"profileId":"e2-default-v1","scale":10000,"digest":"34af856241d72d1c1a29f97c735e925bc8a087515d66acd5815fe75303b827fe"},"objectiveTiersDigest":631,"elapsedMs":10259,"statistics":{"branches":62256,"conflicts":33073,"wallTimeSeconds":9.497948,"userTimeSeconds":9.497948,"deterministicTimeUnits":21.760483,"bestObjectiveBound":1859000,"booleanVariables":84,"hardRuleCount":0,"explanationSolves":0,"explanationSeconds":0},"assignmentCount":14membershipId\":\"8bb4e5a2-688a-49cd-b3a9-93831abda219\",\"date\":\"2027-03-01\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"ec3dc0be-37fc-4b6f-83c2-3b421817df40\",\"date\":\"2027-03-01\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"b463c402-5d42-4958-a985-35ed25980900\",\"date\":\"2027-03-02\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"b81671d1-9297-45ce-bc9d-2967a2e20279\",\"date\":\"2027-03-02\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"8bb4e5a2-688a-49cd-b3a9-93831abda219\",\"date\":\"2027-03-03\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"ec3dc0be-37fc-4b6f-83c2-3b421817df40\",\"date\":\"2027-03-03\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"8bb4e5a2-688a-49cd-b3a9-93831abda219\",\"date\":\"2027-03-04\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"ec3dc0be-37fc-4b6f-83c2-3b421817df40\",\"date\":\"2027-03-04\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"b81671d1-9297-45ce-bc9d-2967a2e20279\",\"date\":\"2027-03-05\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"d13989f5-03f5-437c-8216-930aa4d9c3cb\",\"date\":\"2027-03-05\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"2bef00ae-00c5-4c10-88d8-4049005eda77\",\"date\":\"2027-03-06\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"d13989f5-03f5-437c-8216-930aa4d9c3cb\",\"date\":\"2027-03-06\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"2bef00ae-00c5-4c10-88d8-4049005eda77\",\"date\":\"2027-03-07\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"b463c402-5d42-4958-a985-35ed25980900\",\"date\":\"2027-03-07\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null}]"}
+    DIAG shipped/second {"canonicalInputHash":"492e4d98422a9e2a8f5f6f554de3528196c20c2348542a49316708cb353732b0","status":"FEASIBLE","terminationReason":"completed","reportedHash":"492e4d98422a9e2a8f5f6f554de3528196c20c2348542a49316708cb353732b0","reproducibilityMode":"deterministic","solverVersion":"stub-1+ortools-9.15.6755","platformArch":"darwin-arm64","languageRuntime":"cpython-3.9.6","compilerVersion":"0","imageDigest":"venv:/Users/prabashan/.venvs/sp-solver/bin/python3","objectiveValue":4120000,"objectiveProfile":{"profileId":"e2-default-v1","scale":10000,"digest":"34af856241d72d1c1a29f97c735e925bc8a087515d66acd5815fe75303b827fe"},"objectiveTiersDigest":631,"elapsedMs":10246,"statistics":{"branches":62256,"conflicts":33073,"wallTimeSeconds":9.491109,"userTimeSeconds":9.491109,"deterministicTimeUnits":21.660444,"bestObjectiveBound":1859000,"booleanVariables":84,"hardRuleCount":0,"explanationSolves":0,"explanationSeconds":0},"assignmentCount":14membershipId\":\"8bb4e5a2-688a-49cd-b3a9-93831abda219\",\"date\":\"2027-03-01\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"ec3dc0be-37fc-4b6f-83c2-3b421817df40\",\"date\":\"2027-03-01\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"b463c402-5d42-4958-a985-35ed25980900\",\"date\":\"2027-03-02\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"b81671d1-9297-45ce-bc9d-2967a2e20279\",\"date\":\"2027-03-02\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"8bb4e5a2-688a-49cd-b3a9-93831abda219\",\"date\":\"2027-03-03\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"ec3dc0be-37fc-4b6f-83c2-3b421817df40\",\"date\":\"2027-03-03\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"8bb4e5a2-688a-49cd-b3a9-93831abda219\",\"date\":\"2027-03-04\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"ec3dc0be-37fc-4b6f-83c2-3b421817df40\",\"date\":\"2027-03-04\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"b81671d1-9297-45ce-bc9d-2967a2e20279\",\"date\":\"2027-03-05\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"d13989f5-03f5-437c-8216-930aa4d9c3cb\",\"date\":\"2027-03-05\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"2bef00ae-00c5-4c10-88d8-4049005eda77\",\"date\":\"2027-03-06\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"d13989f5-03f5-437c-8216-930aa4d9c3cb\",\"date\":\"2027-03-06\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"2bef00ae-00c5-4c10-88d8-4049005eda77\",\"date\":\"2027-03-07\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"b463c402-5d42-4958-a985-35ed25980900\",\"date\":\"2027-03-07\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null}]"}
+    DIAG shipped/identical true
+    DIAG raised/first   {"canonicalInputHash":"492e4d98422a9e2a8f5f6f554de3528196c20c2348542a49316708cb353732b0","status":"OPTIMAL","terminationReason":"completed","reportedHash":"492e4d98422a9e2a8f5f6f554de3528196c20c2348542a49316708cb353732b0","reproducibilityMode":"deterministic","solverVersion":"stub-1+ortools-9.15.6755","platformArch":"darwin-arm64","languageRuntime":"cpython-3.9.6","compilerVersion":"0","imageDigest":"venv:/Users/prabashan/.venvs/sp-solver/bin/python3","objectiveValue":4120000,"objectiveProfile":{"profileId":"e2-default-v1","scale":10000,"digest":"34af856241d72d1c1a29f97c735e925bc8a087515d66acd5815fe75303b827fe"},"objectiveTiersDigest":631,"elapsedMs":33378,"statistics":{"branches":137137,"conflicts":94311,"wallTimeSeconds":32.618628,"userTimeSeconds":32.618628,"deterministicTimeUnits":76.702882,"bestObjectiveBound":4120000,"booleanVariables":84,"hardRuleCount":0,"explanationSolves":0,"explanationSeconds":0},"assignmentCount":14membershipId\":\"b463c402-5d42-4958-a985-35ed25980900\",\"date\":\"2027-03-01\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"ec3dc0be-37fc-4b6f-83c2-3b421817df40\",\"date\":\"2027-03-01\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"8bb4e5a2-688a-49cd-b3a9-93831abda219\",\"date\":\"2027-03-02\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"ec3dc0be-37fc-4b6f-83c2-3b421817df40\",\"date\":\"2027-03-02\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"b463c402-5d42-4958-a985-35ed25980900\",\"date\":\"2027-03-03\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"d13989f5-03f5-437c-8216-930aa4d9c3cb\",\"date\":\"2027-03-03\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"b81671d1-9297-45ce-bc9d-2967a2e20279\",\"date\":\"2027-03-04\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"d13989f5-03f5-437c-8216-930aa4d9c3cb\",\"date\":\"2027-03-04\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"2bef00ae-00c5-4c10-88d8-4049005eda77\",\"date\":\"2027-03-05\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"b81671d1-9297-45ce-bc9d-2967a2e20279\",\"date\":\"2027-03-05\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"2bef00ae-00c5-4c10-88d8-4049005eda77\",\"date\":\"2027-03-06\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"8bb4e5a2-688a-49cd-b3a9-93831abda219\",\"date\":\"2027-03-06\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"2bef00ae-00c5-4c10-88d8-4049005eda77\",\"date\":\"2027-03-07\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"d13989f5-03f5-437c-8216-930aa4d9c3cb\",\"date\":\"2027-03-07\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null}]"}
+    DIAG raised/second  {"canonicalInputHash":"492e4d98422a9e2a8f5f6f554de3528196c20c2348542a49316708cb353732b0","status":"OPTIMAL","terminationReason":"completed","reportedHash":"492e4d98422a9e2a8f5f6f554de3528196c20c2348542a49316708cb353732b0","reproducibilityMode":"deterministic","solverVersion":"stub-1+ortools-9.15.6755","platformArch":"darwin-arm64","languageRuntime":"cpython-3.9.6","compilerVersion":"0","imageDigest":"venv:/Users/prabashan/.venvs/sp-solver/bin/python3","objectiveValue":4120000,"objectiveProfile":{"profileId":"e2-default-v1","scale":10000,"digest":"34af856241d72d1c1a29f97c735e925bc8a087515d66acd5815fe75303b827fe"},"objectiveTiersDigest":631,"elapsedMs":33426,"statistics":{"branches":137137,"conflicts":94311,"wallTimeSeconds":32.657247,"userTimeSeconds":32.657247,"deterministicTimeUnits":76.702882,"bestObjectiveBound":4120000,"booleanVariables":84,"hardRuleCount":0,"explanationSolves":0,"explanationSeconds":0},"assignmentCount":14membershipId\":\"b463c402-5d42-4958-a985-35ed25980900\",\"date\":\"2027-03-01\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"ec3dc0be-37fc-4b6f-83c2-3b421817df40\",\"date\":\"2027-03-01\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"8bb4e5a2-688a-49cd-b3a9-93831abda219\",\"date\":\"2027-03-02\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"ec3dc0be-37fc-4b6f-83c2-3b421817df40\",\"date\":\"2027-03-02\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"b463c402-5d42-4958-a985-35ed25980900\",\"date\":\"2027-03-03\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"d13989f5-03f5-437c-8216-930aa4d9c3cb\",\"date\":\"2027-03-03\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"b81671d1-9297-45ce-bc9d-2967a2e20279\",\"date\":\"2027-03-04\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"d13989f5-03f5-437c-8216-930aa4d9c3cb\",\"date\":\"2027-03-04\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"2bef00ae-00c5-4c10-88d8-4049005eda77\",\"date\":\"2027-03-05\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"b81671d1-9297-45ce-bc9d-2967a2e20279\",\"date\":\"2027-03-05\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"2bef00ae-00c5-4c10-88d8-4049005eda77\",\"date\":\"2027-03-06\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"8bb4e5a2-688a-49cd-b3a9-93831abda219\",\"date\":\"2027-03-06\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"2bef00ae-00c5-4c10-88d8-4049005eda77\",\"date\":\"2027-03-07\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null},{\"membershipId\":\"d13989f5-03f5-437c-8216-930aa4d9c3cb\",\"date\":\"2027-03-07\",\"shiftTypeId\":\"2e5c7367-869c-4f67-9c5f-68e17e38944f\",\"locationId\":null}]"}
+    DIAG raised/identical true
+
+=== PART C — deliberate load, in a SEPARATE throwaway worktree ===
+    worktree: a detached `git worktree add` from 06c702e under the session
+              scratchpad, its own node_modules and its own derived port;
+              `git worktree remove`d completely afterwards (see part D's tail).
+    load:     10 CPU-bound node processes on a 12-core machine, started 20s
+              before the run and killed immediately after; 1-min load average
+              6.83 before the run, 15.29 at the end.
+    params {"randomSeed":20270301,"numSearchWorkers":1,"maxTimeInSeconds":10,"maxDeterministicTime":100,"interleaveSearch":true}
+    shipped/first    status=FEASIBLE  obj=4120000 wall= 10.003466 det= 12.532388 branches=  41091 conflicts=  15769 bound=1859000 assignments-sha256[0:16]=d5a9f2afc474ef0b
+    shipped/second   status=FEASIBLE  obj=4120000 wall=  9.969748 det= 12.444773 branches=  41091 conflicts=  15769 bound=1859000 assignments-sha256[0:16]=d5a9f2afc474ef0b
+    shipped/identical true
+    raised/first     status=OPTIMAL   obj=4120000 wall= 56.664773 det= 76.702882 branches= 137137 conflicts=  94311 bound=4120000 assignments-sha256[0:16]=5b1b3f957d15967a
+    raised/second    status=OPTIMAL   obj=4120000 wall= 56.703392 det= 76.702882 branches= 137137 conflicts=  94311 bound=4120000 assignments-sha256[0:16]=5b1b3f957d15967a
+    raised/identical true
+
+=== PART D — which observation rules out which hypothesis ===
+
+The candidate causes, and the measurement that decides each:
+
+(a) INCOMPLETE PARAMETER / REPRODUCIBILITY PINNING — RULED OUT.
+    Every pinned field is byte-identical between the two solves in every run
+    above: randomSeed 20270301, numSearchWorkers 1, interleaveSearch true,
+    maxDeterministicTime 100, solverVersion stub-1+ortools-9.15.6755,
+    compilerVersion 0, platformArch darwin-arm64, languageRuntime cpython-3.9.6,
+    imageDigest venv:…/sp-solver/bin/python3, objective profile e2-default-v1
+    digest 34af8562…, scale 10000. Nothing in the pinned set differs.
+
+(d) SEED OR ORDERING DEPENDENCE IN THE FIXTURE FEEDING THE SOLVER — RULED OUT.
+    canonicalInputHash is 492e4d98422a9e2a8f5f6f554de3528196c20c2348542a49316708cb353732b0
+    for BOTH in-test solves, in the calm run and in the loaded run, and the
+    worker echoes the same value back. The two solves are posed the identical
+    problem; the divergence is downstream of the input.
+
+(c) PROCESS / RUN-STATE CONTAMINATION BETWEEN SHUFFLED SIBLINGS — RULED OUT.
+    Part A reproduces the failure in a single-file run on an idle machine, with
+    no sibling file in the process at all.
+
+(b) A LOAD-AFFECTED SOLVER BUDGET — CONFIRMED, and it is a WALL CLOCK
+    pre-empting the deterministic budget it sits beside.
+
+    `_configure` in solver/schedulepoint_solver/cpsat_adapter.py sets BOTH
+    `max_time_in_seconds` (10, from DETERMINISTIC_PARAMETERS) and
+    `max_deterministic_time` (100). CP-SAT stops at whichever arrives first. On
+    this class the wall clock arrived first EVERY time, so the pinned
+    deterministic budget was never the thing that ended the search:
+
+      wall 10, calm  : wall 9.497948 / 9.491109 s   det 21.760483 / 21.660444
+      wall 10, loaded: wall 10.003466 / 9.969748 s  det 12.532388 / 12.444773
+      wall 900, calm : wall 32.618628 s             det 76.702882 / 76.702882
+      wall 900, load : wall 56.664773 / 56.703392 s det 76.702882 / 76.702882
+
+    `deterministicTimeUnits` is SPEC-04 §4's machine-INDEPENDENT measure of how
+    much search a run performed. The discriminating observations are:
+
+      1. With the wall clock binding it MOVES BETWEEN TWO SOLVES IN ONE PROCESS
+         (21.760483 vs 21.660444) and moves again with the machine's load
+         (21.76 calm vs 12.53 under ten CPU hogs). Different search, therefore a
+         different — and equally optimal, objectiveValue 4120000 in every run —
+         candidate. That is the assertion at e2-objective.test.ts:257.
+      2. With the wall clock raised out of the way it is 76.702882 in EVERY run,
+         calm and loaded alike, alongside identical branches (137137) and
+         conflicts (94311), and the candidate is byte-identical across a
+         machine running 1.7x slower (32.6s vs 56.7s of wall for the same
+         search). Status becomes OPTIMAL and bestObjectiveBound reaches the
+         objective value, i.e. the search now ENDS, rather than being cut.
+      3. The budget was never close to spent: 12-22 units consumed against the
+         100 pinned. So it was demonstrably not the deterministic limit that
+         stopped the search.
+
+    Observation 2 is what discriminates (b) from every "it is just symmetry in
+    the model" reading: a symmetric model would still be free to return either
+    optimum, and it returns exactly one, reproducibly, once the stopping point
+    is deterministic.
+
+ALSO RECORDED, NOT REPAIRED HERE (escalated, §20d): the outcome does not say
+which limit stopped the search. `cpsat_adapter.py` returns
+TERMINATION_COMPLETED for a wall-clock-truncated FEASIBLE result, and
+`reproducibilityMode` — computed in packages/domain/src/ports/solver-port.ts
+from the REQUEST — reports 'deterministic' for every run above, including the
+ones the wall clock cut short. Both files are prohibited to this packet.
+
+=== scratch worktree removed ===
+/Users/prabashan/Claude/SchedulePoint                            b370e03 [main]
+/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-000a         cf7f022 [opus/m4-000a-staffing-input]
+/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-000b         eebfb97 [opus/m4-000b-schedule-graph-time]
+/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-000c         c5ec0c6 [opus/m4-000c-rules-publication-provider]
+/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-001          ed74226 [opus/m4-001-solver-boundary]
+/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-001r         8ef4e33 [opus/m4-001r-fad28-correction]
+/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-001s         3ba0b20 [opus/m4-001s-requires-expiry-serialization]
+/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-002          102e85f [opus/m4-002-e1-feasibility]
+/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-003          1725c53 [opus/m4-003-build-lifecycle]
+/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-004          2b0dfed [opus/m4-004-e2-optimization]
+/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-005          06c702e [opus/m4-005-integration]
+/Users/prabashan/Claude/SchedulePoint/.worktrees/review-m4-001r  9fc280d [review/m4-001r]
+/Users/prabashan/Claude/SchedulePoint/.worktrees/review-m4-001s  08c763a [review/m4-001s]
+/Users/prabashan/Claude/SchedulePoint/.worktrees/review-m4-002   dfe00cf [review/m4-002]
+/Users/prabashan/Claude/SchedulePoint/.worktrees/review-m4-003   5689343 [review/m4-003]
+/Users/prabashan/Claude/SchedulePoint/.worktrees/review-m4-004   1d898d6 [review/m4-004]
+EXIT=0

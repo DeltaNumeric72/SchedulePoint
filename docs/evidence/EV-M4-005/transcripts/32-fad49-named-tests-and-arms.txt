@@ -1,0 +1,145 @@
+=== OPUS-M4-005 continuation, FAD-49 corrective round: the NAMED TESTS and the AFFECTED RED-CASE ARMS (EV-M4-005 §21g) ===
+cwd:     /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-005
+branch:  opus/m4-005-integration
+base:    1d74de80361e16caae9647f59a37bfba3f4af368
+solver:  SP_SOLVER_WORKER_COMMAND=/Users/prabashan/.venvs/sp-solver/bin/python3
+note:    serial throughout on an idle machine. Per FAD-49(6) the FULL 64-arm
+         red-case battery and the FULL fixture-regression gate were deliberately
+         NOT run in this round — they run once on the final candidate at
+         orchestrator acceptance.
+
+=== PART A — the named tests, standalone ===
+
+  $ pnpm exec vitest run packages/domain/test/ports/result-reproducibility.test.ts \
+                        apps/web/test/build-vocabulary.test.ts
+    Test Files  2 passed (2)
+         Tests  24 passed (24)
+    EXIT=0
+
+  $ pnpm exec vitest run apps/api/test/builds/result-reproducibility-wiring.test.ts \
+                        apps/api/test/builds/e2-quality-and-credits.test.ts
+    Test Files  2 passed (2)
+         Tests  14 passed (14)
+    EXIT=0
+
+  $ pnpm exec vitest run apps/api/test/architecture/citation-integrity.test.ts
+    Test Files  1 passed (1)
+         Tests  3 passed (3)
+    EXIT=0
+    (run after staging the two NEW test files — see part C)
+
+  The §20c(3) tripwire, rewritten for the new honest behaviour, runs inside
+  apps/api/test/solver/e2-objective.test.ts and is exercised x3 below as the
+  GREEN half of two solver arms and once more inside `check`'s unit gate.
+
+=== PART B — both halves of every red-case arm this round touched ===
+
+  Driven one arm at a time by a harness that applies and reverts each arm's OWN
+  patch definition from scripts/red-cases/run.mjs, in memory, exactly as the
+  runner does. `git diff --stat solver/` was empty after every arm.
+
+  --- builds-comparability-unenforced, FIRST attempt: GREEN FAILED, and the
+      failure was MINE, in a test written earlier this round ---
+
+    GREEN (clean tree)      : exit=1 (2.9s) Tests  1 failed | 39 passed (40)
+    RED   (violation in tree): exit=1 (3.0s) Tests  5 failed | 35 passed (40)
+    VERDICT: GREEN FAIL · RED fail (as required) → NOT PROVEN
+
+    The failing test was this round's own new arm in
+    e2-quality-and-credits.test.ts, and it failed on a REAL fact:
+
+      AssertionError: expected 'undefined' to be 'number'
+        at test/builds/e2-quality-and-credits.test.ts:240
+        expect(typeof parameters['maxTimeInSeconds']).toBe('number');
+
+    `build_runs.solver_parameters` is written in exactly ONE place —
+    `runQueuedBuild` in runner.ts, the real dispatch path. This fixture reaches
+    a persisted result through the lower-level `claimQueuedBuild` +
+    `persistOutcome` pair, so it leaves a row shape production cannot produce:
+    `reproducibility_mode` set, `solver_parameters` empty. The assertion was
+    wrong; the code was right, and the derivation already failed closed on it.
+
+    The test was REWRITTEN to assert what is true — the statistics are
+    persisted and readable, and a row with no recorded parameter set never
+    claims reproducibility, whatever search time is offered — and the
+    derivation-with-parameters direction moved to
+    result-reproducibility-wiring.test.ts over explicit row shapes. The
+    assertion was not relaxed to pass; it was pointed at the fact.
+    (EV-M4-005 §21b records the limit this measurement found.)
+
+  --- builds-comparability-unenforced, RE-RUN after that correction ---
+    patches: packages/domain/src/rules/objective.ts
+    green/red command: pnpm exec sh -c vitest run packages/domain/test/rules/e2-objective-and-quality.test.ts apps/api/test/builds/e2-quality-and-credits.test.ts
+    GREEN (clean tree)      : exit=0 (2.9s) Test Files  2 passed (2) |       Tests  40 passed (40)
+    RED   (violation in tree): exit=1 (3.0s) Test Files  2 failed (2) |       Tests  4 failed | 36 passed (40)
+    VERDICT: GREEN pass · RED fail (as required) → PROVEN
+
+  === solver-t2-false-minimality ===
+    patches: solver/schedulepoint_solver/cpsat_adapter.py
+    green/red command: pnpm exec vitest run apps/api/test/solver/e2-objective.test.ts apps/api/test/solver/corpus/corpus-agreement.test.ts
+    GREEN (clean tree)      : exit=0 (263.8s) Test Files  2 passed (2) |       Tests  36 passed (36)
+    RED   (violation in tree): exit=1 (267.9s) Test Files  2 failed (2) |       Tests  2 failed | 34 passed (36)
+    VERDICT: GREEN pass · RED fail (as required) → PROVEN
+  === solver-progressive-pin-unfixed ===
+    patches: solver/schedulepoint_solver/cpsat_adapter.py
+    green/red command: pnpm exec vitest run apps/api/test/solver/e2-objective.test.ts
+    GREEN (clean tree)      : exit=0 (224.5s) Test Files  1 passed (1) |       Tests  27 passed (27)
+    RED   (violation in tree): exit=1 (224.5s) Test Files  1 failed (1) |       Tests  1 failed | 26 passed (27)
+    VERDICT: GREEN pass · RED fail (as required) → PROVEN
+
+  Also proven, in the foreground, same harness:
+
+    === result-reproducibility-derivation-removed ===   (NEW this round)
+      patches: packages/domain/src/ports/solver-port.ts
+      green/red command: pnpm exec vitest run packages/domain/test/ports/result-reproducibility.test.ts
+      GREEN (clean tree)      : exit=0 (0.7s) Test Files  1 passed (1) | Tests  12 passed (12)
+      RED   (violation in tree): exit=1 (0.7s) Test Files  1 failed (1) | Tests  6 failed | 6 passed (12)
+      VERDICT: GREEN pass · RED fail (as required) → PROVEN
+
+    === builds-optimality-wording ===
+      patches: apps/web/src/builds/BuildsLayout.tsx
+      GREEN (clean tree)      : exit=0 (0.8s) Test Files  1 passed (1) | Tests  12 passed (12)
+      RED   (violation in tree): exit=1 (0.8s) Test Files  1 failed (1) | Tests  1 failed | 11 passed (12)
+      VERDICT: GREEN pass · RED fail (as required) → PROVEN
+
+    === solver-outcome-honesty ===
+      patches: packages/domain/src/ports/solver-port.ts
+      GREEN (clean tree)      : exit=0 (3.6s) Test Files  1 passed (1) | Tests  18 passed (18)
+      RED   (violation in tree): exit=1 (3.8s) Test Files  1 failed (1) | Tests  2 failed | 16 passed (18)
+      VERDICT: GREEN pass · RED fail (as required) → PROVEN
+
+  SIX arms, six PROVEN. Two of them (solver-t2-false-minimality,
+  solver-progressive-pin-unfixed) patch solver/schedulepoint_solver/cpsat_adapter.py
+  — the runner's own sanctioned, reverted mutation, and `git diff solver/` was
+  byte-empty after each. Nothing in solver/** is modified by this round.
+
+  Worth recording: solver-t2-false-minimality's RED half now fails on its OWN
+  TWO tests (2 of 36). In the pre-repair battery of transcript 23 it failed
+  THREE, the third being the S-08t collateral §20 diagnosed. The collateral is
+  gone from the arm as well as from the suite.
+
+=== PART C — an integrity check the round FAILED first, and why that was right ===
+
+  The first full `check` came back 16 of 17, failing the unit gate on:
+
+    apps/api/test/architecture/citation-integrity.test.ts
+      > BASENAMES — the form round 3 did cover, kept covered
+    AssertionError: a citation names a test file that exists nowhere in the tree
+      + [ "apps/api/test/builds/e2-quality-and-credits.test.ts:239
+           cites result-reproducibility-wiring.test.ts" ]
+
+  The cited file DID exist on disk. The gate enumerates with `git ls-files`, so
+  it was reporting something true and more useful than "the file is there": the
+  file was UNTRACKED, and the citation would have pointed at nothing in a fresh
+  clone. Staging the two new test files fixed it at the root. The citation was
+  not reworded and the gate was not touched.
+
+=== PART D — the full gate battery ===
+
+  $ corepack pnpm check          → transcript 33-check-fad49.txt
+    17 gate(s): 17 passed, 0 failed
+    EXIT=0
+
+  The axe gate (239s) runs the Playwright suite, which is where the new
+  AC-31b arm renders both verdicts on the real page and passes axe at both
+  viewports.

@@ -267,3 +267,43 @@ export const REPRODUCIBILITY_DETAIL: Readonly<Record<string, string>> = {
   'best-effort':
     'The same problem run again may produce a different schedule of the same quality. A fixed seed alone is not enough — the parallel search synchronises on thread timing.',
 };
+
+/**
+ * The RESULT-side verdict, in words (FAD-49; EV-M4-005 §21).
+ *
+ * Separate from {@link REPRODUCIBILITY_LABELS} because they answer different
+ * questions and the difference is the whole point: those describe a
+ * CONFIGURATION — what a build will be posed under, which is what the
+ * configuration list is choosing between — while these describe a RUN THAT HAS
+ * FINISHED. `Deterministic — reproducible` is a true thing to say about a
+ * configuration and can be a false thing to say about its result, because the
+ * wall clock may have ended the search first.
+ *
+ * Only the LABEL lives here. The reason is carried per-build on the wire, since
+ * it quotes that run's own measured search time, and a reason invented on the
+ * client would be a second source for a fact the server already knows.
+ */
+export const RESULT_REPRODUCIBILITY_LABELS: Readonly<Record<string, string>> = {
+  reproducible: 'Reproducible',
+  'wall-clock-truncated': 'Not reproducible — the wall clock ended the search',
+  /* FAD-50 B-1. The label says the run was STOPPED rather than naming which
+     stop, because the five reasons differ and the per-build sentence beside it
+     carries the one that actually applied. */
+  interrupted: 'Not reproducible — the run was interrupted',
+  'best-effort': 'Not reproducible — best effort',
+  unrecorded: 'Reproducibility not established',
+};
+
+/**
+ * The three ways an input revision can differ from the one a build was posed
+ * against (doc 35 §6g ruling 4, OPUS-M4-005).
+ *
+ * `added` is the one a naive comparison misses and the one that matters most:
+ * nothing the build cited changed, and the build is still stale, because demand
+ * now exists for a date the candidate never saw and therefore never filled.
+ */
+export const STALENESS_DIRECTION_LABELS: Readonly<Record<string, string>> = {
+  moved: 'revised since this build was assembled',
+  removed: 'no longer part of this build input',
+  added: 'added since this build was assembled, so the candidate never saw it',
+};

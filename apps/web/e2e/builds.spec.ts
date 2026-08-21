@@ -6,6 +6,7 @@ import { expect, test, type Page, type Route } from '@playwright/test';
 
 import { screenshotDir } from './support/evidence-target.js';
 import { recordRequests } from './support/request-budget.js';
+import { mockDeclaredContext } from './support/declared-context.js';
 
 /**
  * The scheduler's build experience: the full state matrix, both viewports, axe
@@ -230,6 +231,12 @@ function detail(overrides: Record<string, unknown> = {}): unknown {
     ],
     sourceDigest: 'a'.repeat(64),
     reproducibility: null,
+    /* FAD-49. The RESULT-side verdict, null by default for the same reason
+       `reproducibility` is: a run with no runtime record has nothing to claim. */
+    resultReproducibility: null,
+    /* doc 35 §6g ruling 4. Fresh by default so the existing arms keep measuring
+       what they were written to measure; the staleness arms override it. */
+    staleness: { stale: false, changes: [], changeCount: 0, assemblyRefusals: [] },
     correlationId: 'e2e-correlation-id',
     ...overrides,
   };
@@ -248,6 +255,17 @@ async function routeHappyPath(page: Page): Promise<void> {
 /* ────────────────────────────────────────────────────────────────────────────
  * The period's builds
  * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * The context read every capability request now depends on (FAD-48).
+ *
+ * This spec intercepts the API, so the client's `GET /me/context` has to be
+ * intercepted too or it falls through to the static preview server. It is
+ * plumbing, not a claim: see `support/declared-context.ts`.
+ */
+test.beforeEach(async ({ page }) => {
+  await mockDeclaredContext(page, { organizationId: ORGANIZATION, groupIds: [GROUP] });
+});
 
 test.describe('the period build list', () => {
   test('AC-01: the list renders, and the scope note states what a build is not', async ({
@@ -1174,6 +1192,97 @@ test.describe('E2 quality, conflicts, explanations and reproducibility', () => {
     await expect(page.locator('body')).not.toContainText('optimal', { ignoreCase: true });
     await expectNoAxeViolations(page);
     await captureE2(page, 'build-feasible-not-optimal', info.project.name);
+  });
+
+  /**
+   * **FAD-49 / EV-M4-005 §21 — the screen reports the RESULT, not the request.**
+   *
+   * The defect this pins: a build posed under the deterministic parameter set
+   * whose search the wall clock ended used to render "Deterministic —
+   * reproducible. The full pinned parameter set is in force, so the same problem
+   * run again on the same worker build produces the same schedule." Every word
+   * of that is true about the CONFIGURATION and false about that RUN.
+   *
+   * Both directions are here, in one test, because the falsifiable claim is the
+   * DIFFERENCE: the same page, the same result, two verdicts, two readings.
+   */
+  test('AC-31b: a wall-clock-truncated run is NOT called reproducible, and the reason is named', async ({
+    page,
+  }, info) => {
+    const withVerdict = (
+      verdict: string,
+      detailText: string,
+    ): Parameters<typeof detail>[0] => ({
+      run: runSummary({
+        state: 'completed',
+        solverStatus: 'FEASIBLE',
+        terminationReason: 'completed',
+      }),
+      /* The DISPATCH statement is `deterministic` in BOTH arms — unchanged, and
+         still correct. It is the result verdict that separates them. */
+      reproducibility: 'deterministic',
+      resultReproducibility: { verdict, reproducible: verdict === 'reproducible', detail: detailText },
+      result: {
+        solverStatus: 'FEASIBLE',
+        terminationReason: 'completed',
+        usable: true,
+        candidateReturned: true,
+        assignmentCount: 7,
+        objectiveValue: 4120000,
+        elapsedMs: 412,
+        quality: quality(),
+        objectiveTiers: [],
+        explanation: explanation(),
+        rejections: [],
+      },
+    });
+
+    /* ARM 1 — the wall clock ended it. */
+    await page.route(`${API}/runs/${RUN_A}`, (route) =>
+      json(
+        route,
+        200,
+        detail(
+          withVerdict(
+            'wall-clock-truncated',
+            'The search ran for 9.497948s against a 10s wall-clock limit, so the WALL CLOCK ended it rather than the deterministic budget. How much search fits in that time depends on the machine, so the same problem run again may produce a different schedule of the same quality.',
+          ),
+        ),
+      ),
+    );
+    await page.goto(RUN_URL);
+
+    const truncated = page.getByTestId('build-reproducibility-wall-clock-truncated');
+    await expect(truncated).toContainText('Not reproducible');
+    await expect(truncated).toContainText('WALL CLOCK');
+    /* The old wording must be gone from the page, not merely joined by a caveat.
+       A screen that says both is a screen a scheduler can read either way. */
+    await expect(page.locator('body')).not.toContainText(
+      'produces the same schedule',
+    );
+    await expectNoAxeViolations(page);
+    await captureE2(page, 'build-reproducibility-wall-clock-truncated', info.project.name);
+
+    /* ARM 2 — the deterministic budget ended it. The claim IS made, so arm 1 is
+       not passing because the page refuses to praise anything. */
+    await page.route(`${API}/runs/${RUN_A}`, (route) =>
+      json(
+        route,
+        200,
+        detail(
+          withVerdict(
+            'reproducible',
+            'The deterministic budget or a completed proof ended the search after 32.618628s, well inside the 900s wall-clock limit, so the same problem run again on the same worker build produces the same schedule.',
+          ),
+        ),
+      ),
+    );
+    await page.goto(RUN_URL);
+
+    const reproducible = page.getByTestId('build-reproducibility-reproducible');
+    await expect(reproducible).toContainText('Reproducible');
+    await expect(reproducible).toContainText('produces the same schedule');
+    await expectNoAxeViolations(page);
   });
 
   test('AC-31: PO-DEC-13 classes are grouped by severity, and the fairness class is advisory', async ({

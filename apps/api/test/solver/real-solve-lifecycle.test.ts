@@ -9,7 +9,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { canonicalInputHash } from '../../src/solver/snapshot-store.js';
 import { solveOnWorker } from '../../src/solver/solver-client.js';
 import { log } from '../support/harness.js';
-import { DETERMINISTIC_PARAMETERS, applySolverEnv } from '../support/solver.js';
+import { DETERMINISTIC_PARAMETERS, applySolverEnv, wallClockVerdict } from '../support/solver.js';
 import { generatedCorpus, hardOptimisationProblem } from './corpus/generators.js';
 
 /**
@@ -246,6 +246,22 @@ describe('reproducibility, against the real solve', () => {
     const second = await solveOnWorker(spec);
 
     expect(first.runtime.reproducibilityMode).toBe('deterministic');
+
+    /* The precondition the pinned set does not itself establish (OPUS-M4-005
+     * continuation, §20): CP-SAT stops at whichever of `max_time_in_seconds` and
+     * `max_deterministic_time` comes first, so a wall-clock stop makes the run
+     * machine-dependent whatever the request pinned. `SMALL` proves optimality
+     * in well under a second and was never at risk — which is exactly why this
+     * has to be asserted rather than inferred from the arm passing. */
+    for (const [label, outcome] of [
+      ['first', first],
+      ['second', second],
+    ] as const) {
+      const verdict = wallClockVerdict(outcome, DETERMINISTIC_PARAMETERS);
+      expect(verdict.bound, `${label} solve: ${verdict.detail}`).toBe(false);
+    }
+    expect(second.statistics.deterministicTimeUnits).toBe(first.statistics.deterministicTimeUnits);
+
     expect(JSON.stringify(second.assignments)).toBe(JSON.stringify(first.assignments));
     expect(second.status).toBe(first.status);
     expect(second.objectiveValue).toBe(first.objectiveValue);
@@ -267,6 +283,16 @@ describe('reproducibility, against the real solve', () => {
     expect(DETERMINISTIC_PARAMETERS.maxDeterministicTime).not.toBeNull();
     expect(DETERMINISTIC_PARAMETERS.numSearchWorkers).toBe(1);
     expect(typeof DETERMINISTIC_PARAMETERS.randomSeed).toBe('number');
+
+    /* The FIFTH condition, and the one whose absence cost this milestone two
+     * seeds: pinning a deterministic budget buys nothing while a wall clock is
+     * allowed to stop the search first. `maxTimeInSeconds` must be a safety net
+     * an order of magnitude clear of what the deterministic budget can spend —
+     * 100 units measures ≈43 wall-seconds on the M4 reference machine — not a
+     * second budget racing it. This is the condition, stated. */
+    expect(DETERMINISTIC_PARAMETERS.maxTimeInSeconds).toBeGreaterThanOrEqual(
+      (DETERMINISTIC_PARAMETERS.maxDeterministicTime ?? 0) * 5,
+    );
   });
 
   it('S-09t: with the conditions absent the product makes NO reproduction claim', async () => {

@@ -1,10 +1,15 @@
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { existsSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import {
   E2_OBJECTIVE_PROFILE,
   OBJECTIVE_SCALE,
+  SOLVER_STATUSES,
   objectiveProfileCanonicalString,
+  resultReproducibility,
   type SolveRequestSpec,
   type SolverInputSnapshotDocument,
 } from '@schedulepoint/domain';
@@ -29,6 +34,7 @@ import {
   DETERMINISTIC_PARAMETERS,
   SOLVED_STATUSES,
   SOLVER_ROOT,
+  wallClockVerdict,
   WORKER_INTERPRETER,
 } from '../support/solver.js';
 import { generatedCorpus, protectedPinWouldMoveProblem } from './corpus/generators.js';
@@ -254,12 +260,199 @@ describe('S-08t under E2 objectives — bit-identical on a soft-rule-bearing cla
     const second = await solve(document);
 
     expect(first.runtime.reproducibilityMode).toBe('deterministic');
+
+    /* **The PRECONDITION, established rather than assumed** (OPUS-M4-005
+     * continuation, §20). `reproducibilityMode` reports what was REQUESTED. It
+     * cannot report that the wall clock ended the search, and for this class it
+     * always did: `maxTimeInSeconds` was 10 and CP-SAT stops at whichever of the
+     * two limits comes first, so the pinned deterministic budget never got to be
+     * the thing that stopped it. The arm then diverged about one run in three —
+     * standalone, on an idle machine — because the two solves' cut-offs landed
+     * at different points in the search.
+     *
+     * This is the condition S-08t always MEANT and never said. It is asserted,
+     * not waived: on a machine slow enough to make the 900-second net bind, this
+     * fails and names why, which is the opposite of passing non-reproducibly. */
+    for (const [label, outcome] of [
+      ['first', first],
+      ['second', second],
+    ] as const) {
+      const verdict = wallClockVerdict(outcome, DETERMINISTIC_PARAMETERS);
+      expect(verdict.bound, `${label} solve: ${verdict.detail}`).toBe(false);
+    }
+
+    /* The MACHINE-INDEPENDENT half of the claim, and it is strictly stronger
+     * than the byte comparison below: two solves can agree on a candidate by
+     * coincidence, and cannot agree on the exact deterministic time consumed
+     * unless they performed the same search. This is the number that moved —
+     * 21.760483 against 21.660444 — while the wall clock was in charge. */
+    expect(second.statistics.deterministicTimeUnits).toBe(first.statistics.deterministicTimeUnits);
+    expect(second.statistics.branches).toBe(first.statistics.branches);
+    expect(second.statistics.conflicts).toBe(first.statistics.conflicts);
+
     expect(JSON.stringify(first.assignments)).toBe(JSON.stringify(second.assignments));
     expect(first.objectiveValue).toBe(second.objectiveValue);
     expect(JSON.stringify(first.objectiveTiers)).toBe(JSON.stringify(second.objectiveTiers));
     log(
       `      · S-08t/E2: ${String((first.assignments ?? []).length)} assignments and objective ` +
-        `${String(first.objectiveValue)} reproduced bit for bit`,
+        `${String(first.objectiveValue)} reproduced bit for bit; ` +
+        `status ${first.status}, ${String(first.statistics.deterministicTimeUnits)} deterministic ` +
+        `units in ${String(first.statistics.wallTimeSeconds)}s against a ` +
+        `${String(DETERMINISTIC_PARAMETERS.maxTimeInSeconds)}s net`,
+    );
+  });
+
+  it('B-1: a REAL cancelled solve is never reproducible, whatever its wall clock says', async () => {
+    /* **FAD-50 B-1, against real CP-SAT.** The reviewer's RP-1 shape as a
+     * permanent proof, authored here rather than merged from the probe branch.
+     *
+     * This is the arm the finding needed and did not have. A cancelled solve is
+     * the one case where every OTHER input to the verdict looks healthy: the
+     * deterministic set is pinned, the statistics are persisted, and the wall
+     * time is SHORT — because a person pressed stop, not because the search
+     * finished. The reviewer measured `CANCELLED`, 2.35s and 5.6 of 100
+     * deterministic units, and the verdict said `reproducible`.
+     *
+     * `B-fairness-shaped` is used because it genuinely searches for ~33s under
+     * the repaired budget, so there is a real solve running to interrupt. */
+    const document = documentFor('B-fairness-shaped');
+    const readyFile = join(tmpdir(), `sp-b1-ready-${randomUUID()}`);
+    const cancelFile = join(tmpdir(), `sp-b1-cancel-${randomUUID()}`);
+
+    try {
+      const solving = solveOnWorker(
+        {
+          protocolVersion: 1,
+          organizationId: document.organizationId,
+          groupId: document.groupId,
+          buildRunId: randomUUID(),
+          correlationId: 'e2-b1-cancelled',
+          snapshotId: randomUUID(),
+          canonicalInputHash: canonicalInputHash(document),
+          snapshotPayload: document,
+          parameters: DETERMINISTIC_PARAMETERS,
+        },
+        { readyFile, cancelFile, timeoutMs: 120_000 },
+      );
+
+      /* Cancel only once the solve is genuinely RUNNING. Creating the sentinel
+       * first would prove a worker can decline to start, which is a different
+       * fact and would leave a much shorter wall time than the finding needs. */
+      const startedWaiting = Date.now();
+      while (!existsSync(readyFile) && Date.now() - startedWaiting < 60_000) {
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+      expect(existsSync(readyFile), 'the real worker never reported ready').toBe(true);
+      writeFileSync(cancelFile, 'e2-b1');
+
+      const outcome = await solving;
+
+      /* The facts, exactly as the reviewer found them. */
+      expect(outcome.status).toBe('CANCELLED');
+      expect(outcome.terminationReason).toBe('user_cancelled');
+      expect(outcome.runtime.reproducibilityMode).toBe('deterministic');
+
+      const wall = outcome.statistics.wallTimeSeconds;
+      /* SHORT — comfortably inside the 900s net. This is precisely why the
+       * wall-clock test alone waved it through. */
+      const verdict = wallClockVerdict(outcome, DETERMINISTIC_PARAMETERS);
+      expect(verdict.bound, `a cancelled solve should not read as wall-bound: ${verdict.detail}`).toBe(
+        false,
+      );
+
+      /* THE REPAIR. */
+      const claim = resultReproducibility({
+        parameters: DETERMINISTIC_PARAMETERS,
+        wallTimeSeconds: wall,
+        terminationReason: outcome.terminationReason,
+        status: SOLVER_STATUSES.find((s) => s === outcome.status) ?? null,
+      });
+      expect(claim.verdict).toBe('interrupted');
+      expect(claim.reproducible).toBe(false);
+      expect(claim.detail).toContain('cancelled');
+      expect(claim.detail).not.toContain('produces the same schedule');
+
+      log(
+        `      · B-1: real solve CANCELLED after ${String(wall)}s of a ` +
+          `${String(DETERMINISTIC_PARAMETERS.maxTimeInSeconds)}s net ` +
+          `(${String(outcome.statistics.deterministicTimeUnits)} of ` +
+          `${String(DETERMINISTIC_PARAMETERS.maxDeterministicTime)} units) → '${claim.verdict}'`,
+      );
+    } finally {
+      rmSync(readyFile, { force: true });
+      rmSync(cancelFile, { force: true });
+    }
+  }, 180_000);
+
+  it('the precondition BITES: with the old 10s wall clock the search is wall-bound', async () => {
+    /* The non-vacuity control. Without it the check above could be asserting
+     * `false` against a condition nothing can ever satisfy, and the repair would
+     * be decoration.
+     *
+     * The same class, the same pinned set, the ONE field restored to what it was
+     * — and the verdict flips. It also records the two facts that make the
+     * test-side precondition necessary in the first place:
+     *
+     *   1. the deterministic budget is nowhere near spent (100 pinned, ~12–22
+     *      consumed), so it demonstrably was NOT what stopped the search; and
+     *   2. the DISPATCH mode still reads `deterministic`, because that is a
+     *      statement about the parameters the platform sent.
+     *
+     * **UPDATED DELIBERATELY (FAD-49), as the previous version of this comment
+     * required.** (2) used to be the escalation: nothing in the recorded outcome
+     * said a wall clock had cut the search short, so the run's own record
+     * claimed `deterministic` and the build detail screen turned that into "the
+     * same problem run again … produces the same schedule". The ruling granted
+     * the RESULT-side verdict, derived from facts already persisted. So the
+     * dispatch mode is asserted UNCHANGED — it was never wrong, it was answering
+     * a different question — and the result-side verdict is asserted to refuse
+     * the claim and to name the wall clock as the reason. */
+    const wallBound = { ...DETERMINISTIC_PARAMETERS, maxTimeInSeconds: 10 };
+    const outcome = await solve(documentFor('B-fairness-shaped'), { maxTimeInSeconds: 10 });
+
+    const verdict = wallClockVerdict(outcome, wallBound);
+    expect(verdict.bound, verdict.detail).toBe(true);
+
+    const consumed = outcome.statistics.deterministicTimeUnits;
+    expect(consumed).not.toBeNull();
+    expect(consumed ?? 0).toBeLessThan(DETERMINISTIC_PARAMETERS.maxDeterministicTime ?? 0);
+
+    /* The dispatch statement, unchanged and still correct. */
+    expect(outcome.runtime.reproducibilityMode).toBe('deterministic');
+
+    /* The RESULT-side verdict — the half that used to be missing. */
+    const claim = resultReproducibility({
+      parameters: wallBound,
+      wallTimeSeconds: outcome.statistics.wallTimeSeconds,
+      /* Read off the real outcome (FAD-50 B-1) rather than assumed: this solve
+         DID complete — the clock stopped the search, nobody stopped the run —
+         and saying so is what keeps the assertion below about the wall clock. */
+      terminationReason: outcome.terminationReason,
+      status: SOLVER_STATUSES.find((s) => s === outcome.status) ?? null,
+    });
+    expect(claim.verdict).toBe('wall-clock-truncated');
+    expect(claim.reproducible).toBe(false);
+    expect(claim.detail).toContain('WALL CLOCK');
+
+    /* Falsifiability, kept: the SAME run's statistics under the repaired budget
+     * are judged reproducible. Without this the assertions above would pass for
+     * a predicate that refuses everything, which is a different way of being
+     * useless than the one this arm was written to catch. */
+    const underTheRepairedBudget = resultReproducibility({
+      parameters: DETERMINISTIC_PARAMETERS,
+      wallTimeSeconds: outcome.statistics.wallTimeSeconds,
+      terminationReason: outcome.terminationReason,
+      status: SOLVER_STATUSES.find((s) => s === outcome.status) ?? null,
+    });
+    expect(underTheRepairedBudget.verdict).toBe('reproducible');
+    expect(underTheRepairedBudget.reproducible).toBe(true);
+
+    log(
+      `      · precondition control: wall ${String(outcome.statistics.wallTimeSeconds)}s of 10s ` +
+        `ended the search after only ${String(consumed)} of ` +
+        `${String(DETERMINISTIC_PARAMETERS.maxDeterministicTime)} deterministic units; ` +
+        `dispatch mode '${outcome.runtime.reproducibilityMode}', ` +
+        `result verdict '${claim.verdict}'`,
     );
   });
 });

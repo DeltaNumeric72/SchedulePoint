@@ -1,0 +1,105 @@
+SBX-016 — Conflict detection — 100% of injected hard violations detected and explained
+generated: 2026-08-18T11:50:58.594Z
+
+STATE: PASS   falsifiability probe: FALSIFIABLE   gate-required: YES
+
+SPEC-16 §1 contract
+  owner                    OPUS-M4-005 (implementer) / Fable (acceptance)
+  fixtureProvenance        apps/api/test/sbx/injections-016.ts — a table of 22 injected defects, one per kind in `EVALUATED_HARD_RULE_KINDS`, each carrying the world that violates the rule and the same world with one fact moved. Wholly synthetic: `m-sbx016-*` handles, June 2031 dates, DAY/NIGHT/CALL codes; no organization, site or person name of any kind, and no database. Reproducible from the module alone.
+  deterministicSetup       Pure functions over in-memory fixtures: `compileRule` + `evaluateHardRules` for the checker boundary, `validateCandidate` + `conflictsOf` for the build boundary. No clock, no cluster, no concurrency, no ordering dependence — every reading is computed from its own fixture. The weekday facts three injections depend on are ASSERTED by `weekdayOfDate` in the run rather than assumed.
+  externalDependency       None. Nothing outside this process.
+  faultControls            22 injected faults, one per evaluated HARD kind — the deliberately injected defects report 24 §3.4 requires. Each is paired with a SATISFIED twin (the mutation control) that must produce zero findings. The falsifiability probe injects a 23rd fault into the MEASUREMENT: it removes one kind's breach finding from the reading set and requires the oracle to reject the result as an undetected violation.
+  objectiveOracle          Four conjuncts, all counted: (1) TOTALITY — every kind in EVALUATED_HARD_RULE_KINDS has an injection; (2) DETECTION — each injection produces at least one `breach` finding whose nodeKind is that kind and whose ruleKey is the injected key, so the detection rate is 22/22 = 100%; (3) EXPLANATION IN DOMAIN TERMS — that breach explanation names every domain identifier the injection declared (membership handle, date, shift-type code, staff/valid-group id, pick position); (4) NON-VACUITY — the satisfied twin produces ZERO findings for the same rule. Plus the build boundary: the anchor injection makes `validateCandidate` return usable=false with exactly one `hard-violation` rejection carrying the breach, and `conflictsOf` classifies it `hard-breach` with severityRank 1 and blocksApproval true.
+  retainedArtifact         docs/evidence/EV-M4-005/sbx-016-conflict-detection.txt
+  environment              MULTI
+  earliestExecutionPoint   E2
+policies exercised: FAD-27 (a HARD rule that cannot be evaluated blocks) | PO-DEC-13 conflict classes (hard-breach blocks approval) | report 24 §3.4 — 100% of injected hard violations detected
+
+EVIDENCE_BLOCKED sub-scenarios (never a pass, never a silent skip):
+  - per-conflict REMEDIATION guidance ("each with severity, explanation, and remediation")
+      EVIDENCE_BLOCKED(no remediation field exists on `BuildConflict` (packages/contracts/src/builds/lifecycle.ts). Severity (`severityRank`), explanation (`detail`) and the blocking decision (`blocksApproval`) are all produced and asserted below; remediation text is not modelled anywhere at M4 and is not invented here)
+  - injecting PickPositionRestriction through the SOLVER CANDIDATE path (validateCandidate)
+      EVIDENCE_BLOCKED(RK-RULING-04: a solver-produced candidate row carries `pickPosition: null` by construction (apps/api/src/solver/candidate-validation.ts), which the ruling makes satisfy the restriction VACUOUSLY. The kind is injected and detected at the checker boundary below; it is unreachable at the candidate boundary by design, not by gap)
+
+OBSERVATIONS
+
+  weekday-pins:
+    6 weekday facts asserted, not assumed
+
+  detection-rate:
+    22/22 injected hard violations detected (100%), every one explained in domain terms, every satisfied twin clean
+
+  injected-RequiresQualification:
+    a participant is placed on a shift without holding the required credential that day -> 1 breach finding(s); satisfied twin 0. explanation: membership m-sbx016-a is assigned on 2031-06-05 (DAY) without a valid acls holding on that date
+
+  injected-MinimumRestBetween:
+    two shifts for one participant separated by less rest than the rule requires -> 1 breach finding(s); satisfied twin 0. explanation: membership m-sbx016-a has 8.00 hours of rest before the assignment on 2031-06-06, and this rule requires 12
+
+  injected-MaxConsecutive:
+    a run of consecutive working days one longer than the rule permits -> 1 breach finding(s); satisfied twin 0. explanation: membership m-sbx016-a works 3 consecutive days from 2031-06-03, and this rule permits 2
+
+  injected-MaxAssignmentsInWindow:
+    two assignments inside one rolling window where the rule permits one -> 1 breach finding(s); satisfied twin 0. explanation: membership m-sbx016-a has 2 assignments in the 7-day window from 2031-06-03, and this rule permits 1
+
+  injected-CallSpacing:
+    two on-call shifts closer together than the rule allows -> 1 breach finding(s); satisfied twin 0. explanation: membership m-sbx016-a is on call on 2031-06-05, 2 day(s) after the call on 2031-06-03; this rule requires 5
+
+  injected-AvoidDate:
+    an assignment on a date the rule forbids outright -> 1 breach finding(s); satisfied twin 0. explanation: membership m-sbx016-a is assigned on 2031-06-05, which this rule forbids
+
+  injected-RequiredCount:
+    a required date × shift-type cell left entirely unstaffed -> 1 breach finding(s); satisfied twin 0. explanation: 2031-06-02 (DAY) carries 0 scoped assignments; this rule requires exactly 1
+
+  injected-MinCoverage:
+    a cell staffed below the floor this rule sets -> 2 breach finding(s); satisfied twin 0. explanation: 2031-06-01 (DAY) carries 1 scoped assignments; this rule requires at least 2
+
+  injected-MaxCoverage:
+    a cell staffed above the ceiling this rule sets -> 1 breach finding(s); satisfied twin 0. explanation: 2031-06-01 (DAY) carries 2 scoped assignments; this rule requires at most 1
+
+  injected-MemberOfStaffGroup:
+    an assignee who is not a member of the staff group the rule restricts to -> 1 breach finding(s); satisfied twin 0. explanation: membership m-sbx016-a is assigned on 2031-06-05 (DAY) and is not a member of staff group sg-injected
+
+  injected-ValidGroupRestriction:
+    an assignment on a shift type the valid group does not admit -> 1 breach finding(s); satisfied twin 0. explanation: the assignment on 2031-06-05 is on shift type DAY, which valid group vg-injected does not admit
+
+  injected-PickPositionRestriction:
+    a draft pick taken at a position the rule does not allow -> 1 breach finding(s); satisfied twin 0. explanation: the assignment on 2031-06-05 holds pick position 7, which this rule does not allow
+
+  injected-WeekdayFteLimit:
+    more Mondays worked than the weekday FTE fraction admits over the horizon -> 1 breach finding(s); satisfied twin 0. explanation: membership m-sbx016-a has 3 scoped assignments on mon across 5 such dates in 2031-06-01..2031-06-30; the binding limit is 2 (RK-RULING-05, the tightest of the present terms)
+
+  injected-NoAdjacent:
+    the forbidden pair worked on consecutive calendar dates -> 1 breach finding(s); satisfied twin 0. explanation: membership m-sbx016-a works DAY on 2031-06-10 and NIGHT on 2031-06-11; this rule forbids the two on consecutive dates (RK-RULING-07)
+
+  injected-ForbiddenSequence:
+    the forbidden ordered run worked on consecutive dates -> 1 breach finding(s); satisfied twin 0. explanation: membership m-sbx016-a works the forbidden sequence DAY→NIGHT on consecutive dates from 2031-06-14 (RK-RULING-08)
+
+  injected-LinkedShifts:
+    one half of a linked pair worked without the other, on the same date -> 1 breach finding(s); satisfied twin 0. explanation: membership m-sbx016-a has DAY but not every linked type (DAY, NIGHT) on 2031-06-18 (RK-RULING-09)
+
+  injected-ImpliesAssignment:
+    the antecedent shift worked without the shift it implies -> 1 breach finding(s); satisfied twin 0. explanation: membership m-sbx016-a works DAY without the implied NIGHT on 2031-06-20 (RK-RULING-09)
+
+  injected-MutuallyExclusive:
+    two mutually exclusive shift types held by one participant on one date -> 1 breach finding(s); satisfied twin 0. explanation: membership m-sbx016-a works DAY and NIGHT, which this rule makes mutually exclusive on 2031-06-21 (RK-RULING-09)
+
+  injected-FixedAssignment:
+    a pinned fixed input the candidate silently dropped -> 1 breach finding(s); satisfied twin 0. explanation: the assignment pinned by this rule (m-sbx016-a on 2031-06-24, DAY) is absent from the candidate
+
+  injected-ProtectedRange:
+    an assignment inside a protected date range removed by the rebuild -> 1 breach finding(s); satisfied twin 0. explanation: the assignment inside the protected range 2031-06-01..2031-06-15 (m-sbx016-a on 2031-06-10, DAY) is absent from the candidate
+
+  injected-PatternRule:
+    a pattern trigger worked without the segment the pattern requires -> 1 breach finding(s); satisfied twin 0. explanation: membership m-sbx016-a works the pattern trigger DAY on 2031-06-09 but not the required NIGHT on 2031-06-10
+
+  injected-AlternatingWeek:
+    the alternating shift worked in two distinct week classes of one cycle -> 1 breach finding(s); satisfied twin 0. explanation: membership m-sbx016-a works DAY in 2 distinct week classes of a 2-week cycle over 2031-06-01..2031-06-30; an alternating-week rule admits exactly one
+
+  build-boundary-validation:
+    validateCandidate: usable=false, rejections=[hard-violation], hardViolations=1; membership 66666666-6666-4666-8666-666666666666 is assigned on 2031-06-05, which this rule forbids
+
+  build-boundary-conflict:
+    conflictsOf -> class=hard-breach severityRank=1 blocksApproval=true code=rule_breached subject=inj_anchor_avoid_date; detail carried through byte-identically from the checker
+
+  probe-control:
+    the oracle accepts the truthful 22/22 measurement

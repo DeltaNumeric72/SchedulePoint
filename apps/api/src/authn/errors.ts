@@ -31,9 +31,15 @@ export type AuthnClientCode =
 /**
  * The internal reason. Audit payloads and operator logs only.
  *
- * A closed set, because `apps/api/test/authn/no-disclosure.test.ts` asserts that
- * none of these strings appears in any response body or header, and an open set
- * would make that assertion unwritable.
+ * A closed set, and `apps/api/test/authn/secrecy.test.ts`'s "the error
+ * vocabulary carries no reason that could be a credential" is what keeps it
+ * honest — by a stronger oracle than the one this comment used to claim. It
+ * drives four DISTINGUISHABLE sign-in failures and asserts they collapse to
+ * exactly one `code|message` pair, so no reason can be inferred from the
+ * response at all; the older wording claimed a string-by-string scan of bodies
+ * and headers, which no test performs (OPUS-M4-005). The set stays closed
+ * because a reason that is not in it is a reason nobody decided was safe to
+ * record.
  */
 export type SignInFailureReason =
   | 'unknown_login_email'

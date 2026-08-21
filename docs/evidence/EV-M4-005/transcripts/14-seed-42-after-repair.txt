@@ -1,0 +1,46 @@
+=== 02-seed42 ===
+ 7:35  up 1 day,  2:04, 1 user, load averages: 3.62 3.68 3.16
+START 2026-08-18T11:35:22Z
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-005
+[... full-run log elided; the assertion-bearing capture this bundle relies on is 12-nr15-capture-seed-1.txt ...]
+[worker(worker-f841bcad94ec8ee0da)] INFO: Completed task 1523 (build.solve, 0.93ms) with success
+
+stdout | test/builds/concurrency-recovery-matrix.test.ts > the queue binding, end to end > the REGISTERED task runs a submitted build to a terminal state
+[worker(worker-f841bcad94ec8ee0da)] INFO: Completed task 1524 (build.solve, 0.94ms) with success
+
+stdout | test/builds/concurrency-recovery-matrix.test.ts > the queue binding, end to end > the REGISTERED task runs a submitted build to a terminal state
+[worker(worker-f841bcad94ec8ee0da)] INFO: Completed task 1525 (build.solve, 0.91ms) with success
+
+stdout | test/builds/concurrency-recovery-matrix.test.ts > the queue binding, end to end > the REGISTERED task runs a submitted build to a terminal state
+[worker(worker-f841bcad94ec8ee0da)] INFO: Completed task 1526 (build.solve, 0.79ms) with success
+
+stdout | test/builds/concurrency-recovery-matrix.test.ts > the queue binding, end to end > the REGISTERED task runs a submitted build to a terminal state
+[worker(worker-f841bcad94ec8ee0da)] INFO: Completed task 1527 (build.solve, 0.83ms) with success
+
+stdout | test/builds/concurrency-recovery-matrix.test.ts > the queue binding, end to end > the REGISTERED task runs a submitted build to a terminal state
+[worker(worker-f841bcad94ec8ee0da)] INFO: Completed task 1528 (build.solve, 0.74ms) with success
+
+stdout | test/builds/concurrency-recovery-matrix.test.ts > the queue binding, end to end > the REGISTERED task runs a submitted build to a terminal state
+[worker(worker-f841bcad94ec8ee0da)] INFO: Completed task 1529 (build.solve, 0.73ms) with success
+
+stdout | test/builds/concurrency-recovery-matrix.test.ts > the queue binding, end to end > the REGISTERED task runs a submitted build to a terminal state
+[worker(worker-f841bcad94ec8ee0da)] INFO: Completed task 1531 (build.solve, 764.74ms) with success
+
+stdout | test/builds/concurrency-recovery-matrix.test.ts > the queue binding, end to end > the REGISTERED task runs a submitted build to a terminal state
+[worker(worker-f841bcad94ec8ee0da)] INFO: Completed task 1532 (build.solve, 767.40ms) with success
+
+ ✓ |api| test/builds/concurrency-recovery-matrix.test.ts (40 tests) 6466ms
+   ✓ M-02 idempotent retry > a re-delivered build.solve job for a settled run answers not-claimable, not a second solve  797ms
+   ✓ M-03/M-04 duplicate and stale worker results, through the QUEUED path > a duplicate result at the CURRENT epoch is refused by the database, service bypassed  780ms
+   ✓ M-07/M-08/M-09 cancellation, timeout, and a result that arrives afterwards > M-08: a solve that outruns its wall clock is TERMINATED and says so — never a completion  1231ms
+   ✓ the queue binding, end to end > the REGISTERED task runs a submitted build to a terminal state  2392ms
+ ✓ |api| test/schedule/views-time.test.ts (11 tests) 24ms
+
+ Test Files  135 passed | 1 skipped (136)
+      Tests  1414 passed | 14 skipped (1428)
+   Start at  07:35:22
+   Duration  201.78s (transform 957ms, setup 2.44s, collect 1.29s, tests 196.20s, environment 0ms, prepare 27ms)
+
+EXIT=0
+END 2026-08-18T11:38:44Z

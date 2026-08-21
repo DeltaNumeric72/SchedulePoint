@@ -69,28 +69,41 @@ with a comment saying why the package needs it.
 corepack pnpm check
 ```
 
-Twelve gates, all build-failing, in dependency order. The full transcript is written to
-`scripts/check-output.txt`.
+**Seventeen** gates, all build-failing, in dependency order. The full transcript is
+written to `scripts/check-output.txt` — or, on a plain run, to an untracked scratch path
+(see §12).
 
 | # | Gate | What it proves |
 |---|---|---|
 | 1 | `lint` | ESLint, including the ban on every `SET` form of a tenant setting |
 | 2 | `typecheck` | `tsc -b` across every project, tests included |
-| 3 | `unit` | Vitest across all five projects |
+| 3 | `unit` | Vitest across all five projects, against a real PostgreSQL cluster (§10) |
 | 4 | `import-boundary` | dependency-cruiser: `packages/domain` imports nothing |
 | 5 | `route-policy` | Every registered Fastify route declares a policy (I-02) |
 | 6 | `migration-rls` | No `CREATE TABLE` without RLS in the same migration (I-15) |
 | 7 | `invariant-ids` | No `I-nn` defined twice or cited undefined (CAR-023) |
-| 8 | `secret-scan` | Eleven credential-format detectors over the whole tree |
-| 9 | `build` | `vite build` produces the production bundle |
-| 10 | `network-guard` | No non-allowlisted client host, in source **or** bundle (SP-HR-1) |
-| 11 | `axe` | axe-core over the shell at desktop and mobile viewports (CAP-066) |
-| 12 | `request-budget` | One user action, one request (I-10 / SP-HR-2) |
+| 8 | `rule-node-mapping` | Every declared AST node kind has a compiler mapping (SPEC-04 §3.2) |
+| 9 | `rule-kind-registry` | The committed rule-kind registry is GENERATED, not typed by hand |
+| 10 | `provider-boundary` | No provider call inside a unit of work (SPEC-12 U-07) |
+| 11 | `solver-kind-parity` | The model builds every HARD kind the checker evaluates |
+| 12 | `secret-scan` | Eleven credential-format detectors over the whole tree |
+| 13 | `raw-nul` | No raw `U+0000` in a tracked text file (FAD-45(1)) |
+| 14 | `build` | `vite build` produces the production bundle |
+| 15 | `network-guard` | No non-allowlisted client host, in source **or** bundle (SP-HR-1) |
+| 16 | `axe` | axe-core over the shell at desktop and mobile viewports (CAP-066) |
+| 17 | `request-budget` | One user action, one request (I-10 / SP-HR-2) |
 
 Order matters in three places: `build` before `network-guard` (the guard scans the
 bundle and treats a missing one as a failure), `build` before `axe` (Playwright serves
 the production build), and `axe` before `request-budget` (the browser run writes the
 recordings the budget gate compares).
+
+The `raw-nul` gate carries a **known-violations baseline** pinned by path AND count. Two
+entries remain, both in `docs/fable/control/**`. A baselined file is not exempt — its
+count is pinned, so acquiring a second NUL fails the build, and repairing the last one
+fails it too, so the list shrinks deliberately rather than rotting. Its extension
+allowlist is checked against **magic bytes**, so a text file renamed `.png` is scanned
+rather than skipped.
 
 Individual gates: `corepack pnpm run gate:<id>`.
 
@@ -100,8 +113,21 @@ Individual gates: `corepack pnpm run gate:<id>`.
 corepack pnpm red-cases
 ```
 
-Fourteen cases. Each introduces a real violation into the working tree, asserts the gate
-**fails**, then restores. Output goes to `scripts/red-cases/evidence-output.txt`.
+**Sixty-three** cases. Each introduces a real violation into the working tree, asserts
+the gate **fails**, then restores. Output goes to
+`scripts/red-cases/evidence-output.txt` (or scratch — see §12).
+
+Three properties of the runner are worth knowing before you read its table:
+
+  * a case whose output matches an **ERRORED signature** — vitest's `No test files
+    found`, or `anchor not found` — is never counted as proven, however its exit code
+    read. A misspelled test path exits non-zero, so without this an arm that never ran
+    reported PROVEN;
+  * the revert sweeps `dist/**/__red_case__*`. Compiled artifacts survive a *successful*
+    run and are invisible to `git status`, because `dist` is gitignored. After a run,
+    `find packages/*/dist -name '__red_case__*'` must be empty;
+  * the production bundle is built once up front, so the bundle-scanning arms never scan
+    an empty `dist` on a fresh worktree.
 
 This is not optional ceremony. A gate with a broken regex or a wrong scan path reports
 PASS forever, and the first anyone hears of it is when the thing it was meant to prevent
@@ -189,8 +215,28 @@ pip install -e '.[dev]'
 python -m schedulepoint_solver   # exits non-zero on purpose
 ```
 
-`solver/` is a skeleton with an empty dependency list. See
-[`solver/README.md`](../solver/README.md) for why OR-Tools is not there yet.
+### Running the tests that need a real solve
+
+The platform spawns the worker as a subprocess and finds the interpreter through
+`SP_SOLVER_WORKER_COMMAND`. Every suite that performs a real CP-SAT solve therefore
+needs an interpreter that has OR-Tools:
+
+```bash
+SP_SOLVER_WORKER_COMMAND=/path/to/venv/bin/python3 corepack pnpm check
+```
+
+**This is the FAD-7 substitution and it is a standing CI condition, not a solved
+problem.** `Dockerfile.solver` pins Python 3.12 and an exact OR-Tools version; it is
+authored and **has never been built** — there is no Docker daemon in the development
+environment — so no image digest exists, `reproducibilityMode` can only ever be a
+statement about the *parameters*, and every measurement in this repository was taken
+under whatever interpreter the variable pointed at. Re-running the suite against the
+pinned 3.12 image, and recording its digest, remains outstanding.
+
+The resolution order is documented in `apps/api/test/support/solver.ts`: an explicit
+`SP_SOLVER_WORKER_COMMAND` outranks everything, and it is pinned by
+`apps/api/test/solver/worker-interpreter.test.ts` — because a default that silently
+overrode the deployment's own setting is a defect that already happened once.
 
 ---
 
@@ -645,3 +691,60 @@ re-run a migration it has already recorded, so take `0011`'s up section down to 
 Migration` and execute it as `app_migrator`. Both statements are idempotent in effect —
 `CREATE OR REPLACE FUNCTION` and an `ADD CONSTRAINT` that fails loudly if it is already
 there. A throwaway development database is quicker to recreate than to repair.
+
+---
+
+## 12. Where evidence goes, and the acceptance batteries (current state)
+
+**A plain run leaves the working tree clean.** Every evidence writer resolves its
+destination through `scripts/evidence-target.mjs`: without `--refresh` it writes to the
+untracked `.evidence-scratch/`; with `--refresh` (or `SP_EVIDENCE_REFRESH=1`) it writes
+the tracked path. That is the NR-14 redesign, and it is red-cased by breaking the
+redirect.
+
+**Do not set `SP_EVIDENCE_REFRESH=1` casually.** A refresh run rewrites *every* tracked
+evidence artifact it can produce, including 151 screenshots belonging to accepted
+bundles. Regenerate a specific artifact deliberately, and assert that the others came
+back byte-identical.
+
+`pnpm check` is the per-commit bar. Four batteries are **acceptance-time** and are run
+explicitly, serially, one at a time on a quiet machine:
+
+```bash
+corepack pnpm check               # the seventeen gates
+corepack pnpm red-cases           # 64 cases, both directions
+corepack pnpm fixture-regression  # FAD-15: 13 fixed seeds + a rotating one + every file alone
+corepack pnpm sbx                 # the SPEC-16 sandbox scenarios under their contracts
+```
+
+Serial, and the word is load-bearing: two batteries at once share one embedded-postgres
+port and one machine, and a run taken beside another run is a run nobody can interpret.
+Check `uptime` first — a 1-minute load average above ~6 has produced three different
+false failures in this repository's history, each of which cost more to diagnose than
+waiting cost.
+
+**`fixture-regression` retains the FULL output of any failing run** under
+`.evidence-scratch/fixture-regression/` and prints the path (NR-15). The summary lines in
+the console are a convenience; the capture is the evidence. Diagnose from it.
+
+---
+
+## 13. What the current tree does and does not do
+
+Stated because a reader arriving at the repository will otherwise infer it from the
+volume of code, and the inference would be wrong.
+
+**It does:** author, revise and publish schedules through a versioned, immutable
+publication path; compile a typed rule AST and evaluate every M4-evaluable HARD kind
+independently of the solver; assemble one immutable canonical input snapshot per build;
+run a real CP-SAT solve in a separate Python subprocess that holds no database
+credential; validate the candidate independently; carry a build through a sixteen-state
+server-authoritative lifecycle with claim fencing and a reaper; and write a selected
+candidate into a NEW draft version, which then flows the ordinary review path.
+
+**It does not:** claim any performance or quality band — SPEC-04 §7 leaves every band
+except `hard_violations = 0` undefined until the benchmark corpus is run, and that is
+M6; assert anything about the pinned solver image, which has never been built; or make
+any production-readiness or compliance claim of any kind. The required legal and
+operational work is explicitly not done ([14](architecture/14-security-and-privacy.md)
+§11).

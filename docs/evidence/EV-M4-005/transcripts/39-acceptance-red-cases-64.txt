@@ -1,0 +1,349 @@
+=== FABLE ACCEPTANCE 2/6: the FULL 64-arm red-case battery on the final candidate ===
+start:   2026-08-21T14:23:44Z
+uptime: 10:23  up 4 days,  4:53, 1 user, load averages: 1.66 1.87 1.83
+cwd:     /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-005
+branch:  opus/m4-005-integration
+HEAD:    4f419355b946a4242394727ade7fd56e6100609b
+note:    check finished 17/17 exit 0 (transcript 38) and no process of it survives; nothing else running
+command: SP_SOLVER_WORKER_COMMAND=/Users/prabashan/.venvs/sp-solver/bin/python3 corepack pnpm red-cases
+=== BEGIN ===
+$ node scripts/red-cases/run.mjs
+
+=== preflight: building apps/web so the bundle arms have a bundle ===
+  built
+
+=== lint — lint (eslint) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== typecheck — typecheck (tsc -b) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+  swept 4 compiled red-case artifact(s) from dist/ (invisible to git status — OPUS-M4-004 §8.2)
+
+=== unit — unit tests (vitest) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== import-boundary — import boundary (dependency-cruiser) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== route-policy — route-without-policy (I-02) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== migration-rls — migration + RLS pairing (I-15) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== invariant-ids — invariant-ID uniqueness (CAR-023) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== rule-node-mapping — rule-node → compiler-mapping closure (SPEC-04 §3.2) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== solver-kind-parity — solver/checker HARD-kind parity (doc 35 §6d) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== rule-kind-registry — rule-kind registry is generated (doc 34 §4-D) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== provider-boundary-unguarded — provider outside unit of work (SPEC-12 U-07) — unguarded entry point ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== provider-boundary-in-transaction — provider outside unit of work (SPEC-12 U-07) — provider inside a transaction ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== provider-boundary-owns-connection — provider outside unit of work (SPEC-12 U-07) — provider owns a connection ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== provider-boundary-runtime-mutation — provider outside unit of work (SPEC-12 U-07) — the RUNTIME arm ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== nr14-clean-tree — NR-14 evidence destination (a plain run leaves the tree clean) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== corpus-tamper — B-* corpus regeneration byte-identity (SPEC-04 §8) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== secret-scan — secret scan ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== network-guard-source — network-assertion guard (SP-HR-1) — source scan ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== network-guard-bundle — network-assertion guard (SP-HR-1) — built-bundle scan ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== build — production build (vite build) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== axe — axe-core via Playwright (CAP-066) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== i13-schedule-authoring — I-13 zero-requests-before-Save, on the schedule surface ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== publish-idempotency-key-retained — publish-once: the client RETAINS its idempotency key across retries (D-17) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== stale-edit-cas — server-authoritative compare-and-set (PO-DEC-18) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== draft-invisibility — a draft schedule version is invisible to staff (doc 07 §1) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== noop-audit-emission — FAD-24: a no-op demand save emits NO audit event (OPUS-M4-000A) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== requires-expiry-service — requires_expiry enforced at the SERVICE layer (OPUS-M4-000A) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== retired-verdict — the shared verdict: retirement confers nothing (OPUS-M4-000A) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== enforcement-read-plane — the publication gate computes on the TRUTH, not the publisher's visibility (OPUS-M4-000A) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== work-profile-delete-capability — a work-profile cancellation is capability-gated at the DATABASE (OPUS-M4-000A C1 / F-1) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== requires-expiry-flip-serialization — the requires_expiry flip is SERIALIZED against an in-flight grant (OPUS-M4-001S / FAD-36(2)) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== graph-participant-fk — the schedule participant belongs to the group (OPUS-M4-000B, doc 34 §4-C) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== graph-reality-deferred-guard — reality names only the CURRENT published version (V-15c arm, OPUS-M4-000B) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== location-archived-guard — an archived location takes no NEW shift reference (OPUS-M4-000B, doc 34 §4-F) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== timezone-basis-stale-gate — a stale timezone basis refuses publication (OPUS-M4-000B, doc 34 §4-F) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== dst-fold-resolution — R-B5 — a DST fold has TWO occurrences and the role picks one (OPUS-M4-000B) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== calendar-date-shape-only — dates are REAL calendar dates on the wire (OPUS-M4-000B, doc 34 §4-F) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== membership-state-gate — only an ACTIVE membership is a new assignment target (R-B1, OPUS-M4-000B) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== solver-provider-in-transaction — the SOLVER port is refused inside a unit of work (SPEC-12 U-07, statically) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== solver-snapshot-immutability — a solver input snapshot cannot be rewritten by ANYONE (0016, doc 35 §6a) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== solver-outcome-honesty — a cancelled solve is CANCELLED, never a misreported timeout (EV-M0-SPC H-6) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== solver-rpc-request-auth — the WORKER refuses a request it cannot authenticate (SPEC-04 §1.1) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== solver-response-auth — the PLATFORM refuses a response it cannot authenticate (SPEC-04 §1.1) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== solver-model-constraint-dropped — the independent checker catches a MODEL that lost a constraint (SPEC-04 §3.3) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== solver-checker-disabled — the independent checker is LOAD-BEARING (SPEC-04 §3.3, FAD-33(1)) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== solver-fail-closed-kind-skipped — a later-milestone HARD kind can NEVER be silently ignored (FAD-27, SPEC-04 §3.3) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== request-budget-over — requests per interaction (SP-HR-2) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== request-budget-missing — requests per interaction (SP-HR-2) — missing measurement ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== builds-fencing-trigger — build result fencing (doc 35 §6e (3)) — the DATABASE arm ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== builds-validation-gate — no hard-violating candidate reaches `approved` (doc 35 §6e (4), FAD-27) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== builds-transition-guard — illegal build transitions refused at the DATABASE (doc 35 §6e (1)) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== raw-nul-scan — raw U+0000 scan (FAD-45(1)) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== builds-fencing-state-clause — build result fencing — the SETTLED-RUN clause (FAD-45(3), review R-3) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== solver-objective-scale-drift — the integer scaling factor is SINGLE-SOURCED (doc 08 §3.4, doc 35 §6f) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== solver-t2-false-minimality — EXPLAINED_MINIMAL is EARNED (SPEC-04 §5, doc 35 §6f behaviour 3) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== solver-progressive-pin-unfixed — a protected assignment is HARD-FIXED in the model (doc 08 §5, SBX-017) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== builds-comparability-unenforced — comparison is refused across snapshots or weight sets (doc 35 §6f behaviour 1) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== result-reproducibility-derivation-removed — a wall-clock-truncated run never claims reproducibility (SPEC-04 §4 amended, FAD-49) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== solver-demand-not-independently-checked — demand coverage is measured by the INDEPENDENT checker (SPEC-04 §7, FAD-46 F-03) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== builds-optimality-wording — no surface claims optimality for a merely feasible result (SPEC-04 §7) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== red-case-runner-errored-signatures — the runner tells 'this arm did not RUN' from 'this gate failed' (OPUS-M4-005) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== raw-nul-magic-bytes — the NUL gate cannot be evaded by RENAMING a file (OPUS-M4-005; M4-003 §6f D-3) ===
+  GREEN (clean tree): gate failed, AS THIS ARM REQUIRES (inverted polarity)
+  RED   (violation in tree): gate passed, AS THIS ARM REQUIRES (inverted polarity)
+
+=== nr15-capture-widening — a failing fixture-regression run retains its FULL output (NR-15) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== nr16-bare-line-scanner — the I-15 scanner sees a tenant query written across LINES (NR-16) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+CASE                                       GREEN  RED    VERDICT
+-----------------------------------------  -----  -----  -------
+lint                                       pass   fail   PROVEN
+typecheck                                  pass   fail   PROVEN
+unit                                       pass   fail   PROVEN
+import-boundary                            pass   fail   PROVEN
+route-policy                               pass   fail   PROVEN
+migration-rls                              pass   fail   PROVEN
+invariant-ids                              pass   fail   PROVEN
+rule-node-mapping                          pass   fail   PROVEN
+solver-kind-parity                         pass   fail   PROVEN
+rule-kind-registry                         pass   fail   PROVEN
+provider-boundary-unguarded                pass   fail   PROVEN
+provider-boundary-in-transaction           pass   fail   PROVEN
+provider-boundary-owns-connection          pass   fail   PROVEN
+provider-boundary-runtime-mutation         pass   fail   PROVEN
+nr14-clean-tree                            pass   fail   PROVEN
+corpus-tamper                              pass   fail   PROVEN
+secret-scan                                pass   fail   PROVEN
+network-guard-source                       pass   fail   PROVEN
+network-guard-bundle                       pass   fail   PROVEN
+build                                      pass   fail   PROVEN
+axe                                        pass   fail   PROVEN
+i13-schedule-authoring                     pass   fail   PROVEN
+publish-idempotency-key-retained           pass   fail   PROVEN
+stale-edit-cas                             pass   fail   PROVEN
+draft-invisibility                         pass   fail   PROVEN
+noop-audit-emission                        pass   fail   PROVEN
+requires-expiry-service                    pass   fail   PROVEN
+retired-verdict                            pass   fail   PROVEN
+enforcement-read-plane                     pass   fail   PROVEN
+work-profile-delete-capability             pass   fail   PROVEN
+requires-expiry-flip-serialization         pass   fail   PROVEN
+graph-participant-fk                       pass   fail   PROVEN
+graph-reality-deferred-guard               pass   fail   PROVEN
+location-archived-guard                    pass   fail   PROVEN
+timezone-basis-stale-gate                  pass   fail   PROVEN
+dst-fold-resolution                        pass   fail   PROVEN
+calendar-date-shape-only                   pass   fail   PROVEN
+membership-state-gate                      pass   fail   PROVEN
+solver-provider-in-transaction             pass   fail   PROVEN
+solver-snapshot-immutability               pass   fail   PROVEN
+solver-outcome-honesty                     pass   fail   PROVEN
+solver-rpc-request-auth                    pass   fail   PROVEN
+solver-response-auth                       pass   fail   PROVEN
+solver-model-constraint-dropped            pass   fail   PROVEN
+solver-checker-disabled                    pass   fail   PROVEN
+solver-fail-closed-kind-skipped            pass   fail   PROVEN
+request-budget-over                        pass   fail   PROVEN
+request-budget-missing                     pass   fail   PROVEN
+builds-fencing-trigger                     pass   fail   PROVEN
+builds-validation-gate                     pass   fail   PROVEN
+builds-transition-guard                    pass   fail   PROVEN
+raw-nul-scan                               pass   fail   PROVEN
+builds-fencing-state-clause                pass   fail   PROVEN
+solver-objective-scale-drift               pass   fail   PROVEN
+solver-t2-false-minimality                 pass   fail   PROVEN
+solver-progressive-pin-unfixed             pass   fail   PROVEN
+builds-comparability-unenforced            pass   fail   PROVEN
+result-reproducibility-derivation-removed  pass   fail   PROVEN
+solver-demand-not-independently-checked    pass   fail   PROVEN
+builds-optimality-wording                  pass   fail   PROVEN
+red-case-runner-errored-signatures         pass   fail   PROVEN
+raw-nul-magic-bytes                        pass   fail   PROVEN
+nr15-capture-widening                      pass   fail   PROVEN
+nr16-bare-line-scanner                     pass   fail   PROVEN
+-----------------------------------------  -----  -----  -------
+64 case(s): 64 proven, 0 not proven
+
+GREEN "pass" = the gate passes on the clean tree.
+RED   "fail" = the gate fails when the violation is present. That is the desired outcome.
+ERRORED    = the arm did not RUN. Never counted as proven, however its exit code read.
+evidence: scratch — writing under .evidence-scratch/ (tracked artifacts untouched; pass --refresh to update them)
+/Users/prabashan/Claude/SchedulePoint/.worktrees/m4-005/.evidence-scratch/scripts/red-cases/evidence-output.txt
+=== END ===
+EXIT=0
+finish:  2026-08-21T16:30:19Z
+uptime: 12:30  up 4 days,  6:59, 1 user, load averages: 2.60 2.60 2.60

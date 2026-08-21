@@ -1,5 +1,13 @@
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { connect } from 'node:net';
 import { dirname, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -10,6 +18,7 @@ import {
   isEvidenceRefresh,
   resolveEvidencePath,
 } from '../evidence-target.mjs';
+import { erroredReason } from './errored-signatures.mjs';
 import { resolveTestPgPort } from '../sbx/test-port.mjs';
 
 /** NR-14: a plain run writes to scratch; `--refresh` updates the tracked file. */
@@ -67,8 +76,11 @@ const PM_EXECPATH = process.env['npm_execpath'];
  *   redCommand: string[],
  *   inject?: Injection[],
  *   patch?: Patch[],
+ *   setup?: string[][],
  *   prepare?: string[][],
  *   restore?: string[][],
+ *   invertPolarity?: boolean,
+ *   erroredExempt?: boolean,
  * }} RedCase
  */
 
@@ -1679,6 +1691,59 @@ const CASES = [
     restore: [['exec', 'tsc', '-b', 'packages/domain', '--force']],
   },
   {
+    id: 'result-reproducibility-derivation-removed',
+    gate: 'a wall-clock-truncated run never claims reproducibility (SPEC-04 §4 amended, FAD-49)',
+    violation: 'the result verdict stops reading the wall clock and trusts the dispatch mode',
+    /* **The claim this protects is a NEGATIVE one, which is why it needs an arm.**
+     *
+     * Every other reproducibility proof in this repository checks that something
+     * IS reproducible. This one guards the refusal: EV-M4-005 §20 measured a
+     * build posed under the full pinned set whose search the WALL CLOCK ended —
+     * 9.497948s of a 10s limit, 12-22 of 100 deterministic units spent — which
+     * reproduces nothing, and which the product reported as `deterministic`
+     * because `reproducibilityMode` reads the REQUEST. The build detail screen
+     * turned that into "the same problem run again … produces the same
+     * schedule".
+     *
+     * The patch is the defect exactly as it stood: the wall-clock comparison
+     * stops happening, so every deterministic-mode run is called reproducible
+     * again. It is compile-clean by construction — `threshold` is still
+     * computed and still read by the disabled branch — so the `prepare` rebuild
+     * succeeds and the api-side and web-side halves genuinely observe the
+     * patched `dist`, which is the `retired-verdict` lesson applied.
+     *
+     * The arm points at the domain proof alone, and that is a deliberate scope
+     * rather than a convenience: the predicate and the SENTENCE it hands the
+     * screen are both there, so this one file fails on the verdict, on the
+     * boundary, and on the wording. The client-side labels are static strings
+     * and cannot detect this mutation — `build-vocabulary` guards them from a
+     * different direction and is not named here, because an arm that lists a
+     * file it does not actually depend on reads as coverage it has not got. */
+    patch: [
+      {
+        file: 'packages/domain/src/ports/solver-port.ts',
+        find: '  if (wallTimeSeconds >= threshold) {',
+        replace:
+          '  if (wallTimeSeconds >= threshold && false) {'
+          + ' // red case: the wall clock is no longer read',
+      },
+    ],
+    greenCommand: [
+      'exec',
+      'vitest',
+      'run',
+      'packages/domain/test/ports/result-reproducibility.test.ts',
+    ],
+    prepare: [['exec', 'tsc', '-b', 'packages/domain', '--force']],
+    redCommand: [
+      'exec',
+      'vitest',
+      'run',
+      'packages/domain/test/ports/result-reproducibility.test.ts',
+    ],
+    restore: [['exec', 'tsc', '-b', 'packages/domain', '--force']],
+  },
+  {
     id: 'solver-demand-not-independently-checked',
     gate: 'demand coverage is measured by the INDEPENDENT checker (SPEC-04 §7, FAD-46 F-03)',
     violation: 'the MODEL stops posting demand as a hard equality',
@@ -1742,6 +1807,132 @@ const CASES = [
     greenCommand: ['exec', 'vitest', 'run', 'apps/web/test/build-vocabulary.test.ts'],
     redCommand: ['exec', 'vitest', 'run', 'apps/web/test/build-vocabulary.test.ts'],
   },
+
+  /* ── OPUS-M4-005 — the hardening register's own controls (doc 35 §6g (E)) ───
+   *
+   * Four arms over four repairs. Each one exists because the repair it guards is
+   * a control that would otherwise only ever be seen passing, and three of the
+   * four are repairs to the CONTROLS THEMSELVES — the runner's ERRORED
+   * detection, the NUL gate's magic-byte sniff, the fixture-regression capture.
+   * A defect in any of those does not fail a build; it makes a build stop being
+   * able to fail, which is strictly worse.
+   * ────────────────────────────────────────────────────────────────────────── */
+  {
+    id: 'red-case-runner-errored-signatures',
+    gate: "the runner tells 'this arm did not RUN' from 'this gate failed' (OPUS-M4-005)",
+    violation: 'the ERRORED signature list emptied',
+    /* The most self-referential arm here and the one with the most leverage. An
+     * arm whose test path is misspelled exits NON-ZERO — `vitest run typo.test.ts`
+     * does — so before this the runner recorded "gate failed as required" and
+     * printed PROVEN. Every other case's falsifiability rests on the runner being
+     * able to tell those apart. */
+    patch: [
+      {
+        file: 'scripts/red-cases/errored-signatures.mjs',
+        find: 'export const ERRORED_SIGNATURES = [',
+        replace: 'export const ERRORED_SIGNATURES = [].length === 0 ? [] : [',
+      },
+    ],
+    greenCommand: ['exec', 'node', 'scripts/red-cases/runner-signature/check.mjs'],
+    redCommand: ['exec', 'node', 'scripts/red-cases/runner-signature/check.mjs'],
+    /* This arm's RED output QUOTES the signatures it is asserting about — that is
+     * what makes it a control — so the runner's own ERRORED detector matched it
+     * and recorded the arm as never having run. Exempt, with the reason stated. */
+    erroredExempt: true,
+  },
+  {
+    id: 'raw-nul-magic-bytes',
+    gate: 'the NUL gate cannot be evaded by RENAMING a file (OPUS-M4-005; M4-003 §6f D-3)',
+    violation: 'the magic-byte sniff removed, leaving the extension allowlist alone',
+    /* M4-003 recorded the bypass and left it: "a text file deliberately renamed
+     * to `.png` would be skipped. Magic-byte sniffing would close it… recorded as
+     * an M4-005 candidate". This is the close and its proof.
+     *
+     * The violation file is WRITTEN by `prepare` rather than committed, because
+     * the gate under test scans `git ls-files` — a committed fixture carrying a
+     * raw NUL would fail the gate on every ordinary run, the same trap the
+     * `raw-nul-scan` arm's own note describes. The RED command uses `--dir` for
+     * the reason `secret-scan` and `invariant-ids` do. */
+    patch: [
+      {
+        file: 'scripts/gates/raw-nul-scan.mjs',
+        find: '  if (magic === null) return true;',
+        replace: '  return true; // red case: extension-only, the pre-hardening behaviour',
+      },
+    ],
+    /* `setup`, NOT `prepare`: the fixture must exist for the GREEN run too, or
+     * the gate scans an empty directory and passes for the wrong reason. */
+    setup: [['exec', 'node', 'scripts/red-cases/raw-nul-magic/write-misnamed.mjs']],
+    greenCommand: [
+      'exec',
+      'node',
+      'scripts/gates/raw-nul-scan.mjs',
+      '--dir',
+      'scripts/red-cases/raw-nul-magic/fixture',
+    ],
+    redCommand: [
+      'exec',
+      'node',
+      'scripts/gates/raw-nul-scan.mjs',
+      '--dir',
+      'scripts/red-cases/raw-nul-magic/fixture',
+    ],
+    /* GREEN and RED are the SAME command, and the arms differ only by the patch —
+     * which is the point: with the sniff in place the misnamed file is scanned
+     * and FAILS, so the ordinary green/red polarity is inverted here. It is
+     * spelled explicitly below rather than left to a reader to notice. */
+    invertPolarity: true,
+    restore: [['exec', 'node', 'scripts/red-cases/raw-nul-magic/clean.mjs']],
+  },
+  {
+    id: 'nr15-capture-widening',
+    gate: 'a failing fixture-regression run retains its FULL output (NR-15)',
+    violation: 'the capture restored to the filtered summary lines',
+    /* NR-15 stayed open for five packets for one reason the register names
+     * exactly: "the gate truncates assertion output so the actual failure was
+     * never captured". The repair is a widening, and a widening nobody can
+     * falsify is a claim — a truncation nobody notices looks exactly like a
+     * capture. This restores the truncation and requires the control to see it. */
+    patch: [
+      {
+        file: 'scripts/sbx/capture.mjs',
+        find: '      run.output,',
+        replace:
+          "      run.output.split('\\n').filter((line) => / FAIL /.test(line)).slice(0, 12).join('\\n'), // red case: truncated again",
+      },
+    ],
+    greenCommand: ['exec', 'node', 'scripts/red-cases/nr15-capture/check.mjs'],
+    redCommand: ['exec', 'node', 'scripts/red-cases/nr15-capture/check.mjs'],
+  },
+  {
+    id: 'nr16-bare-line-scanner',
+    gate: 'the I-15 scanner sees a tenant query written across LINES (NR-16)',
+    violation: 'the bare-line detector removed, leaving the quoted-literal one alone',
+    /* FAD-33's finding: the tenant-table detector requires a quote earlier on the
+     * same line, so the same direct query became invisible by pressing Enter.
+     * The connection detectors are unaffected, which is why the gap scored low
+     * and why only an arm aimed at the bare-line detector can falsify it —
+     * everything else in that file stays green. */
+    patch: [
+      {
+        file: 'apps/api/test/support/tenant-access-scan.ts',
+        find: '    ...bareLineTenantTableDetectors(),',
+        replace: '    // red case: the bare-line detector is removed',
+      },
+    ],
+    greenCommand: [
+      'exec',
+      'vitest',
+      'run',
+      'apps/api/test/architecture/no-tenant-access-outside-unit-of-work.test.ts',
+    ],
+    redCommand: [
+      'exec',
+      'vitest',
+      'run',
+      'apps/api/test/architecture/no-tenant-access-outside-unit-of-work.test.ts',
+    ],
+  },
 ];
 
 /** @param {string[]} args */
@@ -1769,6 +1960,28 @@ function run(args) {
     encoding: 'utf8',
     env: { ...process.env, FORCE_COLOR: '0' },
   });
+
+  /* FAD-50 N-1(ii). `spawnSync` reports a failure to START the process in
+   * `result.error`, NOT in `status` — an ENOENT leaves `status: null`, empty
+   * stdout and empty stderr. That read as `ok: false` with no output at all, so
+   * an arm whose command could not be spawned reported "GATE FAILED" and was
+   * indistinguishable from a gate that ran and correctly failed. The reviewer
+   * hit exactly that, silently.
+   *
+   * Rendered into the output as an ERRORED signature instead, so the detector
+   * that already exists for "this arm did not RUN" catches it. A missing binary
+   * is not evidence about a gate. */
+  if (result.error !== undefined && result.error !== null) {
+    const reason = /** @type {{ message?: unknown }} */ (result.error).message ?? String(result.error);
+    return {
+      ok: false,
+      output:
+        `RED-CASE RUNNER: the command could not be spawned (${String(reason)}).\n` +
+        `  command: ${invocation.command} ${invocation.args.join(' ')}\n` +
+        'vitest matched no test file (a filter or a path is wrong)\n',
+    };
+  }
+
   return {
     ok: result.status === 0,
     output: stripAnsi(`${result.stdout ?? ''}${result.stderr ?? ''}`),
@@ -1807,11 +2020,78 @@ function applyViolation(testCase) {
   }
 }
 
+/**
+ * Everything named `__red_case__*` under a `dist` directory, however it got
+ * there.
+ *
+ * OPUS-M4-004 §8.2 measured the gap this closes, and the measurement is the
+ * point: after a **successful** run `git status` read clean while four compiled
+ * artifacts survived —
+ *
+ * ```
+ * packages/contracts/dist/src/__red_case__type.{js,d.ts,js.map,d.ts.map}
+ * ```
+ *
+ * The `typecheck` arm injects `packages/contracts/src/__red_case__type.ts`;
+ * `revertViolation` deleted the SOURCE, but `tsc` had already emitted into
+ * `dist`, and `dist` is gitignored. So the tree looked clean and a stale
+ * compiled artifact was left for whatever ran next to import.
+ *
+ * The sweep is by NAME rather than by a list of the four extensions, because the
+ * next injection will emit a set nobody predicted.
+ */
+function sweepDistArtifacts() {
+  /** @type {string[]} */
+  const swept = [];
+  /** @param {string} directory */
+  const walk = (directory) => {
+    /** @type {import('node:fs').Dirent[]} */
+    let entries;
+    try {
+      entries = readdirSync(directory, { withFileTypes: true });
+    } catch {
+      return; // a dist that has never been built
+    }
+    for (const entry of entries) {
+      const full = resolve(directory, entry.name);
+      if (entry.isDirectory()) {
+        walk(full);
+        continue;
+      }
+      if (entry.name.startsWith('__red_case__')) {
+        rmSync(full, { force: true });
+        swept.push(full);
+      }
+    }
+  };
+  for (const workspace of ['packages', 'apps']) {
+    /** @type {import('node:fs').Dirent[]} */
+    let members;
+    try {
+      members = readdirSync(resolve(REPO_ROOT, workspace), { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const member of members) {
+      if (!member.isDirectory()) continue;
+      walk(resolve(REPO_ROOT, workspace, member.name, 'dist'));
+    }
+  }
+  return swept;
+}
+
 function revertViolation() {
   for (const [target, original] of patchBackups) writeFileSync(target, original, 'utf8');
   patchBackups.clear();
   for (const target of injectedPaths) rmSync(target, { force: true });
   injectedPaths.length = 0;
+  const swept = sweepDistArtifacts();
+  if (swept.length > 0) {
+    process.stdout.write(
+      `  swept ${String(swept.length)} compiled red-case artifact(s) from dist/ ` +
+        '(invisible to git status — OPUS-M4-004 §8.2)\n',
+    );
+  }
 }
 
 /** Clears anything a previous interrupted run may have left behind. */
@@ -1913,8 +2193,31 @@ async function main() {
     '',
   ];
 
-  /** @type {{ id: string, gate: string, violation: string, green: boolean, red: boolean }[]} */
+  /** @type {{ id: string, gate: string, violation: string, green: boolean, red: boolean, errored: string | null }[]} */
   const results = [];
+
+  /* ── R-2: the built bundle exists BEFORE any arm reads it ──────────────────
+   *
+   * `network-guard-bundle` injects into `apps/web/dist/assets/` and
+   * `gate:network-guard` scans that directory. On a FRESH worktree there is no
+   * `dist` until `gate:build` has run, and the arm's GREEN then passes over an
+   * empty scan — a pass that means "there was nothing to look at". M4-002 §28
+   * worked around it by hand ("run after `check` so `dist/` existed for the
+   * network-guard arm"), which is a discipline nobody can enforce.
+   *
+   * Built once, here, so the ordering is a property of the runner rather than of
+   * the order somebody happened to run two batteries in. */
+  process.stdout.write('\n=== preflight: building apps/web so the bundle arms have a bundle ===\n');
+  const preflight = run(['run', 'gate:build']);
+  process.stdout.write(`  ${preflight.ok ? 'built' : 'BUILD FAILED — bundle arms will be unreliable'}\n`);
+  transcript.push(
+    '## preflight — production build (R-2 ordering)',
+    '',
+    '```',
+    preflight.output.trimEnd().slice(-4000),
+    '```',
+    '',
+  );
 
   for (const testCase of CASES) {
     process.stdout.write(`\n=== ${testCase.id} — ${testCase.gate} ===\n`);
@@ -1925,8 +2228,41 @@ async function main() {
       '',
     );
 
+    /* `setup` runs BEFORE the GREEN command; `prepare` runs after the violation
+     * is applied and therefore only on the RED side. The distinction is not
+     * cosmetic — `raw-nul-magic-bytes` put its fixture write in `prepare`, so its
+     * GREEN run scanned an EMPTY directory ("0 text file(s) scanned"), passed for
+     * the most boring possible reason, and — being an inverted-polarity arm that
+     * requires GREEN to fail — reported NOT PROVEN on every complete run. The
+     * first complete 63-arm battery is what surfaced it (OPUS-M4-005). */
+    for (const setupCommand of testCase.setup ?? []) run(setupCommand);
+
     const green = run(testCase.greenCommand);
-    process.stdout.write(`  GREEN (clean tree): ${green.ok ? 'gate passed' : 'GATE FAILED'}\n`);
+    /* One arm's output legitimately CONTAINS the ERRORED signatures, because it
+     * is the signatures' own control: `red-case-runner-errored-signatures` prints
+     * the strings it is asserting about. The detector detecting its own control
+     * is a self-reference, not a broken arm, and it made that arm report ERRORED
+     * on every complete run. Exempted explicitly rather than by weakening a
+     * pattern every other arm depends on. */
+    let errored = testCase.erroredExempt === true ? null : erroredReason(green.output);
+    /* FAD-50 N-1(i). An `invertPolarity` arm EXPECTS its green command to fail
+     * on the clean tree — that failure IS the proof (the magic-byte fixture is
+     * supposed to be rejected). The inline line said a flat "GATE FAILED", the
+     * summary table then scored the same arm `pass`, and the retained artifact
+     * contradicted itself on every run. The reading is annotated here so the two
+     * halves of the same file agree. */
+    const inverted = testCase.invertPolarity === true;
+    const greenReading =
+      errored !== null
+        ? `ERRORED — ${errored}`
+        : inverted
+          ? green.ok
+            ? 'GATE PASSED — and this arm requires it to FAIL (inverted polarity)'
+            : 'gate failed, AS THIS ARM REQUIRES (inverted polarity)'
+          : green.ok
+            ? 'gate passed'
+            : 'GATE FAILED';
+    process.stdout.write(`  GREEN (clean tree): ${greenReading}\n`);
     transcript.push('### GREEN — clean tree', '', '```', green.output.trimEnd(), '```', '');
 
     let red = { ok: true, output: '(not run)' };
@@ -1943,8 +2279,22 @@ async function main() {
       }
 
       red = prepareFailed ? { ok: true, output: 'prepare step failed' } : run(testCase.redCommand);
+      /* The RED direction is where this matters most: a misspelled test path
+       * exits non-zero and would otherwise read as "the gate failed as
+       * required". */
+      if (testCase.erroredExempt !== true) errored ??= erroredReason(red.output);
       process.stdout.write(
-        `  RED   (violation in tree): ${red.ok ? 'GATE STILL PASSED — decorative' : 'gate failed as required'}\n`,
+        `  RED   (violation in tree): ${
+          errored !== null
+            ? `ERRORED — ${errored}`
+            : inverted
+              ? red.ok
+                ? 'gate passed, AS THIS ARM REQUIRES (inverted polarity)'
+                : 'GATE FAILED — and this arm requires it to PASS (inverted polarity)'
+              : red.ok
+                ? 'GATE STILL PASSED — decorative'
+                : 'gate failed as required'
+        }\n`,
       );
       transcript.push('### RED — violation introduced', '', '```', red.output.trimEnd(), '```', '');
     } finally {
@@ -1956,12 +2306,17 @@ async function main() {
       id: testCase.id,
       gate: testCase.gate,
       violation: testCase.violation,
-      green: green.ok,
-      red: !red.ok,
+      /* `invertPolarity` is for an arm whose GREEN command is expected to FAIL
+       * on the clean tree — the magic-byte case, whose green command scans a
+       * fixture the hardening is supposed to reject. Spelled as a flag rather
+       * than left implicit, so the table reads the same way for every row. */
+      green: testCase.invertPolarity === true ? !green.ok : green.ok,
+      red: testCase.invertPolarity === true ? red.ok : !red.ok,
+      errored,
     });
   }
 
-  const failures = results.filter((r) => !r.green || !r.red);
+  const failures = results.filter((r) => r.errored !== null || !r.green || !r.red);
 
   const width = Math.max(...results.map((r) => r.id.length), 4);
   const table = [
@@ -1971,7 +2326,7 @@ async function main() {
     ...results.map(
       (r) =>
         `${r.id.padEnd(width)}  ${(r.green ? 'pass' : 'FAIL').padEnd(5)}  ${(r.red ? 'fail' : 'PASS').padEnd(5)}  ${
-          r.green && r.red ? 'PROVEN' : 'NOT PROVEN'
+          r.errored !== null ? 'ERRORED' : r.green && r.red ? 'PROVEN' : 'NOT PROVEN'
         }`,
     ),
     `${'-'.repeat(width)}  -----  -----  -------`,
@@ -1979,6 +2334,10 @@ async function main() {
     '',
     'GREEN "pass" = the gate passes on the clean tree.',
     'RED   "fail" = the gate fails when the violation is present. That is the desired outcome.',
+    'ERRORED    = the arm did not RUN. Never counted as proven, however its exit code read.',
+    ...results
+      .filter((r) => r.errored !== null)
+      .map((r) => `  ERRORED ${r.id}: ${String(r.errored)}`),
     '',
   ].join('\n');
 

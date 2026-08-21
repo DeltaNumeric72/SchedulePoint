@@ -21,6 +21,7 @@ import { SESSION_COOKIE_NAME, encodeSessionCookie } from '../../src/authn/tokens
 import { FIXTURE_PASSWORD, FIXTURE_SCRYPT, fixtureSecretBox } from '../support/authn.js';
 import { ProbeFalsified, type SbxScenario } from './contract.js';
 import { buildScenario018 } from './scenario-018.js';
+import { buildM4Scenarios } from './scenarios-m4.js';
 
 /** The instant every clock-driven SBX arm starts at. Fixed, UTC, locale-free. */
 const SBX_EPOCH = new Date('2026-04-01T08:00:00.000Z');
@@ -2372,7 +2373,9 @@ export function buildScenarios(deps: () => ScenarioDependencies): readonly SbxSc
   // OPUS-M3-003. Defined in its own module: `scenarios.ts` is a shared
   // integration surface during the parallel M3 window, so the change here is one
   // import and one array entry.
-  return [sbx001, sbx002, sbx004, sbx005, sbx006, buildScenario018(deps)];
+  /* OPUS-M4-005. SBX-015/016/017 (doc 35 §6g Included (C)), APPENDED — see
+   * `buildM4Scenarios`' docblock for why the position matters. */
+  return [sbx001, sbx002, sbx004, sbx005, sbx006, buildScenario018(deps), ...buildM4Scenarios(deps)];
 }
 
 /**

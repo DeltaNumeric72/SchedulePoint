@@ -125,12 +125,47 @@ export class QueuePoolRegistry {
    *
    * Best-effort by nature: the failure mode this whole module addresses is a
    * process that does not get to run its shutdown path.
+   *
+   * ## NR-19 — the orphan a clean release used to leave
+   *
+   * `reclaimStalePools` considers only pools `where released_at is null`, and a
+   * pool stopped through `stop()` releases its registry row. So **a pool that
+   * released cleanly while still holding a locked job left an orphan no
+   * production sweep would ever reclaim** — recorded at OPUS-M4-002 §25b as a
+   * real gap rather than a test inconvenience, and carried since as NR-19.
+   *
+   * It is not hypothetical. SP-D E-2.4 measured it: "a **graceful** shutdown does
+   * not release the in-flight job either, and does not persist its failure — so
+   * an ordinary rolling deploy strands every in-flight job for the same 4
+   * hours." The sweep's heartbeat rule cannot help, because the pool did the
+   * right thing and said so.
+   *
+   * The close is here rather than in the sweep, and the choice matters: a sweep
+   * that re-examined released pools would need a marker to know which it had
+   * already handled — a column this migration set cannot add — and without one
+   * it would force-unlock the same pools on every tick for ever. A pool
+   * unlocking **its own** jobs at the moment it stops needs no marker, cannot
+   * take a live peer's lease, and is unlocking work it has by definition
+   * abandoned.
+   *
+   * The unlock happens BEFORE the release is recorded. A crash between the two
+   * leaves the pool *unreleased*, which the stale sweep still catches — the
+   * fail-safe direction. The other order would leave a released pool holding
+   * locks, which is the state this exists to prevent.
    */
   async release(): Promise<void> {
+    await this.#client.query('select graphile_worker.force_unlock_workers($1::text[])', [
+      [this.#options.poolId],
+    ]);
     await this.#client.query(
       'update queue_pools set released_at = now() where pool_id = $1 and released_at is null',
       [this.#options.poolId],
     );
+  }
+
+  /** Closes the connection this registry owns. */
+  async close(): Promise<void> {
+    await (this.#client as unknown as { end: () => Promise<void> }).end();
   }
 
   /**
@@ -140,12 +175,12 @@ export class QueuePoolRegistry {
    * `force_unlock_workers` is graphile-worker's own function, so the unlock uses
    * the library's semantics rather than an `UPDATE` of our own against its
    * tables — the difference matters the first time its locking model changes.
+   *
+   * (Moved here at FAD-50 N-5. It had come to sit above `close()`, which does
+   * none of this — it ends a connection — so the file described the sweep in the
+   * one place a reader would not look for it and left `close()` looking like it
+   * unlocked jobs.)
    */
-  /** Closes the connection this registry owns. */
-  async close(): Promise<void> {
-    await (this.#client as unknown as { end: () => Promise<void> }).end();
-  }
-
   async reclaimStalePools(): Promise<ReclaimResult> {
     const stale = await this.#client.query<{ pool_id: string }>(
       `select pool_id

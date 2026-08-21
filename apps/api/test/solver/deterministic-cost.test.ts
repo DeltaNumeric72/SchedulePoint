@@ -31,11 +31,23 @@ import { generatedCorpus } from './corpus/generators.js';
  *
  * That is deliberate and it is the honest shape. EV-M0-SPC H-7 measured the
  * deterministic portfolio at roughly **12× slower on a toy instance and *faster*
- * on a hard one**; THIS packet measured ≈1× on the thirteen startup-dominated
- * classes and 10.05× on the one class large enough to search, and did NOT
- * reproduce H-7's faster half at all. A spread that wide across two measurement
- * campaigns is why any threshold this file asserted would be an invented
- * performance band, and no band exists until the M6 benchmark sets one. So it measures, it records, and the only thing it
+ * on a hard one**; OPUS-M4-004 measured ≈1× on the thirteen startup-dominated
+ * classes and **10.05×** on `B-fairness-shaped`, the one class large enough to
+ * search, and did NOT reproduce H-7's faster half at all. A spread that wide
+ * across two measurement campaigns is why any threshold this file asserted would
+ * be an invented performance band, and no band exists until the M6 benchmark
+ * sets one.
+ *
+ * **The 10.05× is HISTORY, not a current measurement (FAD-50 N-3).** It was
+ * taken when `DETERMINISTIC_PARAMETERS` carried `maxTimeInSeconds: 10`, so the
+ * deterministic arm was being stopped by a WALL CLOCK at ten seconds while
+ * best-effort finished in about one — the ratio was largely that clock, and the
+ * `FEASIBLE`-vs-`OPTIMAL` split beside it had the same cause (EV-M4-005 §20a,
+ * §21f). Under the repaired 900-second net the same class runs to a proven
+ * optimum in ~33s and this file **would not produce 10.05× again**. It is left
+ * here as the recorded M4-004 figure with its conditions stated, because
+ * deleting a measurement is worse than dating it; re-run this file to get a
+ * current one. So it measures, it records, and the only thing it
  * asserts is that both modes produced the SAME OUTCOME CLASS: a cost measurement
  * over two runs that answered differently would be measuring two problems.
  *
@@ -153,12 +165,22 @@ describe.skipIf(!ENABLED)('deterministic mode, measured per corpus class', () =>
        * finding rather than a loosened assertion.** The first run of this file
        * asserted status equality and `B-fairness-shaped` failed it:
        * best-effort proved `OPTIMAL`, deterministic returned `FEASIBLE`. Both
-       * are true and neither is a disagreement about the problem — the
-       * deterministic budget stopped the search before optimality was PROVEN,
-       * which is precisely the cost this file exists to measure. Asserting
+       * are true and neither is a disagreement about the problem. Asserting
        * status equality would have been asserting that a budget change cannot
        * cost a proof, and it can. The per-class row records both statuses so
-       * the fact is visible rather than smoothed away. */
+       * the fact is visible rather than smoothed away.
+       *
+       * **ATTRIBUTION CORRECTED (FAD-49(5); EV-M4-005 §20a/§20d).** This comment
+       * used to say "the deterministic budget stopped the search before
+       * optimality was PROVEN". It did not. The **WALL CLOCK** did: measured on
+       * this class, the deterministic run stopped at 9.497948s of its 10s
+       * `maxTimeInSeconds` having consumed only **12–22 of the 100** pinned
+       * deterministic units, and with the clock raised out of the way the same
+       * problem proves `OPTIMAL` at 76.702882 units. The 10.05× ratio quoted in
+       * this file's header is that 10-second wall clock against a best-effort
+       * run finishing in about a second — a real measurement whose CAUSE was
+       * misread. The cost this file measures is real; the sentence naming which
+       * limit imposed it was wrong, and is now right. */
       expect(
         outcomeClassOf(bestEffort.outcome.status),
         `${fixture.name}: the modes disagreed`,

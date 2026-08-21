@@ -1,0 +1,6 @@
+=== post-red-case tree hygiene ===
+2026-08-18T10:55:04Z
+--- git status --porcelain ---
+--- find dist __red_case__ ---
+--- find any __red_case__ ---
+(empty above means clean)

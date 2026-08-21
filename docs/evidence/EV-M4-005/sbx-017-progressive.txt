@@ -1,0 +1,44 @@
+SBX-017 — Progressive builds — protected assignments preserved exactly, and partial circulation
+generated: 2026-08-18T11:50:58.594Z
+
+STATE: PASS   falsifiability probe: FALSIFIABLE   gate-required: YES
+
+SPEC-16 §1 contract
+  owner                    OPUS-M4-005 (implementer) / Fable (acceptance)
+  fixtureProvenance        MULTI `full` profile with `seed.catalogue: [alpha]`, provisioned by apps/api/test/support/multi.ts from a slug. The scenario builds its own two-stage history through the production services: stage 1 is a real solve whose candidate is reviewed, approved and written into a new draft; one of the resulting assignments is then PINNED through `setPin`, and stage 2 is a progressive build citing stage 1 in `parent_build_ids` and that identity in `protected_assignment_identities`. Synthetic throughout; a 2048 period window far from every other fixture.
+  deterministicSetup       One embedded PostgreSQL cluster per run, initialised from empty; migrations up -> down -> up. The two stages are strictly sequential — stage 2 is created only after stage 1 has settled — so no result depends on interleaving. Both solves run under the venv CP-SAT worker; every assertion is over rows in the database, never over a duration.
+  externalDependency       The CP-SAT worker subprocess (`SP_SOLVER_WORKER_COMMAND`). Nothing else.
+  faultControls            One injected, plus the probe. The progressive stage is given a protected identity and the solver is free to place everything else, so the stage is a real re-decision of the period rather than a copy. The falsifiability probe hands the preservation oracle a stage output in which the protected assignment MOVED to another membership and requires the oracle to reject it. No notification is sent to any destination and nothing is published.
+  objectiveOracle          Three conjuncts: (1) PROTECTION RECORDED — the stage-2 canonical input carries the protected identity as a fixed input with `isPinned: true`, so the protection is an INPUT rather than a hope; (2) PRESERVED EXACTLY — after the stage-2 candidate is selected into a new draft, the protected identity is present with the SAME membership, the SAME date, the SAME shift type and still pinned; (3) PARTIAL CIRCULATION — the partial draft reaches `in_review` through the EXISTING M3 path (`transitionVersion`) and is readable, while the period is still `planning`, holds no publication record and no current published assignment.
+  retainedArtifact         docs/evidence/EV-M4-005/sbx-017-progressive.txt
+  environment              LIVE-SIM
+  earliestExecutionPoint   E2
+
+tables exercised: assignment_identities, assignment_snapshots, current_published_assignments, publication_records, schedule_versions
+policies exercised: I-18 — nothing published, nothing mutated | SPEC-04 §6 — fixed inputs are recorded, never inferred | report 21 §5 — unlocking a protected assignment is explicit
+
+OBSERVATIONS
+
+  stage-1:
+    a real solve was reviewed, approved and written into a NEW draft 88ff2f25-a055-4bbf-9c8b-3f8c5832992f; the source draft is untouched
+
+  protection:
+    identity ae71ec7f-5c1a-4c6f-aad7-495c7f0aeb06 pinned on the stage-1 draft (3cbcc8fd-a2e1-44b7-9a75-60fd127e74d8 on 2048-01-06)
+
+  stage-2-inputs:
+    the canonical input carries 1 fixed input(s); the protected identity is present and pinned; parent build recorded
+
+  stage-2-lifecycle:
+    completed -> reviewed -> progressively_extended -> reviewed -> approved -> applied_to_draft_schedule; new draft d3e4fbf4-40a7-44e8-9aec-20c6a057e272
+
+  preserved-exactly:
+    identity ae71ec7f-5c1a-4c6f-aad7-495c7f0aeb06 survived the progressive stage with the same membership, date and shift type, and is still pinned (1 assignment(s) on the new draft)
+
+  partial-circulation:
+    a draft staffing 1 of 7 dates reached in_review through the existing M3 path; the period is still planning, with 0 publication records and 0 published assignments
+
+  queue-released:
+    2 build.solve job(s) consumed by the PRODUCTION queue runner, each answering not-claimable because its build had already settled; the shared queue is left as this scenario found it (FAD-15 Layer 3)
+
+  probe-control:
+    the oracle accepts an exactly-preserved assignment

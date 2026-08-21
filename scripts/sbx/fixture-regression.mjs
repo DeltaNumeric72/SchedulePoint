@@ -22,6 +22,8 @@ import { spawnSync } from 'node:child_process';
 import { readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
+import { CAPTURE_ROOT, writeCapture } from './capture.mjs';
+
 /**
  * Every seed that has ever exposed an order dependence in this suite.
  *
@@ -57,6 +59,8 @@ const FIXED_SEEDS = [
 const QUICK = process.argv.includes('--quick');
 const results = [];
 
+const captures = [];
+
 function run(label, args) {
   const started = Date.now();
   const result = spawnSync('node', ['node_modules/vitest/vitest.mjs', 'run', ...args], {
@@ -72,10 +76,19 @@ function run(label, args) {
     `${ok ? 'PASS' : 'FAIL'}  ${label.padEnd(46)} ${elapsed.padStart(6)}s  ${tests}\n`,
   );
   if (!ok) {
+    /* The short version, for the console. Unchanged. */
     const failures = output
       .split('\n')
       .filter((line) => / FAIL +\|api\| /.test(line) || /FAD-15 Layer 1 violated/.test(line));
     for (const line of failures.slice(0, 12)) process.stdout.write(`        ${line.trim()}\n`);
+
+    /* NR-15: the LONG version, kept. Everything the run wrote — the assertion,
+     * the diff, the stack, the surrounding stdout — because the next
+     * reproduction of an unexplained failure has to be diagnosable from the
+     * artifact alone. See `scripts/sbx/capture.mjs` for why it lives there. */
+    const capturePath = writeCapture({ label, args, status: result.status, output });
+    captures.push(capturePath);
+    process.stdout.write(`        FULL OUTPUT RETAINED: ${capturePath}\n`);
   }
   return ok;
 }
@@ -138,6 +151,11 @@ process.stdout.write(
 );
 if (failed.length > 0) {
   for (const result of failed) process.stdout.write(`  FAILED: ${result.label}\n`);
+  process.stdout.write(
+    `\nNR-15: ${String(captures.length)} full-output capture(s) retained under ${CAPTURE_ROOT}\n` +
+      'Diagnose from those, not from the summary lines above — the truncation is what kept\n' +
+      'NR-15 unexplained across five packets.\n',
+  );
   process.exit(1);
 }
 process.stdout.write(

@@ -1,0 +1,111 @@
+=== OPUS-M4-005, FAD-51 final condition round: D-1..D-4 (EV-M4-005 §23e) ===
+cwd:     /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-005
+branch:  opus/m4-005-integration
+base:    080b175
+solver:  SP_SOLVER_WORKER_COMMAND=/Users/prabashan/.venvs/sp-solver/bin/python3
+note:    serial, idle machine. The FULL 64-arm battery and fixture-regression
+         were NOT run — they run at orchestrator acceptance.
+
+=== PART A — D-1, the defect measured, then the repair, then the ENOENT end to end ===
+
+  BEFORE. The synthesised diagnostic against the shipped signature set:
+
+    $ node -e "erroredReason('RED-CASE RUNNER: the command could not be spawned
+                (spawnSync pnpm ENOENT).\n ... \nvitest matched no test file (a filter
+                or a path is wrong)\n')"
+      => null
+
+    §22 appended the human REASON of the `No test files found` signature rather
+    than text its PATTERN (/No test files found/) matches. The diagnostic
+    printed; the arm still scored GATE FAILED. Asymmetric case: green spawns,
+    red does not -> RED "fails as required" -> PROVEN, violation never tested.
+
+  THE ENOENT, provoked end to end (pnpm off PATH, npm_execpath unset):
+
+    spawnSync status = null
+    spawnSync stdout = ""
+    spawnSync stderr = ""
+    spawnSync error  = spawnSync pnpm ENOENT
+    ---
+    erroredReason(synthesised) = "the command could not be spawned (a binary is missing from PATH)"
+    VERDICT = ERRORED  <-- repaired
+
+  AFTER. `/could not be spawned/` added to ERRORED_SIGNATURES; the runner's own
+  wording pinned verbatim in the falsifiability check, plus a must-NOT-be-errored
+  control that says the word "spawned" innocently.
+
+    $ node scripts/red-cases/runner-signature/check.mjs
+    PASS  red-case runner ERRORED signatures — 3 detected, 4 correctly left alone
+    EXIT=0
+
+  Both halves of the arm that owns this check:
+
+    === red-case-runner-errored-signatures ===
+      patches: scripts/red-cases/errored-signatures.mjs
+      green/red command: pnpm exec node scripts/red-cases/runner-signature/check.mjs
+      prepare: (none)
+      GREEN (clean tree)      : exit=0 (0.2s) 
+      RED   (violation in tree): exit=1 (0.2s) 
+      polarity: normal
+      VERDICT: GREEN passed (as required) · RED failed (as required) → PROVEN
+
+=== PART B — D-2, the completeness claim measured false, then repaired ===
+
+  BEFORE (aggregating over the ALREADY-TRUNCATED list):
+    total changeCount      = 25
+    itemised changes.length= 20 (truncated at CHANGE_LIMIT)
+    class sum              = 20
+    COMPLETE?              = false
+
+  AFTER (aggregating BEFORE the truncation, inside compareConstituents):
+    n=25: changeCount=25 itemised=20 classSum=25 COMPLETE=true
+    n=40: changeCount=40 itemised=20 classSum=40 COMPLETE=true
+    n=3:  changeCount=3  itemised=3  classSum=3  COMPLETE=true
+
+  MUTATION — restore the pre-D-2 aggregation and both new arms fail:
+    × ...the aggregate is COMPLETE even when the itemised list was truncated
+      → the per-class counts inherited the CHANGE_LIMIT bound: expected 20 to be 40
+    × ...the invariant holds across MANY classes over the limit, not just one
+      → expected 20 to be 45
+    restored → 6 passed
+
+  $ pnpm exec vitest run apps/api/test/builds/e2-quality-and-credits.test.ts \
+                        apps/api/test/builds/result-reproducibility-wiring.test.ts \
+                        apps/api/test/builds/concurrency-recovery-matrix.test.ts
+    Test Files  3 passed (3)
+         Tests  63 passed (63)
+    EXIT=0
+
+=== PART C — D-3, the real-stack critical path at both viewports ===
+
+  $ node scripts/run-in-workspace.mjs apps/web playwright test --config e2e/real-stack.config.ts
+    2 passed (39.6s)
+    EXIT=0
+
+  Step 14 now asserts the schedule-status TEXT matches /^No shifts between /,
+  which is the exact outcome this workflow must produce (it publishes nothing),
+  identically at both viewports. The previous four-way disjunction admitted the
+  non-empty schedule too, and `toBeAttached` was satisfied while that same
+  element still read "Loading your schedule…".
+
+=== PART D — an integrity failure this round hit twice, recorded ===
+
+  The first `check` came back 16/17. The citation-integrity gate caught D-1's
+  new verbatim sample:
+
+    FAIL  test/architecture/citation-integrity.test.ts > FULL PATHS
+    a citation points at a file that does not exist:
+      + "scripts/red-cases/runner-signature/check.mjs:28 cites apps/api/test/example.test.ts"
+
+  The sample is a FIXTURE STRING, not a citation — but nothing in the text says
+  so, and the gate cannot tell. It is right: a plausible-looking path that no
+  clone has is exactly what it exists to catch. Repointed at a real test file.
+  The SECOND attempt failed the same way, because the comment explaining the fix
+  quoted the bad path. Reworded. Both are recorded rather than quietly fixed.
+
+=== PART E — the full gate battery ===
+
+  $ corepack pnpm check          → transcript 37-check-fad51.txt
+    17 gate(s): 17 passed, 0 failed
+    unit: Tests 2153 passed | 14 skipped (2167)
+    EXIT=0

@@ -2,8 +2,12 @@ import { createHash, randomUUID } from 'node:crypto';
 
 import type { BuildFinding } from '@schedulepoint/contracts';
 import {
+  SOLVER_STATUSES,
+  TERMINATION_REASONS,
   reproducibilityMode,
+  resultReproducibility,
   type AuditEventName,
+  type ResultReproducibilityVerdict,
   type SolverParameters,
   type TenantContext,
   type UnitOfWork,
@@ -164,6 +168,23 @@ export function auditNameFor(input: RecordEventInput): AuditEventName | null {
  * epoch, a reason CODE. Never operator free text, never a worker token (I-07).
  */
 export async function recordBuildEvent(uow: Uow, input: RecordEventInput): Promise<void> {
+  /* ── who acted, resolved ONCE (OPUS-M4-005) ────────────────────────────────
+   *
+   * `undefined` means "whoever this unit of work is for"; explicit `null` means
+   * "no human, and I mean it". Since D-4b moved dispatch onto the queue there is
+   * a third case that used to be unreachable: a unit of work opened by the
+   * WORKER, whose context legitimately names no membership.
+   *
+   * That case previously threw `AUDIT_ACTOR_UNRESOLVED` — the recorder refusing
+   * to attribute an event to nobody, which is right — and the claim would have
+   * been unrecordable on the queued path. It is resolved here rather than at
+   * each call site: the resolved actor is computed once and the system-actor
+   * marker is derived FROM IT, so "the timeline says nobody" and "the chain says
+   * membership" can no longer disagree. A worker claiming a build IS a system
+   * act, which is exactly what the docblock below already said about the reaper
+   * and the claim — the claim simply never said it. */
+  const actorMembershipId = input.actorMembershipId ?? uow.context.membershipId;
+
   await uow.query
     .insertInto('build_run_events')
     .values({
@@ -177,7 +198,7 @@ export async function recordBuildEvent(uow: Uow, input: RecordEventInput): Promi
       current_claim_epoch: input.currentClaimEpoch ?? null,
       reason: input.reason ?? null,
       detail: JSON.stringify(input.detail ?? {}),
-      actor_membership_id: input.actorMembershipId ?? uow.context.membershipId,
+      actor_membership_id: actorMembershipId,
     })
     .execute();
 
@@ -197,7 +218,7 @@ export async function recordBuildEvent(uow: Uow, input: RecordEventInput): Promi
     /* The reaper and the claim are system acts and say so. "Nobody was acting"
      * and "we failed to resolve who was acting" must not look the same in an
      * audit trail, which is what the explicit marker is for. */
-    ...(input.actorMembershipId === null ? { systemActor: true } : {}),
+    ...(actorMembershipId === null ? { systemActor: true } : {}),
   });
 }
 
@@ -425,6 +446,76 @@ export function configurationReproducibility(
   configuration: ConfigurationRow,
 ): 'deterministic' | 'best-effort' {
   return reproducibilityMode(parametersOf(configuration));
+}
+
+/**
+ * The RESULT-side reproducibility verdict for a finished run (FAD-49).
+ *
+ * Both halves come off rows this schema already carries, which is why FAD-49
+ * could rule this a derivation rather than a migration:
+ *
+ *   * `build_runs.solver_parameters` — the FULL dispatched parameter set,
+ *     written at CLAIM time precisely so "a build that then crashes still says
+ *     what it was run with" (`runner.ts`), so both budgets are here;
+ *   * `build_run_results.quality_metrics.solverStatistics.wallTimeSeconds` —
+ *     what the search actually spent, already read back by `qualityOf`.
+ *
+ * Returns `null` for a run that has not produced a runtime record yet, matching
+ * the nullability the detail surface already handles: before a solve there is
+ * nothing to be honest or dishonest about.
+ */
+export function runResultReproducibility(
+  run: {
+    readonly solver_parameters: unknown;
+    readonly reproducibility_mode: string | null;
+    /** FAD-50 B-1: what ENDED the run. Written by `transitionRun` on the same row. */
+    readonly termination_reason: string | null;
+    readonly solver_status: string | null;
+  },
+  wallTimeSeconds: number | null,
+): ResultReproducibilityVerdict | null {
+  if (run.reproducibility_mode === null) return null;
+
+  /* Parsed defensively rather than cast. The column is written by the claim and
+   * is well-formed for every run this code path can reach, but a verdict that
+   * fails OPEN on a malformed bag would be claiming reproducibility from a row
+   * it could not read — the exact shape of the defect this function exists to
+   * remove. An unreadable parameter set is `unrecorded`. */
+  const raw = (run.solver_parameters ?? {}) as Record<string, unknown>;
+  const number = (value: unknown): number | null =>
+    typeof value === 'number' && Number.isFinite(value) ? value : null;
+
+  const maxTimeInSeconds = number(raw['maxTimeInSeconds']);
+  const interleaveSearch = raw['interleaveSearch'];
+  if (maxTimeInSeconds === null || typeof interleaveSearch !== 'boolean') {
+    return {
+      verdict: 'unrecorded',
+      reproducible: false,
+      detail:
+        'This build did not record the parameter set it ran under, so whether its ' +
+        'result can be reproduced cannot be established.',
+    };
+  }
+
+  /* Parsed against the closed vocabularies rather than cast. An unrecognised
+   * termination reads as ABSENT, which the verdict treats as "cannot establish
+   * that it completed" — the fail-closed direction. A cast would let a value
+   * outside the set walk straight past the `!== 'completed'` test. */
+  const terminationReason = TERMINATION_REASONS.find((r) => r === run.termination_reason) ?? null;
+  const status = SOLVER_STATUSES.find((s) => s === run.solver_status) ?? null;
+
+  return resultReproducibility({
+    parameters: {
+      randomSeed: number(raw['randomSeed']) ?? 0,
+      numSearchWorkers: number(raw['numSearchWorkers']) ?? 1,
+      maxTimeInSeconds,
+      maxDeterministicTime: number(raw['maxDeterministicTime']),
+      interleaveSearch,
+    },
+    wallTimeSeconds,
+    terminationReason,
+    status,
+  });
 }
 
 /* ────────────────────────────────────────────────────────────────────────────

@@ -26,7 +26,7 @@ import { z } from 'zod';
  * `scripts/red-cases/import-boundary/`. `packages/domain/src/calendar` holds the
  * same rule for the server, and two copies of a rule are two truths that can
  * drift, so they are not left to agree by inspection:
- * `packages/contracts/test/schedule/calendar-agreement.test.ts` runs both over
+ * `apps/api/test/schedule/calendar-agreement.test.ts` runs both over
  * an exhaustive date range and asserts they answer identically on every input,
  * including the century and leap cases. That is the same discipline the
  * catalogue's constants already use against migration 0005's CHECKs.

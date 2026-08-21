@@ -38,7 +38,10 @@ import { scheduleActor } from './schedule.js';
  * ## What the seeder deliberately does NOT do
  *
  * It does not spawn the worker. The dispatch is covered directly by the named
- * proofs (`runner.test.ts`), which is where a subprocess belongs; a sweep that
+ * proofs — `apps/api/test/builds/concurrency-recovery-matrix.test.ts`'s M-07,
+ * M-08 and M-23 arms, which drive a real subprocess through cancellation, wall
+ * clock and a hostile response — which is where a subprocess belongs; a sweep
+ * that
  * spawned one per group would add minutes and a second failure mode to a test
  * whose question is "does any table leak across a tenant boundary". The outcome
  * handed to `persistOutcome` is a hand-built one — which is exactly the shape

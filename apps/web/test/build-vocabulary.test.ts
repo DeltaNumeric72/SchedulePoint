@@ -7,6 +7,7 @@ import {
   EXPLANATION_LABELS,
   REPRODUCIBILITY_DETAIL,
   REPRODUCIBILITY_LABELS,
+  RESULT_REPRODUCIBILITY_LABELS,
   STATE_EXPLANATIONS,
   STATE_LABELS,
   TERMINATION_LABELS,
@@ -33,7 +34,46 @@ const ALL_STRINGS = [
   ...Object.values(EXPLANATION_DETAIL),
   ...Object.values(REPRODUCIBILITY_LABELS),
   ...Object.values(REPRODUCIBILITY_DETAIL),
+  ...Object.values(RESULT_REPRODUCIBILITY_LABELS),
 ];
+
+/**
+ * **FAD-49 — the RESULT labels never promise what only the server can know.**
+ *
+ * These four strings label a run that has FINISHED, and the client cannot see
+ * how its search ended. The reason travels with the build (`detail` on the
+ * wire, asserted in `packages/domain/test/ports/result-reproducibility.test.ts`),
+ * so the client's job here is only to name the verdict — and, for the three
+ * that refuse, to refuse visibly. A label that hedged would let the honest
+ * server sentence sit under a heading that undoes it.
+ */
+describe('the RESULT reproducibility labels say which way the verdict went', () => {
+  it('names all four verdicts and no others', () => {
+    expect(Object.keys(RESULT_REPRODUCIBILITY_LABELS).sort()).toEqual([
+      'best-effort',
+      'interrupted',
+      'reproducible',
+      'unrecorded',
+      'wall-clock-truncated',
+    ]);
+  });
+
+  it('every refusing verdict reads as a refusal at a glance', () => {
+    for (const verdict of ['wall-clock-truncated', 'best-effort', 'interrupted'] as const) {
+      expect(RESULT_REPRODUCIBILITY_LABELS[verdict]).toMatch(/^Not reproducible/);
+    }
+    /* `unrecorded` is NOT "Not reproducible": the run may well be reproducible
+       and we cannot tell. Saying otherwise would be inventing a finding. */
+    expect(RESULT_REPRODUCIBILITY_LABELS['unrecorded']).toBe(
+      'Reproducibility not established',
+    );
+    expect(RESULT_REPRODUCIBILITY_LABELS['reproducible']).toBe('Reproducible');
+  });
+
+  it('the wall-clock verdict names the wall clock, so the label alone is actionable', () => {
+    expect(RESULT_REPRODUCIBILITY_LABELS['wall-clock-truncated']).toContain('wall clock');
+  });
+});
 
 describe('no surface claims optimality it has not been given', () => {
   it('never uses the word "optimal" anywhere in the build vocabulary', () => {

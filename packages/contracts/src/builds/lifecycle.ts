@@ -369,6 +369,63 @@ export const buildRunSummarySchema = z
   .strict();
 export type BuildRunSummary = z.infer<typeof buildRunSummarySchema>;
 
+/* ────────────────────────────────────────────────────────────────────────────
+ * Staleness — doc 35 §6g ruling 4 (OPUS-M4-005)
+ *
+ * One changed input CLASS, counted — `kind` from the vocabulary migration 0016
+ * already persists, plus the direction and how many moved that way.
+ *
+ * **NARROWED at FAD-50 C-4.** This used to carry `key` and both revisions. For
+ * the `qualificationHolding` class the key is a holding row's surrogate id and
+ * the revision its version counter, so the detail GET was disclosing which
+ * holding rows exist and which changed — to any caller who could read the
+ * build, with no `staffing.qualification_holding.read` grant required. The
+ * server still COMPUTES over every constituent (FAD-29: an enforcement gate
+ * reads the truth, not the caller's visibility); this is what it may say.
+ * `apps/api/src/builds/constituent-diff.ts`'s `stalenessWire` is the projection,
+ * and records the measurement behind going uniformly class-level.
+ *
+ * Nothing here is free text: a kind is a closed vocabulary token, a direction is
+ * one of three, and a count is a number — so a staleness report carries no name
+ * a person typed and nothing I-07 objects to.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+export const constituentChangeSchema = z
+  .object({
+    kind: z.string().min(1).max(64),
+    direction: z.enum(['moved', 'removed', 'added']),
+    /** How many of this class moved this way. Never which ones. */
+    count: z.number().int().min(1),
+  })
+  .strict();
+export type ConstituentChangeWire = z.infer<typeof constituentChangeSchema>;
+
+export const buildStalenessSchema = z
+  .object({
+    stale: z.boolean(),
+    /** Bounded; `changeCount` carries the true total so the bound is never a lie. */
+    changes: z.array(constituentChangeSchema).max(20),
+    changeCount: z.number().int().min(0),
+    /** Reason codes, never detail prose. */
+    assemblyRefusals: z.array(z.string().min(1).max(64)).max(20),
+  })
+  .strict();
+export type BuildStalenessWire = z.infer<typeof buildStalenessSchema>;
+
+export const buildStaleInputsBodySchema = z
+  .object({
+    error: z
+      .object({
+        code: z.literal('STALE_BUILD_INPUTS'),
+        message: z.string().min(1),
+        staleness: buildStalenessSchema,
+        correlationId: z.string().min(1),
+      })
+      .strict(),
+  })
+  .strict();
+export type BuildStaleInputsBody = z.infer<typeof buildStaleInputsBodySchema>;
+
 export const buildRunDetailSchema = z
   .object({
     run: buildRunSummarySchema,
@@ -391,7 +448,52 @@ export const buildRunDetailSchema = z
      * the edit.
      */
     sourceDigest: z.string().regex(/^[0-9a-f]{64}$/),
+    /**
+     * The DISPATCH statement: which parameter set the build was posed under.
+     * A fact about the REQUEST, computed before any search happened.
+     */
     reproducibility: z.enum(['deterministic', 'best-effort']).nullable(),
+    /**
+     * **Whether this RESULT can be reproduced** (FAD-49; EV-M4-005 §20/§21).
+     *
+     * Additive, and distinct from `reproducibility` above on purpose. CP-SAT
+     * stops at whichever of the wall-clock and deterministic limits arrives
+     * first, so a build posed `deterministic` can still have had its search
+     * ended by the clock — and a result reached that way depends on how fast
+     * the machine was, not only on the pinned set. Reporting the request-side
+     * mode as though it settled the question is the confident-wrong claim
+     * SPEC-04 §4 (amended) exists to refuse.
+     *
+     * `detail` always names the reason, so a surface never has to invent one.
+     * `null` only before a run has any runtime record at all.
+     */
+    resultReproducibility: z
+      .object({
+        verdict: z.enum([
+          'reproducible',
+          'wall-clock-truncated',
+          /* FAD-50 B-1. A run something ENDED — cancelled, deadlined, killed,
+             crashed, or refused before it began. Distinct from `unrecorded`,
+             where the facts are missing rather than damning. */
+          'interrupted',
+          'best-effort',
+          'unrecorded',
+        ]),
+        reproducible: z.boolean(),
+        detail: z.string().min(1),
+      })
+      .nullable(),
+    /**
+     * doc 35 §6g ruling 4. Whether ANY input revision has moved since the
+     * snapshot was assembled — the rules, the catalogue, the profiles, the
+     * qualifications, the demand, the timezone, the locations, the participants.
+     *
+     * `sourceDigest` above answers only "did the source DRAFT move". This
+     * answers "did the PROBLEM move", and a stale build can never silently
+     * become the current draft: the selection refuses it, and this field is what
+     * lets the screen say so BEFORE the scheduler decides rather than after.
+     */
+    staleness: buildStalenessSchema,
     correlationId: z.string().min(1),
   })
   .strict();
@@ -557,3 +659,4 @@ export const buildStaleSourceBodySchema = z
   })
   .strict();
 export type BuildStaleSourceBody = z.infer<typeof buildStaleSourceBodySchema>;
+

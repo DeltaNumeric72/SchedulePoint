@@ -1,0 +1,67 @@
+=== OPUS-M4-005 continuation, POST-REPAIR VERIFICATION B: seeds 123456 and 531651 in the COMPLETE shuffled context (EV-M4-005 §20e) ===
+
+These are the two seeds that failed in transcript 24 (149/151). The command is the
+fixture-regression gate's OWN per-seed invocation, lifted verbatim from
+scripts/sbx/fixture-regression.mjs lines 111-117:
+
+    node node_modules/vitest/vitest.mjs run --project api \
+      --sequence.shuffle.files --sequence.shuffle.tests --sequence.seed=<seed>
+
+The gate has no single-seed entry point, so the per-seed command was extracted and run
+directly, one at a time, serially, on an otherwise idle machine. HEAD reads 06c702e in
+both headers because the repair was an uncommitted working-tree change when these ran
+(three files, all under apps/api/test/); §20f records the commit.
+
+BEFORE (transcript 24, pre-repair): both seeds FAILED, each on exactly one test —
+  test/solver/e2-objective.test.ts > S-08t under E2 objectives … bit for bit, at
+  e2-objective.test.ts:257, 20926ms and 20900ms respectively.
+
+AFTER:
+
+--- seed 123456 ---
+    === POST-REPAIR B: seed 123456 in the COMPLETE shuffled api context (the gate's own per-seed command) ===
+    start:   2026-08-21T03:20:57Z
+    uptime:  23:20  up 3 days, 17:50, 1 user, load averages: 2.75 3.18 3.96
+    cwd:     /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-005
+    branch:  opus/m4-005-integration
+    HEAD:    06c702ed4d1c5a1207a658158aa242ae17addba6
+    command: node node_modules/vitest/vitest.mjs run --project api --sequence.shuffle.files --sequence.shuffle.tests --sequence.seed=123456
+    detached: background, serial; one run at a time
+    === BEGIN ===
+    
+       ✓ S-08t under E2 objectives — bit-identical on a soft-rule-bearing class > reproduces B-fairness-shaped bit for bit under the FULL pinned set  67780ms
+       ✓ S-08t under E2 objectives — bit-identical on a soft-rule-bearing class > the precondition BITES: with the old 10s wall clock the search is wall-bound  10300ms
+       ✓ reproducibility, against the real solve > S-08t: BIT-IDENTICAL under the full SPEC-04 §4 pinned set  1523ms
+          Tests  1422 passed | 14 skipped (1436)
+       Duration  384.30s (transform 1.07s, setup 2.71s, collect 1.47s, tests 378.08s, environment 0ms, prepare 38ms)
+    EXIT=0
+    finish:  2026-08-21T03:27:22Z
+
+--- seed 531651 ---
+    === POST-REPAIR B: seed 531651 in the COMPLETE shuffled api context (the gate's own per-seed command) ===
+    start:   2026-08-21T03:27:22Z
+    uptime:  23:27  up 3 days, 17:56, 1 user, load averages: 3.55 3.48 3.81
+    cwd:     /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-005
+    branch:  opus/m4-005-integration
+    HEAD:    06c702ed4d1c5a1207a658158aa242ae17addba6
+    command: node node_modules/vitest/vitest.mjs run --project api --sequence.shuffle.files --sequence.shuffle.tests --sequence.seed=531651
+    detached: background, serial; one run at a time
+    === BEGIN ===
+    
+       ✓ reproducibility, against the real solve > S-08t: BIT-IDENTICAL under the full SPEC-04 §4 pinned set  1514ms
+       ✓ S-08t under E2 objectives — bit-identical on a soft-rule-bearing class > reproduces B-fairness-shaped bit for bit under the FULL pinned set  66635ms
+       ✓ S-08t under E2 objectives — bit-identical on a soft-rule-bearing class > the precondition BITES: with the old 10s wall clock the search is wall-bound  10233ms
+          Tests  1422 passed | 14 skipped (1436)
+       Duration  380.12s (transform 981ms, setup 2.55s, collect 1.35s, tests 374.30s, environment 0ms, prepare 42ms)
+    EXIT=0
+    finish:  2026-08-21T03:33:42Z
+
+READING. Both seeds pass, whole. 1422 passed / 14 skipped / 0 failed in each, exit 0.
+
+The suite duration moved from 206.90s (transcript 24's seed-123456 capture) to 384.30s
+and 380.12s. That increase is the repair's cost and is not incidental: the wall clock is
+no longer cutting six B-fairness-shaped solves off at 10s apiece, so each now runs to a
+proven optimum at ~33s. What the suite buys for it is that the stopping point no longer
+depends on the machine. §20g states the cost against the whole battery, and names the one
+knob that would recover it — a decision about how much search the corpus fixture should
+buy, which is not this packet's to take.

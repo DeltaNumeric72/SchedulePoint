@@ -18,7 +18,8 @@
  *     below, which passes `systemClock` unconditionally.
  *
  * There is deliberately no setter, no `withClock`, and no environment branch.
- * `apps/api/test/authn/clock-seam.test.ts` asserts the absence rather than
+ * `apps/api/test/authn/primitives.test.ts`'s "the clock seam cannot be reached
+ * from a production path" asserts the absence rather than
  * trusting it: it scans this package's shipped source for any assignment to a
  * clock and for any environment read that could select one.
  *

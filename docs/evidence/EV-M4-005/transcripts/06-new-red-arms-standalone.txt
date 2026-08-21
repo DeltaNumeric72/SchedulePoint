@@ -1,0 +1,40 @@
+# The four OPUS-M4-005 red arms, proven STANDALONE in both directions
+# 2026-08-18T08:37:34Z
+
+== ARM 1: red-case-runner-errored-signatures
+-- GREEN (clean tree)
+PASS  red-case runner ERRORED signatures — 2 detected, 3 correctly left alone
+GREEN EXIT=0
+-- RED (signature list emptied)
+FAIL  red-case runner ERRORED signatures — 2 problem(s)
+  - NOT detected as ERRORED, and it must be: "No test files found, exiting with code 1"
+  - NOT detected as ERRORED, and it must be: "red case \"foo\": anchor not found in bar.ts."
+RED EXIT=1
+
+== ARM 2: nr15-capture-widening
+-- GREEN (clean tree)
+PASS  NR-15 capture widening — the full run output, the command and the exit code are retained
+GREEN EXIT=0
+-- RED (capture truncated again)
+FAIL  NR-15 capture widening — 6 problem(s)
+  - the ASSERTION was not retained — this is exactly the truncation NR-15 names
+  - a line of the run output was dropped: AssertionError: expected 3 to be 2 // Object.is equality
+  - a line of the run output was dropped:   ❯ test/profiles/loader-writer-agreement.test.ts:214:5
+  - a line of the run output was dropped:     212|     const rows = await closedRows(uow);
+  - a line of the run output was dropped:     213|
+  - a line of the run output was dropped:     214|     expect(rows.length).toBe(2);
+RED EXIT=1
+
+== ARM 3: raw-nul-magic-bytes
+wrote /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-005/scripts/red-cases/raw-nul-magic/fixture/__red_case__misnamed.png
+-- GREEN-arm command WITH the hardening (must FAIL: the sniff scans the misnamed file)
+FAIL  raw-nul-scan (FAD-45(1)) — 1 problem(s)
+  - scripts/red-cases/raw-nul-magic/fixture/__red_case__misnamed.png: 1 raw U+0000 byte(s) at offset(s) 30 — spell it `\x00` (the escape produces an identical string; see apps/api/src/solver/candidate-validation.ts)
+WITH-HARDENING EXIT=1
+-- MUTATION (extension-only, the pre-hardening behaviour; must PASS = the bypass)
+PASS  raw-nul-scan (FAD-45(1)) — 0 text file(s) scanned, 1 binary file(s) skipped by extension AND magic bytes, 0 known violation(s) held at their pinned counts
+EXTENSION-ONLY EXIT=0
+cleaned the magic-byte fixture
+-- the real tree, after restore
+PASS  raw-nul-scan (FAD-45(1)) — 1215 text file(s) scanned, 249 binary file(s) skipped by extension AND magic bytes, 2 known violation(s) held at their pinned counts
+TREE EXIT=0

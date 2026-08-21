@@ -1,0 +1,46 @@
+=== 01-seed1 ===
+ 7:31  up 1 day,  2:01, 1 user, load averages: 3.18 3.71 3.04
+START 2026-08-18T11:31:59Z
+
+ RUN  v3.2.4 /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-005
+[... full-run log elided; the assertion-bearing capture this bundle relies on is 12-nr15-capture-seed-1.txt ...]
+
+stdout | test/solver/snapshot-store.test.ts > persisting the snapshot > REFUSES a key replayed for a materially different request
+      ·       · a key replayed after the world moved is refused, not answered
+
+ ✓ |api| test/solver/snapshot-store.test.ts (6 tests) 162ms
+stdout | test/authz/entitlement-in-force.test.ts > S-08 — the entitlement write must target the row in force > changing state leaves a historical row untouched
+      · the entitlement write touches the in-force row only; history is intact
+
+stdout | test/authz/entitlement-in-force.test.ts > S-01 — a historical entitlement row must not govern > a CLOSED, REVOKED historical window alongside the live one changes nothing
+      · a closed revoked window beside the live one leaves evaluation unaffected
+
+stdout | test/authz/entitlement-in-force.test.ts > S-01 — a historical entitlement row must not govern > L1.4 uses the same selection: a DEPENDENCY's historical row does not govern
+      · a dependency's historical row is ignored; its live row governs
+
+stdout | test/authz/entitlement-in-force.test.ts > S-06 (second half) — HTTP coverage for L1.1 > with NO entitlement row at all, the denial is NOT_ENTITLED at L1.1
+      · no entitlement row: 404 at L1.1, over HTTP
+
+ ✓ |api| test/authz/entitlement-in-force.test.ts (15 tests) 186ms
+stdout | test/solver/worker-invariants.test.ts > the solver worker package > installs NO signal handler — cancellation is a watcher thread (H-4, FAD-10)
+      ·       · no signal handler; the watcher thread is present
+
+stdout | test/solver/worker-invariants.test.ts > the solver worker package > has sources to scan at all
+      ·       · scanning 10 worker module(s): __init__.py, __main__.py, auth.py, cancellation.py, cpsat_adapter.py, egress_guard.py, model.py, protocol.py, runtime.py, stub_solver.py
+
+stdout | test/solver/worker-invariants.test.ts > the solver worker package > imports `ortools` in at most one adapter module (ADR-0006)
+      ·       · ortools importers: 1 — the allowance is spent, once
+
+stdout | test/solver/worker-invariants.test.ts > the outcome vocabulary is the same in both runtimes > the solver statuses match, value for value
+      ·       · 8 statuses agree across TypeScript and Python
+
+ ✓ |api| test/solver/worker-invariants.test.ts (9 tests) 25ms
+ ✓ |api| test/schedule/graph-invariants.test.ts (21 tests) 324ms
+
+ Test Files  135 passed | 1 skipped (136)
+      Tests  1414 passed | 14 skipped (1428)
+   Start at  07:31:59
+   Duration  202.49s (transform 961ms, setup 2.51s, collect 1.30s, tests 196.80s, environment 0ms, prepare 31ms)
+
+EXIT=0
+END 2026-08-18T11:35:22Z

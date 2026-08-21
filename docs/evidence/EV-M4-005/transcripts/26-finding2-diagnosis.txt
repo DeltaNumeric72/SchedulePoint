@@ -1,0 +1,103 @@
+=== OPUS-M4-005 continuation, FINDING 2 DIAGNOSIS: the two red-case GREEN-arm failures (EV-M4-005 §20b) ===
+cwd:     /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-005
+branch:  opus/m4-005-integration
+HEAD:    06c702ed4d1c5a1207a658158aa242ae17addba6  (pre-repair)
+source:  .evidence-scratch/scripts/red-cases/evidence-output.txt — the FULL per-arm
+         transcript the 63-arm battery of docs/evidence/EV-M4-005/transcripts/23
+         retained (3,939,567 bytes, written 2026-08-18 11:46). Transcript 23 records
+         only pass/fail per arm; the per-arm GREEN and RED output is here. No new
+         run was needed to diagnose this finding, and none was invented.
+
+STEP 1 — the ACTUAL command each arm runs, read from scripts/red-cases/run.mjs:
+
+  stale-edit-cas               greenCommand: ['run', 'gate:unit']
+                               redCommand:   ['run', 'gate:unit']
+       `gate:unit` is `vitest run` — the ENTIRE unit suite, which contains
+       apps/api/test/solver/e2-objective.test.ts.
+
+  solver-t2-false-minimality   greenCommand: ['exec','vitest','run',
+                                 'apps/api/test/solver/e2-objective.test.ts',
+                                 'apps/api/test/solver/corpus/corpus-agreement.test.ts']
+                               redCommand:   (identical)
+       Names e2-objective.test.ts directly.
+
+  solver-progressive-pin-unfixed  greenCommand: ['exec','vitest','run',
+                                 'apps/api/test/solver/e2-objective.test.ts']
+       The control: the SAME file, and its GREEN arm PASSED in the same battery.
+
+STEP 2 — what actually failed in each GREEN half. Extracted verbatim:
+
+--- stale-edit-cas, GREEN (clean tree) ---
+       × S-08t under E2 objectives — bit-identical on a soft-rule-bearing class > reproduces B-fairness-shaped bit for bit under the FULL pinned set 20928ms
+          Tests  1 failed | 2108 passed | 14 skipped (2123)
+     FAIL   api  test/solver/e2-objective.test.ts > S-08t under E2 objectives — bit-identical on a soft-rule-bearing class > reproduces B-fairness-shaped bit for bit under the FULL pinned set
+    AssertionError: expected '[{"membershipId":"8bb4e5a2-688a-49cd-…' to be '[{"membershipId":"8bb4e5a2-688a-49cd-…' // Object.is equality
+
+--- stale-edit-cas, RED (violation applied) — the intended failures ---
+       × B-1: concurrent requirement writes carrying the SAME revision > over 12 rounds, exactly one set wins whole and the union never appears 60ms
+       × B-2: concurrent adds into one empty cell > over 12 rounds, one lands and the other gets an explicit 409 26ms
+       × B-3: a concurrent add and remove in one cell > over 12 rounds, one wins and no merged state is ever produced 31ms
+       × the 12-round whole-set race — no union, ever > two replacements, same expectedVersion, disjoint sets: one whole winner, one explicit refusal 16ms
+          Tests  4 failed | 2105 passed | 14 skipped (2123)
+
+--- solver-t2-false-minimality, GREEN (clean tree) ---
+       × S-08t under E2 objectives — bit-identical on a soft-rule-bearing class > reproduces B-fairness-shaped bit for bit under the FULL pinned set 20882ms
+          Tests  1 failed | 34 passed (35)
+     FAIL   api  test/solver/e2-objective.test.ts > S-08t under E2 objectives — bit-identical on a soft-rule-bearing class > reproduces B-fairness-shaped bit for bit under the FULL pinned set
+    AssertionError: expected '[{"membershipId":"8bb4e5a2-688a-49cd-…' to be '[{"membershipId":"8bb4e5a2-688a-49cd-…' // Object.is equality
+
+--- solver-t2-false-minimality, RED (violation applied) — the intended failures ---
+       × T2: EXPLAINED_MINIMAL is earned, and a false claim is refused > narrows the T1 subset and reports what it did 744ms
+       × the E1 corpus, solver against independent checker > EXPLAINED_MINIMAL is EARNED — never claimed without a completed T2 pass 1ms
+     FAIL   api  test/solver/e2-objective.test.ts > S-08t under E2 objectives — bit-identical on a soft-rule-bearing class > reproduces B-fairness-shaped bit for bit under the FULL pinned set
+    AssertionError: expected '[{"membershipId":"8bb4e5a2-688a-49cd-…' to be '[{"membershipId":"8bb4e5a2-688a-49cd-…' // Object.is equality
+     FAIL   api  test/solver/e2-objective.test.ts > T2: EXPLAINED_MINIMAL is earned, and a false claim is refused > narrows the T1 subset and reports what it did
+    AssertionError: expected 0 to be greater than 0
+     FAIL   api  test/solver/corpus/corpus-agreement.test.ts > the E1 corpus, solver against independent checker > EXPLAINED_MINIMAL is EARNED — never claimed without a completed T2 pass
+    AssertionError: B-infeasible-contradictory-rules: minimal claimed with no probe run: expected 0 to be greater than 0
+
+--- solver-progressive-pin-unfixed, GREEN — the CONTROL, same file, PASSED ---
+       ✓ S-08t under E2 objectives — bit-identical on a soft-rule-bearing class > reproduces B-fairness-shaped bit for bit under the FULL pinned set  20522ms
+          Tests  26 passed (26)
+       ✓ S-08t under E2 objectives — bit-identical on a soft-rule-bearing class > reproduces B-fairness-shaped bit for bit under the FULL pinned set  20456ms
+       × progressive optimization: the pin binds, and it would have moved > PINNED: the assignment stays put, against a strictly better objective 752ms
+
+STEP 3 — the determination, with the evidence that discriminates it:
+
+  BOTH GREEN failures are (i) COLLATERAL OF FINDING 1, and nothing else.
+
+  * `stale-edit-cas` GREEN failed with EXACTLY ONE test of 2123:
+    "test/solver/e2-objective.test.ts > S-08t under E2 objectives … reproduces
+    B-fairness-shaped bit for bit under the FULL pinned set", 20928ms, and the
+    same `Object.is equality` assertion on the assignment array as §20a's
+    finding. Its RED half failed on its own four concurrency proofs (B-1, B-2,
+    B-3 and the 12-round whole-set race), i.e. the gate bites on its violation
+    exactly as designed. Nothing about the compare-and-set is implicated.
+  * `solver-t2-false-minimality` GREEN failed with EXACTLY ONE test of 35 — the
+    same S-08t arm, 20882ms, same assertion. Its RED half failed on the two
+    tests the arm exists to fail (the T2 narrowing proof and the corpus
+    "EXPLAINED_MINIMAL is EARNED" proof, both `expected 0 to be greater than 0`
+    — the iterations counter the patch pins at zero), and on S-08t again,
+    collaterally.
+  * The discriminator against "a defect in these two arms":
+    `solver-progressive-pin-unfixed` runs e2-objective.test.ts under the SAME
+    runner in the SAME battery and its GREEN half PASSED (S-08t 20522ms).
+    Three arms, one shared failing test, two failures and one pass — the
+    pattern of a ~1-in-3 nondeterministic arm, which §20a then measured
+    directly (2 passes and 1 failure in three standalone runs of the same file
+    on an idle machine).
+
+  (ii) contention / residual state / port or database collision / cleanup
+  failure is RULED OUT: the runner executes arms strictly serially, the failing
+  test is the same single test in both arms, and it fails identically in a
+  single-file run with no runner involved at all (§20a part A).
+
+  (iii) an independent runner or product defect is RULED OUT for these two arms:
+  every other assertion in both GREEN halves passed (2108 of 2109, and 34 of
+  35), and both RED halves failed for their own intended reasons.
+
+  THEREFORE: no repair is due to either arm. Both are expected to return to
+  PROVEN once §20c's repair removes the S-08t nondeterminism, and that
+  prediction is tested rather than asserted — see transcripts 29 and 30.
+
+EXIT=0 (analysis of retained evidence; no command was run to produce this file)

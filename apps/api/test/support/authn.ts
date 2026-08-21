@@ -17,7 +17,7 @@ import type { PgUnitOfWorkRunner } from '../../src/db/unit-of-work.js';
  * parameters of `AuthnService`. There is no setter and no environment variable,
  * so a production process cannot reach either: `createAuthnService()` passes
  * `systemClock` and the production parameter set unconditionally, and
- * `apps/api/test/authn/clock-seam.test.ts` scans the shipped source to keep that
+ * `apps/api/test/authn/primitives.test.ts` scans the shipped source to keep that
  * true rather than trusting it.
  *
  * ## Why the fixture's scrypt parameters are reduced
@@ -27,7 +27,7 @@ import type { PgUnitOfWorkRunner } from '../../src/db/unit-of-work.js';
  * measured in minutes across the battery. The encoded hash carries its own
  * parameters, so verification is exercised identically — only the cost changes,
  * and the production cost is measured directly in
- * `apps/api/test/authn/password-hashing.test.ts`.
+ * `apps/api/test/authn/primitives.test.ts`.
  */
 
 /** Cheap enough to seed 35 tenants; still a real scrypt hash with a real salt. */

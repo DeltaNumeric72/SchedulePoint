@@ -1,4 +1,6 @@
 import { createCheckpointSigner } from './audit/checkpoint-signer.js';
+import { maxConcurrentBuildsPerOrganization } from './builds/capacity.js';
+import { startBuildQueueRunner, type BuildQueueRunner } from './builds/queue-runner.js';
 import { SessionPrincipalResolver } from './authn/principal-resolver.js';
 import { createAuthnService } from './authn/service.js';
 import { createSecretBox } from './authn/secret-box.js';
@@ -87,6 +89,7 @@ async function main(): Promise<void> {
   );
 
   let outbox: OutboxRunner | undefined;
+  let builds: BuildQueueRunner | undefined;
   if (process.env['SP_DISABLE_WORKER'] !== '1') {
     const workerPool = createPool('app_worker');
     const workerRunner = new PgUnitOfWorkRunner({ role: 'app_worker', pool: workerPool, alerts });
@@ -110,11 +113,31 @@ async function main(): Promise<void> {
         `${String(outbox.reclaimedAtStartup.length)} stale pool(s); periodic checkpoint and ` +
         'chain-verification jobs scheduled (SPEC-11 §2)\n',
     );
+
+    /* ── D-4b's queue binding (OPUS-M4-005) ────────────────────────────────
+     *
+     * Its OWN pool, not another task on the outbox runner's. An outbox dispatch
+     * is milliseconds and a solve is minutes, and one shared concurrency budget
+     * means a saturated solver stops every notification in the system. SPEC-10
+     * §2 already gives the solver its own process class; this is the queue-side
+     * half of the same separation, and `SP_DISABLE_WORKER=1` still opts a
+     * pure-HTTP process out of both. */
+    builds = await startBuildQueueRunner({
+      worker: workerRunner,
+      label: 'builds',
+      concurrency: Number.parseInt(process.env['SP_BUILD_WORKER_CONCURRENCY'] ?? '1', 10),
+    });
+    process.stdout.write(
+      `build solve runner started: pool ${builds.poolId}, reclaimed ` +
+        `${String(builds.reclaimedAtStartup.length)} stale pool(s); D-4b cap ` +
+        `${String(maxConcurrentBuildsPerOrganization())} concurrent solve(s) per organization\n`,
+    );
   } else {
     process.stdout.write(
       'SP_DISABLE_WORKER=1: this process serves HTTP only. Another process MUST run the ' +
-        'outbox dispatcher and the SPEC-11 §2 periodic jobs, or outbox events will never ' +
-        'be delivered and the chain will never be checkpointed.\n',
+        'outbox dispatcher, the SPEC-11 §2 periodic jobs AND the build.solve task, or outbox ' +
+        'events will never be delivered, the chain will never be checkpointed, and every ' +
+        'submitted build will sit in `queued` for ever.\n',
     );
   }
 
@@ -151,6 +174,7 @@ async function main(): Promise<void> {
   // without releasing it costs four hours of recovery (SP-D E-2.3), so the
   // shutdown path is wired even though nothing sends the signal here yet.
   const shutdown = async (): Promise<void> => {
+    await builds?.stop();
     await outbox?.stop();
     await app.close();
   };

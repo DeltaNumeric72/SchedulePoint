@@ -3,7 +3,12 @@ import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import type { SolverParameters } from '@schedulepoint/domain';
+import {
+  SOLVER_STATUSES,
+  resultReproducibility,
+  type SolverParameters,
+  type TerminationReason,
+} from '@schedulepoint/domain';
 
 import type { PgUnitOfWorkRunner } from '../../src/db/unit-of-work.js';
 import { assembleCanonicalInput } from '../../src/solver/canonical-input.js';
@@ -193,14 +198,105 @@ export function applyHostileWorkerEnv(mode: string): () => void {
  * Named rather than inlined so the tests that assert `reproducibilityMode` are
  * asserting against the conditions rather than against a literal they also
  * wrote.
+ *
+ * ## The defect this closes — `maxTimeInSeconds` was 10, and it PRE-EMPTED the
+ * ## deterministic budget it sits beside (OPUS-M4-005 continuation, §20)
+ *
+ * SPEC-04 §4 as amended is explicit that the reproducibility basis is
+ * **`max_deterministic_time`, never a wall clock**. This constant pinned both,
+ * and `_configure` in the worker sets both: CP-SAT then stops at **whichever
+ * comes first**. On `B-fairness-shaped` the wall clock always came first, so
+ * the pinned deterministic budget was never the thing that stopped the search
+ * and the run was reproducible only by luck. Measured, on this machine, two
+ * solves of the identical snapshot under the identical pinned set:
+ *
+ * | condition            | wall     | deterministic units | branches | status   |
+ * | -------------------- | -------- | ------------------- | -------- | -------- |
+ * | wall 10, calm        | 9.497948 |           21.760483 |    62256 | FEASIBLE |
+ * | wall 10, calm (2nd)  | 9.491109 |           21.660444 |    62256 | FEASIBLE |
+ * | wall 10, loaded      | 10.00347 |           12.532388 |    41091 | FEASIBLE |
+ * | wall 10, loaded (2nd)|  9.969748|           12.444773 |    41091 | FEASIBLE |
+ * | wall 900, calm       | 32.61863 |           76.702882 |   137137 | OPTIMAL  |
+ * | wall 900, loaded     | 56.66477 |           76.702882 |   137137 | OPTIMAL  |
+ *
+ * `deterministicTimeUnits` is the machine-INDEPENDENT measure of how much
+ * search a run did. With the wall clock binding it moves with the load — 21.76
+ * on a calm machine, 12.53 under ten CPU hogs, and **21.760483 vs 21.660444
+ * between two solves in one process**. With the wall clock out of the way it is
+ * `76.702882` in every run, on a calm machine and a machine running 1.7× slower
+ * alike, and the candidate is byte-identical across all of them. That is the
+ * property §4 promises and the reason S-08t/E2 diverged roughly one run in
+ * three, standalone, on an idle machine.
+ *
+ * ## Why the wall clock is now 900 rather than removed
+ *
+ * The port requires a number (`maxTimeInSeconds` is not nullable), and a
+ * crash-guard is worth having. 900 is a **safety net, not a budget**: the
+ * pinned `maxDeterministicTime: 100` bounds the search on its own at roughly
+ * 43 wall-seconds on this machine, so the wall clock has better than a 20×
+ * margin and cannot become the binding constraint through ordinary load. The
+ * deterministic budget's VALUE is deliberately unchanged — the defect was never
+ * that 100 units was the wrong amount of search, it was that a wall clock was
+ * allowed to end the search before the budget did.
+ *
+ * A test that claims bit-identity must still **establish** that the net did not
+ * catch: see {@link wallClockVerdict}. A slower machine that made 900 bind
+ * would fail that check loudly rather than pass non-reproducibly.
  */
 export const DETERMINISTIC_PARAMETERS: SolverParameters = {
   randomSeed: 20270301,
   numSearchWorkers: 1,
-  maxTimeInSeconds: 10,
+  maxTimeInSeconds: 900,
   maxDeterministicTime: 100,
   interleaveSearch: true,
 };
+
+export interface WallClockVerdict {
+  /** `true` when the WALL CLOCK ended the search — so the run is not a reproducibility basis. */
+  readonly bound: boolean;
+  readonly wallTimeSeconds: number | null;
+  readonly budgetSeconds: number;
+  readonly detail: string;
+}
+
+/**
+ * Did the wall clock end this search?
+ *
+ * **A thin adapter over the DOMAIN predicate, deliberately holding no logic of
+ * its own** (FAD-49(2)). The threshold and the comparison live in
+ * `resultReproducibility` / `WALL_CLOCK_BINDING_FRACTION` in
+ * `packages/domain/src/ports/solver-port.ts`, so the fixtures and the product
+ * cannot drift: a second spelling of a safety predicate is the S-01 class, where
+ * the copies diverge and the weaker one is the one that ships. What survives
+ * here is only the shape the reproducibility proofs read — a boolean and a
+ * sentence — expressed in the vocabulary of the assertion rather than of the
+ * screen.
+ */
+export function wallClockVerdict(
+  outcome: {
+    readonly statistics: { readonly wallTimeSeconds: number | null };
+    readonly terminationReason: TerminationReason;
+    readonly status: string;
+  },
+  parameters: SolverParameters,
+): WallClockVerdict {
+  /* Takes the whole OUTCOME rather than its statistics (FAD-50 B-1). The
+   * predicate now reads the termination too, and a helper that kept passing
+   * only the numbers would have had to invent one — which is exactly the
+   * "assume it finished" hole B-1 was. */
+  const verdict = resultReproducibility({
+    parameters,
+    wallTimeSeconds: outcome.statistics.wallTimeSeconds,
+    terminationReason: outcome.terminationReason,
+    status: SOLVER_STATUSES.find((s) => s === outcome.status) ?? null,
+  });
+  return {
+    bound: verdict.verdict === 'wall-clock-truncated',
+    wallTimeSeconds: outcome.statistics.wallTimeSeconds,
+    budgetSeconds: parameters.maxTimeInSeconds,
+    detail: `[${verdict.verdict}] ${verdict.detail}`,
+  };
+}
 
 /**
  * **The SOLVED set** — the two statuses that mean "a candidate came back".

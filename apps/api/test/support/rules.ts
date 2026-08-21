@@ -139,6 +139,53 @@ export interface SeedTarget {
  * and the caller asserts the TABLES are non-empty rather than this count — a
  * re-run legitimately writes nothing.
  */
+/**
+ * One NAMED rule into one group, through the same production write path.
+ *
+ * `seedRulesForSweep` writes a fixed `AvoidDate` on 2099-12-31 because its
+ * purpose is the existence of rows. OPUS-M4-005's SBX-015 needs the opposite: a
+ * rule whose CONTENT decides the outcome — a HARD `AvoidDate` on the one date
+ * the period requires staffed, which is what makes the solve genuinely
+ * INFEASIBLE rather than merely refused. The two callers therefore differ in the
+ * rule they pass and in nothing else, which is why this is the same insert with
+ * the rule lifted out rather than a second write path.
+ *
+ * Returns the number of rows written — `0` when the key already existed, which a
+ * re-run legitimately produces.
+ */
+export async function seedRuleRow(
+  runner: SeedRunner,
+  target: Omit<SeedTarget, 'label'> & { readonly label: string },
+  rule: Rule,
+): Promise<number> {
+  return runner.run(
+    {
+      organizationId: target.organizationId,
+      groupId: target.groupId,
+      membershipId: target.membershipId,
+      correlationId: `seed-rule-${target.label}`,
+    },
+    async (uow) => {
+      const db = uow.query as { executeQuery?: unknown };
+      const { sql } = await import('kysely');
+      const inserted = await sql`
+        insert into rules
+          (id, organization_id, group_id, rule_key, name, rule_schema_version,
+           classification, weight, category, scope, predicate)
+        values (${randomUUID()}::uuid, ${target.organizationId}::uuid, ${target.groupId}::uuid,
+                ${rule.ruleKey}, ${rule.name}, ${rule.ruleSchemaVersion},
+                ${rule.classification}, ${rule.classification === 'SOFT' ? (rule.weight ?? 0) : null},
+                ${categoryOf(rule.scope, rule.predicate)},
+                ${canonicalStringify(rule.scope)}::jsonb,
+                ${canonicalStringify(rule.predicate)}::jsonb)
+        on conflict (organization_id, group_id, rule_key) do nothing
+        returning id
+      `.execute(db as never);
+      return inserted.rows.length;
+    },
+  );
+}
+
 export async function seedRulesForSweep(
   runner: SeedRunner,
   targets: readonly SeedTarget[],

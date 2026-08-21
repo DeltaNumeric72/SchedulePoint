@@ -1318,8 +1318,43 @@ describe('the counter bump enforces the unit of work', () => {
     // reachable by NO application role", which covers both maintenance policies
     // — including the one on `audit_chain_heads`, which is not in TENANT_TABLES
     // and so cannot be seen from here. Change one, look at the other.
+    /* ── the SECOND sanctioned exemption (OPUS-M4-005, migration 0019) ────────
+     *
+     * D-4b bounds solver concurrency **per organization** (SPEC-04 §1.1/§6), and
+     * `build_runs` is GROUP-scoped (0018 `build_runs_group_scope`). A cap
+     * computed from a group-scoped read is a per-GROUP cap wearing the wrong
+     * name, and an organization with five groups would run five times the limit
+     * with every test still green.
+     *
+     * The reach is therefore a policy, written down, for the reason the one
+     * above exists: FORCE RLS binds the table owner, so `SECURITY DEFINER`
+     * alone reaches nothing.
+     *
+     * It is NARROWER than the audit exemption in every dimension, and the
+     * difference is the point — this is not a second cross-TENANT read:
+     *
+     *   * `FOR SELECT` only, `TO app_migrator` only (asserted below);
+     *   * its predicate is pinned to `current_setting('app.organization_id')`,
+     *     the transaction-local tuple the unit of work established and the
+     *     server verified. It admits the CALLER'S OWN organization and no
+     *     other, so it crosses a GROUP boundary and never a tenant one;
+     *   * the only caller is `app_build_running_count`, which returns an
+     *     INTEGER — no identifier, no name, no timestamp — and REFUSES any
+     *     argument that is not the caller's own organization, so a foreign id
+     *     cannot read `0` and quietly disable the cap (migration 0003's R-05
+     *     lesson, restated in 0019's header).
+     *
+     * The third pin is `apps/api/test/builds/concurrency-recovery-matrix.test.ts`
+     * ("D-4b's capacity read is reachable by NO application role directly"),
+     * which drives the policy as `app_runtime` and as `app_worker` and requires
+     * both to see nothing. Change one, look at the other two. */
     const SANCTIONED_ROLE_SCOPED = [
       { table: 'audit_checkpoints', policy: 'audit_checkpoints_maintenance_read', roles: '{app_migrator}' },
+      {
+        table: 'build_runs',
+        policy: 'build_runs_organization_capacity_read',
+        roles: '{app_migrator}',
+      },
     ] as const;
 
     const roleScoped = policies.rows.filter((row) => row.roles !== '{public}');

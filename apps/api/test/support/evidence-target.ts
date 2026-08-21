@@ -6,7 +6,7 @@ import { resolve } from 'node:path';
  * `scripts/evidence-target.mjs` carries the same three lines and states the
  * reasoning at length; `scripts/` is outside every TypeScript project here, so
  * the vitest harness cannot import it. The duplication is *asserted* —
- * `apps/api/test/architecture/evidence-target.test.ts` executes the JavaScript
+ * `apps/api/test/architecture/evidence-and-preview-target.test.ts` executes the JavaScript
  * module in a child process and fails if the two ever disagree, exactly as
  * `derived-test-port.test.ts` does for the database port.
  *

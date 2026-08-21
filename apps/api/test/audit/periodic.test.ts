@@ -14,6 +14,7 @@ import { adminClient } from '../support/admin-client.js';
 import { groupContext, organizationContext } from '../support/fixtures.js';
 import { createRuntime, log, type Runtime } from '../support/harness.js';
 import { ownedMulti } from '../support/owned-multi.js';
+import { drainQueue } from '../support/queue.js';
 
 /**
  * FAD-15 Layer 2 — this file owns its tenant.
@@ -152,10 +153,16 @@ async function auditJobs(): Promise<
  * The registry itself cannot be used here, and the reason is worth recording
  * because it is a real gap rather than a test inconvenience: `reclaimStalePools`
  * only considers pools `where released_at is null`, and a runner stopped through
- * `stop()` releases its registry row. A pool that releases cleanly while still
- * holding a locked job therefore leaves an orphan **no production sweep will
- * ever reclaim.** That is what the capture shows, and it is why the unlock is
- * expressed with the library's function directly.
+ * `stop()` releases its registry row, so the SWEEP can never see such a pool.
+ *
+ * **Corrected at FAD-50 N-4.** This used to end "leaves an orphan no production
+ * sweep will ever reclaim", and that has been false since NR-19: `release()`
+ * force-unlocks the pool's OWN jobs before it records the release, precisely so
+ * a clean stop strands nothing. The sweep still cannot reach a released pool —
+ * that part stands, and is why the close had to live at `release()` — but the
+ * orphan it would have had to reach no longer exists. NR-19's own proof is
+ * `apps/api/test/db/queue-pool-release.test.ts`. The unlock is still expressed
+ * with the library's function directly, for the reason `queue-pools.ts` gives.
  *
  * **2. Execute them** with a real `startOutboxRunner` that HAS the signer — so
  * `audit.checkpoint` and `audit.verify` are registered and the jobs actually
@@ -503,12 +510,23 @@ describe('R-03 — the jobs are REGISTERED, not merely written', () => {
       );
     } finally {
       await runner.stop();
-      // Leave nothing queued for a later file to pick up.
-      await admin.query(
-        `delete from graphile_worker._private_jobs
-          where task_id in (select id from graphile_worker._private_tasks
-                             where identifier like 'audit.%')`,
-      );
+      /* R-10 (OPUS-M4-005). This was a raw superuser `DELETE` against
+       * `graphile_worker._private_jobs` — a statement the system cannot issue,
+       * leaving the database in a state the system cannot reach (§20b's standing
+       * rule). It is now the PRODUCTION drain, with a signer so the drainer
+       * actually has a handler for the `audit.checkpoint` job this test
+       * enqueued: a signer-less drainer registers no audit task and would empty
+       * nothing while reporting success by counting.
+       *
+       * The jobs are therefore EXECUTED rather than deleted, which is what a
+       * real deployment would do with them, and the queue is empty for the same
+       * reason production's would be. */
+      await drainQueue({
+        worker: worker.runner,
+        admin,
+        label: 'periodic-r10-drain',
+        signer: new LocalCheckpointSigner(),
+      });
     }
   });
 });

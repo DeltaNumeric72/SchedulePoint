@@ -81,6 +81,19 @@ export function BuildComparisonPage(): JSX.Element {
                       <span className="font-medium">{run.candidateLabel}</span>{' '}
                       <span className="text-text-muted">
                         · {run.configurationName} · {STATE_LABELS[run.state]}
+                        {/* F-12 (OPUS-M4-005). The solver's OWN status token, at the
+                            point of choosing between candidates. Without it a
+                            merely-FEASIBLE candidate and a proven-OPTIMAL one are
+                            indistinguishable exactly where the distinction decides
+                            something — the state label cannot carry it, because a
+                            state label that said "optimal" would say it about every
+                            result reaching that branch (SPEC-04 §7).
+                            The raw token, never a gloss: `OPTIMAL` is the solver's
+                            claim about its own proof and the product makes no claim
+                            of its own on top of it. */}
+                        {run.solverStatus === null
+                          ? null
+                          : ` · solver status ${run.solverStatus}`}
                       </span>
                     </li>
                   ))}

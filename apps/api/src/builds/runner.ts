@@ -17,6 +17,7 @@ import { createBuildInput, dispatchBuild, validateBuildOutcome } from '../solver
 import { qualityMetrics } from '../solver/quality-metrics.js';
 import { readSnapshot, SnapshotIdempotencyConflictError } from '../solver/snapshot-store.js';
 import type { SolveOutcomeDetail } from '../solver/solver-client.js';
+import { admitBuildUnderCap, maxConcurrentBuildsPerOrganization } from './capacity.js';
 import {
   assertClaimIsCurrent,
   claimQueuedBuild,
@@ -28,6 +29,7 @@ import {
   BuildResultFencedError,
   BuildStateMovedError,
 } from './errors.js';
+import { enqueueBuildSolve } from './queue.js';
 import { configurationFindings, readinessFindings } from './readiness.js';
 import {
   assertExpectedState,
@@ -246,6 +248,19 @@ export async function submitBuild(
       reason: 'ready',
       readinessFindings: [],
     });
+
+    /* D-4b's queue binding (doc 35 §6g ruling 2). The enqueue is in the SAME
+     * transaction as the transition, which is the whole property SP-D E-1.1
+     * measured: `app_enqueue_job` is `SECURITY DEFINER` and opens no transaction
+     * of its own, so a submission that rolls back enqueues nothing and a job
+     * that exists is a job whose build really did reach `queued`.
+     *
+     * Enqueuing after the commit would leave a window in which the build is
+     * queued and no worker will ever hear about it — recoverable only by
+     * `requeueOrphanedQueuedBuilds`, which is a sweep and therefore minutes
+     * late. */
+    await enqueueBuildSolve(uow, run.id);
+
     return { state: 'queued' as const, validationFindings: [], readinessFindings: [] };
   });
 }
@@ -318,29 +333,69 @@ export interface RunBuildOptions {
   readonly stubDwellMs?: number;
   /** Overrides the configuration's wall clock. Tests only. */
   readonly timeoutMs?: number;
+  /**
+   * D-4b's per-organization cap. Omitted means the deployment's configured
+   * value; a test that wants to observe saturation without running `cap` real
+   * solves passes its own.
+   */
+  readonly cap?: number;
 }
 
 export interface RunBuildResult {
+  readonly kind: 'ran';
   readonly state: BuildRunState;
   readonly claimEpoch: number;
   readonly outcome: SolveOutcomeDetail;
 }
 
 /**
+ * The three answers a dispatch attempt can give, kept apart on purpose.
+ *
+ * `deferred` and `not-claimable` were one `null` before D-4b, and collapsing
+ * them would be the same class of conflation FAD-34 forbids on the outcome
+ * vocabulary: "somebody else is already solving this build" and "your
+ * organization is at its solver limit, try again shortly" are different facts
+ * with different remedies, and a caller that cannot tell them apart cannot
+ * requeue the second without also requeueing the first for ever.
+ */
+export type RunBuildDispatch =
+  | RunBuildResult
+  | { readonly kind: 'deferred'; readonly runningCount: number; readonly cap: number }
+  | { readonly kind: 'not-claimable' };
+
+/**
  * **Claim, solve, and record.**
  *
- * Returns `null` when the build was not claimable — somebody else took it, or it
- * is no longer queued. `null` rather than an exception because losing a claim
- * race is a normal outcome of concurrency, not a fault.
+ * Returns `not-claimable` when the build was not claimable — somebody else took
+ * it, or it is no longer queued. A result rather than an exception because
+ * losing a claim race is a normal outcome of concurrency, not a fault.
+ *
+ * Returns `deferred` when the organization is at its D-4b cap. **Nothing about
+ * the build changes**: it stays `queued`, no epoch is spent, no event is
+ * written. The caller requeues (`builds/queue.ts` does), which is SPEC-04
+ * §1.1's "a saturated pool queues rather than degrading the web tier".
  */
 export async function runQueuedBuild(
   runner: UnitOfWorkRunner<Kysely<Database>>,
   context: TenantContext,
   buildRunId: string,
   options: RunBuildOptions = {},
-): Promise<RunBuildResult | null> {
-  /* ── transaction 1: claim ───────────────────────────────────────────────── */
+): Promise<RunBuildDispatch> {
+  const cap = options.cap ?? maxConcurrentBuildsPerOrganization();
+
+  /* ── transaction 1: capacity, then claim ────────────────────────────────── */
   const claimed = await runner.run(context, async (uow) => {
+    /* The cap is taken INSIDE the claiming transaction and behind the
+     * organization's advisory lock, so the count and the claim are one decision.
+     * Checking it in a transaction of its own would be a check-then-act: two
+     * claimants would both read `cap - 1` and both proceed. */
+    const capacity = await admitBuildUnderCap(uow, cap);
+    if (!capacity.admitted) {
+      return {
+        deferred: { runningCount: capacity.runningCount, cap: capacity.cap },
+      } as const;
+    }
+
     const claim = await claimQueuedBuild(uow, buildRunId, workerToken());
     if (claim === null) return null;
 
@@ -393,7 +448,14 @@ export async function runQueuedBuild(
     };
   });
 
-  if (claimed === null) return null;
+  if (claimed === null) return { kind: 'not-claimable' };
+  if ('deferred' in claimed) {
+    return {
+      kind: 'deferred',
+      runningCount: claimed.deferred.runningCount,
+      cap: claimed.deferred.cap,
+    };
+  }
 
   /* ── the provider call, after the commit ────────────────────────────────── */
   const cancelFile = cancelFilePath(buildRunId);
@@ -443,7 +505,7 @@ export async function runQueuedBuild(
     configuration: claimed.configuration,
   });
 
-  return { state, claimEpoch: claimed.claimEpoch, outcome };
+  return { kind: 'ran', state, claimEpoch: claimed.claimEpoch, outcome };
 }
 
 /**

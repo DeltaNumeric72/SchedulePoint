@@ -7,6 +7,7 @@ import { expect, test, type Page, type Route } from '@playwright/test';
 import { recordRequests } from './support/request-budget.js';
 
 import { screenshotDir } from './support/evidence-target.js';
+import { mockDeclaredContext } from './support/declared-context.js';
 
 /**
  * The settings surfaces: every state, both viewports, axe on each
@@ -154,6 +155,17 @@ async function expectNoAxeViolations(page: Page): Promise<void> {
 /* ────────────────────────────────────────────────────────────────────────────
  * Group settings
  * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * The context read every capability request now depends on (FAD-48).
+ *
+ * This spec intercepts the API, so the client's `GET /me/context` has to be
+ * intercepted too or it falls through to the static preview server. It is
+ * plumbing, not a claim: see `support/declared-context.ts`.
+ */
+test.beforeEach(async ({ page }) => {
+  await mockDeclaredContext(page, { organizationId: ORGANIZATION, groupIds: [GROUP] });
+});
 
 test.describe('settings — the group settings page', () => {
   test('LOADING: each panel announces itself while the read is in flight', async ({ page }, info) => {

@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
+import { buildRunDetailSchema } from '@schedulepoint/contracts';
+
 import type { SolverInputSnapshotDocument } from '@schedulepoint/domain';
 import { sql } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -13,10 +15,13 @@ import {
   loadRun,
   markReviewed,
   readConfiguration,
+  runResultReproducibility,
   sourceDigestOf,
   transitionRun,
 } from '../../src/builds/service.js';
-import { compareCandidates, readRunDetail } from '../../src/builds/views.js';
+import { compareCandidates, findingsOf, readRunDetail, summaryOf } from '../../src/builds/views.js';
+import { stalenessWire } from '../../src/builds/constituent-diff.js';
+import { buildStaleness } from '../../src/builds/staleness.js';
 import { moveCredit } from '../../src/schedule/service.js';
 import { createBuildInput } from '../../src/solver/build-input.js';
 import { OBJECTIVE_PROFILE_DIGEST } from '../../src/solver/objective-record.js';
@@ -205,6 +210,162 @@ describe('the reproducibility record is recorded on the run (SPEC-04 §4)', () =
     log(
       `      · provenance: ${String(row?.solver_version)} · ${String(row?.platform_arch)} · ` +
         String(row?.reproducibility_mode),
+    );
+  }, 240_000);
+
+  /**
+   * **FAD-49 — the RESULT-side verdict is DERIVED from rows that already exist.**
+   *
+   * The ruling turned on a factual claim: that the facts needed to tell a
+   * reproducible run from a wall-clock-truncated one are *already persisted*, so
+   * the repair is a derivation and not a migration. This arm is that claim,
+   * checked against a real row written through the production path rather than
+   * asserted in a document.
+   *
+   * Two inputs, two different tables:
+   *
+   *   * `build_runs.solver_parameters` — written at CLAIM time so a build that
+   *     then crashes still says what it ran under;
+   *   * `build_run_results.quality_metrics.solverStatistics.wallTimeSeconds` —
+   *     written with the result.
+   *
+   * **What this arm MEASURED, and the limit it found.** The statistics half is
+   * there and readable. The parameters half is written in exactly ONE place —
+   * `runQueuedBuild` (`runner.ts`), the real dispatch path — and this fixture
+   * reaches a persisted result through the lower-level `claimQueuedBuild` +
+   * `persistOutcome` pair instead, so it produces a row shape production cannot:
+   * `reproducibility_mode` set, `solver_parameters` empty.
+   *
+   * That is not a defect in the fixture and it is not smoothed over. It is the
+   * case the derivation has to survive, and this arm is where it is proven to:
+   * **a row whose parameters were never recorded never claims reproducibility.**
+   * The derivation-with-parameters direction is proven over explicit row shapes
+   * in `result-reproducibility-wiring.test.ts`, and the predicate itself in
+   * `packages/domain/test/ports/result-reproducibility.test.ts`.
+   */
+  it('the statistics the verdict reads are persisted, and an unrecorded parameter set never claims reproducibility', async () => {
+    const { seeded, buildRunId } = await completedBuild('result-repro');
+    const row = await run(seeded.context, async (uow) => loadRun(uow, buildRunId));
+    if (row === null) throw new Error('the seeded run vanished');
+    const detail = await run(seeded.context, async (uow) => readRunDetail(uow, buildRunId));
+
+    /* 1. The statistics really are persisted, and really do round-trip through
+     *    `qualityOf` — this is the field the verdict reads, and FAD-49(1)'s
+     *    "no schema change" rests on it being here. */
+    const statistics = detail.result?.quality.solverStatistics ?? {};
+    expect(Object.keys(statistics)).toContain('wallTimeSeconds');
+
+    /* 2. A run recorded through this path carries no parameter set… */
+    const parameters = (row.solver_parameters ?? {}) as Record<string, unknown>;
+    expect(parameters['maxTimeInSeconds']).toBeUndefined();
+
+    /* 3. …so every verdict over it is `unrecorded`, whatever search time is
+     *    offered. Fail-closed, and it is the ONLY safe answer: a row that
+     *    cannot say what it ran under cannot promise to run the same way. */
+    for (const wall of [null, 0.001, 9.5, 10_000]) {
+      const verdict = runResultReproducibility(row, wall);
+      expect(verdict?.verdict, `wall ${String(wall)}`).toBe('unrecorded');
+      expect(verdict?.reproducible).toBe(false);
+    }
+
+    /* 4. And a run with NO runtime record at all reports nothing rather than
+     *    reporting a refusal — there is no result to be honest about yet. */
+    expect(runResultReproducibility({ ...row, reproducibility_mode: null }, 1)).toBeNull();
+
+    log(
+      `      · persisted solverStatistics carry wallTimeSeconds; this fixture path ` +
+        `records no solver_parameters, and the verdict fails closed as 'unrecorded'`,
+    );
+  }, 240_000);
+
+  /**
+   * **RP-2 — the whole detail payload, as the route builds it** (FAD-50 B-1/C-4).
+   *
+   * The reviewer's second probe read a production-path run back through the
+   * shipped route and found the reproducibility claim there, on the wire. This
+   * is that shape as a permanent proof: a run created and completed through the
+   * production write path, composed EXACTLY as `builds.route.ts` composes its
+   * response, and then parsed by the route's OWN contract.
+   *
+   * The contract parse is the load-bearing half. `buildRunDetailSchema` is
+   * `.strict()`, so a field the projection was supposed to remove — a
+   * constituent `key`, a `pinnedRevision` — makes this throw rather than pass
+   * quietly, and a verdict outside the five-value enum does the same. Two
+   * separate disclosure repairs, guarded by one parse.
+   *
+   * HTTP itself is not stood up here: the request/response layer is proven over
+   * this same route by `builds-http.test.ts` and end to end in
+   * `apps/web/e2e/critical-path.spec.ts`. What only this arm can prove is that
+   * the composed payload for a REAL persisted run satisfies the contract.
+   */
+  it('RP-2: the composed detail payload for a real run satisfies the route’s contract', async () => {
+    const { seeded, buildRunId } = await completedBuild('rp2-route');
+    const row = await run(seeded.context, async (uow) => loadRun(uow, buildRunId));
+    if (row === null) throw new Error('the seeded run vanished');
+
+    const payload = await run(seeded.context, async (uow) => {
+      const detail = await readRunDetail(uow, buildRunId);
+      /* The route's own expression, kept in step with it deliberately: if the
+       * route starts composing this differently, this arm stops testing the
+       * route and that is a change a reader can see here. */
+      return {
+        /* `summaryFor` is private to the route; this is its body, which is the
+           only part of the composition that cannot simply be imported. */
+        run: summaryOf(
+          row,
+          (await readConfiguration(uow, row.build_configuration_id))?.name ?? '',
+          (await readConfiguration(uow, row.build_configuration_id))?.retry_limit ?? 0,
+        ),
+        validationFindings: findingsOf(row.validation_findings),
+        readinessFindings: findingsOf(row.readiness_findings),
+        result: detail.result,
+        violations: detail.violations,
+        conflicts: detail.conflicts,
+        events: detail.events,
+        sourceDigest: await sourceDigestOf(uow, row),
+        reproducibility: row.reproducibility_mode,
+        resultReproducibility: runResultReproducibility(
+          row,
+          detail.result?.quality.solverStatistics['wallTimeSeconds'] ?? null,
+        ),
+        staleness: stalenessWire(await buildStaleness(uow, row)),
+        correlationId: 'rp2',
+      };
+    });
+
+    /* THE PARSE. `.strict()`, so this is where a leaked field lands. */
+    const parsed = buildRunDetailSchema.parse(payload);
+
+    /* B-1: the verdict is on the wire, and it is one of the five. */
+    expect(parsed.resultReproducibility).not.toBeUndefined();
+    if (parsed.resultReproducibility !== null) {
+      expect([
+        'reproducible',
+        'wall-clock-truncated',
+        'interrupted',
+        'best-effort',
+        'unrecorded',
+      ]).toContain(parsed.resultReproducibility.verdict);
+      expect(parsed.resultReproducibility.detail.length).toBeGreaterThan(0);
+      /* and a verdict that refuses never carries the promise sentence */
+      if (!parsed.resultReproducibility.reproducible) {
+        expect(parsed.resultReproducibility.detail).not.toContain('produces the same schedule');
+      }
+    }
+
+    /* C-4: the staleness on the wire is class-level, with no identifiers. */
+    const serialized = JSON.stringify(parsed.staleness);
+    expect(serialized).not.toContain('"key"');
+    expect(serialized).not.toContain('pinnedRevision');
+    for (const change of parsed.staleness.changes) {
+      expect(Object.keys(change).sort()).toEqual(['count', 'direction', 'kind']);
+    }
+
+    log(
+      `      · RP-2: the composed detail parses; verdict ` +
+        `'${String(parsed.resultReproducibility?.verdict)}', staleness ` +
+        `${String(parsed.staleness.changes.length)} class(es), ` +
+        `${String(parsed.staleness.changeCount)} change(s)`,
     );
   }, 240_000);
 });

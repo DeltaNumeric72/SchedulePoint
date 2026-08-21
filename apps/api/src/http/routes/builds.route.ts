@@ -6,6 +6,7 @@ import {
   buildRunDetailSchema,
   buildRunListSchema,
   buildRunResultSchema,
+  buildStaleInputsBodySchema,
   buildStaleSourceBodySchema,
   buildStateMovedBodySchema,
   buildTransitionRequestSchema,
@@ -25,15 +26,19 @@ import {
   respondToDenial,
 } from '../../authz/authorize-request.js';
 import {
+  BuildInputsMovedError,
   BuildPreconditionError,
   BuildResultFencedError,
   BuildSourceMovedError,
   BuildStateMovedError,
 } from '../../builds/errors.js';
+import { requeueOrphanedQueuedBuilds } from '../../builds/queue.js';
 import { reapStaleBuilds } from '../../builds/reaper.js';
 import { runQueuedBuild, requestCancellation, submitBuild } from '../../builds/runner.js';
 import { applyCandidateToNewDraft } from '../../builds/selection.js';
 import * as builds from '../../builds/service.js';
+import { stalenessWire, type StalenessWire } from '../../builds/constituent-diff.js';
+import { buildStaleness } from '../../builds/staleness.js';
 import { compareCandidates, findingsOf, readRunDetail, summaryOf } from '../../builds/views.js';
 import { isPostgresError, PG_ERRORS } from '../../db/pg-errors.js';
 import type { BuildRunState } from '../../db/schema.js';
@@ -138,6 +143,7 @@ type Outcome<T> =
   | { readonly kind: 'conflict' }
   | { readonly kind: 'state-moved'; readonly currentState: BuildRunState }
   | { readonly kind: 'stale-source'; readonly currentSourceDigest: string }
+  | { readonly kind: 'stale-inputs'; readonly staleness: StalenessWire }
   | { readonly kind: 'invalid'; readonly problems: readonly FieldProblem[] };
 
 const MAX_PROBLEM_MESSAGE = 300;
@@ -195,6 +201,16 @@ function outcomeOfServiceError<T>(error: unknown): Outcome<T> | null {
   }
   if (error instanceof BuildSourceMovedError) {
     return { kind: 'stale-source', currentSourceDigest: error.currentSourceDigest };
+  }
+  /* doc 35 §6g ruling 4. Its own outcome rather than a bare 409, because the
+   * remedy depends on WHICH input moved and a scheduler cannot see that from a
+   * status code. The two staleness refusals stay apart for the same reason
+   * their errors do — one sends you to the draft, the other to a new build. */
+  if (error instanceof BuildInputsMovedError) {
+    /* FAD-50 C-4: the refusal discloses the same class-level projection the
+       detail GET does — a caller refused a selection learns WHICH KIND of input
+       moved, never which rows. */
+    return { kind: 'stale-inputs', staleness: stalenessWire(error.staleness) };
   }
   if (error instanceof BuildResultFencedError) return { kind: 'conflict' };
   if (error instanceof BuildPreconditionError) {
@@ -314,6 +330,25 @@ function respond<T>(
           message:
             'The draft this build was based on has changed. Nothing was applied — review the change and decide again.',
           currentSourceDigest: outcome.currentSourceDigest,
+          correlationId: request.correlationId,
+        },
+      }),
+    );
+  }
+  if (outcome.kind === 'stale-inputs') {
+    return reply.code(409).send(
+      buildStaleInputsBodySchema.parse({
+        error: {
+          code: 'STALE_BUILD_INPUTS',
+          message:
+            'The inputs this build was posed against have changed. Nothing was applied — ' +
+            'run a new build against the current inputs.',
+          staleness: {
+            stale: outcome.staleness.stale,
+            changes: [...outcome.staleness.changes],
+            changeCount: outcome.staleness.changeCount,
+            assemblyRefusals: [...outcome.staleness.assemblyRefusals],
+          },
           correlationId: request.correlationId,
         },
       }),
@@ -530,7 +565,24 @@ export default function buildRoutes(app: FastifyInstance): void {
           conflicts: detail.conflicts,
           events: detail.events,
           sourceDigest: await builds.sourceDigestOf(uow, row),
+          /* The DISPATCH statement — what the platform posed the build under.
+           * Correct, worth recording, and NOT a claim about the result. */
           reproducibility: row.reproducibility_mode,
+          /* The RESULT-side verdict (FAD-49, EV-M4-005 §21). Derived on read
+           * from the run's recorded parameters and the search time the result
+           * recorded, because a request pinned `deterministic` can still have
+           * been ended by its wall clock — and then it reproduces nothing. */
+          resultReproducibility: builds.runResultReproducibility(
+            row,
+            detail.result?.quality.solverStatistics['wallTimeSeconds'] ?? null,
+          ),
+          /* doc 35 §6g ruling 4: the staleness is visible on the screen BEFORE
+           * the scheduler decides, not only in the refusal after they have. */
+          /* FAD-50 C-4. Computed over every constituent (FAD-29 — the gate reads
+           * the truth) and PROJECTED to input class + direction + count before it
+           * reaches a caller: the `qualificationHolding` class's keys are holding
+           * row ids behind a grant-only capability. */
+          staleness: stalenessWire(await buildStaleness(uow, row)),
         },
       };
     });
@@ -583,14 +635,34 @@ export default function buildRoutes(app: FastifyInstance): void {
         const { buildRunId } = request.params as { buildRunId: string };
         if (!isUuid(buildRunId)) return { kind: 'not-found' as const };
 
-        /* `null` means the claim was lost — somebody else took this build, or it
-         * is no longer queued. That is a concurrency answer, not a fault. */
+        /* ── this route is now the OPERATOR path, not the production one ─────
+         *
+         * D-4b's queue binding (doc 35 §6g ruling 2) moved dispatch to the
+         * `build.solve` worker task, which `submitBuild` enqueues in the same
+         * transaction that queues the run. This route is retained because a
+         * deployment without a build worker — and every e2e run, which has one
+         * process — still needs a way to make a queued build run, and because
+         * an operator recovering a stalled queue should not have to reach for
+         * psql. It runs the SAME `runQueuedBuild`, under the SAME D-4b cap.
+         *
+         * `not-claimable` means the claim was lost — somebody else took this
+         * build, or it is no longer queued. `deferred` means the organization
+         * is at its cap and the build is still queued, waiting. Both are
+         * concurrency answers, not faults, and both are 409 — but they are
+         * DIFFERENT answers and the log line says which. */
         const result = await runQueuedBuild(
           request.server.tenancy.runtime,
           command,
           buildRunId,
         );
-        if (result === null) return { kind: 'conflict' as const };
+        if (result.kind === 'deferred') {
+          request.log.info(
+            { runningCount: result.runningCount, cap: result.cap },
+            'build dispatch deferred: the organization is at its D-4b concurrency cap',
+          );
+          return { kind: 'conflict' as const };
+        }
+        if (result.kind === 'not-claimable') return { kind: 'conflict' as const };
 
         return withBuild(request, async (uow) => {
           const row = await builds.loadRun(uow, buildRunId);
@@ -751,11 +823,22 @@ export default function buildRoutes(app: FastifyInstance): void {
   app.post(`${base}/reap`, { config: BUILD_ADMINISTER_CONFIG }, async (request, reply) => {
     const outcome = await withBuild(request, async (uow) => {
       const reaped = await reapStaleBuilds(uow);
-      return { kind: 'ok' as const, value: reaped.map((entry) => entry.buildRunId) };
+      /* D-4b's other recovery. The reaper answers "a worker died holding a
+       * RUNNING build"; this answers "a QUEUED build has no live job" — the
+       * shape a saturated organization reaches when its `build.solve` job
+       * exhausts its attempts (`builds/queue.ts`). Neither covers the other,
+       * and a build stuck in `queued` for ever is as invisible as one stuck in
+       * `running` and has no reaper of its own. */
+      const requeued = await requeueOrphanedQueuedBuilds(uow);
+      return {
+        kind: 'ok' as const,
+        value: { reaped: reaped.map((entry) => entry.buildRunId), requeued: [...requeued] },
+      };
     });
 
-    return respond(request, reply, outcome, (reaped) => ({
-      reaped,
+    return respond(request, reply, outcome, (value) => ({
+      reaped: value.reaped,
+      requeued: value.requeued,
       correlationId: request.correlationId,
     }));
   });

@@ -13,8 +13,8 @@ import {
   CONFLICT_CLASS_LABELS,
   EXPLANATION_DETAIL,
   EXPLANATION_LABELS,
-  REPRODUCIBILITY_DETAIL,
-  REPRODUCIBILITY_LABELS,
+  RESULT_REPRODUCIBILITY_LABELS,
+  STALENESS_DIRECTION_LABELS,
   STATE_EXPLANATIONS,
   STATE_LABELS,
   TERMINATION_LABELS,
@@ -268,18 +268,90 @@ export function BuildDetailPage(): JSX.Element {
               </p>
               {/* OPUS-M4-004. `reproducibility` has been on the wire since
                   0018 and was never rendered, so a build that could be
-                  reproduced and one that could not looked identical. The mode is
-                  COMPUTED from the parameters (SPEC-04 §4 amended) — it is not a
-                  claim anybody made. */}
-              {data.reproducibility === null ? null : (
+                  reproduced and one that could not looked identical.
+
+                  OPUS-M4-005 continuation (FAD-49, EV-M4-005 §21). It is now
+                  the RESULT-side verdict that is rendered, not the dispatch
+                  mode. This screen is about a run that has finished, and the
+                  dispatch mode cannot see how the search ended: a build posed
+                  `deterministic` whose wall clock ran out reproduces nothing,
+                  and used to read here as "Deterministic — reproducible. The
+                  same problem run again … produces the same schedule." The
+                  verdict carries its own reason, so the screen states it rather
+                  than inventing one. */}
+              {data.resultReproducibility === null ? null : (
                 <p
                   className="text-sm text-text-muted"
-                  data-testid={`build-reproducibility-${data.reproducibility}`}
+                  data-testid={`build-reproducibility-${data.resultReproducibility.verdict}`}
                 >
-                  {REPRODUCIBILITY_LABELS[data.reproducibility] ?? data.reproducibility}.{' '}
-                  {REPRODUCIBILITY_DETAIL[data.reproducibility] ?? ''}
+                  {RESULT_REPRODUCIBILITY_LABELS[data.resultReproducibility.verdict] ??
+                    data.resultReproducibility.verdict}
+                  . {data.resultReproducibility.detail}
                 </p>
               )}
+              {/* ── doc 35 §6g ruling 4: staleness is VISIBLE, and it is absolute ──
+                  A build whose inputs moved after assembly can never silently
+                  become the current draft. The server refuses the selection; this
+                  is what tells a scheduler BEFORE they decide, rather than after
+                  they have clicked and been refused.
+                  `role="alert"` because the whole point is that it must not be
+                  possible to read this screen and not know. */}
+              {data.staleness.stale ? (
+                <div
+                  className="flex flex-col gap-sp-1 rounded-panel border border-border bg-surface-raised p-sp-4"
+                  data-testid="build-staleness"
+                  role="alert"
+                >
+                  <p className="text-text">
+                    The inputs this build was posed against have changed since it was assembled.
+                    This candidate cannot be written to a draft — run a new build.
+                  </p>
+                  {data.staleness.assemblyRefusals.length > 0 ? (
+                    <p
+                      className="text-sm text-text-muted"
+                      data-testid="build-staleness-unassemblable"
+                    >
+                      The inputs can no longer be assembled at all:{' '}
+                      {data.staleness.assemblyRefusals.join(', ')}.
+                    </p>
+                  ) : (
+                    <>
+                      {/* FAD-51 D-2. The list is ALWAYS grouped by input class
+                          now, so the sentence says so unconditionally. The
+                          previous version showed that clause only when
+                          `changeCount > changes.length` — a comparison between a
+                          change TOTAL and a CLASS-LIST length, two different
+                          units, which happened to read correctly only while the
+                          per-class counts were themselves truncated. The counts
+                          now sum to `changeCount`, so the sentence and the list
+                          below it reconcile for every input. */}
+                      <p className="text-sm text-text-muted">
+                        {data.staleness.changeCount} input revision
+                        {data.staleness.changeCount === 1 ? '' : 's'} moved, grouped below by
+                        input class.
+                      </p>
+                      <ul
+                        className="flex flex-col gap-sp-1 text-sm text-text-muted"
+                        data-testid="build-staleness-changes"
+                      >
+                        {/* FAD-50 C-4. Class + direction + count. This used to
+                            print `change.key` beside the class, which for the
+                            qualificationHolding class was a holding row's
+                            surrogate id behind a grant-only capability — and
+                            which told a scheduler nothing: it was an opaque
+                            UUID. A count is strictly more use and discloses
+                            nothing. */}
+                        {data.staleness.changes.map((change) => (
+                          <li key={`${change.kind}:${change.direction}`}>
+                            {change.count} × {change.kind} —{' '}
+                            {STALENESS_DIRECTION_LABELS[change.direction]}
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                </div>
+              ) : null}
               {run.supersededByBuildRunId === null ? null : (
                 <p className="text-sm text-text-muted" data-testid="build-superseded-note">
                   A later build for this period was approved, so this one is superseded.
@@ -835,9 +907,16 @@ export function BuildDetailPage(): JSX.Element {
                   </button>
                 ) : null}
                 {run.state === 'approved' ? (
+                  /* DISABLED, not hidden, and the banner above says why — the
+                     `build-retries-exhausted` rationale applied to staleness: a
+                     control that vanishes teaches nothing, and a scheduler who
+                     cannot find the button assumes the screen is broken.
+                     The server refuses it regardless (STALE_BUILD_INPUTS); this
+                     is the courtesy, never the control. */
                   <button
                     className={PRIMARY_BUTTON_CLASS}
                     data-testid="build-apply-open"
+                    disabled={data.staleness.stale}
                     onClick={() => {
                       // Local state only. Nothing is applied, nothing is fetched.
                       setIsConfirmingApply(true);

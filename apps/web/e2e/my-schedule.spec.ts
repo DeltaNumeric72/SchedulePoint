@@ -7,6 +7,7 @@ import { expect, test, type Page, type Route } from '@playwright/test';
 import { recordRequests } from './support/request-budget.js';
 
 import { screenshotDir } from './support/evidence-target.js';
+import { mockDeclaredContext } from './support/declared-context.js';
 
 /**
  * The staff-facing schedule views: every state, both viewports, axe on each
@@ -246,6 +247,17 @@ async function summaries(page: Page): Promise<string[]> {
 /* ────────────────────────────────────────────────────────────────────────────
  * States
  * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * The context read every capability request now depends on (FAD-48).
+ *
+ * This spec intercepts the API, so the client's `GET /me/context` has to be
+ * intercepted too or it falls through to the static preview server. It is
+ * plumbing, not a claim: see `support/declared-context.ts`.
+ */
+test.beforeEach(async ({ page }) => {
+  await mockDeclaredContext(page, { organizationId: ORGANIZATION, groupIds: [GROUP] });
+});
 
 test.describe('my schedule — states', () => {
   test('LOADING: the surface announces itself while it is being fetched', async ({ page }, info) => {

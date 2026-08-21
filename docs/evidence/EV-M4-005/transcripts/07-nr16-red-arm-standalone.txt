@@ -1,0 +1,16 @@
+# ARM 4: nr16-bare-line-scanner, standalone, both directions
+# 2026-08-18T08:37:44Z
+-- GREEN (clean tree)
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+GREEN done
+-- RED (bare-line detector removed)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  |api| test/architecture/no-tenant-access-outside-unit-of-work.test.ts > no tenant access outside the unit of work (I-15) > GREEN: no module outside the connection owners touches a connection or a tenant table
+ FAIL  |api| test/architecture/no-tenant-access-outside-unit-of-work.test.ts > no tenant access outside the unit of work (I-15) > RED (NR-16): a BARE-LINE tenant query inside a template literal is caught
+ FAIL  |api| test/architecture/no-tenant-access-outside-unit-of-work.test.ts > no tenant access outside the unit of work (I-15) > RED (NR-16): the bare-line BASELINE is pinned by count, not by path
+ Test Files  1 failed (1)
+      Tests  3 failed | 9 passed (12)
+RED done
+-- restored
+      Tests  12 passed (12)

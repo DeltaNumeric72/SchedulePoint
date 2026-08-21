@@ -1,0 +1,42 @@
+=== 04-fixture-regression ===
+ 6:55  up 1 day,  1:24, 1 user, load averages: 5.19 2.63 2.38
+START 2026-08-18T10:55:04Z
+$ node scripts/sbx/fixture-regression.mjs
+FAD-15 fixture-isolation regression gate
+==============================================================================
+
+1. FIXED SEED SET — file order AND test order shuffled
+FAIL  seed 1                                          290.1s  1 failed | 1413 passed | 14 skipped (1428)
+        FAIL  |api| test/audit/outbox-dispatch.test.ts [ apps/api/test/audit/outbox-dispatch.test.ts ]
+        FAIL  |api| test/audit/periodic.test.ts > R-03 — the jobs are REGISTERED, not merely written > a runner without a signer registers NO periodic task, loudly rather than silently
+        FULL OUTPUT RETAINED: /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-005/.evidence-scratch/fixture-regression/seed-1.txt
+FAIL  seed 7                                          245.1s  1 failed | 1413 passed | 14 skipped (1428)
+        FAIL  |api| test/audit/periodic.test.ts > R-03 — the jobs are REGISTERED, not merely written > a runner without a signer registers NO periodic task, loudly rather than silently
+        FULL OUTPUT RETAINED: /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-005/.evidence-scratch/fixture-regression/seed-7.txt
+FAIL  seed 42                                         334.7s  4 failed | 1410 passed | 14 skipped (1428)
+        FAIL  |api| test/audit/outbox-dispatch.test.ts [ apps/api/test/audit/outbox-dispatch.test.ts ]
+        FAIL  |api| test/audit/crash-restart.test.ts > B — lease recovery on restart (SP-D condition C-2, no clock manipulation) > a replacement worker reclaims a dead pool's job and completes it in seconds
+        FAIL  |api| test/audit/crash-restart.test.ts > B — lease recovery on restart (SP-D condition C-2, no clock manipulation) > the effect was applied EXACTLY ONCE despite the crash and the re-execution
+        FAIL  |api| test/audit/periodic.test.ts > R-03 — the jobs are REGISTERED, not merely written > a runner without a signer registers NO periodic task, loudly rather than silently
+        FAIL  |api| test/sbx/sbx.test.ts > the G-ARCH tenancy subset > runs every scenario under its contract
+        FULL OUTPUT RETAINED: /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-005/.evidence-scratch/fixture-regression/seed-42.txt
+FAIL  seed 424242                                     334.4s  4 failed | 1410 passed | 14 skipped (1428)
+        FAIL  |api| test/audit/outbox-dispatch.test.ts [ apps/api/test/audit/outbox-dispatch.test.ts ]
+        FAIL  |api| test/audit/crash-restart.test.ts > B — lease recovery on restart (SP-D condition C-2, no clock manipulation) > a replacement worker reclaims a dead pool's job and completes it in seconds
+        FAIL  |api| test/audit/crash-restart.test.ts > B — lease recovery on restart (SP-D condition C-2, no clock manipulation) > the effect was applied EXACTLY ONCE despite the crash and the re-execution
+        FAIL  |api| test/audit/periodic.test.ts > R-03 — the jobs are REGISTERED, not merely written > a runner without a signer registers NO periodic task, loudly rather than silently
+        FAIL  |api| test/solver/e2-objective.test.ts > S-08t under E2 objectives — bit-identical on a soft-rule-bearing class > reproduces B-fairness-shaped bit for bit under the FULL pinned set
+        FULL OUTPUT RETAINED: /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-005/.evidence-scratch/fixture-regression/seed-424242.txt
+FAIL  seed 20260803                                   335.9s  4 failed | 1410 passed | 14 skipped (1428)
+        FAIL  |api| test/audit/outbox-dispatch.test.ts [ apps/api/test/audit/outbox-dispatch.test.ts ]
+        FAIL  |api| test/audit/crash-restart.test.ts > B — lease recovery on restart (SP-D condition C-2, no clock manipulation) > a replacement worker reclaims a dead pool's job and completes it in seconds
+        FAIL  |api| test/audit/crash-restart.test.ts > B — lease recovery on restart (SP-D condition C-2, no clock manipulation) > the effect was applied EXACTLY ONCE despite the crash and the re-execution
+        FAIL  |api| test/audit/periodic.test.ts > R-03 — the jobs are REGISTERED, not merely written > a runner without a signer registers NO periodic task, loudly rather than silently
+        FAIL  |api| test/sbx/sbx.test.ts > the G-ARCH tenancy subset > runs every scenario under its contract
+        FULL OUTPUT RETAINED: /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-005/.evidence-scratch/fixture-regression/seed-20260803.txt
+FAIL  seed 31337                                      296.5s  1 failed | 1413 passed | 14 skipped (1428)
+        FAIL  |api| test/audit/outbox-dispatch.test.ts [ apps/api/test/audit/outbox-dispatch.test.ts ]
+        FAIL  |api| test/audit/periodic.test.ts > R-03 — the jobs are REGISTERED, not merely written > a runner without a signer registers NO periodic task, loudly rather than silently
+        FULL OUTPUT RETAINED: /Users/prabashan/Claude/SchedulePoint/.worktrees/m4-005/.evidence-scratch/fixture-regression/seed-31337.txt
+PASS  seed 99991                                      204.0s  1414 passed | 14 skipped (1428)
+[ELIFECYCLE] Command failed.

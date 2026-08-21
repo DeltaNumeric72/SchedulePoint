@@ -15,6 +15,7 @@ import { API_ROOT } from '../support/env.js';
 import { groupContext, organizationContext } from '../support/fixtures.js';
 import { createRuntime, log, type Runtime } from '../support/harness.js';
 import { ownedMulti } from '../support/owned-multi.js';
+import { drainableJobCount } from '../support/queue.js';
 
 /**
  * FAD-15 Layer 2 — this file owns its tenant.
@@ -219,12 +220,31 @@ describe('A — the chain survives a process killed mid-batch', () => {
   });
 });
 
-/** Every job the queue is holding, pending or leased. */
+/**
+ * The jobs THIS FILE's drain can actually consume — not every job in the queue.
+ *
+ * ## NR-15's residual, diagnosed and repaired at the seam that produced it
+ *
+ * The drain was repaired (§14b) so that it waits on the namespaces it registered
+ * a handler for — `outbox.*` and `audit.*` — because a `build.solve` job it has
+ * no handler for made the loop unsatisfiable, a deadlock by construction.
+ * **The assertion that follows the drain was NOT repaired with it**, and it
+ * counted every row in `graphile_worker._private_jobs`. So under a shuffled file
+ * order the drain correctly ignored a foreign job and the assertion correctly
+ * counted it, and the file failed. Measured across the full seed set: five of
+ * eight seeds, with `expected 23 to be 0` on seed 31337 — twenty-three foreign
+ * jobs, none of them this file's.
+ *
+ * A drain and the assertion that it worked MUST use the same predicate. They now
+ * do: `drainableJobCount` is the one definition, in `support/queue.ts`, and a
+ * task added inside the namespace joins it automatically.
+ *
+ * `queuedJobCount` in `support/queue.ts` still counts EVERYTHING and is
+ * deliberately left alone — "how many jobs exist" is a real question, it is just
+ * not the question a drain's postcondition asks.
+ */
 async function queuedJobCount(): Promise<number> {
-  const { rows } = await admin.query<{ n: string }>(
-    'select count(*)::text as n from graphile_worker._private_jobs',
-  );
-  return Number(rows[0]?.n ?? '-1');
+  return drainableJobCount(admin);
 }
 
 /**
@@ -258,7 +278,14 @@ async function queuedJobCount(): Promise<number> {
  * a DELETE would be asserting against a state the system cannot reach.
  */
 async function drainQueue(label: string, timeoutMs = 45_000): Promise<number> {
-  const before = await queuedJobCount();
+  /* DRAINABLE jobs, not every job (OPUS-M4-005). This drainer registers
+   * `outbox.dispatch` alone, so a `build.solve` job another file left behind can
+   * never be leased by it — and waiting for one made this loop unsatisfiable
+   * under six of seven fixed seeds. `test/support/queue.ts`'s
+   * `drainableJobCount` carries the measurement and the reasoning; the
+   * precondition is unchanged, because a job this worker cannot lease was never
+   * a job that could steal its lease. */
+  const before = await drainableJobCount(admin);
   if (before === 0) return 0;
 
   const drainer = await startOutboxRunner({
@@ -274,11 +301,11 @@ async function drainQueue(label: string, timeoutMs = 45_000): Promise<number> {
   try {
     const deadline = Date.now() + timeoutMs;
     for (;;) {
-      if ((await queuedJobCount()) === 0) break;
+      if ((await drainableJobCount(admin)) === 0) break;
       if (Date.now() > deadline) {
         throw new Error(
-          `the queue still holds ${String(await queuedJobCount())} job(s) after ${String(timeoutMs)} ms; ` +
-            'block B cannot establish its precondition',
+          `the queue still holds ${String(await drainableJobCount(admin))} drainable job(s) ` +
+            `after ${String(timeoutMs)} ms; block B cannot establish its precondition`,
         );
       }
       await new Promise((r) => setTimeout(r, 50));
@@ -306,11 +333,19 @@ describe('B — lease recovery on restart (SP-D condition C-2, no clock manipula
     const drained = await drainQueue('crash-lease-drain');
     expect(
       await queuedJobCount(),
-      'the queue must be empty before the crash worker starts, or it takes the wrong job',
+      /* FAD-50 C-7. The assertion narrowed to `drainableJobCount` at the NR-15
+         repair — outbox.% and audit.% only, the namespaces this drain registers
+         handlers for — and the message did not follow it. What must be empty is
+         the DRAINABLE set: a `build.solve` job from another file is none of this
+         test's business and blocking on it is the deadlock NR-15 was. */
+      'every DRAINABLE job (outbox.%, audit.%) must be gone before the crash worker ' +
+        'starts, or it takes the wrong job. Jobs outside those namespaces are ' +
+        'deliberately not counted here',
     ).toBe(0);
     log(
-      `B precondition: drained ${String(drained)} pre-existing job(s); the queue is empty and ` +
-        'the crash worker can only take the job this test publishes',
+      `B precondition: drained ${String(drained)} pre-existing job(s); every DRAINABLE job ` +
+        '(outbox.%, audit.%) is gone and the crash worker can only take the job this test ' +
+        'publishes',
     );
 
     /* ── publish something for the dead worker to pick up ─────────────────── */

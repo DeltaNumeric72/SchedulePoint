@@ -11,7 +11,8 @@ import { requireScheduleCapability, type ScheduleActor } from '../schedule/actio
 import { calendarDate } from '../schedule/render.js';
 import { addManualAssignment as addAssignment, createDraftVersion } from '../schedule/service.js';
 import { readSnapshot } from '../solver/snapshot-store.js';
-import { BuildPreconditionError, BuildSourceMovedError } from './errors.js';
+import { BuildInputsMovedError, BuildPreconditionError, BuildSourceMovedError } from './errors.js';
+import { buildStaleness } from './staleness.js';
 import {
   assertExpectedState,
   loadRunForUpdate,
@@ -129,6 +130,27 @@ export async function applyCandidateToNewDraft(
    * for a scheduler to wonder about. */
   const currentDigest = await sourceDigestOf(uow, run);
   if (currentDigest !== expectedSourceDigest) throw new BuildSourceMovedError(currentDigest);
+
+  /* ── doc 35 §6g ruling 4, and it is ABSOLUTE ────────────────────────────────
+   *
+   * The digest above answers "did the SOURCE DRAFT move?". It says nothing about
+   * the rules, the catalogue, the profiles, the qualifications, the demand, the
+   * timezone, the locations or the participants — every one of which is an input
+   * this build was posed against, and every one of which can move between the
+   * solve and the click.
+   *
+   * A candidate applied over moved inputs is a schedule computed from a world
+   * that no longer exists, and NOTHING on any screen would say so. The ruling
+   * therefore forbids it outright: a build with any changed input revision "can
+   * NEVER silently become the current draft".
+   *
+   * The refusal is typed and carries the changes, because "your inputs moved" is
+   * unactionable and "the MinimumRestBetween rule moved from revision 3 to 4" is
+   * a thing a scheduler can decide about — the same reason the assembly refusals
+   * are itemised rather than counted. The remedy is a NEW build, which is
+   * already how SPEC-04 §2 says a re-posed problem is expressed. */
+  const staleness = await buildStaleness(uow, run);
+  if (staleness.stale) throw new BuildInputsMovedError(staleness);
 
   if (run.snapshot_id === null) {
     throw new BuildPreconditionError(

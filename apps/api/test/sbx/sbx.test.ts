@@ -745,7 +745,12 @@ describe('the G-ARCH tenancy subset', () => {
       bad.map((r) => `${r.id}: ${r.state} ${r.failure ?? ''}`),
       'a scenario failed or was vacuous',
     ).toEqual([]);
-  }, 120_000);
+    /* Raised 120s -> 900s by OPUS-M4-005. SBX-015 and SBX-017 run FOUR real
+     * CP-SAT solves in a separate subprocess between them (doc 35 §6g Included
+     * (C)); the tenancy subset alone never left this process. The bound is a
+     * guard against a wedged subprocess, not a performance assertion — nothing
+     * in this file asserts on a duration. */
+  }, 900_000);
 
   it('SBX-004 passed with zero cross-tenant rows and no vacuous table', async () => {
     await ensureSubsetRun();

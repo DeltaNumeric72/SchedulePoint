@@ -1,0 +1,44 @@
+SBX-015 — Execution, the infeasible-vs-failed distinction, regeneration, and retained history
+generated: 2026-08-18T11:50:58.594Z
+
+STATE: PASS   falsifiability probe: FALSIFIABLE   gate-required: YES
+
+SPEC-16 §1 contract
+  owner                    OPUS-M4-005 (implementer) / Fable (acceptance)
+  fixtureProvenance        MULTI `full` profile with `seed.catalogue: [alpha]`, provisioned by apps/api/test/support/multi.ts from a slug — the single fixture owner. Each arm seeds its own period, dated requirement, draft version and build configuration through `seedBuildFixture`, i.e. through the PRODUCTION write path (createPeriod, setRequirement, createDraftVersion, createConfiguration). The infeasible arm adds one HARD `AvoidDate` rule through the production rule write path under the scheduler's own capability. Synthetic throughout; 2047 windows, far from every other fixture in this file.
+  deterministicSetup       One embedded PostgreSQL cluster per run, initialised from empty; migrations up -> down -> up. Each arm takes its own period window (a fortnight apart, so D-2 cannot see an overlap) and its own build run, so no arm depends on another's ordering. The two real solves run under the venv CP-SAT worker with the configuration's own parameters; the assertions are over the SETTLED STATE and the recorded status, never over a duration or an objective value, so nothing here depends on how fast the machine is.
+  externalDependency       The CP-SAT worker subprocess (`SP_SOLVER_WORKER_COMMAND`, the local venv interpreter). It holds no database credential and no network egress; the cancellation channel is a file. Nothing else is outside this process and its local cluster.
+  faultControls            Three injected. (1) A HARD `AvoidDate` rule on the one date the period requires staffed, which makes the problem genuinely INFEASIBLE rather than merely refused — the readiness check does not evaluate rules, so the run reaches the solver and the solver proves it. (2) A hostile worker fixture (`garbage` mode) whose answer cannot be parsed, which must settle `failed`/`rejected` and never `infeasible`. (3) The falsifiability probe re-labels the infeasible outcome as `failed` and requires the oracle to reject it. No notification is sent to any destination.
+  objectiveOracle          Four conjuncts: (1) EXECUTION — a real solve settles in the completed family with a solved solver status and a candidate the INDEPENDENT checker admitted; (2) DISTINCTION — the infeasible arm settles `infeasible`/`completed`/`INFEASIBLE` and the failed arm settles `failed` with `usable = false`, and the two states are DIFFERENT; (3) REGENERATION — a retry is a NEW `build_runs` row citing the original in `retry_of_build_run_id`, and the in-place edge `infeasible -> draft_configuration` is refused by the DATABASE as well as by the transition table; (4) RETAINED HISTORY — every earlier run is still readable in its settled state with its result row intact after the retry.
+  retainedArtifact         docs/evidence/EV-M4-005/sbx-015-execution.txt
+  environment              LIVE-SIM
+  earliestExecutionPoint   E1
+
+tables exercised: build_run_candidate_assignments, build_run_events, build_run_results, build_runs, rules, solver_input_snapshots
+policies exercised: I-05 — the engine, not a manual placement, produced the content | SPEC-04 §2 — a retry is a NEW build_run, never in place | SPEC-04 §2 — infeasible is a statement about the problem
+
+OBSERVATIONS
+
+  arm-1-execution:
+    a real CP-SAT solve settled completed / OPTIMAL; 1 candidate assignment(s), usable=true, reproducibility best-effort
+
+  arm-2-infeasible:
+    state=infeasible reason=completed solverStatus=INFEASIBLE; explanation state EXPLAINED_MINIMAL; conflicting rule keys [__demand__, sbx015_no_staffing_on_the_required_date]; 0 structural finding(s)
+
+  arm-3-failed:
+    state=failed reason=rejected usable=false — an unparsable answer, never a verdict about whether a schedule exists
+
+  distinction:
+    execution=completed/completed · infeasible=infeasible/completed · failed=failed/rejected
+
+  arm-4-regeneration:
+    retry db3f57a2-fb44-4e94-aeed-055abcf7b496 cites ce81f937-5723-42d5-a2ed-801029d55918 at attempt 1; the in-place edge infeasible -> draft_configuration is refused by the transition table AND by the database
+
+  arm-5-retained-history:
+    4 runs retained: 66db108c=completed, ce81f937=infeasible, 7d9d897a=failed, db3f57a2=draft_configuration
+
+  queue-released:
+    3 build.solve job(s) consumed by the PRODUCTION queue runner, each answering not-claimable because its build had already settled; the shared queue is left as this scenario found it (FAD-15 Layer 3)
+
+  probe-control:
+    the oracle accepts the honest three-arm observation

@@ -1,0 +1,85 @@
+=== OPUS-M4-005 continuation, POST-REPAIR VERIFICATION C: the two affected red-case arms, GREEN half, standalone x3 each (EV-M4-005 §20e) ===
+
+The two arms whose GREEN halves failed in transcript 23. Each arm's OWN green command,
+lifted from scripts/red-cases/run.mjs, run standalone on a clean tree, three times each,
+strictly serially on an otherwise idle machine.
+
+  stale-edit-cas               greenCommand: ['run', 'gate:unit']
+  solver-t2-false-minimality   greenCommand: ['exec','vitest','run',
+                                 'apps/api/test/solver/e2-objective.test.ts',
+                                 'apps/api/test/solver/corpus/corpus-agreement.test.ts']
+
+The RED halves are NOT reproduced here by hand. Both arms' violations patch
+`solver/schedulepoint_solver/cpsat_adapter.py` or `apps/api/src/**`, which doc 35 §6g
+prohibits this packet from editing; the red-case runner applies and reverts them under its
+own machinery, and that is where the RED evidence belongs. Both halves of both arms, run
+by the runner, are in transcript 30.
+
+=== arm: stale-edit-cas — GREEN half, three runs ===
+--- run 1 of 3 ---
+    start:   2026-08-21T03:40:31Z
+    uptime:  23:40  up 3 days, 18:09, 1 user, load averages: 3.43 3.46 3.59
+    command: corepack pnpm run gate:unit
+    uptime:  23:47  up 3 days, 18:17, 1 user, load averages: 3.04 3.30 3.46
+          Tests  2110 passed | 14 skipped (2124)
+       Duration  433.27s (transform 2.11s, setup 2.57s, collect 51.07s, tests 383.31s, environment 2.07s, prepare 1.30s)
+    Tests  2110 passed | 14 skipped (2124)
+    Duration  433.27s (transform 2.11s, setup 2.57s, collect 51.07s, tests 383.31s, environment 2.07s, prepare 1.30s)
+    EXIT=0
+--- run 2 of 3 ---
+    start:   2026-08-21T03:47:45Z
+    uptime:  23:47  up 3 days, 18:17, 1 user, load averages: 3.04 3.30 3.46
+    command: corepack pnpm run gate:unit
+    uptime:  23:54  up 3 days, 18:24, 1 user, load averages: 3.18 3.49 3.51
+          Tests  2110 passed | 14 skipped (2124)
+       Duration  429.44s (transform 1.81s, setup 2.68s, collect 51.12s, tests 379.07s, environment 2.16s, prepare 1.31s)
+    Tests  2110 passed | 14 skipped (2124)
+    Duration  429.44s (transform 1.81s, setup 2.68s, collect 51.12s, tests 379.07s, environment 2.16s, prepare 1.31s)
+    EXIT=0
+--- run 3 of 3 ---
+    start:   2026-08-21T03:54:55Z
+    uptime:  23:54  up 3 days, 18:24, 1 user, load averages: 3.18 3.49 3.51
+    command: corepack pnpm run gate:unit
+    uptime:   0:02  up 3 days, 18:31, 1 user, load averages: 2.78 3.29 3.43
+          Tests  2110 passed | 14 skipped (2124)
+       Duration  428.21s (transform 2.05s, setup 2.74s, collect 49.26s, tests 379.55s, environment 1.66s, prepare 1.32s)
+    Tests  2110 passed | 14 skipped (2124)
+    Duration  428.21s (transform 2.05s, setup 2.74s, collect 49.26s, tests 379.55s, environment 1.66s, prepare 1.32s)
+    EXIT=0
+
+=== arm: t2-false-minimality — GREEN half, three runs ===
+--- run 1 of 3 ---
+    start:   2026-08-21T04:02:04Z
+    uptime:   0:02  up 3 days, 18:31, 1 user, load averages: 2.78 3.29 3.43
+    command: corepack pnpm exec vitest run apps/api/test/solver/e2-objective.test.ts apps/api/test/solver/corpus/corpus-agreement.test.ts
+    uptime:   0:06  up 3 days, 18:35, 1 user, load averages: 2.98 3.19 3.34
+          Tests  36 passed (36)
+       Duration  269.17s (transform 482ms, setup 152ms, collect 70ms, tests 266.95s, environment 0ms, prepare 39ms)
+    Tests  36 passed (36)
+    Duration  269.17s (transform 482ms, setup 152ms, collect 70ms, tests 266.95s, environment 0ms, prepare 39ms)
+    EXIT=0
+--- run 2 of 3 ---
+    start:   2026-08-21T04:06:34Z
+    uptime:   0:06  up 3 days, 18:35, 1 user, load averages: 2.98 3.19 3.34
+    command: corepack pnpm exec vitest run apps/api/test/solver/e2-objective.test.ts apps/api/test/solver/corpus/corpus-agreement.test.ts
+    uptime:   0:11  up 3 days, 18:40, 1 user, load averages: 2.28 3.01 3.25
+          Tests  36 passed (36)
+       Duration  269.18s (transform 315ms, setup 149ms, collect 71ms, tests 267.23s, environment 0ms, prepare 33ms)
+    Tests  36 passed (36)
+    Duration  269.18s (transform 315ms, setup 149ms, collect 71ms, tests 267.23s, environment 0ms, prepare 33ms)
+    EXIT=0
+--- run 3 of 3 ---
+    start:   2026-08-21T04:11:04Z
+    uptime:   0:11  up 3 days, 18:40, 1 user, load averages: 2.28 3.01 3.25
+    command: corepack pnpm exec vitest run apps/api/test/solver/e2-objective.test.ts apps/api/test/solver/corpus/corpus-agreement.test.ts
+    uptime:   0:15  up 3 days, 18:44, 1 user, load averages: 1.89 2.35 2.88
+          Tests  36 passed (36)
+       Duration  269.60s (transform 373ms, setup 151ms, collect 69ms, tests 267.65s, environment 0ms, prepare 31ms)
+    Tests  36 passed (36)
+    Duration  269.60s (transform 373ms, setup 151ms, collect 69ms, tests 267.65s, environment 0ms, prepare 31ms)
+    EXIT=0
+
+READING. Six runs, six clean passes, exit 0 every time. Before the repair these same two
+commands failed on a clean tree, each on exactly one test — the S-08t/E2 arm (transcript
+26). The prediction in §20b is therefore confirmed at the command level; transcript 30
+confirms it at the runner level, with both halves scored.

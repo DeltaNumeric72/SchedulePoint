@@ -1,0 +1,104 @@
+$ node scripts/red-cases/run.mjs
+
+=== preflight: building apps/web so the bundle arms have a bundle ===
+  built
+
+=== lint — lint (eslint) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== typecheck — typecheck (tsc -b) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+  swept 4 compiled red-case artifact(s) from dist/ (invisible to git status — OPUS-M4-004 §8.2)
+
+=== unit — unit tests (vitest) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== import-boundary — import boundary (dependency-cruiser) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== route-policy — route-without-policy (I-02) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== migration-rls — migration + RLS pairing (I-15) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== invariant-ids — invariant-ID uniqueness (CAR-023) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== rule-node-mapping — rule-node → compiler-mapping closure (SPEC-04 §3.2) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== solver-kind-parity — solver/checker HARD-kind parity (doc 35 §6d) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== rule-kind-registry — rule-kind registry is generated (doc 34 §4-D) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== provider-boundary-unguarded — provider outside unit of work (SPEC-12 U-07) — unguarded entry point ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== provider-boundary-in-transaction — provider outside unit of work (SPEC-12 U-07) — provider inside a transaction ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== provider-boundary-owns-connection — provider outside unit of work (SPEC-12 U-07) — provider owns a connection ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== provider-boundary-runtime-mutation — provider outside unit of work (SPEC-12 U-07) — the RUNTIME arm ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== nr14-clean-tree — NR-14 evidence destination (a plain run leaves the tree clean) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== corpus-tamper — B-* corpus regeneration byte-identity (SPEC-04 §8) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== secret-scan — secret scan ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== network-guard-source — network-assertion guard (SP-HR-1) — source scan ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== network-guard-bundle — network-assertion guard (SP-HR-1) — built-bundle scan ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== build — production build (vite build) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== axe — axe-core via Playwright (CAP-066) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== i13-schedule-authoring — I-13 zero-requests-before-Save, on the schedule surface ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== publish-idempotency-key-retained — publish-once: the client RETAINS its idempotency key across retries (D-17) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== stale-edit-cas — server-authoritative compare-and-set (PO-DEC-18) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== draft-invisibility — a draft schedule version is invisible to staff (doc 07 §1) ===
+  GREEN (clean tree): gate passed

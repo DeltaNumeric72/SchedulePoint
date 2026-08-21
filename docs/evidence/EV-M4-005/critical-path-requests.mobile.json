@@ -1,0 +1,88 @@
+{
+  "project": "mobile",
+  "recordedAt": "2026-08-18T13:07:12.821Z",
+  "ledger": [
+    {
+      "step": "critical-path-open-new-period",
+      "requests": []
+    },
+    {
+      "step": "critical-path-save-period",
+      "requests": [
+        {
+          "method": "POST",
+          "url": "http://127.0.0.1:42732/api/organizations/79da8b34-b543-429e-972f-65d0f03b0b48/groups/b85730ec-a51e-4239-b62f-933ed48d02aa/schedule/periods"
+        },
+        {
+          "method": "GET",
+          "url": "http://127.0.0.1:42732/api/organizations/79da8b34-b543-429e-972f-65d0f03b0b48/groups/b85730ec-a51e-4239-b62f-933ed48d02aa/schedule/periods"
+        }
+      ]
+    },
+    {
+      "step": "critical-path-save-requirement",
+      "requests": [
+        {
+          "method": "PUT",
+          "url": "http://127.0.0.1:42732/api/organizations/79da8b34-b543-429e-972f-65d0f03b0b48/groups/b85730ec-a51e-4239-b62f-933ed48d02aa/schedule/periods/a3ef39fd-7225-43f4-b9ff-251c32b54845/requirements"
+        },
+        {
+          "method": "GET",
+          "url": "http://127.0.0.1:42732/api/organizations/79da8b34-b543-429e-972f-65d0f03b0b48/groups/b85730ec-a51e-4239-b62f-933ed48d02aa/schedule/periods/a3ef39fd-7225-43f4-b9ff-251c32b54845/requirements"
+        }
+      ]
+    },
+    {
+      "step": "critical-path-create-draft-version",
+      "requests": [
+        {
+          "method": "POST",
+          "url": "http://127.0.0.1:42732/api/organizations/79da8b34-b543-429e-972f-65d0f03b0b48/groups/b85730ec-a51e-4239-b62f-933ed48d02aa/schedule/periods/a3ef39fd-7225-43f4-b9ff-251c32b54845/versions"
+        },
+        {
+          "method": "GET",
+          "url": "http://127.0.0.1:42732/api/organizations/79da8b34-b543-429e-972f-65d0f03b0b48/groups/b85730ec-a51e-4239-b62f-933ed48d02aa/schedule/periods/a3ef39fd-7225-43f4-b9ff-251c32b54845/versions"
+        }
+      ]
+    },
+    {
+      "step": "critical-path-open-new-configuration",
+      "requests": []
+    },
+    {
+      "step": "critical-path-save-configuration",
+      "requests": [
+        {
+          "method": "POST",
+          "url": "http://127.0.0.1:42732/api/organizations/79da8b34-b543-429e-972f-65d0f03b0b48/groups/b85730ec-a51e-4239-b62f-933ed48d02aa/builds/configurations"
+        },
+        {
+          "method": "GET",
+          "url": "http://127.0.0.1:42732/api/organizations/79da8b34-b543-429e-972f-65d0f03b0b48/groups/b85730ec-a51e-4239-b62f-933ed48d02aa/builds/configurations?periodId=a3ef39fd-7225-43f4-b9ff-251c32b54845"
+        }
+      ]
+    },
+    {
+      "step": "critical-path-launch-build",
+      "requests": [
+        {
+          "method": "POST",
+          "url": "http://127.0.0.1:42732/api/organizations/79da8b34-b543-429e-972f-65d0f03b0b48/groups/b85730ec-a51e-4239-b62f-933ed48d02aa/builds/runs"
+        },
+        {
+          "method": "GET",
+          "url": "http://127.0.0.1:42732/api/organizations/79da8b34-b543-429e-972f-65d0f03b0b48/groups/b85730ec-a51e-4239-b62f-933ed48d02aa/builds/runs?periodId=a3ef39fd-7225-43f4-b9ff-251c32b54845"
+        }
+      ]
+    },
+    {
+      "step": "critical-path-apply-candidate",
+      "requests": [
+        {
+          "method": "POST",
+          "url": "http://127.0.0.1:42732/api/organizations/79da8b34-b543-429e-972f-65d0f03b0b48/groups/b85730ec-a51e-4239-b62f-933ed48d02aa/builds/runs/4c43bc33-ccf0-4180-9721-bd37afabe790/apply"
+        }
+      ]
+    }
+  ]
+}
