@@ -121,17 +121,17 @@ function looksBinary(extension, data) {
  * an evidence INDEX whose changes nobody can review, which is the whole reason
  * NR-18 was raised.
  *
- * The two `docs/fable/control/**` instances REMAIN. They are not this packet's:
- * doc 35 §6g's allowed files expressly exclude `docs/fable/control/**` and
- * assign those two repairs to Fable. **NR-18 therefore stays open until the
- * baseline is empty**, and the packet's own "(baseline → empty)" cannot be
- * reached from inside M4-005's globs — recorded as a stated deviation rather
- * than resolved by widening a grant.
+ * ## M4 close (Fable, 2026-08-21): the baseline is EMPTY — NR-18 retired
+ *
+ * The two `docs/fable/control/**` instances were the reserved Fable-owned half
+ * (doc 35 §6g excludes control docs from the packet). Both were the same
+ * construct — the phrase "raw-NUL→` `" describing the historical N-1 finding
+ * with the literal byte between the backticks — and both are repaired as the
+ * word `space`, preserving exactly what the sentences meant. Every tracked
+ * text file now carries zero raw U+0000 bytes; the next NUL anywhere fails the
+ * build with no amnesty to hide behind.
  */
-const KNOWN_VIOLATIONS = new Map([
-  ['docs/fable/control/CHANGELOG.md', 1],
-  ['docs/fable/control/OPUS-AGENT-RUNBOOK.md', 1],
-]);
+const KNOWN_VIOLATIONS = new Map([]);
 
 /**
  * `--dir <path>` scans a directory instead of the index.
