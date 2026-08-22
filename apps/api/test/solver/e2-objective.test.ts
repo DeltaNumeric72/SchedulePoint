@@ -238,7 +238,28 @@ describe('the objective is TIERED and every component weight is recorded', () =>
       `      · preference weight ${String(beforeWeight)} → ${String(afterWeight)}; ` +
         'every other recorded weight unchanged',
     );
-  });
+    /* **The explicit timeout, and it bounds nothing but the clock.**
+     *
+     * This arm drives TWO full solves of `B-fairness-shaped` — the base snapshot
+     * and the weight-edited one — and how much SEARCH each does is fixed by the
+     * pinned deterministic budget, not by the machine. What the machine decides
+     * is only how many wall-seconds those 100 deterministic units cost. Where
+     * this was authored that was ~33 s a solve (the `DETERMINISTIC_PARAMETERS`
+     * docblock's 32.61863 s / 76.702882 units, and its ~43 s figure for the full
+     * budget), so the pair sat inside `apps/api/vitest.config.ts`'s 120 s global
+     * `testTimeout` with room to spare. On the container this was measured in,
+     * ONE solve of the same class under the same pinned set costs ~87 s and the
+     * pair costs **150.4 s and 155.2 s across the two runs it was measured in**
+     * — so the arm timed out for a reason with nothing to do with the objective
+     * record it exists to pin.
+     *
+     * 480 s is the larger of those measurements times three. The precedent is
+     * R-B4a in `packages/domain/test/time/zoned-time.test.ts`, and so is the
+     * argument: a timeout should catch a hang, not a slow box, and the global
+     * default is not the place to say so for one arm. Nothing else moves — the
+     * parameters, the snapshot edit and every assertion above are
+     * byte-identical. */
+  }, 480_000);
 });
 
 describe('S-08t under E2 objectives — bit-identical on a soft-rule-bearing class', () => {
@@ -300,7 +321,19 @@ describe('S-08t under E2 objectives — bit-identical on a soft-rule-bearing cla
         `units in ${String(first.statistics.wallTimeSeconds)}s against a ` +
         `${String(DETERMINISTIC_PARAMETERS.maxTimeInSeconds)}s net`,
     );
-  });
+    /* **The explicit timeout, for the same reason as the weight-change arm and
+     * with the same discipline.** Two solves of the identical snapshot are what
+     * bit-identity MEANS here, so the cost is two full deterministic budgets:
+     * ~66 s where this was authored (~33 s a solve), **174.3 s and 177.2 s
+     * across the two runs it was measured in** on the container this was
+     * measured in, against a 120 s global `testTimeout`.
+     *
+     * 540 s is the larger of those measurements times three. The reproducibility
+     * claim itself is untouched — the deterministic set, the wall-clock
+     * precondition, the statistics comparison and the three byte comparisons are
+     * all unchanged. This bounds only how long the arm is allowed to take before
+     * vitest calls it a hang. */
+  }, 540_000);
 
   it('B-1: a REAL cancelled solve is never reproducible, whatever its wall clock says', async () => {
     /* **FAD-50 B-1, against real CP-SAT.** The reviewer's RP-1 shape as a
