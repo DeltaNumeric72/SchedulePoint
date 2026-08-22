@@ -1,0 +1,24 @@
+{
+  "runId": "RUN-20260822-GHRECON-01",
+  "orchestrator": "Claude Fable (Claude Code on the web; continuous GitHub master authorization 2026-08-22)",
+  "currentMilestone": "post-M4 hold (M4 COMPLETE; M3R PAUSED-pending-review; prototype checkpoint and M5 NOT begun)",
+  "currentPacket": "github-reconciliation",
+  "lifecycleState": "RECONCILE",
+  "originMainCommit": "1593b068c8b524a6ec40cba314d32c9748b6ba3b",
+  "taskBranch": "claude/schedulepoint-github-auth-a4ns2p",
+  "worktree": "/home/user/SchedulePoint (Claude Code web workspace, ephemeral)",
+  "latestPushedCommit": "branch tip on origin (this commit)",
+  "pullRequestNumber": null,
+  "implementer": null,
+  "reviewer": null,
+  "activeProcessesAndPorts": [],
+  "lastCommand": "git push origin milestone/M4",
+  "lastExitCode": 1,
+  "openFindings": "none new; M3R registered findings stand unchanged",
+  "externalBlockers": [
+    "issue #1: milestone tags M1-M4 verified locally but session credential cannot push tags (HTTP 403)",
+    "issue #2: independent post-M4 Codex review EVIDENCE_BLOCKED (no independent runner available; Opus reviewer does not satisfy it)"
+  ],
+  "exactNextAction": "Merge the reconciliation draft PR once CI is green; hold M3R close, prototype checkpoint, and M5 pending issue #2; continue only non-prejudicing work",
+  "lastUpdateUtc": "2026-08-22T15:46:39Z"
+}
