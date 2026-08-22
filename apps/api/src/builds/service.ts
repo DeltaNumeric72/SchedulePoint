@@ -457,12 +457,21 @@ export function configurationReproducibility(
  *   * `build_runs.solver_parameters` — the FULL dispatched parameter set,
  *     written at CLAIM time precisely so "a build that then crashes still says
  *     what it was run with" (`runner.ts`), so both budgets are here;
- *   * `build_run_results.quality_metrics.solverStatistics.wallTimeSeconds` —
- *     what the search actually spent, already read back by `qualityOf`.
+ *   * `build_run_results.quality_metrics.solverStatistics.wallTimeSeconds` and
+ *     `…solverStatistics.deterministicTimeUnits` — what the search actually
+ *     spent on each clock, both already read back by `qualityOf`.
  *
  * Returns `null` for a run that has not produced a runtime record yet, matching
  * the nullability the detail surface already handles: before a solve there is
  * nothing to be honest or dishonest about.
+ *
+ * ## Why the statistics arrive as an OBJECT (FAD-52)
+ *
+ * This took `wallTimeSeconds` as a bare positional. The units-aware branch needs
+ * a second `number | null` beside it, and two adjacent nullable numbers are a
+ * transposition waiting to happen — one that would compile, pass every type
+ * check, and report a run's search time as its deterministic cost. Named fields
+ * make the swap impossible to write, and make every call site state both facts.
  */
 export function runResultReproducibility(
   run: {
@@ -472,7 +481,11 @@ export function runResultReproducibility(
     readonly termination_reason: string | null;
     readonly solver_status: string | null;
   },
-  wallTimeSeconds: number | null,
+  statistics: {
+    readonly wallTimeSeconds: number | null;
+    /** FAD-52: how much SEARCH the run did, machine-independently. */
+    readonly deterministicTimeUnits: number | null;
+  },
 ): ResultReproducibilityVerdict | null {
   if (run.reproducibility_mode === null) return null;
 
@@ -512,7 +525,8 @@ export function runResultReproducibility(
       maxDeterministicTime: number(raw['maxDeterministicTime']),
       interleaveSearch,
     },
-    wallTimeSeconds,
+    wallTimeSeconds: statistics.wallTimeSeconds,
+    deterministicTimeUnits: statistics.deterministicTimeUnits,
     terminationReason,
     status,
   });

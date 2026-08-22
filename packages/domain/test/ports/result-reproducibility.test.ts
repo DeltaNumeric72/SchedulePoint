@@ -1,4 +1,5 @@
 import {
+  DETERMINISTIC_BUDGET_UNSPENT_FRACTION,
   reproducibilityMode,
   resultReproducibility,
   WALL_CLOCK_BINDING_FRACTION,
@@ -54,7 +55,17 @@ const RACED: SolverParameters = { ...DETERMINISTIC, maxTimeInSeconds: 10 };
  * quietly supplied `completed` would rebuild exactly that hole inside the test
  * that exists to close it. Every arm that cares passes its own.
  */
-const COMPLETED = { terminationReason: 'completed', status: 'OPTIMAL' } as const;
+const COMPLETED = {
+  terminationReason: 'completed',
+  status: 'OPTIMAL',
+  /* FAD-52 added a third fact the predicate reads. It is carried HERE, on the
+   * shared "this run finished" shape, for exactly the reason the comment above
+   * gives about the other two: an arm that did not have to state it would be
+   * the B-1 hole again, one field along. `83.130356` is the measured cost of
+   * the OPTIMAL proof on the machine this was added on — a run that finished
+   * because it was DONE, which is what `COMPLETED` means. */
+  deterministicTimeUnits: 83.130356,
+} as const;
 
 describe('the verdict separates the DISPATCH statement from the RESULT', () => {
   it('a search the deterministic budget ended IS reproducible', () => {
@@ -174,6 +185,8 @@ describe('B-1: only a run that FINISHED can be reproducible', () => {
     const verdict = resultReproducibility({
       parameters: DETERMINISTIC,
       wallTimeSeconds: CANCELLED_WALL,
+      /* The reviewer's third measured number, now that the predicate reads it. */
+      deterministicTimeUnits: 5.6,
       terminationReason: 'user_cancelled',
       status: 'CANCELLED',
     });
@@ -193,6 +206,7 @@ describe('B-1: only a run that FINISHED can be reproducible', () => {
     const verdict = resultReproducibility({
       parameters: DETERMINISTIC,
       wallTimeSeconds: CANCELLED_WALL,
+      deterministicTimeUnits: 5.6,
       terminationReason: 'completed',
       status: 'OPTIMAL',
     });
@@ -210,6 +224,7 @@ describe('B-1: only a run that FINISHED can be reproducible', () => {
       const verdict = resultReproducibility({
         parameters: DETERMINISTIC,
         wallTimeSeconds: 1,
+        deterministicTimeUnits: 1,
         terminationReason,
         status: 'FEASIBLE',
       });
@@ -231,6 +246,7 @@ describe('B-1: only a run that FINISHED can be reproducible', () => {
       const verdict = resultReproducibility({
         parameters: DETERMINISTIC,
         wallTimeSeconds: 1,
+        deterministicTimeUnits: 1,
         terminationReason: 'completed',
         status,
       });
@@ -247,6 +263,11 @@ describe('B-1: only a run that FINISHED can be reproducible', () => {
     const verdict = resultReproducibility({
       parameters: DETERMINISTIC,
       wallTimeSeconds: 3,
+      /* MEASURED, and it is the FAD-52 G1 counterexample:
+       * `B-infeasible-over-demand` completes at 0.0 deterministic units. A proof of
+       * infeasibility costs almost nothing and reproduces perfectly, so the
+       * units-aware branch must never fire on it. */
+      deterministicTimeUnits: 0.0,
       terminationReason: 'completed',
       status: 'INFEASIBLE',
     });
@@ -260,6 +281,7 @@ describe('B-1: only a run that FINISHED can be reproducible', () => {
     const verdict = resultReproducibility({
       parameters: DETERMINISTIC,
       wallTimeSeconds: 3,
+      deterministicTimeUnits: 3,
       terminationReason: null,
       status: 'FEASIBLE',
     });
@@ -274,6 +296,7 @@ describe('B-1: only a run that FINISHED can be reproducible', () => {
     const verdict = resultReproducibility({
       parameters: RACED,
       wallTimeSeconds: 9.497948,
+      deterministicTimeUnits: 21.760483,
       terminationReason: 'user_cancelled',
       status: 'CANCELLED',
     });
@@ -285,10 +308,244 @@ describe('B-1: only a run that FINISHED can be reproducible', () => {
     const verdict = resultReproducibility({
       parameters: { ...DETERMINISTIC, interleaveSearch: false },
       wallTimeSeconds: 1,
+      deterministicTimeUnits: 1,
       terminationReason: 'user_cancelled',
       status: 'CANCELLED',
     });
     expect(verdict.verdict).toBe('best-effort');
+  });
+});
+
+/**
+ * **FAD-52 — a run that finished with its deterministic budget UNSPENT never
+ * claims reproduction.**
+ *
+ * ## The defect, measured
+ *
+ * FAD-49(1) described the derivation as *"wall time vs wall budget, deterministic
+ * units vs deterministic budget"*. The shipped predicate never read the second
+ * pair at all, and the gap between the two is reachable, intermittent and
+ * measured 15+ times by two independent reviewers: a pinned run of the
+ * B-fairness-shaped class under a 10s wall clock completes `FEASIBLE` at
+ * **8.6–9.1s** having consumed **8.076904 of 100** deterministic units — 92% of
+ * the budget untouched, unchanged to six decimals when the budget is raised 36×
+ * or unpinned entirely, so the deterministic budget provably did not end it. And
+ * 8.7 of 10 is BELOW the 0.9 wall-clock rule, so nothing refused, and the
+ * verdict was `reproducible` with the promise sentence attached.
+ *
+ * It is a knife edge, and it is load-sensitive **in the wrong direction**: put
+ * the machine under load, the wall crosses 9s, the old rule fires and the answer
+ * looks honest. A single green run proves nothing here, which is why the
+ * boundary arms below are arithmetic rather than measured.
+ *
+ * ## What the new verdict claims, and what it refuses to claim
+ *
+ * `stopped-early` states only what is established — feasible, not proved
+ * optimal, budget unspent, therefore not stopped by that budget — and says
+ * "may produce a different schedule". It does NOT name the wall clock: the set
+ * of other stops is open, and swapping one confident wrong claim for another is
+ * not a repair.
+ */
+describe('FAD-52: a completed FEASIBLE run with its budget unspent claims nothing', () => {
+  /** The defect, exactly as measured: 8.076904 of 100 units, 8.725341s of 10s. */
+  const MEASURED_UNITS = 8.076904;
+  const MEASURED_WALL = 8.725341;
+
+  it('THE DEFECT: the measured run reads `stopped-early`, never `reproducible`', () => {
+    /* Every input here is a real recorded value from the reproduction. Under the
+     * shipped predicate this returned `reproducible` and the sentence
+     * "…produces the same schedule". */
+    const verdict = resultReproducibility({
+      parameters: RACED,
+      wallTimeSeconds: MEASURED_WALL,
+      deterministicTimeUnits: MEASURED_UNITS,
+      terminationReason: 'completed',
+      status: 'FEASIBLE',
+    });
+    expect(verdict.verdict).toBe('stopped-early');
+    expect(verdict.reproducible).toBe(false);
+    /* the promise is gone */
+    expect(verdict.detail).not.toContain('produces the same schedule');
+    /* the numbers that make the finding are IN the sentence, so a reader can
+     * check the claim rather than take it */
+    expect(verdict.detail).toContain('8.076904');
+    expect(verdict.detail).toContain('100');
+    expect(verdict.detail).toContain('deterministic units');
+    /* and it is conditional — "may", never "will" */
+    expect(verdict.detail).toContain('may produce a different schedule');
+  });
+
+  it('it does NOT name the wall clock, because the wall clock is not established', () => {
+    /* The discipline that separates this verdict from `wall-clock-truncated`.
+     * At 8.7s of 10s the clock had not arrived; the stop could equally be a
+     * solution limit, a gap limit or a callback. Naming one would be the same
+     * class of confident wrong claim FAD-49 and FAD-50 were both written to
+     * delete, relocated rather than removed. */
+    const verdict = resultReproducibility({
+      parameters: RACED,
+      wallTimeSeconds: MEASURED_WALL,
+      deterministicTimeUnits: MEASURED_UNITS,
+      terminationReason: 'completed',
+      status: 'FEASIBLE',
+    });
+    expect(verdict.detail).not.toContain('WALL CLOCK');
+    expect(verdict.detail).not.toContain('wall clock');
+    expect(verdict.detail).not.toContain('wall-clock');
+  });
+
+  it('the wall budget is irrelevant to it — the SAME run under the 900s net still refuses', () => {
+    /* The measurement that makes this a product defect rather than a fixture
+     * one: raising the wall budget 90× (and the deterministic budget 36×, and
+     * unpinning it) moved `deterministicTimeUnits` not at all. The wall clock
+     * was never the whole story, so a verdict that only reads the wall clock
+     * cannot become correct by being given a better wall budget. */
+    const verdict = resultReproducibility({
+      parameters: DETERMINISTIC,
+      wallTimeSeconds: MEASURED_WALL,
+      deterministicTimeUnits: MEASURED_UNITS,
+      terminationReason: 'completed',
+      status: 'FEASIBLE',
+    });
+    expect(verdict.verdict).toBe('stopped-early');
+    expect(verdict.reproducible).toBe(false);
+  });
+
+  it('G1: an INFEASIBLE proof at 0.0 units is NOT stopped-early — it is reproducible', () => {
+    /* The counterexample that bounds the rule, and it is measured rather than
+     * imagined: `B-infeasible-over-demand` completes INFEASIBLE at 0.0
+     * deterministic units in 0.001075s of wall, on the real worker, under this
+     * exact pinned set. "Few units" is not the finding — "few units AND a feasible answer
+     * it could not prove optimal" is. A rule scoped to the first would refuse
+     * the reproducibility of every infeasibility answer the platform gives,
+     * which is a new wrong claim in the opposite direction. */
+    const verdict = resultReproducibility({
+      parameters: DETERMINISTIC,
+      wallTimeSeconds: 0.001075,
+      deterministicTimeUnits: 0.0,
+      terminationReason: 'completed',
+      status: 'INFEASIBLE',
+    });
+    expect(verdict.verdict).toBe('reproducible');
+    expect(verdict.reproducible).toBe(true);
+  });
+
+  it('an OPTIMAL proof is reproducible however much budget it left — unchanged', () => {
+    /* 83.130356 of 100 here, 76.702882 on the reference machine, byte-identical
+     * candidate on both. The remainder is the budget being generous, not a
+     * mystery stop: the proof IS the search ending on its own terms. */
+    for (const units of [83.130356, 76.702882, 0.05]) {
+      const verdict = resultReproducibility({
+        parameters: DETERMINISTIC,
+        wallTimeSeconds: 32.618628,
+        deterministicTimeUnits: units,
+        terminationReason: 'completed',
+        status: 'OPTIMAL',
+      });
+      expect(verdict.verdict, `OPTIMAL at ${String(units)} units`).toBe('reproducible');
+    }
+  });
+
+  it('FAILS CLOSED: unrecorded units on this path are `unrecorded`, never `reproducible`', () => {
+    /* FAD-50 B-1's hole-shape, one field along: the fact the branch needs is
+     * ABSENT, and an absent fact is not evidence for the claim. A run that
+     * cannot show its budget was spent does not get to say the budget ended it. */
+    const verdict = resultReproducibility({
+      parameters: DETERMINISTIC,
+      wallTimeSeconds: 3,
+      deterministicTimeUnits: null,
+      terminationReason: 'completed',
+      status: 'FEASIBLE',
+    });
+    expect(verdict.verdict).toBe('unrecorded');
+    expect(verdict.reproducible).toBe(false);
+    expect(verdict.detail).toContain('cannot be established');
+    expect(verdict.detail).not.toContain('produces the same schedule');
+  });
+
+  it('the WALL-CLOCK case is untouched: an established clock stop still names the clock', () => {
+    /* FAD-52(2). Where the clock IS positively established, that is the more
+     * actionable sentence and it is the one the product keeps giving. The
+     * ordering — wall rule first, units rule second — is what preserves it, and
+     * this run satisfies BOTH predicates (9.497948 of 10s, 21.760483 of 100). */
+    const verdict = resultReproducibility({
+      parameters: RACED,
+      wallTimeSeconds: 9.497948,
+      deterministicTimeUnits: 21.760483,
+      terminationReason: 'completed',
+      status: 'FEASIBLE',
+    });
+    expect(verdict.verdict).toBe('wall-clock-truncated');
+    expect(verdict.detail).toContain('WALL CLOCK');
+  });
+
+  it('`stopped-early` never sets `reproducible` — still exactly one verdict does', () => {
+    const cases = [
+      resultReproducibility({
+        parameters: RACED,
+        wallTimeSeconds: MEASURED_WALL,
+        deterministicTimeUnits: MEASURED_UNITS,
+        terminationReason: 'completed',
+        status: 'FEASIBLE',
+      }),
+      resultReproducibility({ parameters: DETERMINISTIC, wallTimeSeconds: 1, ...COMPLETED }),
+      resultReproducibility({ parameters: RACED, wallTimeSeconds: 9.9, ...COMPLETED }),
+      resultReproducibility({
+        parameters: DETERMINISTIC,
+        wallTimeSeconds: 3,
+        deterministicTimeUnits: null,
+        terminationReason: 'completed',
+        status: 'FEASIBLE',
+      }),
+    ];
+    expect(cases.filter((verdict) => verdict.reproducible)).toHaveLength(1);
+    expect(cases.find((verdict) => verdict.reproducible)?.verdict).toBe('reproducible');
+    /* four distinct verdicts, four distinct sentences */
+    expect(new Set(cases.map((verdict) => verdict.verdict)).size).toBe(4);
+    expect(new Set(cases.map((verdict) => verdict.detail)).size).toBe(4);
+  });
+});
+
+describe('FAD-52: the unspent threshold claims less between itself and the budget', () => {
+  /* The constant is COARSE on purpose, and the arms below are the boundary
+   * itself so a change to it cannot pass unnoticed — the same discipline as the
+   * wall-clock threshold's two arms. Measured separation: the largest unspent
+   * observation is 21.8% and the smallest genuine completion is 76.7%, so 50%
+   * is more than twice the first and well under the second. */
+  const budget = DETERMINISTIC.maxDeterministicTime ?? 0;
+  const boundary = budget * DETERMINISTIC_BUDGET_UNSPENT_FRACTION;
+
+  const feasibleAt = (units: number): string =>
+    resultReproducibility({
+      parameters: DETERMINISTIC,
+      wallTimeSeconds: 20,
+      deterministicTimeUnits: units,
+      terminationReason: 'completed',
+      status: 'FEASIBLE',
+    }).verdict;
+
+  it('AT the boundary the budget is taken to be unspent', () => {
+    expect(feasibleAt(boundary)).toBe('stopped-early');
+  });
+
+  it('just ABOVE it, NO new claim is made — the derivation falls through', () => {
+    /* This is the "claims less" half, and it is deliberate rather than an
+     * oversight. Between the constant and the budget the evidence is ambiguous:
+     * a run at 60 of 100 units may have been stopped by something else or may
+     * simply have finished, and inventing a refusal there would be the same
+     * failure — a confident claim past the evidence — pointing the other way. */
+    expect(feasibleAt(boundary + 0.000001)).toBe('reproducible');
+  });
+
+  it('every measured unspent run is caught, and every measured completion is not', () => {
+    /* EV-M4-005 §20a's three wall-bound unit counts plus this defect's own,
+     * against the two measured OPTIMAL costs. The gap between the groups is
+     * what the constant sits in. */
+    for (const units of [8.076904, 12.532388, 12.444773, 21.660444, 21.760483]) {
+      expect(feasibleAt(units), `${String(units)} of ${String(budget)} units`).toBe('stopped-early');
+    }
+    for (const units of [76.702882, 83.130356]) {
+      expect(feasibleAt(units), `${String(units)} of ${String(budget)} units`).toBe('reproducible');
+    }
   });
 });
 

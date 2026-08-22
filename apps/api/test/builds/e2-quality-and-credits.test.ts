@@ -263,14 +263,26 @@ describe('the reproducibility record is recorded on the run (SPEC-04 §4)', () =
      *    offered. Fail-closed, and it is the ONLY safe answer: a row that
      *    cannot say what it ran under cannot promise to run the same way. */
     for (const wall of [null, 0.001, 9.5, 10_000]) {
-      const verdict = runResultReproducibility(row, wall);
-      expect(verdict?.verdict, `wall ${String(wall)}`).toBe('unrecorded');
-      expect(verdict?.reproducible).toBe(false);
+      /* Both clocks offered, and generously — FAD-52 added the second, and a row
+       * with no parameter set must still refuse whatever either of them says. */
+      for (const units of [null, 0.0, 8.076904, 100]) {
+        const verdict = runResultReproducibility(row, {
+          wallTimeSeconds: wall,
+          deterministicTimeUnits: units,
+        });
+        expect(verdict?.verdict, `wall ${String(wall)}, units ${String(units)}`).toBe('unrecorded');
+        expect(verdict?.reproducible).toBe(false);
+      }
     }
 
     /* 4. And a run with NO runtime record at all reports nothing rather than
      *    reporting a refusal — there is no result to be honest about yet. */
-    expect(runResultReproducibility({ ...row, reproducibility_mode: null }, 1)).toBeNull();
+    expect(
+      runResultReproducibility(
+        { ...row, reproducibility_mode: null },
+        { wallTimeSeconds: 1, deterministicTimeUnits: 1 },
+      ),
+    ).toBeNull();
 
     log(
       `      · persisted solverStatistics carry wallTimeSeconds; this fixture path ` +
@@ -290,7 +302,7 @@ describe('the reproducibility record is recorded on the run (SPEC-04 §4)', () =
    * The contract parse is the load-bearing half. `buildRunDetailSchema` is
    * `.strict()`, so a field the projection was supposed to remove — a
    * constituent `key`, a `pinnedRevision` — makes this throw rather than pass
-   * quietly, and a verdict outside the five-value enum does the same. Two
+   * quietly, and a verdict outside the six-value enum does the same. Two
    * separate disclosure repairs, guarded by one parse.
    *
    * HTTP itself is not stood up here: the request/response layer is proven over
@@ -324,10 +336,11 @@ describe('the reproducibility record is recorded on the run (SPEC-04 §4)', () =
         events: detail.events,
         sourceDigest: await sourceDigestOf(uow, row),
         reproducibility: row.reproducibility_mode,
-        resultReproducibility: runResultReproducibility(
-          row,
-          detail.result?.quality.solverStatistics['wallTimeSeconds'] ?? null,
-        ),
+        resultReproducibility: runResultReproducibility(row, {
+          wallTimeSeconds: detail.result?.quality.solverStatistics['wallTimeSeconds'] ?? null,
+          deterministicTimeUnits:
+            detail.result?.quality.solverStatistics['deterministicTimeUnits'] ?? null,
+        }),
         staleness: stalenessWire(await buildStaleness(uow, row)),
         correlationId: 'rp2',
       };
@@ -336,12 +349,16 @@ describe('the reproducibility record is recorded on the run (SPEC-04 §4)', () =
     /* THE PARSE. `.strict()`, so this is where a leaked field lands. */
     const parsed = buildRunDetailSchema.parse(payload);
 
-    /* B-1: the verdict is on the wire, and it is one of the five. */
+    /* B-1: the verdict is on the wire, and it is one of the six (FAD-52). */
     expect(parsed.resultReproducibility).not.toBeUndefined();
     if (parsed.resultReproducibility !== null) {
       expect([
         'reproducible',
         'wall-clock-truncated',
+        /* FAD-52's sixth. Listed here rather than left out: `buildRunDetailSchema`
+           is the thing that would reject an unknown verdict, and an assertion
+           that lagged the enum would fail on an honest value. */
+        'stopped-early',
         'interrupted',
         'best-effort',
         'unrecorded',

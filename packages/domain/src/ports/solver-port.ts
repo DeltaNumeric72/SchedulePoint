@@ -284,6 +284,54 @@ export function reproducibilityMode(
 export const WALL_CLOCK_BINDING_FRACTION = 0.9;
 
 /**
+ * The fraction of `maxDeterministicTime` at or below which the deterministic
+ * budget is taken to be **demonstrably unspent** — so demonstrably that whatever
+ * ended the search, it was not that budget (FAD-52).
+ *
+ * ## The defect this number exists to catch
+ *
+ * `WALL_CLOCK_BINDING_FRACTION` above answers "did the wall clock STOP the
+ * search", and it answers it positively: at or above 90% of the wall budget, it
+ * did. What no rule read was the other half FAD-49(1) named — *"deterministic
+ * units vs deterministic budget"* — and the gap between the two is a real,
+ * measured, intermittent false promise. A pinned run of the B-fairness-shaped
+ * class under a 10-second clock completes `FEASIBLE` at wall **8.6–9.1s** having
+ * consumed **8.076904 of 100** deterministic units: 92% of the budget unspent,
+ * unchanged to six decimals when the budget is raised 36× or unpinned entirely,
+ * so the deterministic budget provably did not end it — and 8.7/10 is below 0.9,
+ * so the wall-clock rule says nothing and the verdict fell through to
+ * `reproducible`. The same run under load crosses 9s and reads
+ * `wall-clock-truncated`. A knife edge, load-sensitive in the wrong direction:
+ * the honest answer appeared when the machine was busy.
+ *
+ * ## Why 0.5, and why a coarse number rather than a tight one
+ *
+ * It has to sit far from BOTH boundaries, because between them it must claim
+ * nothing:
+ *
+ * | run                                    | units of 100 | fraction |
+ * | -------------------------------------- | ------------ | -------- |
+ * | wall-10 stop, calm (EV-M4-005 §20a)     |    21.760483 |    21.8% |
+ * | wall-10 stop, loaded                    |    12.532388 |    12.5% |
+ * | wall-10 stop, this defect               |     8.076904 |     8.1% |
+ * | OPTIMAL proof, reference machine        |    76.702882 |    76.7% |
+ * | OPTIMAL proof, this machine             |    83.130356 |    83.1% |
+ *
+ * 0.5 is more than twice the largest unspent observation and well under the
+ * smallest genuine completion, so neither ordinary variance nor the fact that
+ * deterministic units AGGREGATE ACROSS SEARCH WORKERS (a multi-worker run spends
+ * its budget in units summed over workers, which moves the numbers around
+ * without changing what stopped the search) can push a run across it. A tight
+ * threshold would be a precision this measurement does not support.
+ *
+ * **Between this constant and the budget, NO new claim is made.** A run at 60 of
+ * 100 units falls through to the rules that were already here — which is the
+ * point: the branch exists to refuse a claim in the region where the evidence is
+ * unambiguous, not to manufacture a new one everywhere else.
+ */
+export const DETERMINISTIC_BUDGET_UNSPENT_FRACTION = 0.5;
+
+/**
  * What ended the run, in the product's own words — one sentence per
  * {@link TerminationReason} (FAD-50 B-1).
  *
@@ -319,6 +367,23 @@ export type ResultReproducibility =
   | 'reproducible'
   /** Pinned deterministic, but the WALL CLOCK ended the search. Not re-runnable. */
   | 'wall-clock-truncated'
+  /**
+   * Pinned deterministic, ran to completion with a feasible result it did not
+   * prove optimal, and **left its deterministic budget demonstrably unspent**
+   * (FAD-52). So something other than that budget stopped the search.
+   *
+   * Deliberately does NOT name the wall clock. `wall-clock-truncated` is the
+   * verdict for the case where the clock is positively established as the stop;
+   * this is the case where it is not, and the set of other stops — a solution
+   * limit, a gap limit, a search callback, a clock that stopped it early — is
+   * OPEN. Naming one of them would be a second confident wrong claim in place of
+   * the first, which is the whole class FAD-49/50 exist to delete.
+   *
+   * Distinct from `interrupted`: nothing ended this run from outside, it
+   * completed. Distinct from `unrecorded`: the facts are present and they say
+   * the budget went unspent.
+   */
+  | 'stopped-early'
   /**
    * Something ENDED this search before it finished on its own — a person
    * cancelled it, a deadline fired, the worker was killed or crashed, or the
@@ -378,6 +443,26 @@ export interface ResultReproducibilityVerdict {
  * clock or by an absent wall time, and are checked here anyway — the belt and
  * braces are deliberate, because each of those inputs has now been observed to
  * be reachable without the other.
+ *
+ * ## The deterministic units, and the defect that put THEM here (FAD-52)
+ *
+ * FAD-49(1) described the derivation as *"wall time vs wall budget, deterministic
+ * units vs deterministic budget"*. Only the first pair was implemented: nothing
+ * read `deterministicTimeUnits` at all. The second pair is not decoration — it
+ * is the half that catches a run the wall clock did not stop **and** the
+ * deterministic budget did not stop either, which is a run nobody can promise to
+ * reproduce and which this function was calling `reproducible`. Measured 15+
+ * times on the B-fairness-shaped class by two independent reviewers: `FEASIBLE`,
+ * `completed`, wall 8.6–9.1s of a 10s limit (so under the 0.9 wall rule),
+ * **8.076904 of 100 deterministic units**, unchanged to six decimals with the
+ * budget raised 36× or unpinned entirely. Knife-edge and load-sensitive in the
+ * wrong direction: under load the wall crosses 0.9× and the honest answer
+ * appears, so a single green run proved nothing.
+ *
+ * The new verdict is {@link ResultReproducibility 'stopped-early'} and it CLAIMS
+ * LESS than the wall-clock one: it states what is known — feasible, not proved
+ * optimal, budget unspent, therefore not stopped by that budget — and refuses to
+ * name the cause, because the set of other stops is open.
  */
 export function resultReproducibility(input: {
   readonly parameters: SolverParameters;
@@ -398,8 +483,18 @@ export function resultReproducibility(input: {
    * refusal never being bypassed.
    */
   readonly status: SolverStatus | null;
+  /**
+   * How much search this run actually did, in deterministic units, from the
+   * recorded solver statistics. `null` when the run recorded none.
+   *
+   * **Required rather than optional, for the FAD-50 B-1 reason** (FAD-52): B-1
+   * was a caller that never had to think about a fact it needed, and a defaulted
+   * parameter rebuilds that hole in the shape the type checker cannot see. Every
+   * call site names this, or it does not compile.
+   */
+  readonly deterministicTimeUnits: number | null;
 }): ResultReproducibilityVerdict {
-  const { parameters, wallTimeSeconds, terminationReason, status } = input;
+  const { parameters, wallTimeSeconds, terminationReason, status, deterministicTimeUnits } = input;
 
   if (reproducibilityMode(parameters) === 'best-effort') {
     return {
@@ -467,6 +562,64 @@ export function resultReproducibility(input: {
         'time depends on the machine, so the same problem run again may produce a ' +
         'different schedule of the same quality.',
     };
+  }
+
+  /* ── FAD-52: the search finished, the clock did not stop it, and the
+   * deterministic budget is still nearly full. Something else stopped it.
+   *
+   * Scoped to `FEASIBLE` EXACTLY, and both halves of that matter:
+   *
+   *   * not `OPTIMAL` — a proof of optimality IS the search finishing on its own
+   *     terms, and it costs whatever it costs: 76.702882 of 100 units on the
+   *     machine of record, 83.130356 on the one this branch was added on, with a
+   *     byte-identical candidate from both. The unspent remainder there is the
+   *     budget being generous, not a mystery stop.
+   *   * not `INFEASIBLE` — the G1 counterexample, and it is not hypothetical:
+   *     the `B-infeasible-over-demand` corpus class completes `INFEASIBLE` at
+   *     **0.0 deterministic units** in 0.001075s, measured on the real worker.
+   *     An infeasibility proof legitimately consumes almost nothing, and a rule
+   *     that read "few units means something stopped it" would refuse the
+   *     reproducibility of every infeasible answer the platform ever gives.
+   *
+   * The check sits AFTER the wall-clock rule on purpose (FAD-52(2)): where the
+   * clock IS positively established as the stop, the product should say so —
+   * that is the more actionable sentence, and it is unchanged. This branch is
+   * only for the region where it is not. */
+  if (status === 'FEASIBLE') {
+    if (deterministicTimeUnits === null) {
+      /* The same hole-shape as FAD-50's B-1, closed the same way: the fact this
+       * branch needs is ABSENT, and an absent fact is never evidence for the
+       * claim. A run whose deterministic time was not recorded cannot show that
+       * its budget was spent, so it does not get to say the budget ended it. */
+      return {
+        verdict: 'unrecorded',
+        reproducible: false,
+        detail:
+          'The deterministic parameter set was in force and this build finished with a ' +
+          'schedule it did not prove optimal, but it recorded no deterministic time, so ' +
+          'whether the deterministic budget ended the search cannot be established.',
+      };
+    }
+    const deterministicBudget = parameters.maxDeterministicTime;
+    /* Non-null by construction — `reproducibilityMode` returned `'deterministic'`
+     * above, which requires it — and re-read rather than asserted, because an
+     * assertion here would be a claim the type system cannot check. */
+    if (
+      deterministicBudget !== null &&
+      deterministicTimeUnits <= deterministicBudget * DETERMINISTIC_BUDGET_UNSPENT_FRACTION
+    ) {
+      return {
+        verdict: 'stopped-early',
+        reproducible: false,
+        detail:
+          `The search ended with a usable schedule it did not prove optimal, after ` +
+          `consuming only ${String(deterministicTimeUnits)} of the ` +
+          `${String(deterministicBudget)} deterministic units it was given. Something ` +
+          'other than the deterministic budget stopped it, and the recorded facts do ' +
+          'not establish what, so the same problem run again may produce a different ' +
+          'schedule of the same quality.',
+      };
+    }
   }
 
   return {

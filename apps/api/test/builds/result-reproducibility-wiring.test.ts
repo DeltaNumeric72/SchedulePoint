@@ -18,8 +18,10 @@ import { runResultReproducibility } from '../../src/builds/service.js';
  *
  * The shapes below are the two `runResultReproducibility` actually receives:
  * `build_runs.solver_parameters` (jsonb, written at claim time by
- * `runQueuedBuild`) and the `wallTimeSeconds` lifted out of
- * `build_run_results.quality_metrics.solverStatistics`.
+ * `runQueuedBuild`) and the `wallTimeSeconds` / `deterministicTimeUnits` lifted
+ * out of `build_run_results.quality_metrics.solverStatistics` (FAD-52 added the
+ * second; it is a named field rather than a second positional precisely so this
+ * layer cannot transpose two nullable numbers and still compile).
  */
 
 /** A run dispatched under the repaired deterministic set: a 900s net over 100 units. */
@@ -53,13 +55,19 @@ const cancelledRun = {
 
 describe('the verdict is derived from the RUN’s own recorded parameters', () => {
   it('a search that ended inside the budget is reproducible', () => {
-    const verdict = runResultReproducibility(deterministicRun, 32.618628);
+    const verdict = runResultReproducibility(deterministicRun, {
+      wallTimeSeconds: 32.618628,
+      deterministicTimeUnits: 76.702882,
+    });
     expect(verdict?.verdict).toBe('reproducible');
     expect(verdict?.reproducible).toBe(true);
   });
 
   it('a search the wall clock ended is refused, and the reason names the clock', () => {
-    const verdict = runResultReproducibility(racedRun, 9.497948);
+    const verdict = runResultReproducibility(racedRun, {
+      wallTimeSeconds: 9.497948,
+      deterministicTimeUnits: 21.760483,
+    });
     expect(verdict?.verdict).toBe('wall-clock-truncated');
     expect(verdict?.reproducible).toBe(false);
     expect(verdict?.detail).toContain('WALL CLOCK');
@@ -69,8 +77,18 @@ describe('the verdict is derived from the RUN’s own recorded parameters', () =
     /* The assertion that catches a derivation reading the wrong column. 9.497948
      * seconds is a truncated search under a 10s clock and a comfortable finish
      * under a 900s one, and only the row can say which this run had. */
-    expect(runResultReproducibility(racedRun, 9.497948)?.verdict).toBe('wall-clock-truncated');
-    expect(runResultReproducibility(deterministicRun, 9.497948)?.verdict).toBe('reproducible');
+    expect(
+      runResultReproducibility(racedRun, {
+        wallTimeSeconds: 9.497948,
+        deterministicTimeUnits: 21.760483,
+      })?.verdict,
+    ).toBe('wall-clock-truncated');
+    expect(
+      runResultReproducibility(deterministicRun, {
+        wallTimeSeconds: 9.497948,
+        deterministicTimeUnits: 76.702882,
+      })?.verdict,
+    ).toBe('reproducible');
   });
 
   it('B-1: a CANCELLED run is read off the row as interrupted, never reproducible', () => {
@@ -79,14 +97,22 @@ describe('the verdict is derived from the RUN’s own recorded parameters', () =
      * `solver_status` actually read off the row, or does the derivation still
      * decide from the budget alone? Same row as `deterministicRun` in every
      * other respect, and the verdict has to move. */
-    const verdict = runResultReproducibility(cancelledRun, 2.35);
+    const verdict = runResultReproducibility(cancelledRun, {
+      wallTimeSeconds: 2.35,
+      deterministicTimeUnits: 5.6,
+    });
     expect(verdict?.verdict).toBe('interrupted');
     expect(verdict?.reproducible).toBe(false);
     expect(verdict?.detail).toContain('cancelled');
     expect(verdict?.detail).not.toContain('produces the same schedule');
 
     /* and the control: the identical row that completed still earns the claim */
-    expect(runResultReproducibility(deterministicRun, 2.35)?.verdict).toBe('reproducible');
+    expect(
+      runResultReproducibility(deterministicRun, {
+        wallTimeSeconds: 2.35,
+        deterministicTimeUnits: 76.702882,
+      })?.verdict,
+    ).toBe('reproducible');
   });
 
   it('an unrecognised termination reads as ABSENT, not as completed', () => {
@@ -94,7 +120,7 @@ describe('the verdict is derived from the RUN’s own recorded parameters', () =
      * past the `!== 'completed'` test by being an unknown string. */
     const verdict = runResultReproducibility(
       { ...deterministicRun, termination_reason: 'finished-ish' },
-      1,
+      { wallTimeSeconds: 1, deterministicTimeUnits: 1 },
     );
     expect(verdict?.verdict).toBe('unrecorded');
     expect(verdict?.reproducible).toBe(false);
@@ -111,8 +137,52 @@ describe('the verdict is derived from the RUN’s own recorded parameters', () =
         interleaveSearch: false,
       },
     };
-    const verdict = runResultReproducibility(bestEffort, 899);
+    const verdict = runResultReproducibility(bestEffort, {
+      wallTimeSeconds: 899,
+      deterministicTimeUnits: null,
+    });
     expect(verdict?.verdict).toBe('best-effort');
+    expect(verdict?.reproducible).toBe(false);
+  });
+});
+
+describe('FAD-52: the units are read off the statistics, not dropped', () => {
+  /** A run that came back FEASIBLE — the only status the units branch scopes to. */
+  const feasibleRun = { ...deterministicRun, solver_status: 'FEASIBLE' };
+
+  it('a completed FEASIBLE run with its budget unspent is `stopped-early`', () => {
+    /* The measured defect at the WIRING layer. The domain predicate is proven
+     * separately; the question here is whether this layer actually LIFTS
+     * `deterministicTimeUnits` out of the statistics bag — a derivation that
+     * quietly passed `null`, or never read the field, would send this back to
+     * `unrecorded` or `reproducible` and the screen would be wrong again. */
+    const verdict = runResultReproducibility(feasibleRun, {
+      wallTimeSeconds: 8.725341,
+      deterministicTimeUnits: 8.076904,
+    });
+    expect(verdict?.verdict).toBe('stopped-early');
+    expect(verdict?.reproducible).toBe(false);
+    expect(verdict?.detail).toContain('8.076904');
+    expect(verdict?.detail).not.toContain('produces the same schedule');
+  });
+
+  it('the identical row with the budget SPENT is reproducible — the control', () => {
+    /* Without this the arm above would pass against a wiring that refused every
+     * feasible run, which is a different way of being wrong. One field moves. */
+    const verdict = runResultReproducibility(feasibleRun, {
+      wallTimeSeconds: 8.725341,
+      deterministicTimeUnits: 83.130356,
+    });
+    expect(verdict?.verdict).toBe('reproducible');
+    expect(verdict?.reproducible).toBe(true);
+  });
+
+  it('unrecorded units on that path are `unrecorded`, never a claim', () => {
+    const verdict = runResultReproducibility(feasibleRun, {
+      wallTimeSeconds: 8.725341,
+      deterministicTimeUnits: null,
+    });
+    expect(verdict?.verdict).toBe('unrecorded');
     expect(verdict?.reproducible).toBe(false);
   });
 });
@@ -122,7 +192,12 @@ describe('it fails CLOSED on anything it cannot read', () => {
     /* Not a refusal — an absence. The detail surface hides the line entirely,
      * because "this build cannot be reproduced" would be a finding about a
      * build that has not run. */
-    expect(runResultReproducibility({ ...deterministicRun, reproducibility_mode: null }, 1)).toBeNull();
+    expect(
+      runResultReproducibility(
+        { ...deterministicRun, reproducibility_mode: null },
+        { wallTimeSeconds: 1, deterministicTimeUnits: 1 },
+      ),
+    ).toBeNull();
   });
 
   it('a missing, empty or malformed parameter bag is `unrecorded`, never a claim', () => {
@@ -142,7 +217,7 @@ describe('it fails CLOSED on anything it cannot read', () => {
     for (const solver_parameters of shapes) {
       const verdict = runResultReproducibility(
         { ...deterministicRun, solver_parameters },
-        1,
+        { wallTimeSeconds: 1, deterministicTimeUnits: 1 },
       );
       expect(verdict?.verdict, JSON.stringify(solver_parameters)).toBe('unrecorded');
       expect(verdict?.reproducible).toBe(false);

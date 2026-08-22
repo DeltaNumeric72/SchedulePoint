@@ -286,6 +286,12 @@ export const REPRODUCIBILITY_DETAIL: Readonly<Record<string, string>> = {
 export const RESULT_REPRODUCIBILITY_LABELS: Readonly<Record<string, string>> = {
   reproducible: 'Reproducible',
   'wall-clock-truncated': 'Not reproducible — the wall clock ended the search',
+  /* FAD-52. The label says the search stopped early and stops there. The
+     wall-clock label above NAMES a cause because that cause is positively
+     established; this verdict is precisely the case where it is not, and a
+     label that guessed one would be the same confident wrong claim in a new
+     place. The per-build sentence beside it carries the units it did spend. */
+  'stopped-early': 'Not reproducible — the search stopped early',
   /* FAD-50 B-1. The label says the run was STOPPED rather than naming which
      stop, because the five reasons differ and the per-build sentence beside it
      carries the one that actually applied. */

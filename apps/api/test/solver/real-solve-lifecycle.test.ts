@@ -258,7 +258,14 @@ describe('reproducibility, against the real solve', () => {
       ['second', second],
     ] as const) {
       const verdict = wallClockVerdict(outcome, DETERMINISTIC_PARAMETERS);
-      expect(verdict.bound, `${label} solve: ${verdict.detail}`).toBe(false);
+      /* FAD-52: `reproducible`, not `bound`. The precondition means "this run IS
+         a reproducibility basis", and `bound` only ever answered the narrower
+         "did the WALL CLOCK stop it" — which since FAD-52 is one of two ways to
+         fail this, not the question itself. A run that came back FEASIBLE with
+         its deterministic budget unspent reads `stopped-early` with `bound`
+         false, and would have satisfied the old spelling while reproducing
+         nothing. `bound` is unchanged and still means only the clock. */
+      expect(verdict.reproducible, `${label} solve: ${verdict.detail}`).toBe(true);
     }
     expect(second.statistics.deterministicTimeUnits).toBe(first.statistics.deterministicTimeUnits);
 

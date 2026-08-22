@@ -1744,6 +1744,73 @@ const CASES = [
     restore: [['exec', 'tsc', '-b', 'packages/domain', '--force']],
   },
   {
+    id: 'result-reproducibility-units-branch-removed',
+    gate: 'a completed FEASIBLE run with its deterministic budget UNSPENT never claims reproducibility (FAD-52)',
+    violation: 'the result verdict stops reading the deterministic units and falls back to the wall clock alone',
+    /* **The sibling of the arm above, and it exists because that arm was not
+     * enough.**
+     *
+     * `result-reproducibility-derivation-removed` guards the wall-clock half of
+     * FAD-49(1)'s derivation — "wall time vs wall budget". The other half,
+     * "deterministic units vs deterministic budget", was never implemented, and
+     * the gap between them is reachable: a pinned run of the B-fairness-shaped
+     * class under a 10s clock completes FEASIBLE at wall 8.6-9.1s having spent
+     * **8.076904 of 100** deterministic units. 8.7 of 10 is BELOW the 0.9
+     * wall-clock fraction, so that arm's rule says nothing, and the verdict was
+     * `reproducible` with the promise sentence attached. Raising the budget 36x
+     * or unpinning it changes the units not at all: the wall clock is the sole
+     * stop, and the wall-clock rule cannot see it. Measured 15+ times by two
+     * independent reviewers.
+     *
+     * The patch is that defect exactly as it stood: the units-aware branch stops
+     * being entered, so a feasible run that left its budget nearly untouched is
+     * called reproducible again — and the `unrecorded` fail-closed for a run
+     * that recorded no deterministic time goes with it, since both live behind
+     * this one condition. Compile-clean by construction — `status` is still
+     * compared and the block still type-checks — so the `prepare` rebuild
+     * succeeds, which is the `retired-verdict` lesson applied.
+     *
+     * The arm points at the domain proof alone, deliberately and for the reason
+     * its sibling gives: the predicate, the boundary and the SENTENCE it hands
+     * the screen are all in that one file, so this fails on the verdict, on the
+     * threshold and on the wording. The static client labels cannot detect a
+     * predicate mutation, and naming a file the arm does not depend on would
+     * read as coverage it has not got. */
+    patch: [
+      {
+        file: 'packages/domain/src/ports/solver-port.ts',
+        find: '  if (status === \'FEASIBLE\') {',
+        /* The mutation redirects the branch at a status no real completed run
+         * on this path carries, rather than the ` && false` spelling its
+         * sibling uses. That spelling makes the block UNREACHABLE, and TypeScript
+         * discards flow narrowing inside unreachable code — the patched file
+         * then fails to compile (TS18047 on both nullable reads), the `prepare`
+         * rebuild does not produce the artifact the arm is supposed to observe,
+         * and the arm would be reporting on a build that never happened. The
+         * `retired-verdict` lesson: a violation that does not compile proves
+         * nothing. This form keeps the branch reachable and compile-clean while
+         * making it fire on nothing the platform can produce here. */
+        replace:
+          '  if (status === \'MODEL_INVALID\') {'
+          + ' // red case: the units-aware branch no longer fires on a feasible result',
+      },
+    ],
+    greenCommand: [
+      'exec',
+      'vitest',
+      'run',
+      'packages/domain/test/ports/result-reproducibility.test.ts',
+    ],
+    prepare: [['exec', 'tsc', '-b', 'packages/domain', '--force']],
+    redCommand: [
+      'exec',
+      'vitest',
+      'run',
+      'packages/domain/test/ports/result-reproducibility.test.ts',
+    ],
+    restore: [['exec', 'tsc', '-b', 'packages/domain', '--force']],
+  },
+  {
     id: 'solver-demand-not-independently-checked',
     gate: 'demand coverage is measured by the INDEPENDENT checker (SPEC-04 §7, FAD-46 F-03)',
     violation: 'the MODEL stops posting demand as a hard equality',
