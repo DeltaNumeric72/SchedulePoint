@@ -999,6 +999,24 @@ test.describe('the rendered difference is the served difference', () => {
         );
         await page.getByTestId('comparison-against').selectOption(V1);
         await refetched;
+        /* The window closes on QUIESCENCE, not on the first response that comes
+         * back (OPUS-GH-006).
+         *
+         * It used to close on `refetched` alone, and that made this a budget
+         * test that could not see the request it exists to count. The follow-on
+         * read this page really was issuing — a re-read of the version history,
+         * caused by the history query's `enabled` flipping false → true — was
+         * issued from a React passive effect about 4 ms AFTER the response the
+         * window closed on, so it fell outside the recording on a quiet machine
+         * and inside it on a loaded CI runner (run 32591153851: three requests
+         * recorded, budget 2). The interaction was wrong either way; the window
+         * simply flipped a coin about reporting it.
+         *
+         * Waiting for the network to go quiet can only ever make the recording
+         * LARGER, so it is a strengthening and never a way to pass. It is a
+         * condition, not a sleep: no fixed timeout is introduced here, and the
+         * assertions below are unchanged. */
+        await page.waitForLoadState('networkidle');
       },
     );
 

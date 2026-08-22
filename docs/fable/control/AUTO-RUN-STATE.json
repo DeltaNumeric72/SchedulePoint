@@ -3,7 +3,7 @@
   "orchestrator": "Claude Fable (Claude Code on the web; continuous GitHub master authorization 2026-08-22)",
   "currentMilestone": "post-M4 hold (M4 COMPLETE; M3R PAUSED-pending-review; prototype checkpoint and M5 NOT begun)",
   "currentPacket": "github-reconciliation",
-  "lifecycleState": "CI-ENABLEMENT: GH-001/002/003/005/007 ACCEPTED+committed; GH-006 (publication budget race) is the last blocker; FAD-52 recorded",
+  "lifecycleState": "CI-ENABLEMENT COMPLETE pending CI proof: GH-001/002/003/005/006/007 all ACCEPTED+committed; awaiting the first fully-green run on the final head",
   "originMainCommit": "1593b068c8b524a6ec40cba314d32c9748b6ba3b",
   "taskBranch": "claude/schedulepoint-github-auth-a4ns2p",
   "worktree": "/home/user/SchedulePoint (Claude Code web workspace, ephemeral)",
@@ -14,8 +14,8 @@
   "activeProcessesAndPorts": [],
   "lastCommand": "git push origin milestone/M4",
   "lastExitCode": 1,
-  "openFindings": "GH-006 (last CI blocker); registered follow-ups GH-004 (a11y wrappers+assertions) and GH-008 (FAD-52 hardening incl. mid-band M-1, solver_status M-2, vitest zero-match guard); M3R findings unchanged",
+  "openFindings": "registered follow-ups GH-004, GH-008, GH-009; M3R findings unchanged",
   "externalBlockers": [],
-  "exactNextAction": "Execute GH-006 (fresh Opus implementer + reviewer); on green CI merge PR #3 (squash), verify origin/main, then commit+ratify the replacement-review plan (doc 38) and launch Reviewer A",
-  "lastUpdateUtc": "2026-08-22T22:30:00Z"
+  "exactNextAction": "On green CI: merge PR #3 (squash), verify origin/main, then commit+ratify the replacement-review plan (doc 38) with exact post-merge baseline hashes and launch Reviewer A",
+  "lastUpdateUtc": "2026-08-22T22:20:00Z"
 }
