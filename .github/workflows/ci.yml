@@ -29,7 +29,14 @@ jobs:
   check:
     name: gate battery
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # A PROVISIONAL ceiling, sized from the first real measurements rather than
+    # from taste. `pnpm check` took 11.4 min on the runner while the unit gate
+    # was still failing fast on the missing interpreter — that is the floor with
+    # no solving in it at all — and the solver suites add roughly 10–15 runner-
+    # minutes once they actually solve. 20 could not have held. This is a
+    # ceiling, not a budget: tighten it once a complete green run records what
+    # the job actually costs.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
@@ -72,6 +79,114 @@ jobs:
         run: corepack pnpm exec playwright install-deps chromium
         working-directory: apps/web
 
+      # ── The solver interpreter ──────────────────────────────────────────────
+      #
+      # The unit gate is not Node-only. `apps/api/test/solver` and
+      # `apps/api/test/sbx` perform REAL CP-SAT solves through a Python worker
+      # this process spawns, so a runner with no OR-Tools does not skip those
+      # suites — it fails them. A child that dies on
+      # `from ortools.sat.python import cp_model` has crashed, and the client
+      # correctly reports `FAILED`/`crashed`; eleven test files then read as a
+      # solver defect. Provisioning the interpreter is what makes that gate mean
+      # what it says.
+      #
+      # 3.12 is PINNED here rather than inherited from the runner image.
+      # `Dockerfile.solver` builds `FROM python:3.12-slim-bookworm` and
+      # `solver/pyproject.toml` records why (FAD-10: 3.9 is end-of-life and gets
+      # no security patches). ubuntu-latest happens to ship 3.12 today, and
+      # "happens to" is how a runner-image bump silently changes the interpreter
+      # every measurement in this repository was taken under. docs/dev-setup.md
+      # §8 names re-running the suite against the pinned 3.12 as a **standing CI
+      # condition, not a solved problem** — this is where that condition starts
+      # being met, on every run.
+      - name: Provision the solver interpreter
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # Same shape as the pnpm store step above: ask the tool where its cache
+      # lives rather than hard-coding `~/.cache/pip` and hoping.
+      - name: Resolve the pip cache path
+        id: pip-cache
+        run: echo "path=$(python -m pip cache dir)" >> "$GITHUB_OUTPUT"
+
+      # This caches pip's DOWNLOADS, not the venv, and that is the deliberate
+      # half of the trade.
+      #
+      # A venv is not portable in the ways that would matter here. `pip install
+      # -e` writes the worktree's ABSOLUTE path into the editable finder module,
+      # and `pyvenv.cfg` plus every console shebang bake in the absolute path of
+      # the interpreter that created it. Restore such a tree against an image
+      # whose 3.12 has moved by a patch release and it points at an interpreter
+      # that is no longer there — arriving not as a cache miss but as a crashed
+      # worker inside a solver test, which is precisely the diagnosis-eating
+      # failure mode `apps/api/test/support/solver.ts` exists to have removed
+      # once already. Keying the venv on the patch version instead would mean a
+      # cache that misses on exactly the weeks the image moves, for a saving of
+      # seconds.
+      #
+      # Wheels have no such fragility: they are ABI-tagged (cp312), so a patch
+      # bump leaves them valid — which is why this key carries only the pinned
+      # dependency file, in the same voice as the pnpm and Playwright keys. The
+      # venv itself is rebuilt from scratch on every run against the interpreter
+      # actually present; what the cache saves is the ~100 MB fetch of the
+      # pinned OR-Tools wheel and its dependencies.
+      - name: Cache pip downloads
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pip-cache.outputs.path }}
+          key: pip-${{ runner.os }}-${{ hashFiles('solver/pyproject.toml') }}
+          restore-keys: pip-${{ runner.os }}-
+
+      # The two commands from docs/dev-setup.md §8, unchanged.
+      #
+      # It installs the PACKAGE rather than naming OR-Tools directly, because
+      # `solver/pyproject.toml` pins that dependency by exact version — SPEC-04
+      # §4 makes `solver_version` part of the reproducibility record, and a
+      # second copy of the number in this file is a second thing to forget to
+      # update. The pin resolves here for the first time; until now it was
+      # carried by an image that has never been built.
+      - name: Create the solver venv
+        run: |
+          python -m venv solver/.venv
+          solver/.venv/bin/pip install --disable-pip-version-check -e './solver[dev]'
+
+      # Fail HERE if the library is absent, rather than in a solver suite twenty
+      # minutes later. An interpreter without OR-Tools does not announce itself;
+      # it presents as a crashed child, and the attribution is not even wrong —
+      # which is what makes it expensive.
+      - name: Prove the interpreter carries OR-Tools
+        run: |
+          solver/.venv/bin/python -c "from ortools.sat.python import cp_model; import ortools; print(ortools.__version__)"
+
+      # `pip install -e` leaves a setuptools build artifact (`*.egg-info`) in the
+      # source tree. It is untracked and not gitignored, and the red-case job
+      # fails on a dirty working tree BY DESIGN — so provisioning cleans up after
+      # itself rather than teaching that check to look away. Nothing needs it at
+      # runtime: the editable install resolves through the finder module in
+      # site-packages, and the round trip was re-run with the artifact removed to
+      # confirm that.
+      - name: Remove the setuptools build artifact
+        run: rm -rf solver/*.egg-info
+
+      # Rung 1 of the resolution order documented in
+      # `apps/api/test/support/solver.ts`: an explicit `SP_SOLVER_WORKER_COMMAND`
+      # outranks everything else, and that header names it "the deployment/CI
+      # answer". Discovery (rung 3) would find the same interpreter at
+      # `solver/.venv/bin/python` today — saying it explicitly means CI does not
+      # depend on a fallback rung continuing to fire, and `worker-interpreter`
+      # already pins that precedence because a default that overrode the
+      # deployment's own setting is a defect that happened once.
+      #
+      # Absolute, and through the runner's own `$GITHUB_WORKSPACE` rather than an
+      # expression: the worker is spawned with its working directory set to
+      # `solver/`, so a relative command would be resolved against the wrong
+      # directory. Written to `$GITHUB_ENV` rather than declared per-step so the
+      # whole remainder of the job runs under it — a step-level `env:` is one
+      # more place for a future step to be added without it.
+      - name: Point the solver client at the venv interpreter
+        run: echo "SP_SOLVER_WORKER_COMMAND=$GITHUB_WORKSPACE/solver/.venv/bin/python" >> "$GITHUB_ENV"
+
       - name: pnpm check
         run: corepack pnpm check
 
@@ -92,7 +207,16 @@ jobs:
   red-cases:
     name: red-case proofs
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # Provisional, and sized from less than the check job has. This job has
+    # never finished on a hosted runner: its first complete attempt was
+    # CANCELLED by the old 25-minute cap after 24 minutes in `pnpm red-cases`,
+    # BEFORE the solver provisioning above existed — so the number that was
+    # exceeded was measured against a job doing strictly less work than this one
+    # now does, and the true runtime is known only on the reference machine. The
+    # unit arm also runs `gate:unit` twice. 90 is deliberately generous head
+    # room for a job whose cost has never once been observed to completion;
+    # tighten it against the first green run, not against a guess.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
 
@@ -130,6 +254,56 @@ jobs:
       - name: Install Playwright system dependencies
         run: corepack pnpm exec playwright install-deps chromium
         working-directory: apps/web
+
+      # ── The solver interpreter ──────────────────────────────────────────────
+      #
+      # Same block as the check job, for the same reasons, which are written out
+      # there: 3.12 pinned rather than inherited (FAD-10, and docs/dev-setup.md
+      # §8's standing CI condition), pip DOWNLOADS cached rather than the venv
+      # (an editable venv bakes in absolute paths and an interpreter that a patch
+      # bump moves), the package installed rather than OR-Tools named directly
+      # (the exact pin lives in solver/pyproject.toml and SPEC-04 §4 depends on
+      # it), and `SP_SOLVER_WORKER_COMMAND` set explicitly because it is rung 1
+      # of the resolution order.
+      #
+      # This job needs it too: red cases run gate arms over the same suites, and
+      # a red case that fails for want of an interpreter proves nothing about the
+      # gate it was supposed to be testing — it reports a violation caught when
+      # the run never reached the violation.
+      - name: Provision the solver interpreter
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Resolve the pip cache path
+        id: pip-cache
+        run: echo "path=$(python -m pip cache dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pip downloads
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pip-cache.outputs.path }}
+          key: pip-${{ runner.os }}-${{ hashFiles('solver/pyproject.toml') }}
+          restore-keys: pip-${{ runner.os }}-
+
+      - name: Create the solver venv
+        run: |
+          python -m venv solver/.venv
+          solver/.venv/bin/pip install --disable-pip-version-check -e './solver[dev]'
+
+      - name: Prove the interpreter carries OR-Tools
+        run: |
+          solver/.venv/bin/python -c "from ortools.sat.python import cp_model; import ortools; print(ortools.__version__)"
+
+      # Not optional in THIS job: `*.egg-info` is untracked and not gitignored,
+      # and "Fail if a red case left the tree dirty" below would report it as a
+      # red case that failed to restore the tree — a true statement about the
+      # wrong thing.
+      - name: Remove the setuptools build artifact
+        run: rm -rf solver/*.egg-info
+
+      - name: Point the solver client at the venv interpreter
+        run: echo "SP_SOLVER_WORKER_COMMAND=$GITHUB_WORKSPACE/solver/.venv/bin/python" >> "$GITHUB_ENV"
 
       # Typecheck first, because `gate:build` cannot run without it. `apps/web`
       # imports `@schedulepoint/contracts`, whose package exports point at
