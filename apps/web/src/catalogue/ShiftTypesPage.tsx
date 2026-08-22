@@ -519,8 +519,14 @@ export function ShiftTypesPage(): JSX.Element {
         ) : (
           /* A real table with real headers, once there is room for one.
              Virtualisation is deliberately absent: SPEC-14 requires AT row
-             navigation to survive it, and a catalogue is tens of rows. */
-          <div className="w-full overflow-auto">
+             navigation to survive it, and a catalogue is tens of rows.
+
+             `tabIndex={0}`: this wrapper scrolls when the table is wider than
+             the panel, and the explicit tab stop is the portable spelling.
+             Some browsers focus an overflowing scroller natively; one that does
+             not has nothing to send the arrow keys to (I-12, SP-HR-5; axe
+             `scrollable-region-focusable`). The name comes from the caption. */
+          <div className="w-full overflow-auto" tabIndex={0}>
             <table className="min-w-full border-collapse text-left" data-testid="shift-type-table">
               <caption className="pb-sp-2 text-left text-text-muted">
                 {shiftTypes.length === 1

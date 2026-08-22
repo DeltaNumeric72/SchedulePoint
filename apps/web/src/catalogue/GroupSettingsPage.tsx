@@ -294,7 +294,11 @@ function HolidayCalendarPanel(): JSX.Element {
         emptyMessage="No holidays recorded yet. Without a calendar, “the deadline is Friday” is ambiguous when Friday is a holiday."
         label="the holiday calendar"
       >
-        <div className="w-full overflow-auto">
+        {/* `tabIndex={0}`: the portable tab stop for a scrolling container.
+            Some browsers focus an overflowing scroller natively; one that does
+            not has nothing to send the arrow keys to (I-12, SP-HR-5; axe
+            `scrollable-region-focusable`). The name comes from the caption. */}
+        <div className="w-full overflow-auto" tabIndex={0}>
           <table className="min-w-full border-collapse text-left" data-testid="holiday-table">
             <caption className="pb-sp-2 text-left text-text-muted">
               {holidays.length === 1 ? '1 holiday' : `${String(holidays.length)} holidays`}
