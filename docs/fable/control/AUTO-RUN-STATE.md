@@ -20,7 +20,7 @@ orchestrators race, the one whose remote update succeeds owns the run.
 | Task branch | `claude/schedulepoint-github-auth-a4ns2p` |
 | Worktree | Claude Code web workspace `/home/user/SchedulePoint` (ephemeral) |
 | Latest pushed commit | this commit (branch tip on origin) |
-| Pull request | pending — draft PR opened from the task branch immediately after this push; number recorded on the next ledger update |
+| Pull request | [#3](https://github.com/DeltaNumeric72/SchedulePoint/pull/3) (draft; merge once CI is green) |
 | Implementer | none active |
 | Reviewer | none active |
 | Active processes / ports | none — no dev server, database, or solver process started this session |

@@ -8,7 +8,7 @@
   "taskBranch": "claude/schedulepoint-github-auth-a4ns2p",
   "worktree": "/home/user/SchedulePoint (Claude Code web workspace, ephemeral)",
   "latestPushedCommit": "branch tip on origin (this commit)",
-  "pullRequestNumber": null,
+  "pullRequestNumber": 3,
   "implementer": null,
   "reviewer": null,
   "activeProcessesAndPorts": [],
