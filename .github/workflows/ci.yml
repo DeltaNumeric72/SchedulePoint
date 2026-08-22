@@ -75,12 +75,18 @@ jobs:
       - name: pnpm check
         run: corepack pnpm check
 
+      # The transcript comes from `.evidence-scratch/`, not from the tracked
+      # path. Under the NR-14 redesign (scripts/evidence-target.mjs) a plain run
+      # writes its transcript under that git-ignored root at the SAME relative
+      # path; only `--refresh` touches the tracked file. Pointing at the tracked
+      # file would upload whatever was last committed and silently discard the
+      # transcript of the run that just failed.
       - name: Upload gate transcript
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: check-output
-          path: scripts/check-output.txt
+          path: .evidence-scratch/scripts/check-output.txt
           if-no-files-found: warn
 
   red-cases:
@@ -125,6 +131,16 @@ jobs:
         run: corepack pnpm exec playwright install-deps chromium
         working-directory: apps/web
 
+      # Typecheck first, because `gate:build` cannot run without it. `apps/web`
+      # imports `@schedulepoint/contracts`, whose package exports point at
+      # `dist/`, and `dist/` is what `tsc -b` emits — on a fresh checkout vite
+      # fails with "Failed to resolve entry for package @schedulepoint/contracts".
+      # `pnpm check` never hits this because scripts/check.mjs orders typecheck
+      # ahead of build; this job runs the build gate on its own and has to
+      # reproduce that ordering itself.
+      - name: Build the workspace packages
+        run: corepack pnpm run gate:typecheck
+
       # The build gate has to run once first: several red cases assert against
       # the built bundle, and the runner's GREEN check for the bundle scan needs
       # a clean bundle to exist.
@@ -142,10 +158,12 @@ jobs:
             exit 1
           fi
 
+      # Same NR-14 reason as the gate transcript above: a plain run's evidence
+      # lands under the git-ignored scratch root, at the same relative path.
       - name: Upload red-case transcript
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: red-case-output
-          path: scripts/red-cases/evidence-output.txt
+          path: .evidence-scratch/scripts/red-cases/evidence-output.txt
           if-no-files-found: warn

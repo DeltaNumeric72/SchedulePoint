@@ -2351,9 +2351,33 @@ async function main() {
   );
   mkdirSync(dirname(transcriptPath), { recursive: true });
   writeFileSync(transcriptPath, transcript.join('\n'), 'utf8');
-  process.stdout.write(`${evidenceDestinationBanner(EVIDENCE_REFRESH)}\n${transcriptPath}\n`);
-
-  process.exit(failures.length === 0 ? 0 : 1);
+  /* Exit from the LAST stdout write's callback, not before it.
+   *
+   * `process.exit()` does not drain pending stdout writes, and on CI stdout is a
+   * pipe, where writes are buffered and asynchronous rather than immediate. The
+   * first hosted-runner CI run lost the tail of `pnpm check` that way — every
+   * gate's output after `unit`, and the summary table, truncated mid-line. This
+   * runner ends the same way and carries the same hazard: the summary table
+   * above is the one thing a reader actually needs, and it is written last.
+   *
+   * The bare `process.exitCode` fix that `scripts/check.mjs` uses is NOT safe
+   * here. That script is a straight line of `spawnSync` calls; this one probes a
+   * TCP port and spawns vitest, Playwright and an embedded-postgres cluster
+   * through its arms. If any handle outlives `main()`, letting Node exit on its
+   * own turns a truncated transcript into a hung job, which is worse. Writing
+   * the last chunk and exiting from its callback keeps `exit()`'s
+   * kill-whatever-lingers behaviour, and because writes to one stream complete
+   * in order, every earlier line has flushed by the time the callback runs.
+   * Nothing here writes to stderr — every child's stderr is captured by
+   * `spawnSync` and re-emitted onto stdout above — so this one stream is the
+   * whole transcript. */
+  const code = failures.length === 0 ? 0 : 1;
+  process.stdout.write(
+    `${evidenceDestinationBanner(EVIDENCE_REFRESH)}\n${transcriptPath}\n`,
+    () => {
+      process.exit(code);
+    },
+  );
 }
 
 await main();

@@ -15,7 +15,7 @@ orchestrators race, the one whose remote update succeeds owns the run.
 | Orchestrator | Claude Fable (Claude Code on the web session, continuous GitHub master authorization of 2026-08-22) |
 | Current milestone | Post-M4 hold: M4 COMPLETE; M3R PAUSED-pending-review; prototype checkpoint and M5 NOT begun |
 | Current packet | GitHub reconciliation (no implementation packet in flight) |
-| Lifecycle state | RECONCILE — §A complete except tag publication (owner-blocked); §B EVIDENCE_BLOCKED |
+| Lifecycle state | CI-ENABLEMENT — OPUS-GH-001 ACCEPTED (delta-verified); GH-002 (solver provisioning) and GH-003 (axe defect) queued; replacement-review plan authoring next |
 | origin/main commit | `1593b068c8b524a6ec40cba314d32c9748b6ba3b` |
 | Task branch | `claude/schedulepoint-github-auth-a4ns2p` |
 | Worktree | Claude Code web workspace `/home/user/SchedulePoint` (ephemeral) |
@@ -26,10 +26,10 @@ orchestrators race, the one whose remote update succeeds owns the run.
 | Active processes / ports | none — no dev server, database, or solver process started this session |
 | Last command | `git push origin milestone/M4` (tag-publication probe) |
 | Last exit code | 1 (HTTP 403 — session credential is branch-scoped; recorded, not retried) |
-| Open findings | none new; M3R's registered findings stand unchanged |
-| External blockers | [#1](https://github.com/DeltaNumeric72/SchedulePoint/issues/1) milestone tags verified but unpushable from this session · [#2](https://github.com/DeltaNumeric72/SchedulePoint/issues/2) independent post-M4 Codex review EVIDENCE_BLOCKED (no independent runner; Opus does not satisfy it) |
-| Exact next action | Merge the reconciliation PR once CI is green; then hold M3R close / prototype checkpoint / M5 pending issue #2, continuing only non-prejudicing work (owner-action and external-evidence packages) |
-| Last update (UTC) | 2026-08-22T15:46:39Z |
+| Open findings | GH-001 review's two out-of-scope MAJORs, registered as packets: GH-002 (CI provisions no Python/OR-Tools — 11 unit files fail) · GH-003 (deterministic serious axe `scrollable-region-focusable`, catalogue mobile). M3R's registered findings stand unchanged |
+| External blockers | none — [#1](https://github.com/DeltaNumeric72/SchedulePoint/issues/1) CLOSED (all four milestone tags on GitHub, independently verified) · [#2](https://github.com/DeltaNumeric72/SchedulePoint/issues/2) CLOSED (Codex requirement SUPERSEDED BY OWNER DECISION 2026-08-22; replacement gate = Fable-planned, multi-Opus-executed internal review) |
+| Exact next action | Execute GH-002 and GH-003 serially (Opus implement + fresh Opus review each); when CI is green, merge PR #3; then commit and ratify the replacement-review plan (doc 38) and launch Reviewer A |
+| Last update (UTC) | 2026-08-22T16:55:00Z |
 
 ## Reconciliation facts this record rests on
 

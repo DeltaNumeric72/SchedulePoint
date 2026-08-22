@@ -221,7 +221,14 @@ function main() {
   writeFileSync(transcriptPath, transcript.join('\n'), 'utf8');
   process.stdout.write(`${evidenceDestinationBanner(REFRESH)}\n${transcriptPath}\n`);
 
-  process.exit(failed.length === 0 ? 0 : 1);
+  /* Set the code and let Node exit on its own. `process.exit()` tears the
+   * process down without draining pending stdout writes, and when stdout is a
+   * pipe rather than a TTY — which is what it is on CI — those writes are
+   * buffered and asynchronous. The first CI run lost every gate's output after
+   * `unit`, and the summary table with it, truncated mid-line. Nothing here
+   * keeps the event loop alive (`spawnSync` is synchronous), so the process
+   * still exits as soon as `main()` returns and the output has flushed. */
+  process.exitCode = failed.length === 0 ? 0 : 1;
 }
 
 main();
