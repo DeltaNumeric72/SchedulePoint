@@ -154,6 +154,45 @@ The client-side prohibition is unchanged and unconditional.
 
 ---
 
+## Delegation and orchestration (standing owner directives)
+
+These are directives the product owner has given the orchestrator. They are recorded
+here so every session — local or Claude Code on the web — operates under them without
+needing the original conversation.
+
+### 1. The 2026-08-01 expanded-authority mandate
+
+The owner's "Expanded decision authority and final planning mandate" (2026-08-01)
+delegates **all remaining product, architecture, planning, sequencing, and quality-gate
+decisions** to the Fable orchestrator. **Reserved to the owner, always:**
+purchases/contracts · production accounts, domains, and credentials · real-hospital
+connections · real personal or clinical data · real notifications · legal
+representations · production deployment. The auditable record of every decision taken
+under the mandate is [21-decision-resolution](docs/fable/21-decision-resolution.md);
+subsequent delegated rulings are recorded as FADs in the task log in the same style.
+
+### 2. Fable orchestrates; Opus executes (2026-08-10)
+
+Every implementation and review sub-agent is launched on **Claude Opus
+(`model: "opus"`, high reasoning effort)**. Fable — the orchestrating session — authors
+the self-contained task packet (packet text, worktree, acceptance battery, escalation
+rules), adjudicates results, and runs acceptance; it does **not** execute packets
+itself. Reason: during M4-000A, Fable-model executors repeatedly exhausted usage limits
+mid-packet; running executors on Opus preserves the orchestrator's budget for
+delegation, review, and adjudication.
+
+### 3. Within-milestone autonomy
+
+Implementation authorization was given per
+[24-execution-standards](docs/fable/24-execution-standards.md) §G (M0–M4 executed under
+it). Once a milestone's packets are ratified, sub-agent delegation proceeds **without
+per-task owner approval**, with the task log updated at every acceptance
+([19-decisions-needed](docs/fable/19-decisions-needed.md) §4 "Standing authorities").
+Escalation remains success behaviour — the runbook's escalation rules are unchanged by
+this autonomy.
+
+---
+
 ## Working in this repository
 
 ### Commands
