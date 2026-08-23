@@ -1,0 +1,86 @@
+### REV-B: GitHub Actions state, read through the GitHub API (mcp__github), 2026-08-23
+
+Repository: DeltaNumeric72/SchedulePoint · workflow .github/workflows/ci.yml (id 340093015)
+Total workflow runs in the repository's history at time of reading: 13.
+
+RUN LEDGER (newest first)
+ #  run id        event         head_sha   branch                      attempt  conclusion
+ 13 32612588384  pull_request  f855340    claude/…-auth-a4ns2p          2       in_progress (attempt 1 did not succeed)
+ 12 32612471848  push          93a71f5    main                          1       FAILURE      <-- origin/main, the review baseline
+ 11 32608704494  pull_request  332603e    claude/…-auth-a4ns2p          2       success
+ 10 32601281611  pull_request  90ad3d1    claude/…-auth-a4ns2p          1       cancelled
+  9 32598847252  pull_request  9a6a62a    claude/…-auth-a4ns2p          1       cancelled
+  8 32594244449  pull_request  dbee625    claude/…-auth-a4ns2p          1       cancelled
+  7 32591153851  pull_request  912646d    claude/…-auth-a4ns2p          1       cancelled
+  6 32588840865  pull_request  ceeb48d    claude/…-auth-a4ns2p          1       cancelled
+  5 32585811683  pull_request  9729e07    claude/…-auth-a4ns2p          1       failure
+  4 32582815408  pull_request  16000d2    claude/…-auth-a4ns2p          1       failure
+  3 32582796346  pull_request  0f187f4    claude/…-auth-a4ns2p          1       cancelled
+  2 32581910984  push          1593b06    main                          1       failure
+  1 32581602951  push          cc9f3f9    main (milestone/M4)           1       cancelled
+
+RUN 12 — the push run on `main` at the review baseline 93a71f5 — JOB BREAKDOWN
+  gate battery                    FAILURE   (failed step: "pnpm check")
+  red-case proofs (shard 0..12)   success   (all 13)
+  red-case shard completeness     success
+  15 jobs total.
+
+RUN 12 gate battery, tail of job log (job id 97127554107,
+https://github.com/DeltaNumeric72/SchedulePoint/actions/runs/32612471848/job/97127554107):
+
+  1) [mobile] › e2e/schedule.spec.ts:428:3 › periods — states ›
+     I-13: "New period" persists nothing and issues ZERO requests
+
+    Error: expect(received).toEqual(expected) // deep equality
+    - Expected  - 1
+    + Received  + 7
+    - Array []
+    + Array [
+    +   Object {
+    +     "method": "GET",
+    +     "resourceType": "fetch",
+    +     "url": "http://127.0.0.1:42052/api/organizations/1111…/groups/2222…/schedule/periods",
+    +   },
+    + ]
+      448 |     expect(recording.requests).toEqual([]);
+    at apps/web/e2e/schedule.spec.ts:448:32
+
+  1 failed
+    [mobile] › e2e/schedule.spec.ts:428:3 › periods — states › I-13: "New period" …
+  16 skipped
+  429 passed (7.4m)
+
+  FAIL  request-budget (SP-HR-2 / I-10) — 1 violation(s)
+    scripts/gates/request-budget/recordings/schedule-open-new-period.mobile.json:0
+    "schedule-open-new-period" [mobile] issued 1 request(s), budget 0:
+    GET http://127.0.0.1:42052/api/organizations/1111…/groups/2222…/schedule/periods
+      scanned: 44 budgeted interaction(s), 87 recording(s)
+
+  GATE                     RESULT   TIME
+  lint                     PASS       8792ms
+  typecheck                PASS      18031ms
+  unit                     PASS     906436ms
+  import-boundary          PASS       1942ms
+  route-policy             PASS       1306ms
+  migration-rls            PASS        406ms
+  invariant-ids            PASS        398ms
+  rule-node-mapping        PASS        398ms
+  rule-kind-registry       PASS        475ms
+  provider-boundary        PASS        411ms
+  solver-kind-parity       PASS        383ms
+  secret-scan              PASS        940ms
+  raw-nul                  PASS        552ms
+  build                    PASS       3296ms
+  network-guard            PASS        395ms
+  axe                      FAIL     446944ms
+  request-budget           FAIL        421ms
+  17 gate(s): 15 passed, 2 failed
+  ##[error]Process completed with exit code 1.
+
+NOTE ON TREE IDENTITY: doc 38 §1 states the merge commit 93a71f5's tree is
+byte-identical to 332603e. Run 11 attempt 2 on 332603e: success. Run 12 on 93a71f5:
+failure. Same tree, opposite verdicts, ~30 minutes apart — an intermittent, not a
+tree difference. Verified locally:
+  $ git diff --stat 332603e 93a71f5
+  (empty)
+(diff empty confirms identical trees)

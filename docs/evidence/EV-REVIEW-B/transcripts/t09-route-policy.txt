@@ -1,0 +1,12 @@
+### REV-B: registered-route inventory and SBX-001 matrix coverage
+$ node scripts/gates/route-policy-check.mjs
+PASS  route-policy-check (I-02) — 113 registered route(s)  [exit 0]
+
+$ tsx apps/api/src/tooling/print-route-table.ts | (count)
+total rows 152 | non-HEAD 113 | with :organizationId 112 | WITHOUT 1
+The only non-HEAD route outside SBX-001's role x route matrix filter
+(scenarios.ts:992 — entry.url.includes(':organizationId')):
+  GET /health | policy: public (liveness probe; no tenant data, no tenant table)
+
+=> the role x route matrix covers 112 of the 113 registered non-HEAD routes;
+   the one exclusion is a declared-public liveness route. No silent gap.

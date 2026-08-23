@@ -1,0 +1,28 @@
+### REV-B independent third-party-host scan of the BUILT bundle (not the repo's gate)
+bundle: apps/web/dist/assets/*.js + *.css + index.html
+
+--- every scheme-ful or protocol-relative URL host found, with counts ---
+     12 www.w3.org
+      1 tanstack.com
+      1 tailwindcss.com
+      1 reactjs.org
+
+--- request-shaped API surface in the bundle (fetch/WebSocket/EventSource/sendBeacon/importScripts/xhr) ---
+     16 fetch(
+
+--- any absolute http(s) URL literal passed to fetch( in the bundle ---
+(none printed above == no absolute-URL fetch target in the bundle)
+--- fetch call targets in apps/web/src (first-party source) ---
+apps/web/src/builds/BuildDetailPage.tsx:768:                    void detail.refetch();
+apps/web/src/api/context.ts:158:  const response = await fetch(`${API_PREFIX}/organizations/${organizationId}/me/context`, {
+apps/web/src/api/client.ts:78:  const response = await fetch(`${API_PREFIX}${path}`, {
+apps/web/src/shell/ShellPage.tsx:97:                  void health.refetch();
+apps/web/src/catalogue/ShiftTypesPage.tsx:697:        void current.refetch();
+
+--- the base URL used ---
+apps/web/src/api/context.ts:17: * The header had no sender. `apps/web/src/api/client.ts` sent `accept` and a
+apps/web/src/api/context.ts:45: * (`apps/api/src/http/context/declared.ts`): an `/organizations/{uuid}` prefix
+apps/web/src/api/context.ts:62:const API_PREFIX = '/api';
+apps/web/src/api/context.ts:118: * `apps/web/src/api/client.ts` (+ this module) and the one API route file, and
+apps/web/src/api/context.ts:120: * `apps/api/src/http/routes/me-context.route.ts`. When a packet owns
+apps/web/src/api/client.ts:35:const API_PREFIX = '/api';

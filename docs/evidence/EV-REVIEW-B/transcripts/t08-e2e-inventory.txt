@@ -1,0 +1,27 @@
+### e2e spec inventory (default config: apps/web/e2e, two projects)
+authn.spec.ts: 7 tests
+builds.spec.ts: 37 tests
+catalogue.spec.ts: 15 tests
+critical-path.spec.ts: 1 tests
+my-schedule.spec.ts: 23 tests
+publication.spec.ts: 32 tests
+rule-editors.spec.ts: 3 tests
+rules.spec.ts: 12 tests
+schedule.spec.ts: 39 tests
+settings.spec.ts: 16 tests
+shell.spec.ts: 3 tests
+
+total test() declarations:
+188
+
+### 320px assertions
+apps/web/e2e/builds.spec.ts:395:    await page.setViewportSize({ width: 320, height: 720 });
+apps/web/e2e/catalogue.spec.ts:462:    await page.setViewportSize({ width: 320, height: 720 });
+apps/web/e2e/my-schedule.spec.ts:684:    await page.setViewportSize({ width: 320, height: 720 });
+apps/web/e2e/my-schedule.spec.ts:700:    await page.setViewportSize({ width: 320, height: 720 });
+apps/web/e2e/publication.spec.ts:1321:    await page.setViewportSize({ width: 320, height: 640 });
+apps/web/e2e/publication.spec.ts:1338:    await page.setViewportSize({ width: 320, height: 640 });
+apps/web/e2e/publication.spec.ts:1362:    await page.setViewportSize({ width: 320, height: 640 });
+apps/web/e2e/schedule.spec.ts:859:    await page.setViewportSize({ width: 320, height: 720 });
+apps/web/e2e/schedule.spec.ts:876:    await page.setViewportSize({ width: 320, height: 720 });
+apps/web/e2e/settings.spec.ts:542:    await page.setViewportSize({ width: 320, height: 720 });

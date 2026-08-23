@@ -29,3 +29,17 @@ whose tree differs from `origin/main` only by doc 38 and the AUTO-RUN-STATE sync
 
 *(This file is written incrementally as stages complete. The findings register,
 coverage table, could-not-falsify list and battery-figure table are at the end.)*
+
+## A. Stage log (what was executed, in order, with its transcript)
+
+| # | Transcript | What ran | Result |
+| --- | --- | --- | --- |
+| t01 | `transcripts/t01-pnpm-check.txt` | `corepack pnpm check` on `review/rev-b` @ f855340 | see §C |
+| t02 | `transcripts/t02-validators-green.txt` | the three doc validators | architecture **95/95** · fable **36/36** · research **PASS** — all exit 0 |
+| t03 | `transcripts/t03-vitest-zero-match.txt` | the GH-008 vitest zero-match hazard | **reproduced: exit 0 with 31 skipped / 0 executed** |
+| t04 | `transcripts/t04-vitest-nofiles-and-errored-signatures.txt` | vitest against a non-existent path | exit 1, `No test files found` — the ERRORED signature has a real string to match |
+| t06 | `transcripts/t06-ci-on-main.txt` | GitHub Actions run ledger + the `main` gate-battery job log | **CI on `main` @ 93a71f5 is RED** |
+| t07 | `transcripts/t07-bundle-third-party-scan.txt` | REV-B's own third-party-host scan of the built bundle | **0 request-capable third-party hosts**; 4 vendor string hosts, all inert |
+| t08 | `transcripts/t08-e2e-inventory.txt` | e2e spec and 320-pixel inventory | 11 specs, 188 `test(` declarations, 10 explicit 320px assertions |
+| t09 | `transcripts/t09-route-policy.txt` | route/policy inventory and SBX-001 matrix coverage | 113 routes, all policy-declared; 112 covered by the role×route matrix |
+
