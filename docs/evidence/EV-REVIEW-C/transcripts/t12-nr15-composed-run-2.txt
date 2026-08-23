@@ -52,3 +52,64 @@ TWO THINGS FOLLOW, and neither is a repository defect:
 ############################################################################
 (appended below when it completes)
 2026-08-23T06:01:12Z
+
+--- RUN #2R, executed on a verified-clean tree ---
+=== REV-C composed run #2R (CLEAN — the contaminated #2 is invalidated; see t12) ===
+2026-08-23T06:00:49Z
+ 06:00:49 up  3:45,  0 user,  load average: 0.58, 0.94, 1.05
+tree check before the run:
+(empty above = clean)
+139
+$ corepack pnpm exec vitest run
+
+
+ Test Files  1 failed | 169 passed | 1 skipped (171)
+      Tests  2 failed | 2166 passed | 14 skipped (2182)
+   Start at  06:00:51
+   Duration  1601.78s (transform 5.77s, setup 57.38s, collect 161.82s, tests 1390.10s, environment 3.83s, prepare 2.95s)
+EXIT=1
+
+--- every failing test ---
+   × the objective is TIERED and every component weight is recorded > records rank, multiplier, scale and each rule’s scaled weight 120015ms
+   × status honesty and the metric set, end to end > measures SPEC-04 §7 and leaves the unmeasurable rates NULL 120005ms
+
+--- the NR-15 signature ---
+$ grep -nE "outbox-dispatch-finalize|drainable job\(s\)|FAIL.*outbox" composed-2r.txt
+  EXIT=1 (1 = ABSENT)
+ ✓ |api| test/audit/outbox-dispatch.test.ts (12 tests) 1782ms
+
+VERDICT, run #2R: REV-B-002 DID NOT REPRODUCE.
+
+=========================== THE COMBINED SERIES ===========================
+  Composed `vitest run` on the same tree and machine class, three reviewers, VALID runs only:
+
+    reviewer   run                              failed FILES  failed TESTS   NR-15
+    --------   ------------------------------   ------------  ------------   -------
+    REV-A      whole workspace                        1             2        absent
+    REV-B      whole workspace                        2             2        PRESENT
+    REV-B      api project, ceiling raised            0             0        absent
+    REV-C      whole workspace #1                     1             2        absent
+    REV-C      whole workspace #2R                    1             2        absent
+    (REV-C's run #2 is INVALID — REV-C's own probe contamination, above — and is not counted.)
+
+  1 occurrence in 5 valid composed runs; 1 in 4 whole-workspace runs.
+
+WHAT THIS DOES AND DOES NOT DO TO REV-B-002:
+ * It does NOT falsify it. REV-B's occurrence is a captured, verbatim failure carrying the
+   exact NR-15 message and line numbers, in a transcript REV-B committed. A non-reproduction
+   is not evidence against a captured failure — the repository already applies that rule to
+   itself: RISK-REGISTER records NR-15 as 'explicitly NOT ruled a flake (FAD-15)' after 55+
+   non-reproducing runs.
+ * It DOES lower the rate. REV-B reported 1-in-2 from its own two composed runs and said so
+   carefully. Across the five-run series the rate is ~1-in-5; REV-B's figure should be read
+   as its own sample, not as the class's.
+ * It leaves the MECHANISM untouched, and the mechanism is the finding: the signer-less
+   drainQueue at outbox-dispatch.test.ts:123 is a structural property of that call site
+   (t11). Given one audit.* job in the backlog the 45 s loop is unsatisfiable at any machine
+   speed. Only the precondition is racy.
+ * The claim REV-B-002 attacks — 'NR-15 RETIRED-AS-DIAGNOSED-AND-REPAIRED … verified clean
+   across the COMPLETE seed set' — is falsified by ONE recurrence. Clean runs afterwards do
+   not restore it.
+
+REV-C's severity: REV-B's MAJOR stands, unchanged.
+2026-08-23T06:28:07Z

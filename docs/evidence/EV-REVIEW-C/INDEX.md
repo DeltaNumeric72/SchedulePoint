@@ -128,11 +128,13 @@ mechanism is deterministic should not be discounted because its trigger is order
 | REV-B, whole workspace | 2 (e2-objective + drain) | **PRESENT** |
 | REV-B, `api` project with the ceiling raised | 0 | absent |
 | REV-C #1, whole workspace | 1 (e2-objective) | absent |
-| REV-C #2, whole workspace | *(t12)* | *(t12)* |
+| REV-C #2, whole workspace | *(INVALID — REV-C's own probe contamination; see t12 and §8.5)* | — |
+| REV-C #2R, whole workspace, verified-clean tree | 1 (e2-objective) | absent |
 
-REV-B's own framing ("one occurrence in two full composed runs", "intermittent even between two
-composed runs") is **conservative rather than overstated**: on the wider series the rate is lower
-than 1-in-2. The rate does not touch the finding's substance, which is that the failure recurred
+**1 occurrence in 5 valid composed runs** (1 in 4 whole-workspace runs). REV-B's own framing
+("one occurrence in two full composed runs", "intermittent even between two composed runs") is
+therefore **conservative rather than overstated**: on the wider series the rate is ~1-in-5, and
+REV-B's figure should be read as its own sample rather than as the class's. The rate does not touch the finding's substance, which is that the failure recurred
 **at all** after RISK-REGISTER recorded NR-15 "RETIRED-AS-DIAGNOSED-AND-REPAIRED … verified clean
 across the COMPLETE seed set".
 
