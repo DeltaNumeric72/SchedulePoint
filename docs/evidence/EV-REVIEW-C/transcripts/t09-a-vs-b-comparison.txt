@@ -1,0 +1,102 @@
+=== REV-C / T09 — A vs B: overlap, contradictions, and cross-misses ===
+2026-08-23T05:21:47Z
+
+########## OVERLAP 1 — REV-A-001 vs REV-B-003: THE SAME DEFECT ##########
+
+Same arms?  YES, and by exact name and line:
+  REV-A: e2-objective.test.ts:159 'records rank, multiplier, scale and each rule's scaled weight'
+         e2-objective.test.ts:754 'measures SPEC-04 §7 and leaves the unmeasurable rates NULL'
+  REV-B: identical two, quoted with the same line numbers.
+
+Same measurements?  YES, within 1.0%:
+  arm :159   REV-A 128,836 ms   REV-B 130,177 ms   (delta 1.04%)
+  arm :754   REV-A 130,714 ms   REV-B 129,429 ms   (delta 0.99%)
+  ceiling    120,000 ms   -> both reviewers land 7.4-8.9% over. CONSISTENT.
+  REV-C's own composed run measured the same class in the same file (see t10).
+
+Same cause?  YES, independently reached: GH-005 (dbee625) raised ceilings to 480 s / 540 s on
+the two TWO-solve arms in this file and left the SINGLE-solve arms at the 120 s default.
+REV-C verified the delta directly:
+  $ git diff milestone/M4 origin/main -- apps/api/test/solver/e2-objective.test.ts | grep -E "^[+-].*(480|540|timeout)"
++  }, 480_000);
++  }, 540_000);
+  $ grep -cE "^\s*\}, [0-9_]+\);" apps/api/test/solver/e2-objective.test.ts   (arms with an explicit ceiling)
+4
+  $ grep -nE "^\s*\}, (480_000|540_000)\)" apps/api/test/solver/e2-objective.test.ts
+262:  }, 480_000);
+343:  }, 540_000);
+  $ grep -nE "^\s*\}\);\s*$" apps/api/test/solver/e2-objective.test.ts | wc -l  (arms with NO explicit ceiling)
+57
+
+VERDICT: REV-A-001 and REV-B-003 are ONE finding, found twice, independently, with
+consistent figures and the same mechanism. They must be merged in the register WITHOUT
+dropping either ID (doc 38 §5: no combining-away). Merged as REV-A-001 = REV-B-003.
+
+########## OVERLAP 2 — the two composed unit-gate runs, which agree AND differ ##########
+
+  REV-A transcript 01 : Test Files  1 failed | 169 passed | 1 skipped (171)
+                        Tests       2 failed | 2166 passed | 14 skipped (2182)
+  REV-B §C row 1a     : 2166 passed | 2 failed | 14 skipped (2182); 2 failed test FILES
+
+The TEST counts are identical (2166 / 2 / 14). The FILE counts differ by exactly one, and the
+extra failed file in REV-B's run is outbox-dispatch.test.ts, whose failure is in afterAll —
+a hook failure fails the FILE and adds no failed TEST. The two figures are therefore not in
+conflict; they are the SAME run shape plus or minus REV-B-002.
+=> REV-A's composed run did NOT reproduce REV-B-002. That is a NON-OCCURRENCE, not a miss,
+   and it independently corroborates REV-B's own '1 occurrence in 2 composed runs' rate.
+   REV-C's own composed runs extend that series (t10).
+
+########## OVERLAP 3 — agreements REV-C checked and found consistent ##########
+  SBX          A: 9/9, 371 readings, 53/53 tables, 0 wrong-tenant, 0 vacuous
+               B: identical, plus 9/9 FALSIFIABLE and audit chain 0/1/0 across 3 organizations
+  M-22 gap     A §13 row 10.6 and B §E item 8 both confirm the numbering gap is real, not a renumber
+  machine ratio A: ~3.9x     B: 2.7-3.9x    consistent
+  the delta    A §3: byte-identical trees, 11 commits, no frozen record retro-edited
+               B §G: additive only, no assertion deleted, no budget raised, 64->65 by ADDITION
+               -> the same conclusion by two different methods (tree hashes vs diff reading)
+
+########## THE ONE REAL CONTRADICTION ##########
+
+  REV-A-002 : the 'migration POPULATED cycle 0001-0019' battery row is NOT what its
+              transcript executed — the CLI destroys the data directory and seeds nothing.
+  REV-B §C 5: the same row, re-executed, verdict 'matches'.
+
+These cannot both be right. REV-C adjudicated it by execution and code-read (t03 Part 1):
+  * the CLI EV-M4-005 transcript 42 ran (migrate-cycle-cli.ts) says in its own docblock that
+    'the up migration applies to an EMPTY database' — REV-A is right about the artifact.
+  * the artifact REV-B credited (migration-0019-populated-cycle.test.ts) cycles ONE migration
+    (while (!down.some(n => n.includes('0019')))), not nineteen — so it cannot corroborate a
+    0001-0019 row either.
+  => REV-A-002 STANDS. REV-B's row-5 'matches' is withdrawn and refiled as REV-C-002 (MAJOR).
+  This is the single place where the two reports disagree on a fact, and the blind-review
+  design is what surfaced it: B endorsed the row precisely because it had not read A.
+
+########## NEAR-CONTRADICTION THAT IS NOT ONE ##########
+
+  REV-A §13/§14: 'CI's gate battery passed at 332603e, so the runner is fast enough.'
+  REV-B-001    : 'CI on main @ 93a71f5 concluded FAILURE, gate battery 15/2.'
+  332603e and 93a71f5 have BYTE-IDENTICAL TREES (REV-A proved it: both trees hash to
+  be81cfa6c62c0e9a345c1f5b5f8808872345f678). So the same tree passed one CI run and failed
+  the next. Not a contradiction — it IS the intermittency, seen from two sides.
+  What REV-A's sentence does NOT survive is the implicature that CI is green on this tree.
+  Its narrower claim — that the RUNNER is fast enough, so the e2-objective failure is
+  machine speed and not a code defect — is untouched and correct.
+
+########## WHAT EACH LANE COULD HAVE CAUGHT AND DID NOT ##########
+
+  B could have caught A-002.  'database consistency' is verbatim in REV-B's scope, REV-B
+     looked at exactly that battery row, and endorsed it. This is the sharpest cross-miss in
+     the pair: not a gap in coverage but a wrong verdict inside covered ground.
+  B could have caught A-004 (mutable termination facts on a same-state UPDATE). REV-B's scope
+     names 'database consistency' and 'API enforcement'; the probe is a two-statement UPDATE
+     as app_runtime. REV-B did not attempt it. A genuine miss, though a fair lane split could
+     also put it in A's 'concurrency and stale writes'.
+  A could have caught B-004 (doc 36 carries superseded figures with no FAD-52 pointer).
+     REV-A examined the delta closely and recorded the SAME FACT as a positive ('no frozen
+     record was retro-edited'). Two readings of one fact; REV-B's is the one a reader needs.
+     Not a contradiction — a difference in what each thought the fact meant.
+  A could NOT have been expected to catch B-001 or B-007: CI accuracy, error handling and
+     privacy are REV-B's enumerated lane, and the two occurrences A could have witnessed
+     (axe, request-budget) both passed in A's run.
+  A did NOT miss B-002: it did not occur in A's composed run. Non-occurrence, not a miss.
+2026-08-23T05:21:47Z
