@@ -114,3 +114,16 @@ THE AXE INTERMITTENCY, QUANTIFIED FROM RUN 12 ITSELF
   i.e. of the >=4 clean-tree axe runs on commit 93a71f5 in this one workflow run,
   exactly one failed, and it failed on the I-13 zero-request assertion at the mobile
   viewport. That is an intermittent, and its rate here is roughly 1 in 4.
+
+FOLLOW-UP READING (2026-08-23T05:0x, after REV-B's own batteries)
+Run 13 (32612588384) — the PR run on `claude/schedulepoint-github-auth-a4ns2p` @ f855340,
+which is REV-B's own base tree — finished:
+  run_attempt: 2   conclusion: success   (15 jobs, 0 failed on attempt 2)
+Attempt 1 was created 2026-08-23T02:19:47Z and did not carry the run to success; attempt 2
+was started at 03:25:31Z and did. The API reports failed jobs for the LATEST attempt only,
+so attempt 1's failing job could not be read back through it; the re-attempt itself is the
+fact recorded here. Ledger state at filing:
+
+  run 13  f855340  PR   attempt 2  SUCCESS   <- REV-B's base tree, on the second attempt
+  run 12  93a71f5  push attempt 1  FAILURE   <- origin/main, the review baseline
+  run 11  332603e  PR   attempt 2  SUCCESS   <- the merge candidate, same tree as run 12
