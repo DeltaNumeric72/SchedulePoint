@@ -435,3 +435,149 @@ not an adjudication — adjudication is Fable's.
 | **REV-C-011** | REV-A's `p2-audit-and-termination` probe is **not composed-run-safe**: it tampers with the audit chain as superuser with triggers disabled, so leaving it in the tree reddens `test/audit/chain.test.ts`. REV-C proved this the hard way by contaminating its own composed run #2 (recorded in full in t12) and re-running it clean as #2R. | Not a repository defect and not a criticism of REV-A, which ran the probe targeted and removed it. Recorded because it generalises: the NR-14 clean-tree discipline covers **tracked** files, and an **untracked** probe under `apps/api/test/` is invisible to it while participating in every run. |
 
 **Tally: 2 BLOCKING · 6 MAJOR (5 distinct defects; A-001 and B-003 are one) · 12 MINOR · 8 NOTE.**
+
+---
+
+## 8. Recommendation
+
+# REVISE.
+
+REV-C recommends **REVISE**, not ACCEPT.
+
+This is a recommendation, not an adjudication and not a gate decision — both belong to Fable
+(doc 38 §3, §5).
+
+### 8.1 Why REVISE, tied to doc 38 §9
+
+Criterion 3 is REV-C's recommendation itself. Of the other ten, **five do not hold today** and
+one **cannot be made to hold as written**:
+
+| § 9 | Criterion | Holds? | REV-C's evidence |
+| --- | --- | --- | --- |
+| 1 | Plan committed with the §10 ratification | **yes** | doc 38 §10 reads PASS on all four checks |
+| 2 | All three reports complete per their completion criteria | **no** | REV-A has no per-scope-area coverage table and its report mis-cites where one is (REV-C-003); and §2.7's M3R surface item **cannot be satisfied by anyone** because no enumerable register exists (REV-C-004) |
+| 4 | Every valid finding resolved through §6 | **no — not begun** | 2 BLOCKING and 6 MAJOR entries stand unrepaired |
+| 5 | No confirmed functional defect remains | **qualified yes, with one honest caveat** | see §8.3 |
+| 6 | Original reviewers have delta-verified their corrections | **no — not begun** | no repair exists to verify |
+| 7 | The complete serial §7 battery passes | **no** | `pnpm check` fails on this machine class (REV-A-001 = REV-B-003); the 65-arm red-case battery with a green union guard **fails on `main` today** (REV-C-001); `fixture-regression` and `sbx` have no automated evidence at all (REV-C-004); one §7 row — the "populated" migration cycle — describes a battery that was never run in that form (REV-A-002) |
+| 8 | **GitHub CI passes on `main`** | **no** | **three consecutive push runs on `main` have concluded failure**: `1593b06`, `93a71f5` (run 32612471848 — gate battery), `64ddfd1` (run 32616586257 — red-case shard 8 + union guard). See §8.2 |
+| 9 | All required PRs merged | n/a | nothing to merge yet |
+| 10 | Fresh-clone validation passes against `origin/main` | **partially — and this is now executed** | the validator third **passes** from a genuine fresh clone (36/36 · 95/95 · PASS, t05); the remaining §7 items from that clone are a 12–15 h serial run and were not attempted |
+| 11 | Control and evidence documents accurately reflect the outcome | **no** | REV-A-002, REV-B-004, REV-C-002, REV-C-005, REV-C-009, REV-C-010 are each a record that does not match what was executed |
+
+Criterion 8 alone is dispositive. **Two independent BLOCKING-severity observations of the same
+defect, on two different commits, in two different batteries** is not a condition an ACCEPT can
+be written over.
+
+### 8.2 What the recorder-window class means for criterion 8 — stated honestly
+
+Criterion 8 is currently **red at first attempt, green on a flake re-run**. That phrasing is
+accurate and it is also the most dangerous available description, so REV-C states plainly what
+it does and does not mean.
+
+**What it is not.** It is not a product defect. Against the real stack the interaction records
+**0 requests at both viewports**, in the retained M4 ledger and in REV-B's re-execution, with a
+non-vacuous neighbouring step recording 2. The invariant holds in the product. The failure is in
+the instrument.
+
+**What it is.** A load-sensitive race in a **shared** test harness — the open side of the class
+GH-009 registered on the close side. Three properties make it worse than "a flake":
+
+1. **It is class-wide.** 18 of the 44 budgeted interactions carry `maxRequests: 0` and every one
+   is recorded through the same `recordRequests` helper with the same DOM-visibility trigger.
+   Repairing one call site does not repair the class.
+2. **It moves between batteries.** At `93a71f5` it took the gate battery; at `64ddfd1` the gate
+   battery was green and it took red-case shard 8 instead. A re-run that turns one lane green is
+   not evidence the class is gone; it is evidence about that lane on that run.
+3. **The arm it took down is the I-13 detector's own proof.** `i13-schedule-authoring` returning
+   NOT PROVEN means the battery cannot currently certify that the invariant CLAUDE.md rule 10
+   forbids weakening is actually detected. That is the precise inversion the red-case battery
+   exists to prevent.
+
+**Therefore, re-running until green is not a repair, and a green re-run must not be recorded as
+one.** The correct disposition is REV-B's: repair the recorder window at the class level; never
+raise the budget, never relax the assertion. And until it is repaired, **"CI passes on `main`"
+cannot be established by a single green run** — a class this load-sensitive needs a stated
+number of consecutive green runs, decided by the adjudicator, before criterion 8 is closed.
+
+### 8.3 What REVISE does NOT mean — the engineering underneath largely held
+
+REV-C wants this recorded as plainly as the findings, because a bare REVISE would misdescribe
+what three reviewers found.
+
+**No reviewer, across three independent packets and roughly a hundred probes, found a functional
+product defect reachable through a shipped surface.** REV-A filed zero BLOCKING and said so.
+REV-B's single BLOCKING is a harness defect it took care to prove innocent of amplification.
+REV-C found nothing to add to that column.
+
+What held under attack, re-verified by REV-C rather than taken on trust:
+
+* **The 58-capability scope.** 58 = 58 = 58 across report 19, doc 06 and doc 18 under REV-C's own
+  parser; nothing dropped, nothing invented; 18/3/37 exactly as claimed.
+* **Tenancy, immutability and the audit chain.** REV-A's 17-arm database battery — every "reads
+  zero rows" arm preceded by a non-vacuity arm — held across four non-BYPASSRLS roles, 17 tables,
+  cross-tenant and cross-group, plus I-18 refused for all **five** roles including break-glass.
+* **Both mutation harnesses are real.** REV-C re-ran one mutation from each reviewer against the
+  **shipped** tests: both bit, both restored byte-identically, both reproduced the original
+  reviewer's exact figure.
+* **The reproducibility derivation.** REV-A's 26-case truth table reproduced row for row under
+  REV-C, including both FAD-52 knife-edge sides and the three counterexamples.
+* **SBX.** 9/9 · 371 readings · 53/53 tables · 0 wrong-tenant · 0 vacuous, reproduced identically
+  by two reviewers.
+* **The client contacts no third party**, verified by REV-B with its own scanner rather than the
+  repository's, with both guard arms biting in both directions.
+* **Non-vacuity.** 10/10 sampled assertions load-bearing; no `.only`, no `.todo`, no zero-test
+  file across 184 test files — re-derived independently by REV-C.
+* **The delta is additive.** Byte-identical trees, no assertion deleted, no budget raised, no gate
+  removed; the arm count moved 64 → 65 by addition.
+* **The doc validators pass from a genuinely fresh clone of `origin/main`** — 36/36, 95/95, PASS.
+
+The findings that force REVISE are, with two exceptions, about **the record rather than the
+product**: a battery row that describes a run nobody performed, superseded figures with no
+pointer to their supersession, an evidence bundle disagreeing with itself, a follow-up packet
+that exists only in a commit message, finding IDs that mean two things. The two exceptions —
+REV-A-003 (a recorded limitation that is less limited than recorded) and REV-A-004 (an honesty
+guarantee resting on application discipline where this codebase's own standard is database
+enforcement) — are real engineering findings, and both were confirmed twice by REV-C.
+
+### 8.4 What an ACCEPT would require
+
+Offered as REV-C's view of the shortest honest path, not as an adjudication:
+
+1. **Repair the recorder window at the class level** (REV-B-001 + REV-C-001), never the budget or
+   the assertion; then demonstrate criterion 8 with a stated number of consecutive green runs on
+   `main`, not one.
+2. **Generalise the GH-005 ceiling repair to its own class** (REV-A-001 = REV-B-003) so `pnpm
+   check` is a property of the code rather than of the machine.
+3. **Correct the "populated cycle 0001–0019" row** wherever it is live — doc 38 §7 included, since
+   the error has already propagated into the review plan's own acceptance criteria — and either
+   build a real populated 0001–0019 cycle or state the row as the empty cycle it is (REV-A-002,
+   REV-C-002).
+4. **Decide REV-A-003 and REV-A-004** on their merits. Both are confirmed and both are genuine;
+   neither is a shipped-surface defect today, and both are exactly the class this repository says
+   it enforces in the database rather than by discipline.
+5. **Give `fixture-regression`, `sbx`, and the M3R surface item an evidentiary home** — or amend
+   doc 38 §7/§2.7 to stop requiring what nothing produces (REV-C-004).
+6. **Repair the record**: REV-B-004, REV-C-005, REV-C-009, REV-C-010, and REV-A's coverage table
+   (REV-C-003).
+7. **NR-15's retirement should not be restored by clean runs.** Five clean composed runs followed
+   REV-B's one captured failure; the repository's own rule (NR-15 was "explicitly NOT ruled a
+   flake" after 55+ clean runs) says that is not how this class is closed. Repair the signer-less
+   call site, or re-open the risk with the mechanism named.
+
+### 8.5 REV-C's own errors, declared
+
+Two, both caught by REV-C and both recorded in the transcripts rather than quietly fixed:
+
+1. **REV-C contaminated its own composed run #2** by leaving REV-A's probe files in
+   `apps/api/test/rev-c/` when the whole-workspace run started. The run collected them, and
+   REV-A's audit-tampering probe reddened two of the repository's own `chain.test.ts` tests.
+   Run #2 is invalidated in full in t12; run #2R was executed on a verified-clean tree. The two
+   `chain.test.ts` failures are REV-C's artefact and are **not** filed as findings.
+2. **REV-C drafted a finding against REV-B's real-stack figure that was wrong** — REV-C compared
+   REV-B's nine printed counts against an eight-entry JSON ledger, when REV-B had cited
+   transcript 43, which prints exactly nine in exactly REV-B's order. The draft is withdrawn in
+   t10; checking it is what surfaced the genuine REV-C-009 instead.
+
+A third, minor: REV-C's spot-check of REV-A's `checkpoint-signer.ts` citation initially reported
+ABSENT because REV-C guessed the wrong path. REV-A's quote is verbatim correct. Corrected in t08.
