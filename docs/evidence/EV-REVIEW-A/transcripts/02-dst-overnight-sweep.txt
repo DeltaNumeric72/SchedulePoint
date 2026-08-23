@@ -1,0 +1,13 @@
+$ node dst-sweep.mjs
+REV-A DST/overnight sweep
+zones            : 23
+intervals evaluated: 5424
+gap starts observed: 108
+fold starts observed: 93
+fold ends observed  : 78
+--- P1 degenerate/refused (expect 0): 0
+--- P2 gap start NOT translated (expect 0): 0
+--- P3a non-positive elapsed (expect 0): 0
+--- P3b delta not a whole quarter-hour (expect 0): 0
+TOTAL VIOLATIONS: 0
+EXIT=0

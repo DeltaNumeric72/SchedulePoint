@@ -1,0 +1,114 @@
+$ node hard-rule-boundaries.mjs
+REV-A hard-rule boundary probe — 36 arms
+
+[PASS] rest: exactly 10h apart
+        want=clean
+        got =NONE
+[PASS] rest: 9h59m apart (one minute inside)
+        want=breach
+        got =breach:MinimumRestBetween
+[PASS] rest: violation across a two-day gap (R-1 class)
+        want=breach
+        got =breach:MinimumRestBetween
+[PASS] rest: two-day gap, genuinely 24h+ rest
+        want=clean
+        got =NONE
+[PASS] rest: same date, second shift starts 1h after the first ends
+        want=breach
+        got =breach:MinimumRestBetween
+[PASS] rest: 1h apart but DIFFERENT memberships
+        want=clean
+        got =NONE
+[PASS] consec: exactly 3 in a row
+        want=clean
+        got =NONE
+[PASS] consec: 4 in a row
+        want=breach
+        got =breach:MaxConsecutive
+[PASS] consec: 3 + gap + 3 (two runs, neither over)
+        want=clean
+        got =NONE
+[PASS] consec: 4 days but TWO memberships alternating
+        want=clean
+        got =NONE
+[PASS] consec: 4 in a row ACROSS a month boundary
+        want=breach
+        got =breach:MaxConsecutive
+[PASS] consec: 3 distinct dates, one of them doubled
+        want=clean
+        got =NONE
+[PASS] window: exactly 2 inside 7 days
+        want=clean
+        got =NONE
+[PASS] window: 3 inside 7 days
+        want=breach
+        got =breach:MaxAssignmentsInWindow
+[PASS] window: 3 spread so no 7-day window holds all three
+        want=clean
+        got =NONE
+[PASS] qual: held ON the shift date
+        want=clean
+        got =NONE
+[PASS] qual: held the day BEFORE only
+        want=breach
+        got =breach:RequiresQualification
+[PASS] qual: held the day AFTER only
+        want=breach
+        got =breach:RequiresQualification
+[PASS] qual: the OTHER membership holds it
+        want=breach
+        got =breach:RequiresQualification
+[PASS] qual: UNKNOWN qualification key does not read as satisfied
+        want=breach or not-evaluable
+        got =not-evaluable:RequiresQualification
+[PASS] call: exactly 3 days between calls
+        want=clean
+        got =NONE
+[PASS] call: 2 days between calls
+        want=breach
+        got =breach:CallSpacing
+[PASS] call: 1 day apart but NEITHER is on call
+        want=clean
+        got =NONE
+[PASS] call: 1 day apart, only ONE is on call
+        want=clean
+        got =NONE
+[PASS] avoid: an assignment ON the avoided date
+        want=breach
+        got =breach:AvoidDate
+[PASS] avoid: the day before
+        want=clean
+        got =NONE
+[PASS] avoid: the day after
+        want=clean
+        got =NONE
+[INFO] avoid: overnight shift starting the day before, ending ON the avoided date
+        want=(recorded — the ruling keys AvoidDate on the assignment DATE)
+        got =NONE
+[PASS] fixed: the pinned identity is present and unchanged
+        want=clean
+        got =NONE
+[PASS] fixed: the pinned identity was DROPPED from the candidate
+        want=breach
+        got =breach:FixedAssignment
+[PASS] fixed: the pinned identity was MOVED to another membership
+        want=breach
+        got =breach:FixedAssignment
+[PASS] fixed: the pinned identity was MOVED to another date
+        want=breach
+        got =breach:FixedAssignment
+[PASS] fixed: the pinned identity changed SHIFT TYPE
+        want=breach
+        got =breach:FixedAssignment
+[PASS] fixed: with NO candidateFacts it is not-evaluable (never a silent pass)
+        want=not-evaluable
+        got =not-evaluable:FixedAssignment
+[PASS] registry: 30 kinds = 22 evaluated + 8 not
+        want=30 = 22 + 8
+        got =30 = 22 + 8
+[PASS] every unevaluated kind has a NAMED reason
+        want=0 without a reason
+        got =none missing
+
+arms=36 failed=0
+EXIT=0
