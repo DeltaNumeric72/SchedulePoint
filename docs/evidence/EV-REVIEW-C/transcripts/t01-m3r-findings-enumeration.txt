@@ -1,0 +1,92 @@
+=== REV-C / T01 — the M3R registered findings (doc 38 §2.7): enumeration attempt ===
+2026-08-23T05:06:49Z
+branch: review/rev-c @ 64ddfd1
+
+$ git grep -ln "M3R" -- "*.md" "*.json" "*.ts" "*.tsx" "*.mjs" "*.py" "*.yml" "*.sql" "*.sh"
+docs/evidence/EV-M4-005/INDEX.md
+docs/fable/34-m4-entry-and-prerequisite-register.md
+docs/fable/35-m4-task-packets.md
+docs/fable/36-m4-exit-report.md
+docs/fable/38-post-m4-internal-review-plan.md
+docs/fable/control/AUTO-RUN-STATE.json
+docs/fable/control/AUTO-RUN-STATE.md
+docs/fable/control/CHANGELOG.md
+docs/fable/control/IMPLEMENTATION-ROADMAP.md
+docs/fable/control/PROJECT-STATUS.md
+EXIT=0
+
+$ git grep -n "M3R" -- "*.md" "*.json"   (every occurrence, in full)
+docs/evidence/EV-M4-005/INDEX.md:561:* **M3R remains PAUSED.**
+docs/evidence/EV-M4-005/INDEX.md:1564:* **M3R is PAUSED** and nothing in this packet changes that.
+docs/fable/34-m4-entry-and-prerequisite-register.md:9:1. **M3R is PAUSED by product-owner direction.** M3R is not completed, not cancelled, not superseded, and not absorbed into M4. Its outstanding findings remain in the project register and retain their existing production gates. Nothing in M4 chan …[truncated]
+docs/fable/34-m4-entry-and-prerequisite-register.md:11:3. **M4 does not resolve M3R findings that are unrelated to the solver pipeline.** Where an M4-000 prerequisite coincides with an M3R finding because the solver directly consumes the affected surface, M4 may close that functional prerequisite; t …[truncated]
+docs/fable/34-m4-entry-and-prerequisite-register.md:12:4. **No production-readiness claim follows from beginning or completing M4.** The `milestone/M4` tag, if reached, means the M4 functional milestone passed its documented evidence — nothing more. It does not mean M3R is complete, and it does no …[truncated]
+docs/fable/35-m4-task-packets.md:92:| **Status** | **ACCEPTED & MERGED 2026-08-12 (squash `b1aa64e`; evidence EV-M4-BOUNDARY).** Independent review **REJECT** on one blocking defect — B-1: the RPC MAC covered a *re-derivation* of the message (platform `canonicalStringify` raw UTF-8 vs worker `json …[truncated]
+docs/fable/35-m4-task-packets.md:235:| **Required behaviour** | (1) Every matrix row is a NAMED proof with a DB-asserted outcome and, where a race, a real-connection race (the FAD-15/M4-001R harness lineage); a row that cannot be constructed is ESCALATED, not narrated. (2) Staleness (ruling 4) prove …[truncated]
+docs/fable/36-m4-exit-report.md:3:**M4 authorized 2026-08-07 against frozen M3 checkpoint `7b579f2` (tag `milestone/M3`); complete 2026-08-21. Ten tasks (three M4-000 prerequisite packets, the four solver packets, two corrective packets, the integration packet), all ACCEPTED and merged. This documen …[truncated]
+docs/fable/36-m4-exit-report.md:42:- **M3R** — PAUSED by owner direction; not completed, not cancelled, not absorbed; its findings retain their production gates untouched.
+docs/fable/36-m4-exit-report.md:106:The `milestone/M4` tag means exactly this: the M4 functional milestone passed its documented evidence. **It is not beta readiness, not production readiness, not connector readiness, and not compliance or compliance-readiness of any kind — no HIPAA, PHIPA, SOC 2, …[truncated]
+docs/fable/38-post-m4-internal-review-plan.md:64:   21-decision-resolution, the M3R registered findings, and the registered follow-up
+docs/fable/38-post-m4-internal-review-plan.md:218:On gate pass: M3R reconciliation completes (per the continuous authorization §C, fed by
+docs/fable/38-post-m4-internal-review-plan.md:229:| Mapped to the complete M1–M4 surface — 58 capabilities, I-01..I-22, SPEC-01..16, ADRs, FADs 1–52, QA + SBX-001..017, all four exit reports and evidence bundles, doc 36 limitations, carried risks, M3R findings, registered follow-ups GH-004/008 …[truncated]
+docs/fable/control/AUTO-RUN-STATE.json:4:  "currentMilestone": "post-M4 hold (M4 COMPLETE; M3R PAUSED-pending-review; prototype checkpoint and M5 NOT begun)",
+docs/fable/control/AUTO-RUN-STATE.json:17:  "openFindings": "follow-ups GH-004/GH-008/GH-009 (review input); owner actions: issue #4; M3R findings unchanged pending the review",
+docs/fable/control/AUTO-RUN-STATE.md:16:| Current milestone | Post-M4 hold: M4 COMPLETE; M3R PAUSED-pending-review; prototype checkpoint and M5 NOT begun |
+docs/fable/control/AUTO-RUN-STATE.md:29:| Open findings | follow-ups GH-004/GH-008/GH-009 (review input) · owner action issue #4 · M3R findings unchanged pending the review |
+docs/fable/control/CHANGELOG.md:6:- **Post-M4 independent Codex review: EVIDENCE_BLOCKED.** Prompt filed (doc 37), report absent, no independent runner available to the session (an Opus reviewer does not satisfy it). Dispatched verbatim to the owner as issue [#2](https://github.com/DeltaNumeric72/Sc …[truncated]
+docs/fable/control/CHANGELOG.md:14:- Fable exit hygiene: the research validator now passes from a FRESH checkout (`b370e03` — eight tracked placeholders for directories git cannot carry empty; FAIL reproduced and PASS proven from clean clones); the two reserved control-doc raw NULs repaired and ** …[truncated]
+docs/fable/control/IMPLEMENTATION-ROADMAP.md:11:| M4 Automated scheduling | **COMPLETE 2026-08-21** (exit report [../36-m4-exit-report.md](../36-m4-exit-report.md)); ten tasks accepted: M4-000 (000A `94af3c5` · 000B `a614f7e` · 000C `323d576`) · M4-001 `b1aa64e` · M4-001R `efa1ffd` · M4-001S `d …[truncated]
+docs/fable/control/PROJECT-STATUS.md:3:**As of 2026-08-22 — GitHub is now the authoritative durable home ([github.com/DeltaNumeric72/SchedulePoint](https://github.com/DeltaNumeric72/SchedulePoint), default branch `main`), reconciled under the continuous GitHub master authorization. Post-M4 indepen …[truncated]
+docs/fable/control/PROJECT-STATUS.md:6:- **The independent post-M4 Codex review (doc 37) is outstanding — prompt filed at M4 close, no report, no disposition. Marked EVIDENCE_BLOCKED:** no authorized independent Codex runner is available to this session, and a separate Opus reviewer does not satis …[truncated]
+docs/fable/control/PROJECT-STATUS.md:9:**As of 2026-08-21 — MILESTONE M4 COMPLETE. OPUS-M4-005 ACCEPTED & MERGED (`480105b`); exit report [../36-m4-exit-report.md](../36-m4-exit-report.md); main tagged `milestone/M4`. M5 NOT authorized; the prototype-enablement lane NOT begun; M3R remains PAUSED.* …[truncated]
+docs/fable/control/PROJECT-STATUS.md:18:- **The automated-scheduling pipeline is now functionally complete on main: canonical snapshot → CP-SAT solve with E2 objective → independent validation → fenced 16-state lifecycle → candidate comparison/quality/explanations → selection into an M3 dr …[truncated]
+docs/fable/control/PROJECT-STATUS.md:23:- **Remaining to milestone close: M4-004 (E2 optimization/quality/explanations — also owns the credits-into-draft ruling and the `protected_assignment_identities` reader) and M4-005 (integration/recovery/close — owns D-4b, the queue binding, NR-15/16/18-ha …[truncated]
+docs/fable/control/PROJECT-STATUS.md:28:- **Limitations stand:** E1 only — objective tiers exist but tuning/weights/quality/T2+ explanations are M4-004; build lifecycle and scheduler UI are M4-003; local evidence on CPython 3.9.6 (3.12/image rerun = standing CI condition); no benchmark bands (PO-D …[truncated]
+docs/fable/control/PROJECT-STATUS.md:42:- **OPUS-M4-001 ACCEPTED & MERGED 2026-08-12 (squash `b1aa64e`; evidence EV-M4-BOUNDARY) — control closeout completed 2026-08-13 during Stage-1 recovery** (the acceptance merge landed without its control-plane sweep; recorded honestly, repaired now). The sol …[truncated]
+docs/fable/control/PROJECT-STATUS.md:56:- **M4 AUTHORIZED by the owner 2026-08-07** against frozen M3 checkpoint `7b579f2` (tag `milestone/M3`). Entry verification PASSED with exit codes checked (validators 95/95 · 36/36 · PASS; check 13/13; red-cases 21/21 on the clean serial re-run — a first r …[truncated]
+
+--- Is there any M3R finding IDENTIFIER anywhere in tracked files? ---
+$ git grep -nE "M3R-[0-9]+|M3-R-[0-9]+|\bM3R [0-9]+"
+EXIT=1 (1 = no match)
+
+--- Is "M3R" DEFINED (expanded) anywhere? ---
+$ git grep -niE "m3 re-?review|m3 remediation|m3 reconciliation|M3R (is|means|=)"
+docs/evidence/EV-M4-005/INDEX.md:1564:* **M3R is PAUSED** and nothing in this packet changes that.
+docs/fable/34-m4-entry-and-prerequisite-register.md:9:1. **M3R is PAUSED by product-owner direction.** M3R is not completed, not cancelled, not superseded, and not absorbed into M4. Its outstanding findings remain in the project register and retain their exist …[truncated]
+docs/fable/34-m4-entry-and-prerequisite-register.md:12:4. **No production-readiness claim follows from beginning or completing M4.** The `milestone/M4` tag, if reached, means the M4 functional milestone passed its documented evidence — nothing more. It does  …[truncated]
+docs/fable/control/PROJECT-STATUS.md:6:- **The independent post-M4 Codex review (doc 37) is outstanding — prompt filed at M4 close, no report, no disposition. Marked EVIDENCE_BLOCKED:** no authorized independent Codex runner is available to this session, and …[truncated]
+docs/fable/control/PROJECT-STATUS.md:56:- **M4 AUTHORIZED by the owner 2026-08-07** against frozen M3 checkpoint `7b579f2` (tag `milestone/M3`). Entry verification PASSED with exit codes checked (validators 95/95 · 36/36 · PASS; check 13/13; red-cases 21/21  …[truncated]
+EXIT=0 (1 = no match)
+
+--- The candidate registers, checked by name ---
+$ grep -c "M3R" docs/fable/control/RISK-REGISTER.md docs/fable/control/TEST-TRACEABILITY.md docs/fable/control/OPEN-QUESTIONS.md docs/fable/control/ARCHITECTURE-DECISIONS.md docs/fable/control/PRODUCT-DECISIONS.md docs/fable/control/EVIDENCE-INDEX.md docs/fable/control/FEATURE-PARITY-MATRIX.md
+docs/fable/control/RISK-REGISTER.md:0
+docs/fable/control/TEST-TRACEABILITY.md:0
+docs/fable/control/OPEN-QUESTIONS.md:0
+docs/fable/control/ARCHITECTURE-DECISIONS.md:0
+docs/fable/control/PRODUCT-DECISIONS.md:0
+docs/fable/control/EVIDENCE-INDEX.md:0
+docs/fable/control/FEATURE-PARITY-MATRIX.md:0
+
+--- The two remediation registers that DO enumerate findings (for contrast: these are CAR-*, the Codex ARCHITECTURE review, not M3R) ---
+$ ls docs/architecture/remediation/ docs/reviews/architecture/
+docs/architecture/remediation/:
+codex-review-remediation.md
+internal-verification-corrections.md
+
+docs/reviews/architecture/:
+codex-architecture-review.md
+internal-verification-2026-08-01.md
+$ grep -c "^### CAR-" docs/architecture/remediation/codex-review-remediation.md
+27
+$ grep -n "M3R" docs/architecture/remediation/*.md docs/reviews/architecture/*.md
+EXIT=1 (1 = no match)
+
+--- Earliest appearance of the term, by git history ---
+$ git log --all --oneline -S "M3R" -- docs/ | tail -5
+09030d8 M4-003 close-out: acceptance recorded (8deb4c5, EV-M4-003 + orchestrator battery), task log/traceability/parity (CAP-017 in-progress)/roadmap/register updated, NR-18 gate-pinned
+61cb347 M4-002 close-out: acceptance recorded (5e0ac4e, EV-M4-002 + orchestrator battery), FAD-43 ratifications (RK-05/06/10, R-6 pins), NR-18/NR-19 registered, task log/traceability/parity (CAP-015 in-progress)/roadmap updated
+18de8aa M4-001 close-out + Stage-1 recovery checkpoint: OPUS-M4-001 recorded ACCEPTED & MERGED (b1aa64e, EV-M4-BOUNDARY), recovery battery on main green (EV-M4-BOUNDARY §10), task-log/traceability/roadmap gaps repaired, FAD-34/35 recorded, OPUS-M4-001R finalized (doc 35 §6b)
+666d15a M4 AUTHORIZED: entry record, prerequisite register, and task packets (docs 34/35)
+20c0c13 OPUS-M3-004 ACCEPTED & MERGED: scheduler schedule-authoring experience
+2026-08-23T05:06:50Z
