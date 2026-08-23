@@ -1,0 +1,13 @@
+marker where a uuid belongs
+  echoes marker: no
+  periodId: Invalid uuid
+marker as the name, too long
+  echoes marker: no
+  name: String must contain at most 120 character(s)
+marker in an unknown key
+  echoes marker: YES
+  body: Unrecognized key(s) in object: 'REVB-ECHO-MARKER-abcdef'
+wrong type
+  echoes marker: no
+  periodId: Expected string, received number
+  name: Expected string, received object

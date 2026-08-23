@@ -1,0 +1,12 @@
+### form/interface state coverage (loading | empty | validation | error | denied)
+--- SurfaceState testids ---
+      1 surface-empty
+      1 surface-loading
+
+--- e2e assertions per state ---
+surface-loading: 6 references across 6 specs
+surface-empty: 10 references across 7 specs
+surface-error: 10 references across 7 specs
+surface-permission-denied: 16 references across 7 specs
+
+--- validation-state assertions (form problems) ---

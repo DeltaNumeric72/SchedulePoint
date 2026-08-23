@@ -84,3 +84,33 @@ tree difference. Verified locally:
   $ git diff --stat 332603e 93a71f5
   (empty)
 (diff empty confirms identical trees)
+
+RUN 12's RED-CASE EVIDENCE — the complete battery DID run green on this same tree
+job "red-case shard completeness" (id 97134426124), tail:
+
+  registry: 65 arm(s) declared in scripts/red-cases/run.mjs
+  coverage records downloaded: 13
+    shard 0/13: 5 arm(s)   shard 1/13: 5   shard 2/13: 5   shard 3/13: 5
+    shard 4/13: 5          shard 5/13: 5   shard 6/13: 5   shard 7/13: 5
+    shard 8/13: 5          shard 9/13: 5   shard 10/13: 5  shard 11/13: 5
+    shard 12/13: 5
+  Every one of the 65 red-case arms was run by exactly one of the 13 shards.
+
+All 13 shard jobs concluded `success`. Each shard job also runs a dirty-tree check
+("Red-case runner did not restore the working tree: ... exit 1") which did not fire.
+
+=> On the review baseline tree, the COMPLETE 65-arm red-case battery ran green,
+   both directions, in CI. That is stronger evidence for the red-case claim than any
+   local subset REV-B could afford (the serial battery measured 2 h 06 min on the
+   M4 reference machine — transcript 39, 14:23:44Z -> 16:30:19Z — which is 5.7-8.2 h
+   at this machine's measured 2.7-3.9x).
+
+THE AXE INTERMITTENCY, QUANTIFIED FROM RUN 12 ITSELF
+  The axe gate ran more than once in run 12, on one tree:
+    - job "gate battery"            -> gate:axe FAILED (schedule.spec.ts:428, mobile)
+    - shard 7 (arm 20 `axe`)        -> green half of the axe arm PASSED
+    - shard 8 (arm 21 `i13-schedule-authoring`) -> green half runs `gate:axe` on the
+      clean tree and PASSED; its restore step runs `gate:axe` again and PASSED
+  i.e. of the >=4 clean-tree axe runs on commit 93a71f5 in this one workflow run,
+  exactly one failed, and it failed on the I-13 zero-request assertion at the mobile
+  viewport. That is an intermittent, and its rate here is roughly 1 in 4.
