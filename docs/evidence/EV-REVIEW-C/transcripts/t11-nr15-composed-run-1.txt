@@ -1,0 +1,140 @@
+=== REV-C / T11 — REV-B-002 (NR-15 recurrence) recheck: composed run #1 of 2 ===
+Charter: 'attempt the NR-15 composed-run recurrence at least twice; its rate claim is 1-in-2'.
+
+Command: exactly the one the check gate's unit row runs — corepack pnpm exec vitest run,
+whole workspace, all five vitest projects. Machine otherwise idle at start.
+=== REV-C composed run #1 (whole workspace, the check gate's unit row) ===
+2026-08-23T05:04:26Z
+$ corepack pnpm exec vitest run
+
+
+--- RESULT ---
+
+
+ Test Files  1 failed | 169 passed | 1 skipped (171)
+      Tests  2 failed | 2166 passed | 14 skipped (2182)
+   Start at  05:04:27
+   Duration  1599.92s (transform 5.73s, setup 54.14s, collect 167.54s, tests 1386.53s, environment 3.65s, prepare 2.99s)
+
+EXIT=1
+
+--- The only failures ---
+ ❯ |api| test/solver/e2-objective.test.ts (28 tests | 2 failed) 864586ms
+   × the objective is TIERED and every component weight is recorded > records rank, multiplier, scale and each rule’s scaled weight 120009ms
+   × status honesty and the metric set, end to end > measures SPEC-04 §7 and leaves the unmeasurable rates NULL 120006ms
+
+--- Was outbox-dispatch.test.ts in this run, and did its afterAll drain fail? ---
+$ grep -c "outbox-dispatch.test.ts" (the file DID run)
+120
+$ grep -nE "outbox-dispatch-finalize|drainable job|drainQueue|FAIL.*outbox" (the NR-15 signature)
+  EXIT=1 (1 = the signature is ABSENT)
+$ grep -nE "test/audit/outbox-dispatch.test.ts \(1[0-9]? tests" (its own pass line)
+888: ✓ |api| test/audit/outbox-dispatch.test.ts (12 tests) 2114ms
+
+VERDICT, run #1: REV-B-002 DID NOT REPRODUCE.
+  Test Files  1 failed | 169 passed | 1 skipped (171)
+  Tests       2 failed | 2166 passed | 14 skipped (2182)
+  These are REV-A's figures EXACTLY (REV-A transcript 01: same four numbers, same file count),
+  and they are REV-B's figures on the TEST line while differing by one on the FILE line —
+  which is precisely the one failed FILE that REV-B-002 adds via an afterAll hook.
+
+  Composed-run series so far, on the same tree and the same machine class:
+    REV-A composed run          : 1 failed file  (e2-objective only)      NR-15 absent
+    REV-B composed run (workspace): 2 failed files (e2-objective + drain)   NR-15 PRESENT
+    REV-B composed run (api only) : 0 failed       (ceiling raised)          NR-15 absent
+    REV-C composed run #1        : 1 failed file  (e2-objective only)      NR-15 absent
+  => 1 occurrence in 4 composed runs across three independent reviewers. REV-B's own framing
+     ('one occurrence in two full composed runs', 'intermittent even between two composed
+     runs') is CONSERVATIVE, not overstated: on the wider series the rate is lower than
+     1-in-2, and the finding's substance — that it recurred at all after being recorded
+     RETIRED-AS-DIAGNOSED-AND-REPAIRED-AND-VERIFIED — is untouched by the rate.
+
+--- The other half of REV-B-002, which REV-C CAN settle by reading: the seam is real ---
+$ grep -n "signer" apps/api/test/support/queue.ts | head
+54: * registers `outbox.dispatch` and, with a signer, `audit.checkpoint` and
+88:   * **R-10 (OPUS-M4-005).** A signer, when the backlog may contain `audit.*`
+92:   * given a signer — deliberately, so a runner without one "says nothing about
+94:   * is that a signer-less drainer has no handler for an `audit.checkpoint` job
+108:  readonly signer?: CheckpointSigner;
+126:    ...(options.signer === undefined ? {} : { signer: options.signer }),
+131:    ...(options.signer === undefined
+$ grep -n "drainableJobCount" -A8 apps/api/test/support/queue.ts | head -14
+72:export async function drainableJobCount(admin: pg.Client): Promise<number> {
+73-  const { rows } = await admin.query<{ n: string }>(
+74-    `select count(*)::text as n
+75-       from graphile_worker._private_jobs j
+76-       join graphile_worker._private_tasks t on t.id = j.task_id
+77-      where t.identifier like 'outbox.%' or t.identifier like 'audit.%'`,
+78-  );
+79-  return Number(rows[0]?.n ?? '-1');
+80-}
+--
+119:  const before = await drainableJobCount(admin);
+120-  if (before === 0) return 0;
+121-
+122-  const drainer = await startOutboxRunner({
+$ grep -n "drainQueue" apps/api/test/audit/outbox-dispatch.test.ts
+21:import { drainableJobCount, drainQueue } from '../support/queue.js';
+108: * real `DatabaseOutboxSink`, via `support/queue.ts`'s `drainQueue` — not a
+123:    const drained = await drainQueue({
+$ sed -n "118,126p" apps/api/test/audit/outbox-dispatch.test.ts   (the failing call site: does it pass a signer?)
+ * what the queue would have done anyway.
+ */
+afterAll(async () => {
+  let failure: unknown;
+  try {
+    const drained = await drainQueue({
+      worker: worker.runner,
+      admin,
+      label: 'outbox-dispatch-finalize',
+2026-08-23T05:31:50Z
+
+--- the full call site, so the missing-signer claim is checkable ---
+$ sed -n "120,140p" apps/api/test/audit/outbox-dispatch.test.ts
+afterAll(async () => {
+  let failure: unknown;
+  try {
+    const drained = await drainQueue({
+      worker: worker.runner,
+      admin,
+      label: 'outbox-dispatch-finalize',
+    });
+    expect(
+      await queuedJobs(),
+      'this file must leave the queue empty — every job it enqueued is finalized',
+    ).toBe(0);
+    log(
+      `finalized ${String(drained)} queued job(s) through the production dispatcher; ` +
+        'the queue this file hands on is EMPTY',
+    );
+  } catch (error) {
+    failure = error;
+  }
+
+  if (failure !== undefined) {
+
+$ grep -n "signer" apps/api/test/audit/outbox-dispatch.test.ts
+97: * which `crash-restart`'s signer-less drainer can neither execute (the task is
+  EXIT=0 (1 = the word never appears in this file)
+
+CONFIRMED, by code-read, the mechanism half of REV-B-002:
+ * drainableJobCount counts BOTH 'outbox.%' AND 'audit.%' jobs (queue.ts:72-79);
+ * drainQueue registers the audit.* task handlers ONLY when a signer is supplied
+   (queue.ts:126/131, and its own R-10 docblock at :88-94 says exactly why:
+   'a signer-less drainer has no handler for an audit.checkpoint job and therefore
+   cannot empty a queue holding one');
+ * the failing call site — outbox-dispatch.test.ts's afterAll at :123 — passes NO signer;
+   the identifier 'signer' does not occur anywhere in that file.
+ => A backlog containing even one audit.* job makes that drain loop unsatisfiable for its
+    whole 45 s, on any machine, at any speed. REV-B's mechanism is CORRECT and is a
+    structural property of the call site, not a timing artefact. What is timing-dependent is
+    only WHETHER an audit.* job is in the backlog when this file's afterAll runs — which is
+    why it is composed-run-order-dependent and why it did not fire for REV-A or for REV-C
+    run #1.
+
+REV-C's judgement on severity: REV-B graded this MAJOR and that grade is right. The mechanism
+is deterministic given the precondition; only the precondition is racy. A finding whose
+mechanism is structural should not be discounted because its trigger is intermittent — and
+the claim it falsifies (NR-15 'clean across the COMPLETE seed set', RISK-REGISTER 2026-08-21)
+is a claim about exactly this failure.
+2026-08-23T05:32:06Z
