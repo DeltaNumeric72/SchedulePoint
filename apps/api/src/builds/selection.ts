@@ -6,6 +6,7 @@ import {
 } from '@schedulepoint/domain';
 import type { Kysely } from 'kysely';
 
+import { lockAuditOrdering } from '../audit/recorder.js';
 import type { BuildRunState, Database } from '../db/schema.js';
 import { requireScheduleCapability, type ScheduleActor } from '../schedule/actions.js';
 import { calendarDate } from '../schedule/render.js';
@@ -130,6 +131,79 @@ export async function applyCandidateToNewDraft(
    * for a scheduler to wonder about. */
   const currentDigest = await sourceDigestOf(uow, run);
   if (currentDigest !== expectedSourceDigest) throw new BuildSourceMovedError(currentDigest);
+
+  /* ── The ordering domain, entered BEFORE staleness is read ─────────────────
+   *
+   * What follows is a read-then-write: read staleness, then write a draft. A
+   * verdict another transaction can invalidate between the read and the write is
+   * not a control, and REV-A-003 demonstrated that deterministically rather than
+   * by racing.
+   *
+   * `createDraftVersion` writes an audit event, and migration 0003's chain
+   * trigger takes the per-organization audit advisory lock — so the lock used to
+   * be acquired AFTER this read. Any audited transaction holds that lock from its
+   * first audit write until it commits, so a concurrent same-organization
+   * transaction (a catalogue edit both writes an audit event and moves a build
+   * constituent) could hold it across the window, move a constituent, commit
+   * while the selection waited, and let the selection write a draft from a world
+   * that no longer existed — the same run reading `stale` one statement later,
+   * with nothing on any screen saying so. That falsified doc 35 §6g ruling 4,
+   * whose word is ABSOLUTE.
+   *
+   * Acquiring the SAME lock here puts the verdict and the write in one order —
+   * the order the audit chain is already in. A same-organization transaction
+   * that moves a constituent writes an audit event too, so it either committed
+   * before this line, and the verdict below sees it, or it cannot commit until
+   * this transaction has, and it is ordered AFTER this draft rather than
+   * invisibly inside it.
+   *
+   * **It works because the unit of work is READ COMMITTED.** `PgUnitOfWorkRunner`
+   * issues a plain `BEGIN`, so each statement below takes a NEW snapshot and the
+   * staleness read therefore sees what committed while this transaction waited
+   * for the lock. Under REPEATABLE READ the same code would read the pre-lock
+   * snapshot and this repair would silently do nothing — the isolation level is
+   * a premise of the fix, not an incidental property of it.
+   *
+   * **The period row lock immediately below is part of the fix, not decoration.**
+   * Migration 0017 §3 records the rule the whole codebase holds to: a row lock is
+   * taken BEFORE the per-organization audit advisory lock, in every shipped
+   * writer. Acquiring the audit lock here would invert that for one row —
+   * `createDraftVersion`'s `INSERT INTO schedule_versions` takes `FOR KEY SHARE`
+   * on this period through the composite FK (migration 0009), while
+   * `transitionPeriodStatus` and `publishVersion` take that same period row `FOR
+   * UPDATE` and audit afterwards. Selection holding the audit lock and wanting
+   * the period row, against a period writer holding the period row and wanting
+   * the audit lock, is a cycle, and it was REPRODUCED as `40P01` before this
+   * line existed. Taking the period lock first — in the mode the FK will take
+   * microseconds later — restores row-then-audit here, so this writer acquires
+   * the two locks in the same order as every other one and the acquisition move
+   * adds no inverted edge. Re-taking either lock later in the transaction (the
+   * FK's KEY SHARE, the trigger's advisory lock) is then a no-op on a lock this
+   * transaction already holds.
+   *
+   * **Placement, and it is deliberate.** After the digest CAS, so that a moved
+   * INPUT still refuses as `STALE_BUILD_INPUTS` and not as the source refusal:
+   * the two answer different questions and errors.ts says why collapsing them
+   * sends half of the schedulers to the wrong place. (The digest CAS keeps the
+   * evaluation position it has always had, outside this domain.)
+   *
+   * **The premise, stated rather than assumed.** The guarantee is exactly as
+   * wide as "a transaction that moves a constituent records that it did, in the
+   * same transaction". That is non-bypass rule 6 as a habit, plus ONE partial
+   * scan: `test/audit/emission-coverage.test.ts` checks module-granular write
+   * coverage under `src/http/routes`, `src/jobs` and `src/profiles` only. A
+   * constituent moved from a module outside those three roots — or by a
+   * statement the scan's mutation detector does not match — would not be caught
+   * by that gate, and this ordering would not see it either.
+   *
+   * **The cost, measured where it was measured.** The audit lock is now held
+   * across `buildStaleness` — which re-runs the whole canonical-input assembly —
+   * and every audited write of the same organization blocks for that whole
+   * span. On the test fixture the selection transaction runs ~310–380 ms end to
+   * end; the assembly's cost at a realistic tenant size is UNMEASURED, and the
+   * hold grows with it. */
+  await lockPeriodBeforeAudit(uow, run.period_id);
+  await lockAuditOrdering(uow);
 
   /* ── doc 35 §6g ruling 4, and it is ABSOLUTE ────────────────────────────────
    *
@@ -275,6 +349,30 @@ export async function applyCandidateToNewDraft(
     assignmentsWritten: candidate.length,
     pickPositionsCarried,
   };
+}
+
+/**
+ * Take this period's row lock in the mode the draft insert is about to take it,
+ * BEFORE the audit advisory lock — migration 0017 §3's row-then-audit rule.
+ *
+ * `FOR KEY SHARE` and not `FOR UPDATE`: it is the mode the composite foreign key
+ * from `schedule_versions` acquires a few statements later, so this adds no
+ * conflict that the insert was not already going to introduce. It still orders
+ * this writer against the period writers that take `FOR UPDATE` and audit
+ * afterwards (`schedule/publication.ts`), which is the point.
+ *
+ * No refusal on a missing row: `build_runs.period_id` is a foreign key, so the
+ * period exists in this tenant by the time a run is loadable, and inventing a
+ * second "period not found" answer here would give the same condition two
+ * spellings.
+ */
+async function lockPeriodBeforeAudit(uow: Uow, periodId: string): Promise<void> {
+  await uow.query
+    .selectFrom('schedule_periods')
+    .select('id')
+    .where('id', '=', periodId)
+    .forKeyShare()
+    .executeTakeFirst();
 }
 
 /** `YYYY-MM-DD` one day after `date`. Pure string arithmetic, no zone. */
