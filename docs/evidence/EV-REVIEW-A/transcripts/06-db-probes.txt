@@ -1,0 +1,189 @@
+START 2026-08-23T03:10:39Z
+$ corepack pnpm exec vitest run apps/api/test/rev-a
+
+ RUN  v3.2.4 /home/user/SchedulePoint
+
+[core] INFO: Failed to read crontab file '/home/user/SchedulePoint/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-f7ad34c5d22cd2d547)] INFO: Completed task 1 (outbox.dispatch, 28.09ms) with success
+[worker(worker-f7ad34c5d22cd2d547)] INFO: Completed task 2 (outbox.dispatch, 11.08ms) with success
+[worker(worker-f7ad34c5d22cd2d547)] INFO: Completed task 3 (outbox.dispatch, 11.75ms) with success
+[worker(worker-f7ad34c5d22cd2d547)] INFO: Completed task 4 (outbox.dispatch, 10.31ms) with success
+[worker(worker-f7ad34c5d22cd2d547)] INFO: Completed task 5 (outbox.dispatch, 10.41ms) with success
+[worker(worker-f7ad34c5d22cd2d547)] INFO: Completed task 6 (outbox.dispatch, 10.89ms) with success
+[worker(worker-f7ad34c5d22cd2d547)] INFO: Completed task 7 (outbox.dispatch, 10.45ms) with success
+[worker(worker-f7ad34c5d22cd2d547)] INFO: Completed task 8 (outbox.dispatch, 10.43ms) with success
+[worker(worker-f7ad34c5d22cd2d547)] INFO: Completed task 9 (outbox.dispatch, 15.73ms) with success
+[worker(worker-f7ad34c5d22cd2d547)] INFO: Completed task 10 (outbox.dispatch, 11.83ms) with success
+[worker(worker-f7ad34c5d22cd2d547)] INFO: Completed task 11 (outbox.dispatch, 10.34ms) with success
+stdout | test/rev-a/p1-tenancy-immutability-audit.test.ts
+[REV-A/seed] builds written = [33m2[39m
+
+stdout | test/rev-a/p1-tenancy-immutability-audit.test.ts > REV-A/0 — the population the absence arms assert against > every M4 and publication table under test holds rows in the CORRECT context
+[REV-A/0] rows visible in the correct context: {
+ "solver_input_snapshots": "0",
+ "build_configurations": "1",
+ "build_runs": "1",
+ "build_run_events": "7",
+ "build_run_results": "1",
+ "build_run_violations": "1",
+ "build_run_candidate_assignments": "1",
+ "rule_revisions": "0",
+ "staffing_set_versions": "5",
+ "locations": "0",
+ "schedule_versions": "3",
+ "shifts": "2",
+ "assignment_snapshots": "4",
+ "credits": "1",
+ "schedule_conflicts": "1",
+ "publication_records": "2",
+ "version_supersessions": "1"
+}
+[REV-A/0] tables that are EMPTY (their absence arms below are vacuous): ["solver_input_snapshots","rule_revisions","locations"]
+
+stdout | test/rev-a/p1-tenancy-immutability-audit.test.ts > REV-A/A — I-15 fail-closed outside the unit of work > every non-BYPASSRLS role reads ZERO rows from every M4 + publication table
+[REV-A/A1] non-zero reads (must be empty): []
+[REV-A/A1] refusals (also fail-closed): []
+
+stdout | test/rev-a/p1-tenancy-immutability-audit.test.ts > REV-A/A — I-15 fail-closed outside the unit of work > every non-BYPASSRLS role is REFUSED an unscoped write to build_runs
+[REV-A/A2] [
+ "app_migrator: UPDATE returned, rowCount=0",
+ "app_runtime: UPDATE returned, rowCount=0",
+ "app_worker: UPDATE returned, rowCount=0",
+ "app_readonly_support: refused (permission denied for table build_runs)"
+]
+
+stdout | test/rev-a/p1-tenancy-immutability-audit.test.ts > REV-A/A — I-15 fail-closed outside the unit of work > every non-BYPASSRLS role is REFUSED an unscoped write to build_runs
+[REV-A/A2] rows actually tampered: 0
+
+stdout | test/rev-a/p1-tenancy-immutability-audit.test.ts > REV-A/A — I-15 fail-closed outside the unit of work > the tenant-table registry counts 54; the FAD-34(3) sweep floor is 53
+[REV-A/A3] TENANT_TABLES = [33m54[39m
+
+stdout | test/rev-a/p1-tenancy-immutability-audit.test.ts > REV-A/B — cross-tenant and cross-group > a Beta-declared context sees ZERO Alpha rows in every M4 + publication table, every role
+[REV-A/B1] LEAKS (must be empty): []
+[REV-A/B1] skipped/threw: []
+
+stdout | test/rev-a/p1-tenancy-immutability-audit.test.ts > REV-A/B — cross-tenant and cross-group > a Beta-declared context cannot WRITE an Alpha-owned build_runs row
+[REV-A/B2] [
+ "app_migrator: statement returned",
+ "app_runtime: statement returned",
+ "app_worker: statement returned",
+ "app_readonly_support: refused (permission denied for table build_runs)"
+] tampered = 0
+
+stdout | test/rev-a/p1-tenancy-immutability-audit.test.ts > REV-A/B — cross-tenant and cross-group > a sibling-group context sees ZERO of Group One`s build rows
+[REV-A/B3] cross-group visibility: [
+ "app_migrator/build_runs: 1"
+]
+
+stdout | test/rev-a/p1-tenancy-immutability-audit.test.ts > REV-A/C — I-18 at the database, every role > no role — break-glass included — mutates a published version or its children
+[REV-A/C0] target version state = published
+
+stdout | test/rev-a/p1-tenancy-immutability-audit.test.ts > REV-A/C — I-18 at the database, every role > no role — break-glass included — mutates a published version or its children
+[REV-A/C1]
+app_migrator: update-child=refused(column "schedule_version_id" does not ex) delete-child=refused(column "schedule_version_id" does not ex) insert-child=refused(column "schedule_version_id" of relation) delete-version=refused(SCHEDULE_VERSION_NO_DELETE: a published ) update-publication-record=refused(column "schedule_version_id" does not ex)
+app_runtime: update-child=refused(column "schedule_version_id" does not ex) delete-child=refused(column "schedule_version_id" does not ex) insert-child=refused(column "schedule_version_id" of relation) delete-version=refused(permission denied) update-publication-record=refused(column "schedule_version_id" does not ex)
+app_worker: update-child=refused(column "schedule_version_id" does not ex) delete-child=refused(column "schedule_version_id" does not ex) insert-child=refused(column "schedule_version_id" of relation) delete-version=refused(permission denied) update-publication-record=refused(column "schedule_version_id" does not ex)
+app_readonly_support: update-child=refused(column "schedule_version_id" does not ex) delete-child=refused(column "schedule_version_id" does not ex) insert-child=refused(column "schedule_version_id" of relation) delete-version=refused(permission denied) update-publication-record=refused(column "schedule_version_id" does not ex)
+app_breakglass: update-child=refused(column "schedule_version_id" does not ex) delete-child=refused(column "schedule_version_id" does not ex) insert-child=refused(column "schedule_version_id" of relation) delete-version=refused(permission denied) update-publication-record=refused(column "schedule_version_id" does not ex)
+
+stdout | test/rev-a/p1-tenancy-immutability-audit.test.ts > REV-A/D — audit chain > verifies with ZERO problems per organization, over a non-empty chain
+[REV-A/D1]
+org=89cb6e29-8b3c-41b8-8444-ba9d600e201a events=55 problems=0 []
+org=e553f889-b396-4e44-a525-3bf37444d8c8 events=20 problems=0 []
+
+stdout | test/rev-a/p1-tenancy-immutability-audit.test.ts > REV-A/E — the build-run transition trigger, on real rows > a sample of ILLEGAL edges is refused by the TRIGGER, not only by the function
+[REV-A/E0] target run = {"id":"2ed19233-6cad-44e0-897b-593af514f98e","state":"failed"}
+
+stdout | test/rev-a/p1-tenancy-immutability-audit.test.ts > REV-A/E — the build-run transition trigger, on real rows > a sample of ILLEGAL edges is refused by the TRIGGER, not only by the function
+[REV-A/E1]
+failed -> draft_configuration: BUILD_TRANSITION_ILLEGAL: a build run does not move from fai
+failed -> queued: BUILD_TRANSITION_ILLEGAL: a build run does not move from fai
+failed -> running: BUILD_TRANSITION_ILLEGAL: a build run does not move from fai
+failed -> completed: BUILD_TRANSITION_ILLEGAL: a build run does not move from fai
+failed -> approved: BUILD_TRANSITION_ILLEGAL: a build run does not move from fai
+failed -> reviewed: BUILD_TRANSITION_ILLEGAL: a build run does not move from fai
+
+stdout | test/rev-a/p1-tenancy-immutability-audit.test.ts > REV-A/E — the build-run transition trigger, on real rows > SAME-STATE UPDATE: can termination_reason / solver_status be rewritten after the fact?
+[REV-A/E2] before: {"id":"2ed19233-6cad-44e0-897b-593af514f98e","state":"failed","termination_reason":"rejected","solver_status":"FEASIBLE"}
+
+stdout | test/rev-a/p1-tenancy-immutability-audit.test.ts > REV-A/E — the build-run transition trigger, on real rows > SAME-STATE UPDATE: can termination_reason / solver_status be rewritten after the fact?
+[REV-A/E2] same-state rewrite of the termination facts: ACCEPTED {"termination_reason":"completed","solver_status":"OPTIMAL"}
+[REV-A/E2] NOTE: the trigger returns early on `NEW.state IS NOT DISTINCT FROM OLD.state`, so every state-conditioned guard below that line is skipped for a same-state UPDATE.
+
+stdout | test/rev-a/p1-tenancy-immutability-audit.test.ts > REV-A/E — the build-run transition trigger, on real rows > claim_epoch never regresses, and `running` requires an ADVANCED epoch
+[REV-A/E3] run = {"id":"2ed19233-6cad-44e0-897b-593af514f98e","claim_epoch":1,"state":"failed"}
+
+stdout | test/rev-a/p1-tenancy-immutability-audit.test.ts > REV-A/E — the build-run transition trigger, on real rows > claim_epoch never regresses, and `running` requires an ADVANCED epoch
+[REV-A/E3] epoch decrement: BUILD_CLAIM_EPOCH_REGRESSED: claim epoch moves forward only (1 -> 0)
+
+stdout | test/rev-a/p1-tenancy-immutability-audit.test.ts > REV-A/E — the build-run transition trigger, on real rows > a build run`s identity fields are frozen (BUILD_IDENTITY_FROZEN)
+[REV-A/E4]
+period_id: permission denied for table build_runs
+build_configuration_id: permission denied for table build_runs
+source_version_id: permission denied for table build_runs
+idempotency_key: permission denied for table build_runs
+semantic_request_digest: permission denied for table build_runs
+
+ ✓ |api| test/rev-a/p1-tenancy-immutability-audit.test.ts (13 tests) 1653ms
+stdout | test/rev-a/p2-audit-and-termination.test.ts > REV-A/D2b — audit rows: what actually happened, not what returned > no role deletes an audit row: rowCount 0 everywhere, chain unchanged
+[REV-A/chain] before-delete-attempts: entries=55 problems=0 kinds=[]
+
+stdout | test/rev-a/p2-audit-and-termination.test.ts > REV-A/D2b — audit rows: what actually happened, not what returned > no role deletes an audit row: rowCount 0 everywhere, chain unchanged
+[REV-A/D2b]
+app_migrator: DELETE returned, rows affected = 0 | UPDATE returned, rows affected = 0
+app_runtime: refused (permission denied for table audit_events) | UPDATE refused (permission denied for table audit_events)
+app_worker: refused (permission denied for table audit_events) | UPDATE refused (permission denied for table audit_events)
+app_readonly_support: refused (permission denied for table audit_events) | UPDATE refused (permission denied for table audit_events)
+app_breakglass: refused (permission denied for table audit_events) | UPDATE refused (permission denied for table audit_events)
+
+stdout | test/rev-a/p2-audit-and-termination.test.ts > REV-A/D2b — audit rows: what actually happened, not what returned > no role deletes an audit row: rowCount 0 everywhere, chain unchanged
+[REV-A/chain] after-delete-attempts: entries=55 problems=0 kinds=[]
+
+stdout | test/rev-a/p2-audit-and-termination.test.ts > REV-A/G2 — the audit-chain detector is load-bearing > a tampered payload on a MIDDLE row is DETECTED, and restore puts the chain back
+[REV-A/chain] G2-before: entries=55 problems=0 kinds=[]
+
+stdout | test/rev-a/p2-audit-and-termination.test.ts > REV-A/G2 — the audit-chain detector is load-bearing > a tampered payload on a MIDDLE row is DETECTED, and restore puts the chain back
+[REV-A/G2] tampering with sequence 34
+
+stdout | test/rev-a/p2-audit-and-termination.test.ts > REV-A/G2 — the audit-chain detector is load-bearing > a tampered payload on a MIDDLE row is DETECTED, and restore puts the chain back
+[REV-A/chain] G2-after-tamper: entries=55 problems=1 kinds=["entry_hash_mismatch"]
+
+stdout | test/rev-a/p2-audit-and-termination.test.ts > REV-A/G2 — the audit-chain detector is load-bearing > a tampered payload on a MIDDLE row is DETECTED, and restore puts the chain back
+[REV-A/chain] G2-after-restore: entries=55 problems=0 kinds=[]
+
+stdout | test/rev-a/p2-audit-and-termination.test.ts > REV-A/G2 — the audit-chain detector is load-bearing > a TRUNCATED TAIL is detected — the shape walking the surviving rows cannot see (R-01)
+[REV-A/chain] G2-beta-before: entries=11 problems=0 kinds=[]
+
+stdout | test/rev-a/p2-audit-and-termination.test.ts > REV-A/G2 — the audit-chain detector is load-bearing > a TRUNCATED TAIL is detected — the shape walking the surviving rows cannot see (R-01)
+[REV-A/G2] tail rows deleted from Beta: [33m2[39m
+
+stdout | test/rev-a/p2-audit-and-termination.test.ts > REV-A/G2 — the audit-chain detector is load-bearing > a TRUNCATED TAIL is detected — the shape walking the surviving rows cannot see (R-01)
+[REV-A/chain] G2-beta-after-truncation: entries=9 problems=1 kinds=["head_sequence_ahead_of_chain"]
+
+stdout | test/rev-a/p2-audit-and-termination.test.ts > REV-A/H — the termination facts are not frozen, and the verdict reads them > a same-state UPDATE rewrites termination_reason/solver_status, flipping the verdict
+[REV-A/H] build_runs        : {"id":"ba4f29fa-5c72-465f-92d2-14cfd4b454a0","state":"failed","termination_reason":"rejected","solver_status":"FEASIBLE","reproducibility_mode":"best-effort","solver_parameters":{}}
+[REV-A/H] build_run_results : {"solver_status":"FEASIBLE","termination_reason":"rejected"}
+[REV-A/H] verdict from the recorded facts        : interrupted reproducible=false promise=false
+[REV-A/H] verdict after the rewrite would read   : reproducible reproducible=true promise=true
+
+stdout | test/rev-a/p2-audit-and-termination.test.ts > REV-A/H — the termination facts are not frozen, and the verdict reads them > a same-state UPDATE rewrites termination_reason/solver_status, flipping the verdict
+[REV-A/H] same-state rewrite accepted: [33mtrue[39m
+
+stdout | test/rev-a/p2-audit-and-termination.test.ts > REV-A/H — the termination facts are not frozen, and the verdict reads them > a same-state UPDATE rewrites termination_reason/solver_status, flipping the verdict
+[REV-A/H] AFTER build_runs        : {"state":"failed","termination_reason":"completed","solver_status":"OPTIMAL"}
+[REV-A/H] AFTER build_run_results : {"solver_status":"FEASIBLE","termination_reason":"rejected"}   <-- append-only, unchanged
+[REV-A/H] the two records now DISAGREE: true
+
+stdout | test/rev-a/p2-audit-and-termination.test.ts > REV-A/H — the termination facts are not frozen, and the verdict reads them > a same-state UPDATE rewrites termination_reason/solver_status, flipping the verdict
+[REV-A/H] build_run_results UPDATE : refused(permission denied for table build_run_results)
+
+ ✓ |api| test/rev-a/p2-audit-and-termination.test.ts (4 tests) 1081ms
+
+ Test Files  2 passed (2)
+      Tests  17 passed (17)
+   Start at  03:10:40
+   Duration  9.05s (transform 1.13s, setup 537ms, collect 165ms, tests 2.73s, environment 0ms, prepare 74ms)
+
+EXIT=0
+END 2026-08-23T03:10:50Z

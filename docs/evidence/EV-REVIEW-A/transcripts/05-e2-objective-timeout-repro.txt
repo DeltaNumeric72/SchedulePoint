@@ -33,3 +33,32 @@ stdout | test/solver/e2-objective.test.ts > the objective is TIERED and every co
 ARM1_EXIT=0
 
 $ vitest run apps/api/test/solver/e2-objective.test.ts -t 'measures SPEC-04' --testTimeout=900000
+
+ RUN  v3.2.4 /home/user/SchedulePoint
+
+[core] INFO: Failed to read crontab file '/home/user/SchedulePoint/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-d37a07fb969823f820)] INFO: Completed task 1 (outbox.dispatch, 28.08ms) with success
+[worker(worker-d37a07fb969823f820)] INFO: Completed task 2 (outbox.dispatch, 12.65ms) with success
+[worker(worker-d37a07fb969823f820)] INFO: Completed task 3 (outbox.dispatch, 12.26ms) with success
+[worker(worker-d37a07fb969823f820)] INFO: Completed task 4 (outbox.dispatch, 11.49ms) with success
+[worker(worker-d37a07fb969823f820)] INFO: Completed task 5 (outbox.dispatch, 12.06ms) with success
+[worker(worker-d37a07fb969823f820)] INFO: Completed task 6 (outbox.dispatch, 12.31ms) with success
+[worker(worker-d37a07fb969823f820)] INFO: Completed task 7 (outbox.dispatch, 11.26ms) with success
+[worker(worker-d37a07fb969823f820)] INFO: Completed task 8 (outbox.dispatch, 10.71ms) with success
+[worker(worker-d37a07fb969823f820)] INFO: Completed task 9 (outbox.dispatch, 12.09ms) with success
+[worker(worker-d37a07fb969823f820)] INFO: Completed task 10 (outbox.dispatch, 10.91ms) with success
+[worker(worker-d37a07fb969823f820)] INFO: Completed task 11 (outbox.dispatch, 11.88ms) with success
+stdout | test/solver/e2-objective.test.ts > status honesty and the metric set, end to end > measures SPEC-04 §7 and leaves the unmeasurable rates NULL
+      ·       · fairness dispersion 0.20203050891044214 over 6 participants (fte-work-percentage)
+
+ ✓ |api| test/solver/e2-objective.test.ts (28 tests | 27 skipped) 130809ms
+   ✓ status honesty and the metric set, end to end > measures SPEC-04 §7 and leaves the unmeasurable rates NULL  130714ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 27 skipped (28)
+   Start at  03:03:30
+   Duration  136.78s (transform 1.22s, setup 423ms, collect 175ms, tests 130.81s, environment 0ms, prepare 72ms)
+
+ARM2_EXIT=0
+END 2026-08-23T03:05:47Z

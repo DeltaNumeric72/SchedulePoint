@@ -1,0 +1,48 @@
+START 2026-08-23T03:12:04Z
+### REV-A MUTATION PROBE M3 — one HARD checker rule (MinimumRestBetween) is
+### weakened by exactly one hour. Detector: REV-A's OWN boundary probe (which
+### runs against the compiled dist) AND the shipped domain test.
+=== MUTATION PROBE ===
+file    : packages/domain/src/rules/hard-rule-check.ts
+find    :       if (rest >= minMs) continue;
+replace :       if (rest >= minMs - 3_600_000) continue; // REV-A mutation probe M3: one hour of slack
+detector: bash -c corepack pnpm exec tsc -b packages/domain --force >/dev/null 2>&1; echo "--- REV-A boundary probe against the mutated build ---"; node /tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/probes/hard-rule-boundaries.mjs 2>&1 | grep -E "^\[FAIL\]|arms=" ; A=${PIPESTATUS[0]}; echo "--- shipped domain test against the mutated build ---"; corepack pnpm exec vitest run packages/domain/test/rules/hard-rule-check.test.ts 2>&1 | grep -E "Tests  |Test Files"; exit $A
+
+sha256 before: 94483d69aada7902d7630ec9c2143e312bd4145cb98647c181ac5875b91a946b
+patch applied
+sha256 after : 02617efd938a165161800d31e07bd57fefcb7ea307947cc46303123e114095be
+
+--- the applied diff -------------------------------------------------
+diff --git a/packages/domain/src/rules/hard-rule-check.ts b/packages/domain/src/rules/hard-rule-check.ts
+index 2697c6c..26c8f56 100644
+--- a/packages/domain/src/rules/hard-rule-check.ts
++++ b/packages/domain/src/rules/hard-rule-check.ts
+@@ -578,7 +578,7 @@ function checkMinimumRestBetween(
+       const current = ordered[index];
+       if (previous === undefined || current === undefined) continue;
+       const rest = current.startsAtMs - previous.endsAtMs;
+-      if (rest >= minMs) continue;
++      if (rest >= minMs - 3_600_000) continue; // REV-A mutation probe M3: one hour of slack
+       findings.push({
+         finding: 'breach',
+         ruleKey: rule.ruleKey,
+----------------------------------------------------------------------
+
+=== DETECTOR, WITH THE MUTATION IN PLACE ===
+--- REV-A boundary probe against the mutated build ---
+[FAIL] rest: 9h59m apart (one minute inside)
+arms=36 failed=1
+--- shipped domain test against the mutated build ---
+ Test Files  1 failed (1)
+      Tests  1 failed | 39 passed (40)
+DETECTOR_EXIT=1
+
+=== RESTORE ===
+sha256 restored: 94483d69aada7902d7630ec9c2143e312bd4145cb98647c181ac5875b91a946b
+RESTORE VERIFIED: byte-identical
+MUTATION_DETECTED=YES
+END 2026-08-23T03:12:11Z
+### rebuilding packages/domain from the RESTORED source
+rebuild ok
+
+arms=36 failed=0

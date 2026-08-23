@@ -1,0 +1,576 @@
+START 2026-08-23T03:11:37Z
+### REV-A MUTATION PROBE M2 — the build-run lifecycle guard admits every edge.
+### Detector: REV-A's OWN trigger-on-real-rows probe, and the shipped builds suite.
+=== MUTATION PROBE ===
+file    : apps/api/migrations/0018_build_lifecycle.sql
+find    :     SELECT
+        -- report 21 §4, edge for edge.
+replace :     SELECT true OR -- REV-A mutation probe M2: every edge admitted
+        -- report 21 §4, edge for edge.
+detector: corepack pnpm exec vitest run apps/api/test/rev-a apps/api/test/builds/transition-matrix.test.ts
+
+sha256 before: a829805e474266a94c483c7f6038086cd54914f3304a1e30ce489976ed8e8935
+patch applied
+sha256 after : 29c7dde2d0c854fa0d7643f7e943222550b6a420dd2a1cfde4f55a008f487c3a
+
+--- the applied diff -------------------------------------------------
+diff --git a/apps/api/migrations/0018_build_lifecycle.sql b/apps/api/migrations/0018_build_lifecycle.sql
+index 336cd6b..6c0a68f 100644
+--- a/apps/api/migrations/0018_build_lifecycle.sql
++++ b/apps/api/migrations/0018_build_lifecycle.sql
+@@ -712,7 +712,7 @@ CREATE FUNCTION app_build_run_transition_is_legal(p_from text, p_to text) RETURN
+ LANGUAGE sql IMMUTABLE
+ SET search_path = public, pg_temp
+ AS $$
+-    SELECT
++    SELECT true OR -- REV-A mutation probe M2: every edge admitted
+         -- report 21 §4, edge for edge.
+         (p_from = 'draft_configuration' AND p_to = 'validating')
+      OR (p_from = 'validating'          AND p_to IN ('draft_configuration', 'readiness_check'))
+----------------------------------------------------------------------
+
+=== DETECTOR, WITH THE MUTATION IN PLACE ===
+
+ RUN  v3.2.4 /home/user/SchedulePoint
+
+[core] INFO: Failed to read crontab file '/home/user/SchedulePoint/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-b2dd82727b3a6ea57f)] INFO: Completed task 1 (outbox.dispatch, 28.91ms) with success
+[worker(worker-b2dd82727b3a6ea57f)] INFO: Completed task 2 (outbox.dispatch, 12.23ms) with success
+[worker(worker-b2dd82727b3a6ea57f)] INFO: Completed task 3 (outbox.dispatch, 12.33ms) with success
+[worker(worker-b2dd82727b3a6ea57f)] INFO: Completed task 4 (outbox.dispatch, 11.13ms) with success
+[worker(worker-b2dd82727b3a6ea57f)] INFO: Completed task 5 (outbox.dispatch, 11.37ms) with success
+[worker(worker-b2dd82727b3a6ea57f)] INFO: Completed task 6 (outbox.dispatch, 12.79ms) with success
+[worker(worker-b2dd82727b3a6ea57f)] INFO: Completed task 7 (outbox.dispatch, 11.70ms) with success
+[worker(worker-b2dd82727b3a6ea57f)] INFO: Completed task 8 (outbox.dispatch, 11.55ms) with success
+[worker(worker-b2dd82727b3a6ea57f)] INFO: Completed task 9 (outbox.dispatch, 11.57ms) with success
+[worker(worker-b2dd82727b3a6ea57f)] INFO: Completed task 10 (outbox.dispatch, 11.07ms) with success
+[worker(worker-b2dd82727b3a6ea57f)] INFO: Completed task 11 (outbox.dispatch, 12.51ms) with success
+stdout | test/rev-a/p1-tenancy-immutability-audit.test.ts
+[REV-A/seed] builds written = [33m2[39m
+
+stdout | test/rev-a/p1-tenancy-immutability-audit.test.ts > REV-A/0 — the population the absence arms assert against > every M4 and publication table under test holds rows in the CORRECT context
+[REV-A/0] rows visible in the correct context: {
+ "solver_input_snapshots": "0",
+ "build_configurations": "1",
+ "build_runs": "1",
+ "build_run_events": "7",
+ "build_run_results": "1",
+ "build_run_violations": "1",
+ "build_run_candidate_assignments": "1",
+ "rule_revisions": "0",
+ "staffing_set_versions": "5",
+ "locations": "0",
+ "schedule_versions": "3",
+ "shifts": "2",
+ "assignment_snapshots": "4",
+ "credits": "1",
+ "schedule_conflicts": "1",
+ "publication_records": "2",
+ "version_supersessions": "1"
+}
+[REV-A/0] tables that are EMPTY (their absence arms below are vacuous): ["solver_input_snapshots","rule_revisions","locations"]
+
+stdout | test/rev-a/p1-tenancy-immutability-audit.test.ts > REV-A/A — I-15 fail-closed outside the unit of work > every non-BYPASSRLS role reads ZERO rows from every M4 + publication table
+[REV-A/A1] non-zero reads (must be empty): []
+[REV-A/A1] refusals (also fail-closed): []
+
+stdout | test/rev-a/p1-tenancy-immutability-audit.test.ts > REV-A/A — I-15 fail-closed outside the unit of work > every non-BYPASSRLS role is REFUSED an unscoped write to build_runs
+[REV-A/A2] [
+ "app_migrator: UPDATE returned, rowCount=0",
+ "app_runtime: UPDATE returned, rowCount=0",
+ "app_worker: UPDATE returned, rowCount=0",
+ "app_readonly_support: refused (permission denied for table build_runs)"
+]
+
+stdout | test/rev-a/p1-tenancy-immutability-audit.test.ts > REV-A/A — I-15 fail-closed outside the unit of work > every non-BYPASSRLS role is REFUSED an unscoped write to build_runs
+[REV-A/A2] rows actually tampered: 0
+
+stdout | test/rev-a/p1-tenancy-immutability-audit.test.ts > REV-A/A — I-15 fail-closed outside the unit of work > the tenant-table registry counts 54; the FAD-34(3) sweep floor is 53
+[REV-A/A3] TENANT_TABLES = [33m54[39m
+
+stdout | test/rev-a/p1-tenancy-immutability-audit.test.ts > REV-A/B — cross-tenant and cross-group > a Beta-declared context sees ZERO Alpha rows in every M4 + publication table, every role
+[REV-A/B1] LEAKS (must be empty): []
+[REV-A/B1] skipped/threw: []
+
+stdout | test/rev-a/p1-tenancy-immutability-audit.test.ts > REV-A/B — cross-tenant and cross-group > a Beta-declared context cannot WRITE an Alpha-owned build_runs row
+[REV-A/B2] [
+ "app_migrator: statement returned",
+ "app_runtime: statement returned",
+ "app_worker: statement returned",
+ "app_readonly_support: refused (permission denied for table build_runs)"
+] tampered = 0
+
+stdout | test/rev-a/p1-tenancy-immutability-audit.test.ts > REV-A/B — cross-tenant and cross-group > a sibling-group context sees ZERO of Group One`s build rows
+[REV-A/B3] cross-group visibility: [
+ "app_migrator/build_runs: 1"
+]
+
+stdout | test/rev-a/p1-tenancy-immutability-audit.test.ts > REV-A/C — I-18 at the database, every role > no role — break-glass included — mutates a published version or its children
+[REV-A/C0] target version state = published
+
+stdout | test/rev-a/p1-tenancy-immutability-audit.test.ts > REV-A/C — I-18 at the database, every role > no role — break-glass included — mutates a published version or its children
+[REV-A/C1]
+app_migrator: update-child=refused(column "schedule_version_id" does not ex) delete-child=refused(column "schedule_version_id" does not ex) insert-child=refused(column "schedule_version_id" of relation) delete-version=refused(SCHEDULE_VERSION_NO_DELETE: a published ) update-publication-record=refused(column "schedule_version_id" does not ex)
+app_runtime: update-child=refused(column "schedule_version_id" does not ex) delete-child=refused(column "schedule_version_id" does not ex) insert-child=refused(column "schedule_version_id" of relation) delete-version=refused(permission denied) update-publication-record=refused(column "schedule_version_id" does not ex)
+app_worker: update-child=refused(column "schedule_version_id" does not ex) delete-child=refused(column "schedule_version_id" does not ex) insert-child=refused(column "schedule_version_id" of relation) delete-version=refused(permission denied) update-publication-record=refused(column "schedule_version_id" does not ex)
+app_readonly_support: update-child=refused(column "schedule_version_id" does not ex) delete-child=refused(column "schedule_version_id" does not ex) insert-child=refused(column "schedule_version_id" of relation) delete-version=refused(permission denied) update-publication-record=refused(column "schedule_version_id" does not ex)
+app_breakglass: update-child=refused(column "schedule_version_id" does not ex) delete-child=refused(column "schedule_version_id" does not ex) insert-child=refused(column "schedule_version_id" of relation) delete-version=refused(permission denied) update-publication-record=refused(column "schedule_version_id" does not ex)
+
+stdout | test/rev-a/p1-tenancy-immutability-audit.test.ts > REV-A/D — audit chain > verifies with ZERO problems per organization, over a non-empty chain
+[REV-A/D1]
+org=a6b8d83b-52c6-4959-9f2c-abb568847492 events=55 problems=0 []
+org=6e818669-74a7-401f-84f7-2dd3ac1b2c1a events=20 problems=0 []
+
+stdout | test/rev-a/p1-tenancy-immutability-audit.test.ts > REV-A/E — the build-run transition trigger, on real rows > a sample of ILLEGAL edges is refused by the TRIGGER, not only by the function
+[REV-A/E0] target run = {"id":"0d152ca3-2e30-4fc3-a067-edf59f12ffa2","state":"failed"}
+
+stdout | test/rev-a/p1-tenancy-immutability-audit.test.ts > REV-A/E — the build-run transition trigger, on real rows > a sample of ILLEGAL edges is refused by the TRIGGER, not only by the function
+[REV-A/E1]
+failed -> draft_configuration: ACCEPTED-BY-TRIGGER
+failed -> queued: ACCEPTED-BY-TRIGGER
+failed -> running: BUILD_CLAIM_EPOCH_NOT_ADVANCED: claiming a build run advance
+failed -> completed: ACCEPTED-BY-TRIGGER
+failed -> approved: BUILD_HARD_VIOLATIONS_UNRESOLVED: 1 unresolved hard finding(
+failed -> reviewed: ACCEPTED-BY-TRIGGER
+
+stdout | test/rev-a/p1-tenancy-immutability-audit.test.ts > REV-A/E — the build-run transition trigger, on real rows > SAME-STATE UPDATE: can termination_reason / solver_status be rewritten after the fact?
+[REV-A/E2] before: {"id":"0d152ca3-2e30-4fc3-a067-edf59f12ffa2","state":"failed","termination_reason":"rejected","solver_status":"FEASIBLE"}
+
+stdout | test/rev-a/p1-tenancy-immutability-audit.test.ts > REV-A/E — the build-run transition trigger, on real rows > SAME-STATE UPDATE: can termination_reason / solver_status be rewritten after the fact?
+[REV-A/E2] same-state rewrite of the termination facts: ACCEPTED {"termination_reason":"completed","solver_status":"OPTIMAL"}
+[REV-A/E2] NOTE: the trigger returns early on `NEW.state IS NOT DISTINCT FROM OLD.state`, so every state-conditioned guard below that line is skipped for a same-state UPDATE.
+
+stdout | test/rev-a/p1-tenancy-immutability-audit.test.ts > REV-A/E — the build-run transition trigger, on real rows > claim_epoch never regresses, and `running` requires an ADVANCED epoch
+[REV-A/E3] run = {"id":"0d152ca3-2e30-4fc3-a067-edf59f12ffa2","claim_epoch":1,"state":"failed"}
+
+stdout | test/rev-a/p1-tenancy-immutability-audit.test.ts > REV-A/E — the build-run transition trigger, on real rows > claim_epoch never regresses, and `running` requires an ADVANCED epoch
+[REV-A/E3] epoch decrement: BUILD_CLAIM_EPOCH_REGRESSED: claim epoch moves forward only (1 -> 0)
+
+stdout | test/rev-a/p1-tenancy-immutability-audit.test.ts > REV-A/E — the build-run transition trigger, on real rows > a build run`s identity fields are frozen (BUILD_IDENTITY_FROZEN)
+[REV-A/E4]
+period_id: permission denied for table build_runs
+build_configuration_id: permission denied for table build_runs
+source_version_id: permission denied for table build_runs
+idempotency_key: permission denied for table build_runs
+semantic_request_digest: permission denied for table build_runs
+
+ ❯ |api| test/rev-a/p1-tenancy-immutability-audit.test.ts (13 tests | 1 failed) 1822ms
+   ✓ REV-A/0 — the population the absence arms assert against > every M4 and publication table under test holds rows in the CORRECT context 38ms
+   ✓ REV-A/A — I-15 fail-closed outside the unit of work > every non-BYPASSRLS role reads ZERO rows from every M4 + publication table 81ms
+   ✓ REV-A/A — I-15 fail-closed outside the unit of work > every non-BYPASSRLS role is REFUSED an unscoped write to build_runs 7ms
+   ✓ REV-A/A — I-15 fail-closed outside the unit of work > the tenant-table registry counts 54; the FAD-34(3) sweep floor is 53 0ms
+   ✓ REV-A/B — cross-tenant and cross-group > a Beta-declared context sees ZERO Alpha rows in every M4 + publication table, every role 146ms
+   ✓ REV-A/B — cross-tenant and cross-group > a Beta-declared context cannot WRITE an Alpha-owned build_runs row 21ms
+   ✓ REV-A/B — cross-tenant and cross-group > a sibling-group context sees ZERO of Group One`s build rows 43ms
+   ✓ REV-A/C — I-18 at the database, every role > no role — break-glass included — mutates a published version or its children 84ms
+   ✓ REV-A/D — audit chain > verifies with ZERO problems per organization, over a non-empty chain 13ms
+   × REV-A/E — the build-run transition trigger, on real rows > a sample of ILLEGAL edges is refused by the TRIGGER, not only by the function 32ms
+     → expected [ …(4) ] to deeply equal []
+   ✓ REV-A/E — the build-run transition trigger, on real rows > SAME-STATE UPDATE: can termination_reason / solver_status be rewritten after the fact? 7ms
+   ✓ REV-A/E — the build-run transition trigger, on real rows > claim_epoch never regresses, and `running` requires an ADVANCED epoch 7ms
+   ✓ REV-A/E — the build-run transition trigger, on real rows > a build run`s identity fields are frozen (BUILD_IDENTITY_FROZEN) 16ms
+ ❯ |api| test/builds/transition-matrix.test.ts (7 tests | 4 failed) 946ms
+   ✓ the sixteen states > names exactly the sixteen report 21 §4 governs, in its order 1ms
+   ✓ the sixteen states > keeps `infeasible` and `failed` apart — neither reaches the other 0ms
+   ✓ the sixteen states > has no in-place retry edge — SPEC-04 §2 makes a retry a NEW run 0ms
+   × the transition matrix agrees at both layers > all 256 ordered pairs: the service table and the database function agree 450ms
+     → the two spellings of the transition rule have drifted: expected [ …(222) ] to deeply equal []
+   × the transition matrix agrees at both layers > refuses every self-edge — a state does not transition to itself 3ms
+     → expected true to be false // Object.is equality
+   × the transition matrix agrees at both layers > `archived` is absorbing at both layers 2ms
+     → expected true to be false // Object.is equality
+   × the transition matrix agrees at both layers > refuses a state name that is not one of the sixteen 2ms
+     → expected true to be false // Object.is equality
+stdout | test/rev-a/p2-audit-and-termination.test.ts > REV-A/D2b — audit rows: what actually happened, not what returned > no role deletes an audit row: rowCount 0 everywhere, chain unchanged
+[REV-A/chain] before-delete-attempts: entries=55 problems=0 kinds=[]
+
+stdout | test/rev-a/p2-audit-and-termination.test.ts > REV-A/D2b — audit rows: what actually happened, not what returned > no role deletes an audit row: rowCount 0 everywhere, chain unchanged
+[REV-A/D2b]
+app_migrator: DELETE returned, rows affected = 0 | UPDATE returned, rows affected = 0
+app_runtime: refused (permission denied for table audit_events) | UPDATE refused (permission denied for table audit_events)
+app_worker: refused (permission denied for table audit_events) | UPDATE refused (permission denied for table audit_events)
+app_readonly_support: refused (permission denied for table audit_events) | UPDATE refused (permission denied for table audit_events)
+app_breakglass: refused (permission denied for table audit_events) | UPDATE refused (permission denied for table audit_events)
+
+stdout | test/rev-a/p2-audit-and-termination.test.ts > REV-A/D2b — audit rows: what actually happened, not what returned > no role deletes an audit row: rowCount 0 everywhere, chain unchanged
+[REV-A/chain] after-delete-attempts: entries=55 problems=0 kinds=[]
+
+stdout | test/rev-a/p2-audit-and-termination.test.ts > REV-A/G2 — the audit-chain detector is load-bearing > a tampered payload on a MIDDLE row is DETECTED, and restore puts the chain back
+[REV-A/chain] G2-before: entries=55 problems=0 kinds=[]
+
+stdout | test/rev-a/p2-audit-and-termination.test.ts > REV-A/G2 — the audit-chain detector is load-bearing > a tampered payload on a MIDDLE row is DETECTED, and restore puts the chain back
+[REV-A/G2] tampering with sequence 34
+
+stdout | test/rev-a/p2-audit-and-termination.test.ts > REV-A/G2 — the audit-chain detector is load-bearing > a tampered payload on a MIDDLE row is DETECTED, and restore puts the chain back
+[REV-A/chain] G2-after-tamper: entries=55 problems=1 kinds=["entry_hash_mismatch"]
+
+stdout | test/rev-a/p2-audit-and-termination.test.ts > REV-A/G2 — the audit-chain detector is load-bearing > a tampered payload on a MIDDLE row is DETECTED, and restore puts the chain back
+[REV-A/chain] G2-after-restore: entries=55 problems=0 kinds=[]
+
+stdout | test/rev-a/p2-audit-and-termination.test.ts > REV-A/G2 — the audit-chain detector is load-bearing > a TRUNCATED TAIL is detected — the shape walking the surviving rows cannot see (R-01)
+[REV-A/chain] G2-beta-before: entries=11 problems=0 kinds=[]
+
+stdout | test/rev-a/p2-audit-and-termination.test.ts > REV-A/G2 — the audit-chain detector is load-bearing > a TRUNCATED TAIL is detected — the shape walking the surviving rows cannot see (R-01)
+[REV-A/G2] tail rows deleted from Beta: [33m2[39m
+
+stdout | test/rev-a/p2-audit-and-termination.test.ts > REV-A/G2 — the audit-chain detector is load-bearing > a TRUNCATED TAIL is detected — the shape walking the surviving rows cannot see (R-01)
+[REV-A/chain] G2-beta-after-truncation: entries=9 problems=1 kinds=["head_sequence_ahead_of_chain"]
+
+stdout | test/rev-a/p2-audit-and-termination.test.ts > REV-A/H — the termination facts are not frozen, and the verdict reads them > a same-state UPDATE rewrites termination_reason/solver_status, flipping the verdict
+[REV-A/H] build_runs        : {"id":"00ee8c5e-e153-4f06-a4f4-73813d60a502","state":"failed","termination_reason":"rejected","solver_status":"FEASIBLE","reproducibility_mode":"best-effort","solver_parameters":{}}
+[REV-A/H] build_run_results : {"solver_status":"FEASIBLE","termination_reason":"rejected"}
+[REV-A/H] verdict from the recorded facts        : interrupted reproducible=false promise=false
+[REV-A/H] verdict after the rewrite would read   : reproducible reproducible=true promise=true
+
+stdout | test/rev-a/p2-audit-and-termination.test.ts > REV-A/H — the termination facts are not frozen, and the verdict reads them > a same-state UPDATE rewrites termination_reason/solver_status, flipping the verdict
+[REV-A/H] same-state rewrite accepted: [33mtrue[39m
+
+stdout | test/rev-a/p2-audit-and-termination.test.ts > REV-A/H — the termination facts are not frozen, and the verdict reads them > a same-state UPDATE rewrites termination_reason/solver_status, flipping the verdict
+[REV-A/H] AFTER build_runs        : {"state":"failed","termination_reason":"completed","solver_status":"OPTIMAL"}
+[REV-A/H] AFTER build_run_results : {"solver_status":"FEASIBLE","termination_reason":"rejected"}   <-- append-only, unchanged
+[REV-A/H] the two records now DISAGREE: true
+
+stdout | test/rev-a/p2-audit-and-termination.test.ts > REV-A/H — the termination facts are not frozen, and the verdict reads them > a same-state UPDATE rewrites termination_reason/solver_status, flipping the verdict
+[REV-A/H] build_run_results UPDATE : refused(permission denied for table build_run_results)
+
+ ✓ |api| test/rev-a/p2-audit-and-termination.test.ts (4 tests) 1261ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |api| test/builds/transition-matrix.test.ts > the transition matrix agrees at both layers > all 256 ordered pairs: the service table and the database function agree
+AssertionError: the two spellings of the transition rule have drifted: expected [ …(222) ] to deeply equal []
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [][39m
+[31m+ [[39m
+[31m+   "draft_configuration -> draft_configuration: service says false, database says true",[39m
+[31m+   "draft_configuration -> readiness_check: service says false, database says true",[39m
+[31m+   "draft_configuration -> queued: service says false, database says true",[39m
+[31m+   "draft_configuration -> running: service says false, database says true",[39m
+[31m+   "draft_configuration -> completed: service says false, database says true",[39m
+[31m+   "draft_configuration -> completed_with_unmet_preferences: service says false, database says true",[39m
+[31m+   "draft_configuration -> infeasible: service says false, database says true",[39m
+[31m+   "draft_configuration -> failed: service says false, database says true",[39m
+[31m+   "draft_configuration -> cancelled: service says false, database says true",[39m
+[31m+   "draft_configuration -> reviewed: service says false, database says true",[39m
+[31m+   "draft_configuration -> progressively_extended: service says false, database says true",[39m
+[31m+   "draft_configuration -> approved: service says false, database says true",[39m
+[31m+   "draft_configuration -> applied_to_draft_schedule: service says false, database says true",[39m
+[31m+   "draft_configuration -> superseded: service says false, database says true",[39m
+[31m+   "draft_configuration -> archived: service says false, database says true",[39m
+[31m+   "validating -> validating: service says false, database says true",[39m
+[31m+   "validating -> queued: service says false, database says true",[39m
+[31m+   "validating -> running: service says false, database says true",[39m
+[31m+   "validating -> completed: service says false, database says true",[39m
+[31m+   "validating -> completed_with_unmet_preferences: service says false, database says true",[39m
+[31m+   "validating -> infeasible: service says false, database says true",[39m
+[31m+   "validating -> failed: service says false, database says true",[39m
+[31m+   "validating -> cancelled: service says false, database says true",[39m
+[31m+   "validating -> reviewed: service says false, database says true",[39m
+[31m+   "validating -> progressively_extended: service says false, database says true",[39m
+[31m+   "validating -> approved: service says false, database says true",[39m
+[31m+   "validating -> applied_to_draft_schedule: service says false, database says true",[39m
+[31m+   "validating -> superseded: service says false, database says true",[39m
+[31m+   "validating -> archived: service says false, database says true",[39m
+[31m+   "readiness_check -> validating: service says false, database says true",[39m
+[31m+   "readiness_check -> readiness_check: service says false, database says true",[39m
+[31m+   "readiness_check -> running: service says false, database says true",[39m
+[31m+   "readiness_check -> completed: service says false, database says true",[39m
+[31m+   "readiness_check -> completed_with_unmet_preferences: service says false, database says true",[39m
+[31m+   "readiness_check -> infeasible: service says false, database says true",[39m
+[31m+   "readiness_check -> failed: service says false, database says true",[39m
+[31m+   "readiness_check -> cancelled: service says false, database says true",[39m
+[31m+   "readiness_check -> reviewed: service says false, database says true",[39m
+[31m+   "readiness_check -> progressively_extended: service says false, database says true",[39m
+[31m+   "readiness_check -> approved: service says false, database says true",[39m
+[31m+   "readiness_check -> applied_to_draft_schedule: service says false, database says true",[39m
+[31m+   "readiness_check -> superseded: service says false, database says true",[39m
+[31m+   "readiness_check -> archived: service says false, database says true",[39m
+[31m+   "queued -> draft_configuration: service says false, database says true",[39m
+[31m+   "queued -> validating: service says false, database says true",[39m
+[31m+   "queued -> readiness_check: service says false, database says true",[39m
+[31m+   "queued -> queued: service says false, database says true",[39m
+[31m+   "queued -> completed: service says false, database says true",[39m
+[31m+   "queued -> completed_with_unmet_preferences: service says false, database says true",[39m
+[31m+   "queued -> infeasible: service says false, database says true",[39m
+[31m+   "queued -> failed: service says false, database says true",[39m
+[31m+   "queued -> reviewed: service says false, database says true",[39m
+[31m+   "queued -> progressively_extended: service says false, database says true",[39m
+[31m+   "queued -> approved: service says false, database says true",[39m
+[31m+   "queued -> applied_to_draft_schedule: service says false, database says true",[39m
+[31m+   "queued -> superseded: service says false, database says true",[39m
+[31m+   "queued -> archived: service says false, database says true",[39m
+[31m+   "running -> draft_configuration: service says false, database says true",[39m
+[31m+   "running -> validating: service says false, database says true",[39m
+[31m+   "running -> readiness_check: service says false, database says true",[39m
+[31m+   "running -> queued: service says false, database says true",[39m
+[31m+   "running -> running: service says false, database says true",[39m
+[31m+   "running -> reviewed: service says false, database says true",[39m
+[31m+   "running -> progressively_extended: service says false, database says true",[39m
+[31m+   "running -> approved: service says false, database says true",[39m
+[31m+   "running -> applied_to_draft_schedule: service says false, database says true",[39m
+[31m+   "running -> superseded: service says false, database says true",[39m
+[31m+   "running -> archived: service says false, database says true",[39m
+[31m+   "completed -> draft_configuration: service says false, database says true",[39m
+[31m+   "completed -> validating: service says false, database says true",[39m
+[31m+   "completed -> readiness_check: service says false, database says true",[39m
+[31m+   "completed -> queued: service says false, database says true",[39m
+[31m+   "completed -> running: service says false, database says true",[39m
+[31m+   "completed -> completed: service says false, database says true",[39m
+[31m+   "completed -> completed_with_unmet_preferences: service says false, database says true",[39m
+[31m+   "completed -> infeasible: service says false, database says true",[39m
+[31m+   "completed -> failed: service says false, database says true",[39m
+[31m+   "completed -> cancelled: service says false, database says true",[39m
+[31m+   "completed -> progressively_extended: service says false, database says true",[39m
+[31m+   "completed -> approved: service says false, database says true",[39m
+[31m+   "completed -> applied_to_draft_schedule: service says false, database says true",[39m
+[31m+   "completed_with_unmet_preferences -> draft_configuration: service says false, database says true",[39m
+[31m+   "completed_with_unmet_preferences -> validating: service says false, database says true",[39m
+[31m+   "completed_with_unmet_preferences -> readiness_check: service says false, database says true",[39m
+[31m+   "completed_with_unmet_preferences -> queued: service says false, database says true",[39m
+[31m+   "completed_with_unmet_preferences -> running: service says false, database says true",[39m
+[31m+   "completed_with_unmet_preferences -> completed: service says false, database says true",[39m
+[31m+   "completed_with_unmet_preferences -> completed_with_unmet_preferences: service says false, database says true",[39m
+[31m+   "completed_with_unmet_preferences -> infeasible: service says false, database says true",[39m
+[31m+   "completed_with_unmet_preferences -> failed: service says false, database says true",[39m
+[31m+   "completed_with_unmet_preferences -> cancelled: service says false, database says true",[39m
+[31m+   "completed_with_unmet_preferences -> progressively_extended: service says false, database says true",[39m
+[31m+   "completed_with_unmet_preferences -> approved: service says false, database says true",[39m
+[31m+   "completed_with_unmet_preferences -> applied_to_draft_schedule: service says false, database says true",[39m
+[31m+   "infeasible -> draft_configuration: service says false, database says true",[39m
+[31m+   "infeasible -> validating: service says false, database says true",[39m
+[31m+   "infeasible -> readiness_check: service says false, database says true",[39m
+[31m+   "infeasible -> queued: service says false, database says true",[39m
+[31m+   "infeasible -> running: service says false, database says true",[39m
+[31m+   "infeasible -> completed: service says false, database says true",[39m
+[31m+   "infeasible -> completed_with_unmet_preferences: service says false, database says true",[39m
+[31m+   "infeasible -> infeasible: service says false, database says true",[39m
+[31m+   "infeasible -> failed: service says false, database says true",[39m
+[31m+   "infeasible -> cancelled: service says false, database says true",[39m
+[31m+   "infeasible -> reviewed: service says false, database says true",[39m
+[31m+   "infeasible -> progressively_extended: service says false, database says true",[39m
+[31m+   "infeasible -> approved: service says false, database says true",[39m
+[31m+   "infeasible -> applied_to_draft_schedule: service says false, database says true",[39m
+[31m+   "infeasible -> superseded: service says false, database says true",[39m
+[31m+   "failed -> draft_configuration: service says false, database says true",[39m
+[31m+   "failed -> validating: service says false, database says true",[39m
+[31m+   "failed -> readiness_check: service says false, database says true",[39m
+[31m+   "failed -> queued: service says false, database says true",[39m
+[31m+   "failed -> running: service says false, database says true",[39m
+[31m+   "failed -> completed: service says false, database says true",[39m
+[31m+   "failed -> completed_with_unmet_preferences: service says false, database says true",[39m
+[31m+   "failed -> infeasible: service says false, database says true",[39m
+[31m+   "failed -> failed: service says false, database says true",[39m
+[31m+   "failed -> cancelled: service says false, database says true",[39m
+[31m+   "failed -> reviewed: service says false, database says true",[39m
+[31m+   "failed -> progressively_extended: service says false, database says true",[39m
+[31m+   "failed -> approved: service says false, database says true",[39m
+[31m+   "failed -> applied_to_draft_schedule: service says false, database says true",[39m
+[31m+   "failed -> superseded: service says false, database says true",[39m
+[31m+   "cancelled -> draft_configuration: service says false, database says true",[39m
+[31m+   "cancelled -> validating: service says false, database says true",[39m
+[31m+   "cancelled -> readiness_check: service says false, database says true",[39m
+[31m+   "cancelled -> queued: service says false, database says true",[39m
+[31m+   "cancelled -> running: service says false, database says true",[39m
+[31m+   "cancelled -> completed: service says false, database says true",[39m
+[31m+   "cancelled -> completed_with_unmet_preferences: service says false, database says true",[39m
+[31m+   "cancelled -> infeasible: service says false, database says true",[39m
+[31m+   "cancelled -> failed: service says false, database says true",[39m
+[31m+   "cancelled -> cancelled: service says false, database says true",[39m
+[31m+   "cancelled -> reviewed: service says false, database says true",[39m
+[31m+   "cancelled -> progressively_extended: service says false, database says true",[39m
+[31m+   "cancelled -> approved: service says false, database says true",[39m
+[31m+   "cancelled -> applied_to_draft_schedule: service says false, database says true",[39m
+[31m+   "cancelled -> superseded: service says false, database says true",[39m
+[31m+   "reviewed -> draft_configuration: service says false, database says true",[39m
+[31m+   "reviewed -> validating: service says false, database says true",[39m
+[31m+   "reviewed -> readiness_check: service says false, database says true",[39m
+[31m+   "reviewed -> queued: service says false, database says true",[39m
+[31m+   "reviewed -> running: service says false, database says true",[39m
+[31m+   "reviewed -> completed: service says false, database says true",[39m
+[31m+   "reviewed -> completed_with_unmet_preferences: service says false, database says true",[39m
+[31m+   "reviewed -> infeasible: service says false, database says true",[39m
+[31m+   "reviewed -> failed: service says false, database says true",[39m
+[31m+   "reviewed -> cancelled: service says false, database says true",[39m
+[31m+   "reviewed -> reviewed: service says false, database says true",[39m
+[31m+   "reviewed -> applied_to_draft_schedule: service says false, database says true",[39m
+[31m+   "progressively_extended -> draft_configuration: service says false, database says true",[39m
+[31m+   "progressively_extended -> validating: service says false, database says true",[39m
+[31m+   "progressively_extended -> readiness_check: service says false, database says true",[39m
+[31m+   "progressively_extended -> queued: service says false, database says true",[39m
+[31m+   "progressively_extended -> running: service says false, database says true",[39m
+[31m+   "progressively_extended -> completed: service says false, database says true",[39m
+[31m+   "progressively_extended -> completed_with_unmet_preferences: service says false, database says true",[39m
+[31m+   "progressively_extended -> infeasible: service says false, database says true",[39m
+[31m+   "progressively_extended -> failed: service says false, database says true",[39m
+[31m+   "progressively_extended -> cancelled: service says false, database says true",[39m
+[31m+   "progressively_extended -> progressively_extended: service says false, database says true",[39m
+[31m+   "progressively_extended -> approved: service says false, database says true",[39m
+[31m+   "progressively_extended -> applied_to_draft_schedule: service says false, database says true",[39m
+[31m+   "approved -> draft_configuration: service says false, database says true",[39m
+[31m+   "approved -> validating: service says false, database says true",[39m
+[31m+   "approved -> readiness_check: service says false, database says true",[39m
+[31m+   "approved -> queued: service says false, database says true",[39m
+[31m+   "approved -> running: service says false, database says true",[39m
+[31m+   "approved -> completed: service says false, database says true",[39m
+[31m+   "approved -> completed_with_unmet_preferences: service says false, database says true",[39m
+[31m+   "approved -> infeasible: service says false, database says true",[39m
+[31m+   "approved -> failed: service says false, database says true",[39m
+[31m+   "approved -> cancelled: service says false, database says true",[39m
+[31m+   "approved -> reviewed: service says false, database says true",[39m
+[31m+   "approved -> progressively_extended: service says false, database says true",[39m
+[31m+   "approved -> approved: service says false, database says true",[39m
+[31m+   "applied_to_draft_schedule -> draft_configuration: service says false, database says true",[39m
+[31m+   "applied_to_draft_schedule -> validating: service says false, database says true",[39m
+[31m+   "applied_to_draft_schedule -> readiness_check: service says false, database says true",[39m
+[31m+   "applied_to_draft_schedule -> queued: service says false, database says true",[39m
+[31m+   "applied_to_draft_schedule -> running: service says false, database says true",[39m
+[31m+   "applied_to_draft_schedule -> completed: service says false, database says true",[39m
+[31m+   "applied_to_draft_schedule -> completed_with_unmet_preferences: service says false, database says true",[39m
+[31m+   "applied_to_draft_schedule -> infeasible: service says false, database says true",[39m
+[31m+   "applied_to_draft_schedule -> failed: service says false, database says true",[39m
+[31m+   "applied_to_draft_schedule -> cancelled: service says false, database says true",[39m
+[31m+   "applied_to_draft_schedule -> reviewed: service says false, database says true",[39m
+[31m+   "applied_to_draft_schedule -> progressively_extended: service says false, database says true",[39m
+[31m+   "applied_to_draft_schedule -> approved: service says false, database says true",[39m
+[31m+   "applied_to_draft_schedule -> applied_to_draft_schedule: service says false, database says true",[39m
+[31m+   "superseded -> draft_configuration: service says false, database says true",[39m
+[31m+   "superseded -> validating: service says false, database says true",[39m
+[31m+   "superseded -> readiness_check: service says false, database says true",[39m
+[31m+   "superseded -> queued: service says false, database says true",[39m
+[31m+   "superseded -> running: service says false, database says true",[39m
+[31m+   "superseded -> completed: service says false, database says true",[39m
+[31m+   "superseded -> completed_with_unmet_preferences: service says false, database says true",[39m
+[31m+   "superseded -> infeasible: service says false, database says true",[39m
+[31m+   "superseded -> failed: service says false, database says true",[39m
+[31m+   "superseded -> cancelled: service says false, database says true",[39m
+[31m+   "superseded -> reviewed: service says false, database says true",[39m
+[31m+   "superseded -> progressively_extended: service says false, database says true",[39m
+[31m+   "superseded -> approved: service says false, database says true",[39m
+[31m+   "superseded -> applied_to_draft_schedule: service says false, database says true",[39m
+[31m+   "superseded -> superseded: service says false, database says true",[39m
+[31m+   "archived -> draft_configuration: service says false, database says true",[39m
+[31m+   "archived -> validating: service says false, database says true",[39m
+[31m+   "archived -> readiness_check: service says false, database says true",[39m
+[31m+   "archived -> queued: service says false, database says true",[39m
+[31m+   "archived -> running: service says false, database says true",[39m
+[31m+   "archived -> completed: service says false, database says true",[39m
+[31m+   "archived -> completed_with_unmet_preferences: service says false, database says true",[39m
+[31m+   "archived -> infeasible: service says false, database says true",[39m
+[31m+   "archived -> failed: service says false, database says true",[39m
+[31m+   "archived -> cancelled: service says false, database says true",[39m
+[31m+   "archived -> reviewed: service says false, database says true",[39m
+[31m+   "archived -> progressively_extended: service says false, database says true",[39m
+[31m+   "archived -> approved: service says false, database says true",[39m
+[31m+   "archived -> applied_to_draft_schedule: service says false, database says true",[39m
+[31m+   "archived -> superseded: service says false, database says true",[39m
+[31m+   "archived -> archived: service says false, database says true",[39m
+[31m+ ][39m
+
+ ❯ test/builds/transition-matrix.test.ts:134:84
+    132|     }
+    133| 
+    134|     expect(disagreements, 'the two spellings of the transition rule ha…
+       |                                                                                    ^
+    135|     /* A count, so that a matrix that quietly became "everything is le…
+    136|      * "nothing is legal" fails here rather than passing the agreement…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  |api| test/builds/transition-matrix.test.ts > the transition matrix agrees at both layers > refuses every self-edge — a state does not transition to itself
+AssertionError: expected true to be false // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+ ❯ test/builds/transition-matrix.test.ts:146:53
+    144|     for (const state of BUILD_RUN_STATES) {
+    145|       expect(isLegalTransition(state as BuildRunState, state as BuildR…
+    146|       expect(await databaseSaysLegal(state, state)).toBe(false);
+       |                                                     ^
+    147|     }
+    148|   }, 60_000);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  |api| test/builds/transition-matrix.test.ts > the transition matrix agrees at both layers > `archived` is absorbing at both layers
+AssertionError: expected true to be false // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+ ❯ test/builds/transition-matrix.test.ts:153:55
+    151|     expect(LEGAL_TRANSITIONS.archived).toEqual([]);
+    152|     for (const to of BUILD_RUN_STATES) {
+    153|       expect(await databaseSaysLegal('archived', to)).toBe(false);
+       |                                                       ^
+    154|     }
+    155|   }, 60_000);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  |api| test/builds/transition-matrix.test.ts > the transition matrix agrees at both layers > refuses a state name that is not one of the sixteen
+AssertionError: expected true to be false // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+ ❯ test/builds/transition-matrix.test.ts:160:62
+    158|     /* The CHECK constraint is the control on the column; this asserts…
+    159|      * function does not quietly admit an unknown word either. */
+    160|     expect(await databaseSaysLegal('queued', 'nearly_done')).toBe(fals…
+       |                                                              ^
+    161|     expect(await databaseSaysLegal('nearly_done', 'queued')).toBe(fals…
+    162|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  |api| test/rev-a/p1-tenancy-immutability-audit.test.ts > REV-A/E — the build-run transition trigger, on real rows > a sample of ILLEGAL edges is refused by the TRIGGER, not only by the function
+AssertionError: expected [ …(4) ] to deeply equal []
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [][39m
+[31m+ [[39m
+[31m+   "failed -> draft_configuration: ACCEPTED-BY-TRIGGER",[39m
+[31m+   "failed -> queued: ACCEPTED-BY-TRIGGER",[39m
+[31m+   "failed -> completed: ACCEPTED-BY-TRIGGER",[39m
+[31m+   "failed -> reviewed: ACCEPTED-BY-TRIGGER",[39m
+[31m+ ][39m
+
+ ❯ test/rev-a/p1-tenancy-immutability-audit.test.ts:423:71
+    421|     log('[REV-A/E1]\n' + outcomes.join('\n'));
+    422|     // `failed` -> archived is the ONLY legal edge from the seeder's t…
+    423|     expect(outcomes.filter((o) => o.includes('ACCEPTED-BY-TRIGGER'))).…
+       |                                                                       ^
+    424|   }, 180_000);
+    425| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+
+ Test Files  2 failed | 1 passed (3)
+      Tests  5 failed | 19 passed (24)
+   Start at  03:11:38
+   Duration  11.00s (transform 1.20s, setup 711ms, collect 209ms, tests 4.03s, environment 0ms, prepare 73ms)
+
+DETECTOR_EXIT=1
+
+=== RESTORE ===
+sha256 restored: a829805e474266a94c483c7f6038086cd54914f3304a1e30ce489976ed8e8935
+RESTORE VERIFIED: byte-identical
+MUTATION_DETECTED=YES
+END 2026-08-23T03:11:50Z
