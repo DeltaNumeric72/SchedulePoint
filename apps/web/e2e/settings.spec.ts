@@ -487,9 +487,19 @@ test.describe('settings — locations', () => {
     const listener = (request: { url: () => string; method: () => string }): void => {
       if (request.url().includes('/api/')) requests.push(`${request.method()} ${request.url()}`);
     };
-    page.on('request', listener);
 
     await recordRequests(page, 'settings-open-new-location', info.project.name, async () => {
+      /* Attached INSIDE the action, and that placement is the assertion's
+       * (R-1/F-3). This listener used to be attached out here, before
+       * `recordRequests` — which meant it was open across the recorder's own
+       * settle-the-page-first wait and could be handed a page-load straggler
+       * the CLICK did not cause. That is the very confusion R-1 removed from
+       * the recorder; leaving it in the spec would have kept one copy of it
+       * alive. Inside the action the listener sees exactly what the recorder
+       * sees: requests issued after the page went quiet. The assertion below is
+       * unchanged; what changed is that it now fails only for the reason it
+       * exists for — a request the CLICK caused. */
+      page.on('request', listener);
       await page.getByTestId('new-location').click();
       await expect(page.getByTestId('location-form')).toBeVisible();
       // Long enough for a stray optimistic write to appear if one existed.
