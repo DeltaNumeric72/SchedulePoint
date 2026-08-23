@@ -3,3 +3,28 @@ START 2026-08-23T03:16:36Z
 ### (SP_RED_SHARD=k/65 selects exactly the arm at 0-based index k).
 
 =============== SP_RED_SHARD=48/65 ===============
+=== red-case shard 48/65 — 1 of 65 arm(s) selected ===
+  arms: builds-fencing-trigger
+=== preflight: building apps/web so the bundle arms have a bundle ===
+=== builds-fencing-trigger — build result fencing (doc 35 §6e (3)) — the DATABASE arm ===
+CASE                    GREEN  RED    VERDICT
+1 case(s): 1 proven, 0 not proven
+shard 48/65 — 1 of 65 arm(s) in this process; the union is asserted by CI, not by this table
+GREEN "pass" = the gate passes on the clean tree.
+RED   "fail" = the gate fails when the violation is present. That is the desired outcome.
+ERRORED    = the arm did not RUN. Never counted as proven, however its exit code read.
+ARM_EXIT=0
+
+=============== SP_RED_SHARD=50/65 ===============
+=== red-case shard 50/65 — 1 of 65 arm(s) selected ===
+  arms: builds-transition-guard
+=== preflight: building apps/web so the bundle arms have a bundle ===
+CASE                     GREEN  RED    VERDICT
+1 case(s): 1 proven, 0 not proven
+shard 50/65 — 1 of 65 arm(s) in this process; the union is asserted by CI, not by this table
+GREEN "pass" = the gate passes on the clean tree.
+RED   "fail" = the gate fails when the violation is present. That is the desired outcome.
+ERRORED    = the arm did not RUN. Never counted as proven, however its exit code read.
+ARM_EXIT=0
+
+=============== SP_RED_SHARD=52/65 ===============

@@ -309,6 +309,37 @@ EXIT=0  (2 passed)
 
 Filed as **REV-A-003**.
 
+## 13. Every M4 exit limitation (doc 36 §§3 and 10) — each verified real and honestly sized
+
+| # | Limitation | REV-A's verdict, and how it was established |
+| --- | --- | --- |
+| §3.1 | Benchmark bands | **REAL.** `apps/api/src/builds/conflicts.ts:159` renders "no band is defined for fairness dispersion, so this is a measurement and not a verdict"; `deterministic-cost.test.ts:138` says the same of the cost. No band is asserted anywhere. |
+| §3.2 | Two of the fourteen critical-path steps have no page | **REAL.** `apps/web/src/router.tsx` registers no work-profile/qualification route and no canonical-input route. |
+| §3.3 | No historical-build reproduction end to end | **REAL.** S-08t (`real-solve-lifecycle.test.ts:230`) compares two solves inside one test; no arm re-runs a persisted build. |
+| §3.4 / §10.1 | Solver image, digest, Python 3.12 | **REAL.** `solver/.../runtime.py:80` — absent `IMAGE_DIGEST_ENV`, `image_digest()` returns `"venv:%s" % sys.executable`, a PATH, self-labelled. `Dockerfile.solver` exists and is never built here. *(The delta's `ci.yml` now pins 3.12 — an advance on the tag, not an alteration of it.)* |
+| §3.5 | M3R paused | **Not executable in REV-A's lane** (control-document state). |
+| §3.6 | Assistive-technology sessions | **Not executable in REV-A's lane** (SPEC-14 M-cells; REV-B's). |
+| §3.7 | Nothing beyond M4's scope begun | **REAL.** The route-policy gate enumerates 113 routes; none is a request, vacation, notification, marketplace, picklist, report, document or connector route. |
+| §10.2 | The 10-second default wall clock races an opted-in deterministic budget | **REAL**, and §7's truth table shows precisely what it produces on both sides of the knife edge. |
+| §10.3 | Per-detail-GET staleness runs a full canonical-input assembly | **REAL.** `builds.route.ts:588` calls `stalenessWire(await buildStaleness(uow, row))` on every detail GET. |
+| §10.4 | The un-falsified selection window | **FALSIFIED AS "UNFALSIFIABLE" — it is reachable.** See §12 and finding REV-A-003. |
+| §10.5 | SBX-017's protected-identity fixture is thin | **REAL, and exactly as sized.** The retained artifact says "1 fixed input(s)", "1 assignment(s) on the new draft", "a draft staffing 1 of 7 dates". |
+| §10.6 | The matrix numbering skips M-22 | **REAL.** `concurrency-recovery-matrix.test.ts` names M-01..M-25 with M-22 absent — 24 M-cells, never renumbered (rule 13). |
+| §10.7 | Battery cost | **REAL, and corroborated independently on this machine**: one `B-fairness-shaped` deterministic solve costs **128.8 s / 130.7 s** here against ~33 s on the machine of record. |
+| §10.8 | Key isolation (TDG-15) | **REAL and honestly disclosed.** `checkpoint-signer.ts` states it "satisfies the *mechanism* and **none of the assurance**" and `keyIsIsolated` returns `false` so a deployment check can refuse to start. |
+| §10.9 | G-ARCH, G-BETA, G-PROD open | **REAL.** The sbx run prints "G-ARCH IS NOT CLOSED BY THIS RUN. It also needs SBX-011, 013, 014b, 022, 023". |
+
+## 14. Batteries: executed, declared, and the CI evidence accepted
+
+| Battery | REV-A |
+| --- | --- |
+| `corepack pnpm check` | **EXECUTED** — 16/17, exit 1 (REV-A-001). `transcripts/01` |
+| `corepack pnpm sbx` | **EXECUTED** — 9/9, 371 readings, 53/53 tables, 0 wrong-tenant, 0 vacuous, exit 0. `transcripts/11` |
+| migration cycle 0001–0019 | **EXECUTED** — clean, 95 legs, exit 0 (and empty — REV-A-002). `transcripts/10` |
+| red-case battery, 65 arms | **PARTIALLY EXECUTED, DECLARED PER ARM CLASS.** Five in-scope arms run here as single-arm shards (`SP_RED_SHARD=k/65`); for the other 60 arms REV-A **accepts the CI evidence at `332603e`** (run 32608704494): `gate battery` success · all 13 `red-case proofs (shard N)` success · `red-case shard completeness` success. `transcripts/13` |
+| `corepack pnpm fixture-regression` | **NOT EXECUTED — DECLARED, WITH THE REASON.** 153 runs over 13 fixed seeds + rotating + a standalone sweep, six of them full `B-fairness-shaped` deterministic solves; the S-08t repair alone added ~44 min on the reference machine, and this machine measures ONE such solve at ~129 s against ~33 s there (≈3.9×), so a faithful run is multiple hours. **No CI evidence exists for it either** — `ci.yml` runs `pnpm check` and `pnpm red-cases` and nothing else. Its sole evidence remains the frozen EV-M4-005 transcript 40 (153/153, M4 machine). REV-A makes no statement about its current state. |
+| real-stack e2e at both viewports | **NOT EXECUTED** — REV-B's lane. The axe gate (430 passed \| 16 skipped) and the request-budget gate (44 interactions, 87 recordings) did run here inside `pnpm check`. |
+
 ---
 
 *(Findings register: returned in REV-A's report to the orchestrator.)*
