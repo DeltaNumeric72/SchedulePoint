@@ -217,7 +217,7 @@ jobs:
   # position, so which shard a heavy arm lands in is NOT a choice — it is a
   # consequence of N, and the only lever is N itself.
   #
-  # ── The heavy-arm census, counted from the registry (65 arms) ──────────────
+  # ── The heavy-arm census, counted from the registry (66 arms) ──────────────
   #
   # Every arm runs its command TWICE, GREEN then RED, so each line below costs
   # twice what its suites cost once.
@@ -244,6 +244,15 @@ jobs:
   #     index 59  solver-demand-not-independently-checked  → shard 7
   #   builds subset (`gate:unit:builds`, a narrow vitest run)
   #     indices 48, 49, 50, 52                             → shards 9, 10, 11, 0
+  #     index 65  builds-termination-facts-unfrozen        → shard 0
+  #
+  # R-5 added index 65 at the END of the registry, which is why every index above
+  # still reads as it did: appending changes no other arm's position, and
+  # therefore no other arm's shard. Shard 0 now carries two builds-subset arms
+  # (52 and 65) beside the full-unit arm at index 13. The builds subset is the
+  # cheapest of the four heavy classes and 66 is no longer 13 x 5, so shard 0
+  # carries six arms where the rest carry five — arithmetic, not a choice, and
+  # the union guard below re-derives the registry either way.
   #
   # At N = 13 no shard carries two full-unit arms, no shard carries two axe arms,
   # and no shard carries both a full-unit and an axe arm. What it does NOT avoid,

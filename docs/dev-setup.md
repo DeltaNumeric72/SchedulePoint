@@ -113,7 +113,7 @@ Individual gates: `corepack pnpm run gate:<id>`.
 corepack pnpm red-cases
 ```
 
-**Sixty-three** cases. Each introduces a real violation into the working tree, asserts
+**Sixty-six** cases. Each introduces a real violation into the working tree, asserts
 the gate **fails**, then restores. Output goes to
 `scripts/red-cases/evidence-output.txt` (or scratch — see §12).
 
@@ -712,7 +712,7 @@ explicitly, serially, one at a time on a quiet machine:
 
 ```bash
 corepack pnpm check               # the seventeen gates
-corepack pnpm red-cases           # 65 cases, both directions
+corepack pnpm red-cases           # 66 cases, both directions
 corepack pnpm fixture-regression  # FAD-15: 13 fixed seeds + a rotating one + every file alone
 corepack pnpm sbx                 # the SPEC-16 sandbox scenarios under their contracts
 ```

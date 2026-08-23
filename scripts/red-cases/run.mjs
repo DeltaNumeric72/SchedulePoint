@@ -2000,6 +2000,57 @@ const CASES = [
       'apps/api/test/architecture/no-tenant-access-outside-unit-of-work.test.ts',
     ],
   },
+  {
+    id: 'builds-termination-facts-unfrozen',
+    gate: 'a settled build run’s termination facts are FROZEN (R-5; REV-A-004)',
+    violation: 'migration 0020’s freeze neutered — the same-state rewrite is admitted again',
+    /* THE FALSIFIABILITY CASE for the R-5 repair, and it is the finding itself.
+     *
+     * `app_guard_build_run_transition` returns early on `NEW.state IS NOT
+     * DISTINCT FROM OLD.state`, and before 0020 the columns frozen above that
+     * line were identity, snapshot, applied version and epoch — never the
+     * termination facts. So `UPDATE build_runs SET termination_reason =
+     * 'completed', solver_status = 'OPTIMAL'` on a SETTLED run was ACCEPTED and
+     * committed, while the append-only `build_run_results` row went on holding
+     * the facts the run was actually given. `runResultReproducibility` reads the
+     * mutable copy, so the recorded verdict flipped from "interrupted, not
+     * reproducible" to "reproducible" with the promise sentence attached.
+     *
+     * This neuters the freeze and NOTHING else — the early return, the sibling
+     * freezes, the edge legality check, the claim-epoch rules, the
+     * terminating-reason requirement and the validation gate all stand. Two arms
+     * in `apps/api/test/builds/lifecycle.test.ts` must then go red (R-5a, as
+     * `app_runtime` through a unit of work; R-5b, as the OWNER past the grants),
+     * and the migration cycle file's midway leg is the one that proves the down
+     * migration is not a no-op. The three arms that prove the freeze costs the
+     * legitimate writers nothing — R-5c, R-5d, R-5e — must stay GREEN, which is
+     * what says the red pair is not passing because everything is refused.
+     *
+     * FAD-33(1) is satisfied structurally rather than by rebuilding, exactly as
+     * the four 0018 arms are: the patched file is a MIGRATION, applied by the api
+     * project's `globalSetup` up -> down -> up before every run, so the patched
+     * SQL is what the assertions meet. There is no `dist/` in the path at all.
+     *
+     * The anchor is the whole condition rather than its first line, and that is
+     * not style. `IF false AND (A) OR (B) THEN` still fires on B — `AND` binds
+     * tighter than `OR` — so a one-line mutation would neuter the
+     * `termination_reason` half and leave the `solver_status` half enforcing,
+     * and the arm would report a freeze half-removed as a freeze removed. */
+    patch: [
+      {
+        file: 'apps/api/migrations/0020_build_termination_facts_frozen.sql',
+        find:
+          '    IF (OLD.termination_reason IS NOT NULL\n'
+          + '        AND NEW.termination_reason IS DISTINCT FROM OLD.termination_reason)\n'
+          + '       OR (OLD.solver_status IS NOT NULL\n'
+          + '           AND NEW.solver_status IS DISTINCT FROM OLD.solver_status)\n'
+          + '    THEN',
+        replace: '    IF false THEN -- red case: the termination-facts freeze is neutered',
+      },
+    ],
+    greenCommand: ['run', 'gate:unit:builds'],
+    redCommand: ['run', 'gate:unit:builds'],
+  },
 ];
 
 /* ── SP_RED_SHARD — the battery, split across CI runners ────────────────────
