@@ -1,0 +1,211 @@
+### REV-B DELTA VERIFICATION of R-1 / FAD-53 — instrumented window-boundary measurement
+shape: the ORIGINAL reproduction — apps/web/e2e/schedule.spec.ts, --project=mobile, --grep 'New period'
+instrumentation: temporary, in recordRequests (open-side wait duration + last page request before window open; close-side wait duration + what was recorded)
+2026-08-23T13:48:38+00:00
+ 13:48:38 up  2:12,  0 user,  load average: 0.33, 0.57, 0.77
+--- instrumented run 1 ---
+[REVB] schedule-open-new-period/mobile open-side wait = 508ms; requests seen during that wait = 0; the page was ALREADY quiet at entry
+[REVB] schedule-open-new-period/mobile close-side wait = 503ms; recorded 0 request(s): (none)
+  1 passed (4.7s)
+--- instrumented run 2 ---
+[REVB] schedule-open-new-period/mobile open-side wait = 508ms; requests seen during that wait = 0; the page was ALREADY quiet at entry
+[REVB] schedule-open-new-period/mobile close-side wait = 502ms; recorded 0 request(s): (none)
+  1 passed (4.4s)
+--- instrumented run 3 ---
+[REVB] schedule-open-new-period/mobile open-side wait = 507ms; requests seen during that wait = 0; the page was ALREADY quiet at entry
+[REVB] schedule-open-new-period/mobile close-side wait = 503ms; recorded 0 request(s): (none)
+  1 passed (4.5s)
+2026-08-23T13:48:55+00:00
+
+### ADVERSARIAL ARM — the page's own periods read held OPEN so it is in flight when recordRequests is entered
+(this is the exact race REV-B-001 was about; on a calm machine the read otherwise lands a few ms BEFORE entry and cannot be seen)
+--- SP_REVB_PERIODS_DELAY_MS=0 ---
+[REVB] schedule-open-new-period/mobile open-side wait = 510ms; requests seen during that wait = 0; the page was ALREADY quiet at entry
+[REVB] schedule-open-new-period/mobile close-side wait = 502ms; recorded 0 request(s): (none)
+  1 passed (5.2s)
+--- SP_REVB_PERIODS_DELAY_MS=300 ---
+[REVB] schedule-open-new-period/mobile open-side wait = 805ms; requests seen during that wait = 0; the page was ALREADY quiet at entry
+[REVB] schedule-open-new-period/mobile close-side wait = 504ms; recorded 0 request(s): (none)
+  1 passed (4.7s)
+--- SP_REVB_PERIODS_DELAY_MS=700 ---
+[REVB] schedule-open-new-period/mobile open-side wait = 507ms; requests seen during that wait = 0; the page was ALREADY quiet at entry
+[REVB] schedule-open-new-period/mobile close-side wait = 653ms; recorded 0 request(s): (none)
+  1 passed (4.6s)
+--- SP_REVB_PERIODS_DELAY_MS=1500 ---
+[REVB] schedule-open-new-period/mobile open-side wait = 507ms; requests seen during that wait = 0; the page was ALREADY quiet at entry
+[REVB] schedule-open-new-period/mobile close-side wait = 504ms; recorded 0 request(s): (none)
+  1 passed (4.6s)
+2026-08-23T13:50:01+00:00
+
+### ANTI-MASKING ARM — can the repaired recorder still SEE a request the CLICK caused?
+method: temporarily inject a click-caused fetch into apps/web/src/schedule/PeriodsPage.tsx, rebuild, run, restore, rebuild.
+--- ARM: immediate fetch on click (the shipped red case's violation) ---
+[REVB] schedule-open-new-period/mobile open-side wait = 507ms; requests seen during that wait = 0; the page was ALREADY quiet at entry
+[REVB] schedule-open-new-period/mobile close-side wait = 548ms; recorded 1 request(s): GET http://127.0.0.1:41988/api/health
+    [31m+ Received  + 7[39m
+    [31m+     "url": "http://127.0.0.1:41988/api/health",[39m
+  1 failed
+--- ARM: fetch 400ms AFTER the click resolves (inside the close-side quiet window) ---
+[REVB] schedule-open-new-period/mobile open-side wait = 507ms; requests seen during that wait = 0; the page was ALREADY quiet at entry
+[REVB] schedule-open-new-period/mobile close-side wait = 939ms; recorded 1 request(s): GET http://127.0.0.1:41988/api/health
+    [31m+ Received  + 7[39m
+    [31m+     "url": "http://127.0.0.1:41988/api/health",[39m
+  1 failed
+--- ARM: fetch 2000ms after the click (beyond the close-side quiet window) ---
+[REVB] schedule-open-new-period/mobile open-side wait = 507ms; requests seen during that wait = 0; the page was ALREADY quiet at entry
+[REVB] schedule-open-new-period/mobile close-side wait = 502ms; recorded 0 request(s): (none)
+  1 passed (4.6s)
+--- restored PeriodsPage.tsx sha256 ---
+d95c3a1653def5a70416cead073e86c0278e48962c4298e909fdb81b5feb6d01  apps/web/src/schedule/PeriodsPage.tsx
+
+### GREEN SWEEP on the repaired tree (instrumentation removed; files byte-identical to as-found)
+shape: the ORIGINAL REV-B-001 reproduction — schedule.spec.ts, --project=mobile, --grep 'New period'
+2026-08-23T13:51:59+00:00
+ 13:51:59 up  2:16,  0 user,  load average: 0.57, 0.62, 0.75
+idle run 1: exit=0
+idle run 2: exit=0
+idle run 3: exit=0
+idle run 4: exit=0
+idle run 5: exit=0
+idle run 6: exit=0
+IDLE FAILURES: 0 of 6
+load generators: 23902 23903 23904 23905 
+ 13:52:36 up  2:16,  0 user,  load average: 0.73, 0.66, 0.76
+loaded run 1: exit=0
+loaded run 2: exit=0
+loaded run 3: exit=0
+loaded run 4: exit=0
+loaded run 5: exit=0
+loaded run 6: exit=0
+ 13:53:21 up  2:17,  0 user,  load average: 2.93, 1.25, 0.95
+[1]   Terminated              ( while :; do
+    :;
+done )
+[2]   Terminated              ( while :; do
+    :;
+done )
+[3]-  Terminated              ( while :; do
+    :;
+done )
+[4]+  Terminated              ( while :; do
+    :;
+done )
+LOADED FAILURES: 0 of 6
+TOTAL: 0 failures in 12 runs
+2026-08-23T13:53:21+00:00
+
+
+### FULL GATE RE-RUN on the repaired tree — the two gates that were RED in CI at the baseline
+2026-08-23T14:03:52+00:00
+ 14:03:52 up  2:28,  0 user,  load average: 1.25, 1.44, 1.18
+$ corepack pnpm gate:axe
+  ✓  440 [mobile] › e2e/settings.spec.ts:479:3 › settings — locations › I-13: opening the location form issues ZERO requests (1.9s)
+  ✓  441 [mobile] › e2e/settings.spec.ts:516:3 › settings — locations › a location saves, and the client re-reads what the server says the list is (1.8s)
+  ✓  442 [mobile] › e2e/settings.spec.ts:549:3 › settings — locations › AC-08 / AC-09: no page-level horizontal scroll at 320px, and every target is ≥44×44 (1.7s)
+  ✓  443 [mobile] › e2e/settings.spec.ts:611:3 › settings — locations › PERMISSION DENIED on locations renders the denial state (1.2s)
+  ✓  444 [mobile] › e2e/shell.spec.ts:22:3 › application shell › renders the shell structure (215ms)
+  ✓  445 [mobile] › e2e/shell.spec.ts:40:3 › application shell › has no axe-core violations (765ms)
+  ✓  446 [mobile] › e2e/shell.spec.ts:61:3 › application shell › keeps the shell within its request budget (2.7s)
+
+  16 skipped
+  430 passed (13.0m)
+AXE EXIT=0
+
+$ corepack pnpm gate:request-budget
+$ node scripts/gates/request-budget.mjs
+PASS  request-budget (SP-HR-2 / I-10) — 44 budgeted interaction(s), 87 recording(s) [authn-fill-activation-form.desktop.json, authn-fill-activation-form.mobile.json, authn-submit-activation-refused-by-client.desktop.json, authn-submit-activation-refused-by-client.mobile.json, authn-submit-password-reset-request.desktop.json, authn-submit-password-reset-request.mobile.json, builds-launch-accepted.desktop.json, builds-launch-accepted.mobile.json, builds-open-cancel-confirm.desktop.json, builds-open-cancel-confirm.mobile.json, builds-open-launch-form.desktop.json, builds-open-launch-form.mobile.json, builds-open-new-configuration.desktop.json, builds-open-new-configuration.mobile.json, builds-retry.desktop.json, builds-retry.mobile.json, builds-toggle-deterministic.desktop.json, builds-toggle-deterministic.mobile.json, catalogue-open-new-shift-type.desktop.json, catalogue-open-new-shift-type.mobile.json, catalogue-save-shift-type-refused.desktop.json, catalogue-save-shift-type-refused.mobile.json, catalogue-save-shift-type.desktop.json, catalogue-save-shift-type.mobile.json, daily-sheet-next-day.desktop.json, daily-sheet-next-day.mobile.json, daily-sheet-open-from-calendar.desktop.json, health-retry-click.desktop.json, health-retry-click.mobile.json, my-schedule-next-window.desktop.json, my-schedule-next-window.mobile.json, my-schedule-switch-view.desktop.json, my-schedule-switch-view.mobile.json, publication-change-comparison.desktop.json, publication-change-comparison.mobile.json, publication-fill-confirm.desktop.json, publication-fill-confirm.mobile.json, publication-open-clone-confirm.desktop.json, publication-open-clone-confirm.mobile.json, publication-open-confirm.desktop.json, publication-open-confirm.mobile.json, publication-open-revert-confirm.desktop.json, publication-open-revert-confirm.mobile.json, publication-publish-accepted.desktop.json, publication-publish-accepted.mobile.json, publication-publish-refused.desktop.json, publication-publish-refused.mobile.json, rules-open-edit.desktop.json, rules-open-edit.mobile.json, rules-open-new-rule.desktop.json, rules-open-new-rule.mobile.json, rules-save-accepted.desktop.json, rules-save-accepted.mobile.json, rules-save-edit.desktop.json, rules-save-edit.mobile.json, rules-save-refused.desktop.json, rules-save-refused.mobile.json, schedule-create-draft-version.desktop.json, schedule-create-draft-version.mobile.json, schedule-fill-period-form.desktop.json, schedule-fill-period-form.mobile.json, schedule-open-assign-picker.desktop.json, schedule-open-assign-picker.mobile.json, schedule-open-cell-editor.desktop.json, schedule-open-cell-editor.mobile.json, schedule-open-new-period.desktop.json, schedule-open-new-period.mobile.json, schedule-pin-assignment.desktop.json, schedule-pin-assignment.mobile.json, schedule-remove-assignment.desktop.json, schedule-remove-assignment.mobile.json, schedule-save-assignment.desktop.json, schedule-save-assignment.mobile.json, schedule-save-period-refused.desktop.json, schedule-save-period-refused.mobile.json, schedule-save-requirement.desktop.json, schedule-save-requirement.mobile.json, settings-open-new-location.desktop.json, settings-open-new-location.mobile.json, settings-save-location-accepted.desktop.json, settings-save-location-accepted.mobile.json, settings-save-timezone-accepted.desktop.json, settings-save-timezone-accepted.mobile.json, settings-save-timezone-refused.desktop.json, settings-save-timezone-refused.mobile.json, shell-initial-load.desktop.json, shell-initial-load.mobile.json]
+BUDGET EXIT=0
+2026-08-23T14:16:52+00:00
+
+### REV-B's own check of the recordings this run produced (not the gate's)
+recordings on disk: 87
+zero-budget recordings checked: 36; NOT at zero: 0
+recordings over budget: 0
+--- every recorded count ---
+authn-fill-activation-form.desktop = 0 (budget 0)
+authn-fill-activation-form.mobile = 0 (budget 0)
+authn-submit-activation-refused-by-client.desktop = 0 (budget 0)
+authn-submit-activation-refused-by-client.mobile = 0 (budget 0)
+authn-submit-password-reset-request.desktop = 1 (budget 1)
+authn-submit-password-reset-request.mobile = 1 (budget 1)
+builds-launch-accepted.desktop = 2 (budget 2)
+builds-launch-accepted.mobile = 2 (budget 2)
+builds-open-cancel-confirm.desktop = 0 (budget 0)
+builds-open-cancel-confirm.mobile = 0 (budget 0)
+builds-open-launch-form.desktop = 0 (budget 0)
+builds-open-launch-form.mobile = 0 (budget 0)
+builds-open-new-configuration.desktop = 0 (budget 0)
+builds-open-new-configuration.mobile = 0 (budget 0)
+builds-retry.desktop = 2 (budget 2)
+builds-retry.mobile = 2 (budget 2)
+builds-toggle-deterministic.desktop = 0 (budget 0)
+builds-toggle-deterministic.mobile = 0 (budget 0)
+catalogue-open-new-shift-type.desktop = 0 (budget 0)
+catalogue-open-new-shift-type.mobile = 0 (budget 0)
+catalogue-save-shift-type-refused.desktop = 1 (budget 1)
+catalogue-save-shift-type-refused.mobile = 1 (budget 1)
+catalogue-save-shift-type.desktop = 2 (budget 2)
+catalogue-save-shift-type.mobile = 2 (budget 2)
+daily-sheet-next-day.desktop = 1 (budget 1)
+daily-sheet-next-day.mobile = 1 (budget 1)
+daily-sheet-open-from-calendar.desktop = 1 (budget 1)
+health-retry-click.desktop = 1 (budget 1)
+health-retry-click.mobile = 1 (budget 1)
+my-schedule-next-window.desktop = 1 (budget 1)
+my-schedule-next-window.mobile = 1 (budget 1)
+my-schedule-switch-view.desktop = 0 (budget 0)
+my-schedule-switch-view.mobile = 0 (budget 0)
+publication-change-comparison.desktop = 2 (budget 2)
+publication-change-comparison.mobile = 2 (budget 2)
+publication-fill-confirm.desktop = 0 (budget 0)
+publication-fill-confirm.mobile = 0 (budget 0)
+publication-open-clone-confirm.desktop = 0 (budget 0)
+publication-open-clone-confirm.mobile = 0 (budget 0)
+publication-open-confirm.desktop = 0 (budget 0)
+publication-open-confirm.mobile = 0 (budget 0)
+publication-open-revert-confirm.desktop = 0 (budget 0)
+publication-open-revert-confirm.mobile = 0 (budget 0)
+publication-publish-accepted.desktop = 2 (budget 2)
+publication-publish-accepted.mobile = 2 (budget 2)
+publication-publish-refused.desktop = 1 (budget 1)
+publication-publish-refused.mobile = 1 (budget 1)
+rules-open-edit.desktop = 0 (budget 0)
+rules-open-edit.mobile = 0 (budget 0)
+rules-open-new-rule.desktop = 0 (budget 0)
+rules-open-new-rule.mobile = 0 (budget 0)
+rules-save-accepted.desktop = 2 (budget 2)
+rules-save-accepted.mobile = 2 (budget 2)
+rules-save-edit.desktop = 2 (budget 2)
+rules-save-edit.mobile = 2 (budget 2)
+rules-save-refused.desktop = 1 (budget 1)
+rules-save-refused.mobile = 1 (budget 1)
+schedule-create-draft-version.desktop = 2 (budget 2)
+schedule-create-draft-version.mobile = 2 (budget 2)
+schedule-fill-period-form.desktop = 0 (budget 0)
+schedule-fill-period-form.mobile = 0 (budget 0)
+schedule-open-assign-picker.desktop = 1 (budget 1)
+schedule-open-assign-picker.mobile = 1 (budget 1)
+schedule-open-cell-editor.desktop = 0 (budget 0)
+schedule-open-cell-editor.mobile = 0 (budget 0)
+schedule-open-new-period.desktop = 0 (budget 0)
+schedule-open-new-period.mobile = 0 (budget 0)
+schedule-pin-assignment.desktop = 2 (budget 2)
+schedule-pin-assignment.mobile = 2 (budget 2)
+schedule-remove-assignment.desktop = 2 (budget 2)
+schedule-remove-assignment.mobile = 2 (budget 2)
+schedule-save-assignment.desktop = 2 (budget 2)
+schedule-save-assignment.mobile = 2 (budget 2)
+schedule-save-period-refused.desktop = 1 (budget 1)
+schedule-save-period-refused.mobile = 1 (budget 1)
+schedule-save-requirement.desktop = 2 (budget 2)
+schedule-save-requirement.mobile = 2 (budget 2)
+settings-open-new-location.desktop = 0 (budget 0)
+settings-open-new-location.mobile = 0 (budget 0)
+settings-save-location-accepted.desktop = 2 (budget 2)
+settings-save-location-accepted.mobile = 2 (budget 2)
+settings-save-timezone-accepted.desktop = 2 (budget 2)
+settings-save-timezone-accepted.mobile = 2 (budget 2)
+settings-save-timezone-refused.desktop = 1 (budget 1)
+settings-save-timezone-refused.mobile = 1 (budget 1)
+shell-initial-load.desktop = 4 (budget 8)
+shell-initial-load.mobile = 4 (budget 8)
