@@ -127,3 +127,109 @@ correctly-scoped views of the same run. No finding.
    reproduces that same '1 failed' shape. The claim stands; the driver would be stronger if
    it asserted the failing test's NAME. Recorded as a note, not a finding.
 2026-08-23T05:14:54Z
+
+############################################################################
+# PROBE-QUALITY JUDGEMENTS — three probes sampled from EACH reviewer        #
+############################################################################
+
+REV-A, probe 1/3 — transcripts/probe-sources/repro-truth-table.mjs   [RE-RUN by REV-C, t07]
+  Claims: drives resultReproducibility over its whole input space, 26 cases.
+  Judgement: PROVES WHAT IT CLAIMS. Direct calls into the shipped dist export; the
+  promise-sentence column is a regex over the returned detail, not a re-derivation. It
+  reproduced row-for-row under REV-C, including both GH-008 residuals and the 8.999999s
+  'well inside' sentence. No vacuity: the two constants are printed, so a probe run against
+  a build with different thresholds would announce itself.
+
+REV-A, probe 2/3 — transcripts/probe-sources/mutate.sh                [CODE-READ + M3 RE-RUN]
+  Claims: apply -> measure -> restore -> verify restore, per mutation.
+  Judgement: PROVES WHAT IT CLAIMS, and is the stronger of the two mutation drivers in the
+  pair. It ABORTS unless the find-string occurs EXACTLY ONCE (so it cannot silently patch the
+  wrong site), prints the applied diff, compares sha256 before/after, and runs git status on
+  the file. REV-C re-ran its M3 arm and reproduced REV-A's exact figure (1 failed | 39 passed).
+
+REV-A, probe 3/3 — transcripts/probe-sources/dst-sweep.mjs                     [CODE-READ]
+  Claims: 5424 intervals, 23 zones x 3 years x transition dates +/-1 x 16 windows, 0 violations.
+  Judgement: PROVES WHAT IT CLAIMS, AND IS NON-VACUOUS BY CONSTRUCTION. It counts and prints
+  'gap starts observed: 108' and 'fold starts observed: 93' — a sweep that enumerated the right
+  dates but never landed on a transition would report 0 there and be visibly hollow. It exits
+  non-zero on any violation (process.exit(failures === 0 ? 0 : 1)), so the exit code is real.
+
+REV-A, probes 4-5 (p2 audit/termination, p3 selection window)   [CODE-READ; RE-RUN in t11]
+  ONE DESIGN WEAKNESS WORTH THE ADJUDICATOR'S ATTENTION, common to both: neither arm asserts
+  its OUTCOME. p3 ends with expect(movedRows).toBeGreaterThan(0) and expect(before.stale)
+  .toBe(false) — non-vacuity only; p2/H ends with expect(typeof accepted).toBe('boolean'),
+  which cannot fail. This is a defensible review-probe stance ('REV-A reports; it does not
+  decide', stated in both files) and it prevents the probe from failing merely for finding the
+  other outcome. But it means REV-A-003 and REV-A-004 rest on READING A PRINTED LINE, not on a
+  test result. REV-C therefore re-ran both and read the same lines independently (t11).
+
+REV-B, probe 1/3 — probes/mutation-sample.mjs                 [CODE-READ + M-07 RE-RUN]
+  Judgement above (this transcript, spot-check 2). PROVES WHAT IT CLAIMS, with the recorded
+  exit-code-only weakness.
+
+REV-B, probe 2/3 — probes/red-case-arms.sh.txt                             [CODE-READ]
+  Claims: 13 arms proven in BOTH directions through the runner's own machinery.
+  Judgement: PROVES WHAT IT CLAIMS, and its design choice is the right one — it uses the
+  SHIPPED shard filter (SP_RED_SHARD=k/65) rather than a bespoke harness, so what it measures
+  is what CI measures. It reads PIPESTATUS rather than the tail's exit, and it runs
+  git status --porcelain after EVERY arm with the evidence paths excluded, which is what makes
+  the NR-14 clean-tree property checkable from outside. REV-C verified the shard arithmetic
+  claim independently: with 65 registered arms, index % 65 == k selects exactly index k.
+
+REV-B, probe 3/3 — probes/privacy-log-leak.probe.test.ts.txt                [CODE-READ]
+  Claims: a marker driven through six wire positions, hunted in the server's own log, with a
+  planted-needle falsifiability control.
+  Judgement: PROVES WHAT IT CLAIMS — AND REV-B GRADED ITS OWN RESULT CORRECTLY. The probe
+  carries BOTH guards a hunt of this shape needs: a non-vacuity assertion
+  (expect(harness.logs.length).toBeGreaterThan(0)) and a separate control arm that plants a
+  needle through harness.app.log.info and requires the same hunt to find it. REV-B then
+  declined to call the result a pass because only ONE log line was captured across six
+  requests — a thin haystack — and filed it as a NOTE with that caveat in the finding text.
+  That is the correct grade, and REV-C endorses both the probe and the restraint.
+
+############ REV-B-005 — CONFIRMED, and its root cause is deeper than reported ############
+
+REV-B reported that .ts/.sh under docs/ turns the two doc validators red. CONFIRMED by
+REV-C from the validator sources:
+  $ sed -n "166,169p" docs/fable/validate.py
+        if os.path.splitext(f)[1].lower() in (".ts", ".tsx", ".js", ".sql",
+                                              ".tf", ".dockerfile") \
+           or (f.endswith(".py") and f != "validate.py"):
+            bad_code.append(os.path.relpath(os.path.join(root, f), REPO))
+  $ sed -n "456,457p" docs/architecture/validate.py
+CODE_EXT = {".ts",".tsx",".js",".jsx",".sql",".py",".yaml",".yml",".tf",".dockerfile",
+            ".sh",".rb",".go",".java",".cs",".proto",".prisma"}
+
+WHAT REV-B DID NOT NOTICE. Architecture assertion 52a defines an allowlist that NAMES the
+evidence tree, and then never consults it:
+  $ sed -n "467,479p" docs/architecture/validate.py
+ALLOWED_IMPL_ROOTS = ("spikes", "apps", "packages", "solver", "scripts",
+                      ".github", "docs/evidence")
+for root, dirs, files in os.walk(REPO):
+    dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
+    for f in files:
+        ext = os.path.splitext(f)[1].lower()
+        full = os.path.join(root, f)
+        rel = os.path.relpath(full, REPO)
+        if ext in CODE_EXT \
+           and os.path.basename(full) not in ("validate.py", "validate.sh") \
+           and (rel.startswith("docs/") or rel.startswith("schedulepoint-research/")):
+            arte.append(rel)
+check("52a. Documentation and research trees contain no application code",
+
+  ALLOWED_IMPL_ROOTS includes "docs/evidence" — but 52a's condition is
+  'rel.startswith("docs/")' with no reference to ALLOWED_IMPL_ROOTS at all. The variable is
+  consulted ONLY by 52b:
+  $ grep -n "ALLOWED_IMPL_ROOTS" docs/architecture/validate.py
+467:ALLOWED_IMPL_ROOTS = ("spikes", "apps", "packages", "solver", "scripts",
+488:    if not any((entry + "/").startswith(a.split("/")[0] + "/") for a in ALLOWED_IMPL_ROOTS):
+  and 52b iterates os.listdir(REPO) filtered by os.path.isdir — top-level DIRECTORIES only.
+
+  Two consequences:
+   1. A reviewer who reads the allowlist concludes docs/evidence is exempt from 52a. It is
+      not. That is exactly the trap REV-B fell into, and the reason REV-B-005 exists.
+   2. Because 52b only looks at directories, a stray FILE at the repository root is invisible
+      to it — which is why the tracked '=' file (REV-C-007) has survived every run of this
+      validator since 2026-08-05.
+  Recorded as REV-C-008 (NOTE), attached to REV-B-005 rather than replacing it.
+2026-08-23T05:22:53Z
