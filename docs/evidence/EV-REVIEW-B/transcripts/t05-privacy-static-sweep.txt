@@ -1,0 +1,51 @@
+### I-07 / I-17 privacy static sweep (REV-B)
+
+--- (a) any logging of request/response bodies in apps/api/src ---
+apps/api/src/authz/authorize-request.ts:194:  request.log.info(
+apps/api/src/authn/principal-resolver.ts:131:      request.log.warn(
+apps/api/src/http/routes/schedule-publication.route.ts:369:      request.log.warn(
+apps/api/src/http/routes/schedule-publication.route.ts:383:      request.log.warn(
+apps/api/src/http/routes/schedule-publication.route.ts:394:    if (fields.isDefect) request.log.error(fields, 'publication statement refused by the database');
+apps/api/src/http/routes/schedule-publication.route.ts:395:    else request.log.warn(fields, 'publication statement refused by the database');
+apps/api/src/http/routes/schedule-views.route.ts:253:      request.log.warn(
+apps/api/src/http/routes/authn.route.ts:92:  request.log.info(
+apps/api/src/http/routes/profiles.route.ts:244:    request.log.error(
+apps/api/src/http/routes/rules.route.ts:185:      request.log.warn(
+apps/api/src/http/routes/rules.route.ts:223:      request.log.warn(
+apps/api/src/http/routes/catalogue.route.ts:224:      request.log.warn(
+apps/api/src/http/routes/catalogue.route.ts:309:      request.log.warn(
+apps/api/src/http/routes/authorization.route.ts:180:            request.log.warn(
+apps/api/src/http/routes/authorization.route.ts:292:            request.log.warn(
+apps/api/src/http/routes/authorization.route.ts:326:            request.log.warn(
+apps/api/src/http/routes/authorization.route.ts:434:            request.log.error(
+apps/api/src/http/routes/settings.route.ts:191:  if (fields.isDefect) request.log.error(fields, message);
+apps/api/src/http/routes/settings.route.ts:192:  else request.log.warn(fields, message);
+apps/api/src/http/routes/schedule-authoring.route.ts:303:        request.log.warn(
+apps/api/src/http/routes/schedule-authoring.route.ts:309:      request.log.warn(
+apps/api/src/http/routes/builds.route.ts:234:    request.log.warn(
+apps/api/src/http/routes/builds.route.ts:246:    request.log.warn(
+apps/api/src/http/routes/builds.route.ts:252:  request.log.warn(
+apps/api/src/http/routes/builds.route.ts:662:          request.log.info(
+apps/api/src/http/context/middleware.ts:186:      request.log.error(
+apps/api/src/http/context/middleware.ts:216:        request.log.error(
+apps/api/src/http/context/middleware.ts:274:    request.log.error(
+apps/api/src/http/context/responses.ts:90:    request.log.warn({ contextSecurityEvent: logLine }, 'context declaration rejected');
+apps/api/src/http/context/responses.ts:92:    request.log.info({ contextFailure: logLine }, 'context declaration rejected');
+apps/api/src/http/context/responses.ts:147:  request.log.info({ correlationId: request.correlationId, reason }, 'request is unauthenticated');
+apps/api/src/http/context/responses.ts:173:  request.log.info({ correlationId: request.correlationId, reason }, 'authorization denied');
+apps/api/src/http/context/responses.ts:190:  request.log.info(
+apps/api/src/http/errors.ts:38:      request.log.error(
+
+--- (b) console.* in production source ---
+
+--- (c) audit payload closedness enforcement ---
+apps/api/src/audit/periodic.ts:224:          payload: { problems: problems.length, checkpointMismatches: badCheckpoints.length },
+apps/api/src/audit/reader.ts:61:  payload: unknown;
+apps/api/src/audit/reader.ts:98:           e.payload,
+apps/api/src/audit/reader.ts:129:      // The closed-payload CHECK (migration 0003) is what makes this safe to
+apps/api/src/audit/reader.ts:131:      payload: (row.payload ?? {}) as AuditEventView['payload'],
+apps/api/src/audit/recorder.ts:61:    const payload = draft.payload ?? {};
+apps/api/src/audit/recorder.ts:64:    // follows. A payload violation is a programming error, not a tenant's fault.
+apps/api/src/audit/recorder.ts:65:    assertClosedAuditPayload(payload);
+apps/api/src/audit/recorder.ts:85:        group_id, subject_type, subject_id, correlation_id, payload
+apps/api/src/audit/recorder.ts:96:        ${JSON.stringify(payload)}::jsonb

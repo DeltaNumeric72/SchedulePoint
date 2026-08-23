@@ -1,0 +1,24 @@
+=== architecture validator ===
+55c. Every decision described as resolved appears in the resolution record                              PASS
+55d. Document 04 module count is self-consistent (stated == defined; no live 25-to-19 claim)            PASS
+55e. Every internal-verification finding is dispositioned in the corrections record                     PASS
+
+95 assertions, 95 passed, 0 failed.
+EXIT=0
+=== fable validator ===
+9a. Referenced file exists: SPEC-01-request-context-and-tenant-isolation.md                  PASS
+9a. Referenced file exists: SPEC-02-picklist-turn-transaction.md                             PASS
+10a. Docs tree contains no application code                                                  PASS
+
+36 assertions, 36 passed, 0 failed.
+EXIT=0
+=== research validator ===
+OK file     : reports/evidence-register.md
+OK file     : reports/unresolved-questions.md
+OK file     : MASTER-CHECKLIST.md
+
+== manifest.json JSON validity ==
+OK json     : reports/manifest.json parses
+
+PASS: all required files and directories are present and non-empty.
+EXIT=0

@@ -1,0 +1,10 @@
+$ node scripts/check.mjs
+evidence: scratch — writing under .evidence-scratch/ (tracked artifacts untouched; pass --refresh to update them)
+
+[1m=== lint — lint (eslint) ===[0m
+$ eslint .
+
+[1m=== typecheck — typecheck (tsc -b) ===[0m
+$ tsc -b --force
+
+[1m=== unit — unit tests (vitest) ===[0m

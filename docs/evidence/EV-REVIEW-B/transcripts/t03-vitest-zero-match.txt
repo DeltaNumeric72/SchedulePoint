@@ -1,0 +1,13 @@
+### PROBE: vitest zero-match -t filter exits 0 (GH-008 hazard)
+$ pnpm exec vitest run packages/domain/test/ports/result-reproducibility.test.ts -t 'NO_SUCH_TEST_NAME_REVB'
+
+ RUN  v3.2.4 /home/user/SchedulePoint
+
+ ↓ |domain| test/ports/result-reproducibility.test.ts (31 tests | 31 skipped)
+
+ Test Files  1 skipped (1)
+      Tests  31 skipped (31)
+   Start at  03:32:36
+   Duration  852ms (transform 358ms, setup 0ms, collect 467ms, tests 0ms, environment 0ms, prepare 80ms)
+
+EXIT=0
