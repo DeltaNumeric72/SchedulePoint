@@ -1,0 +1,74 @@
+=== REV-C / T07 — REV-A-005/006 (GH-008 M-1/M-2) rechecked by re-running REV-A's committed truth-table probe ===
+2026-08-23T05:15:41Z
+HEAD 70e7378
+
+--- REV-A-007 rechecked first (a MINOR: a stale count in a load-bearing docblock) ---
+$ grep -n "twenty-four\|twenty-two\|six kinds" packages/domain/src/rules/hard-rule-check.ts
+35: * ## OPUS-M4-002: six kinds became twenty-two, and why that is not a rewrite
+300: * being made here. The other twenty-four kinds are listed with their reasons in
+$ corepack pnpm run -s gate:rule-kind-registry   (the executed truth)
+$ tsc -b packages/domain && node scripts/gates/rule-kind-registry-check.mjs
+PASS  rule-kind registry is generated (doc 34 §4-D) — 30 unique kind(s), 22 evaluated / 8 not-evaluable, 0 one ruling away, artifact packages/domain/src/rules/rule-kind-registry.generated.md
+CONFIRMED: line 300 says the OTHER 24 kinds are not-evaluable; the gate says 8. The docblock
+overstates the unenforced surface 3x, exactly as REV-A-007 reports.
+
+--- ensure dist is current before driving the derivation directly ---
+$ corepack pnpm exec tsc -b packages/domain
+EXIT=0
+
+--- REV-A's own committed probe source, run unmodified by REV-C ---
+$ node <EV-REVIEW-A/transcripts/probe-sources/repro-truth-table.mjs>
+WALL_CLOCK_BINDING_FRACTION = 0.9
+DETERMINISTIC_BUDGET_UNSPENT_FRACTION = 0.5
+
+CASE                                                                         VERDICT                REPRO  PROMISE-SENTENCE
+GH-007 ground truth: wall 8.68s, 8.076904/100 units, FEASIBLE, completed     stopped-early          false  .
+GH-007 knife edge, other side: wall 9.07s (>= 0.9*10), same facts            wall-clock-truncated   false  .
+B-1: CANCELLED status, completed termination (contradiction)                 interrupted            false  .
+B-1: user_cancelled termination                                              interrupted            false  .
+stopped-early boundary: units EXACTLY 50.0 of 100 (== 0.5x)                  stopped-early          false  .
+stopped-early boundary: units 50.000001 of 100 (just over 0.5x)  << GH-008 M-1 reproducible           true   YES
+mid-band: units 75 of 100, FEASIBLE, completed, wall 1s  << GH-008 M-1       reproducible           true   YES
+mid-band: units 99.9 of 100 (budget essentially spent)                       reproducible           true   YES
+OPTIMAL at 76.702882/100 units (the machine of record)                       reproducible           true   YES
+OPTIMAL at 5 units (proof was cheap)                                         reproducible           true   YES
+INFEASIBLE at 0.0 units (the G1 counterexample)                              reproducible           true   YES
+FEASIBLE, completed, units NULL                                              unrecorded             false  .
+solver_status NULL, completed, wall 1s, units 8/100  << GH-008 M-2           reproducible           true   YES
+solver_status NULL, completed, wall 1s, units NULL   << GH-008 M-2           reproducible           true   YES
+solver_status UNKNOWN, completed, wall 1s, units 8/100                       reproducible           true   YES
+termination NULL                                                             unrecorded             false  .
+wall time NULL                                                               unrecorded             false  .
+wall 9.5s AND units 1/100 (both rules would fire)                            wall-clock-truncated   false  .
+wall exactly 9.0s (== 0.9*10, the boundary)                                  wall-clock-truncated   false  .
+wall 8.999999s (just under the boundary), units 75                           reproducible           true   YES
+best-effort parameter set                                                    best-effort            false  .
+termination=deadline                                                         interrupted            false  .
+termination=killed                                                           interrupted            false  .
+termination=crashed                                                          interrupted            false  .
+termination=user_cancelled                                                   interrupted            false  .
+termination=superseded                                                       interrupted            false  .
+
+--- rows that CLAIM reproducibility ---
+ * stopped-early boundary: units 50.000001 of 100 (just over 0.5x)  << GH-008 M-1 
+      The deterministic budget or a completed proof ended the search after 1s, well inside the 10s wall-clock l
+ * mid-band: units 75 of 100, FEASIBLE, completed, wall 1s  << GH-008 M-1 
+      The deterministic budget or a completed proof ended the search after 1s, well inside the 10s wall-clock l
+ * mid-band: units 99.9 of 100 (budget essentially spent) 
+      The deterministic budget or a completed proof ended the search after 1s, well inside the 10s wall-clock l
+ * OPTIMAL at 76.702882/100 units (the machine of record) 
+      The deterministic budget or a completed proof ended the search after 1s, well inside the 10s wall-clock l
+ * OPTIMAL at 5 units (proof was cheap) 
+      The deterministic budget or a completed proof ended the search after 1s, well inside the 10s wall-clock l
+ * INFEASIBLE at 0.0 units (the G1 counterexample) 
+      The deterministic budget or a completed proof ended the search after 0.001075s, well inside the 10s wall-
+ * solver_status NULL, completed, wall 1s, units 8/100  << GH-008 M-2 
+      The deterministic budget or a completed proof ended the search after 1s, well inside the 10s wall-clock l
+ * solver_status NULL, completed, wall 1s, units NULL   << GH-008 M-2 
+      The deterministic budget or a completed proof ended the search after 1s, well inside the 10s wall-clock l
+ * solver_status UNKNOWN, completed, wall 1s, units 8/100 
+      The deterministic budget or a completed proof ended the search after 1s, well inside the 10s wall-clock l
+ * wall 8.999999s (just under the boundary), units 75 
+      The deterministic budget or a completed proof ended the search after 8.999999s, well inside the 10s wall-
+EXIT=0
+2026-08-23T05:15:43Z
