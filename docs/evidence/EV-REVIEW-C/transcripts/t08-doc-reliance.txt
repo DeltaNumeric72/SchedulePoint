@@ -1,0 +1,127 @@
+=== REV-C / T08 — doc-reliance detection: are the two reports' non-execution declarations accurate? ===
+2026-08-23T05:17:55Z
+
+############ REV-A ############
+
+REV-A's REPORT.md states, of its coverage: 'The full per-scope-area coverage table (no silent
+gaps: two areas declared not-executed with reasons — fixture-regression ... and the real-stack
+e2e ...; 60 of 65 red-case arms accepted on the CI evidence at 332603e per arm class, five
+in-scope arms re-executed and proven), the battery-figure-vs-claim table, and the twelve-point
+could-not-falsify list are in INDEX.md §§13-16'.
+
+--- CHECK 1: what is actually in EV-REVIEW-A/INDEX.md §§13-16? ---
+$ git show review/rev-a:docs/evidence/EV-REVIEW-A/INDEX.md | grep -nE "^## "
+27:## Contents
+37:## 2. Capability traceability — executed
+73:## 1. Baseline `corepack pnpm check` — EXECUTED, and it does NOT reproduce green
+129:## 3. The delta `milestone/M4..origin/main` — EXECUTED
+149:## 4. Solver / checker independence — EXECUTED, both sides extracted independently
+161:## 5. R-B4 / R-B5 / overnight — EXECUTED far beyond the shipped set
+182:## 6. Hard-rule checker — EXECUTED at the boundaries
+203:## 7. `resultReproducibility` (FAD-49/50/52) — EXECUTED over its whole input space
+222:## 8. The database probes — EXECUTED, 17/17
+240:## 9. Mutation probes — four, each DETECTED and each RESTORED byte-identical
+256:## 10. Migration cycle 0001–0019 — EXECUTED, and the claim's WORDING does not survive it
+275:## 11. SBX — EXECUTED, every figure reproduces
+288:## 12. doc 36 §10.4 — the "un-falsified selection window" IS reachable
+312:## 13. Every M4 exit limitation (doc 36 §§3 and 10) — each verified real and honestly sized
+332:## 14. Batteries: executed, declared, and the CI evidence accepted
+343:## 15. The five red-case arms REV-A executed
+361:## 16. Probe hygiene
+
+FINDING: there is NO per-scope-area coverage table anywhere in the bundle. §13 is the M4 exit
+LIMITATIONS table; §14 is a BATTERY table (6 rows); §15 is the five red-case arms; §16 is probe
+hygiene. doc 38 §3's REV-A completion criterion is 'EVERY SCOPE AREA either covered with
+executed evidence or explicitly declared not-executable with the reason'. The scope areas are
+the fifteen the packet enumerates, and no document in EV-REVIEW-A enumerates them.
+Compare REV-B, which DOES carry that table verbatim as its §D.
+=> REV-A's completion criterion is not met in the form the packet requires, and the report's
+   own citation ('in INDEX.md §§13-16') points at four sections that do not contain it.
+   Filed as REV-C-003 (MINOR).
+
+--- CHECK 2: is the 'two areas declared not-executed' count itself accurate/understated? ---
+REV-A's INDEX §14 battery table, row by row:
+   pnpm check               EXECUTED
+   pnpm sbx                 EXECUTED
+   migration cycle          EXECUTED
+   red-case battery         PARTIALLY EXECUTED (5 of 65 local; 60 on CI evidence)
+   pnpm fixture-regression  NOT EXECUTED  (declared, with measured arithmetic)
+   real-stack e2e           NOT EXECUTED  (declared, REV-B's lane)
+=> The literal count 'two areas declared not-executed' is ACCURATE for full non-execution, and
+   the red-case partial is disclosed in the same sentence's parenthesis and again in §14.
+   NOT understated. REV-A's two flagged declarations are honest.
+
+--- CHECK 3: REV-A's fixture-regression declaration says 'No CI evidence exists for it either'. ---
+$ grep -nE "fixture-regression|red-cases|pnpm check|pnpm sbx" .github/workflows/ci.yml
+3:# Every gate in `pnpm check` is build-failing (15-testing-strategy §4). There is
+9:#   red-cases  — do the gates still catch what they claim to catch?
+33:    # from taste. `pnpm check` took 11.4 min on the runner while the unit gate
+190:      - name: pnpm check
+191:        run: corepack pnpm check
+215:  # `SP_RED_SHARD="k/N"` (scripts/red-cases/run.mjs) selects the arms whose
+269:  # 0..N-1. Nothing here enforces that by itself — the `red-cases-union` job
+272:  red-cases:
+386:      # `pnpm check` never hits this because scripts/check.mjs orders typecheck
+402:      - name: pnpm red-cases (shard ${{ matrix.shard }})
+403:        id: red-cases
+406:        run: corepack pnpm red-cases
+427:            "shard": "${{ steps.red-cases.outputs.shard }}",
+428:            "selected": "${{ steps.red-cases.outputs.selected }}",
+429:            "total": "${{ steps.red-cases.outputs.total }}",
+430:            "arms": "${{ steps.red-cases.outputs.arms }}"
+445:          if [ -n "$(git status --porcelain -- ':!scripts/red-cases/evidence-output.txt' ':!scripts/check-output.txt')" ]; then
+461:          path: .evidence-scratch/scripts/red-cases/evidence-output.txt
+478:  red-cases-union:
+481:    needs: [red-cases]
+497:          MATRIX_RESULT: ${{ needs['red-cases'].result }}
+499:          echo "red-cases matrix result: $MATRIX_RESULT"
+523:          const source = readFileSync('scripts/red-cases/run.mjs', 'utf8');
+527:            console.error('Could not locate the CASES registry in scripts/red-cases/run.mjs.');
+535:          console.log(`registry: ${expected.length} arm(s) declared in scripts/red-cases/run.mjs`);
+=> CONFIRMED: ci.yml runs pnpm check and pnpm red-cases only. Neither fixture-regression nor
+   sbx is run anywhere in CI. REV-A's declaration is exactly right, and REV-C adds that SBX is
+   in the same position (doc 38 §7 requires sbx 9/9 in the final battery; CI never runs it, so
+   its only evidence is a local run by whoever is looking). Recorded under REV-C-004.
+
+--- CHECK 4: REV-A claims resting on READING rather than execution (sampled) ---
+REV-A §13 establishes eight of the fifteen doc-36 limitations as REAL by citing a source line
+(conflicts.ts:159, router.tsx, real-solve-lifecycle.test.ts:230, runtime.py:80, builds.route.ts:588,
+concurrency-recovery-matrix.test.ts, checkpoint-signer.ts). REV-C's judgement: for a claim about
+WHAT A SOURCE FILE SAYS, reading the file IS the right instrument, and REV-A labels each with the
+exact file and line so it is checkable. This is not the doc-reliance the packet is hunting.
+REV-C spot-checked three of them:
+   conflicts.ts <- "no band is defined for fairness dispersion" PRESENT
+   builds.route.ts <- "stalenessWire"                         PRESENT
+   checkpoint-signer.ts <- "none of the assurance"            *** ABSENT ***
+   ^ REV-C's OWN ERROR, corrected: REV-C guessed the path packages/domain/src/ports/. REV-A's
+     REPORT names the FILE without a path for this one row. The real path is
+     apps/api/src/audit/checkpoint-signer.ts, and the quoted text is verbatim:
+       $ grep -n "assurance|keyIsIsolated" apps/api/src/audit/checkpoint-signer.ts
+       23: * therefore satisfies the *mechanism* and **none of the assurance**: an actor who
+       26: * checkpoints defeat. `keyIsIsolated` returns **`false`**, and that flag exists
+       66:  readonly keyIsIsolated = false;
+=> three of three present, verbatim. REV-A's source-citation claims are checkable and check out.
+   (Recorded honestly: the one ABSENT line above was REV-C's mis-guess, not a REV-A defect.)
+
+############ REV-B ############
+
+--- CHECK 5: REV-B's declared-not-executed list (§F), verified as accurate not understated ---
+§F declares six items with measured arithmetic: the serial 65-arm red-case battery;
+fixture-regression; red-case arms 21/22; a genuinely fresh clone; an independent axe
+configuration; assistive-technology sessions. REV-C checked the two that are checkable
+as declarations of fact:
+   (a) "no -t/--testNamePattern filter is used anywhere in package.json, scripts/, or ci.yml"
+       $ grep -rnE "(-t |--testNamePattern)" package.json scripts/ .github/workflows/ci.yml
+       EXIT=0 (no output = REV-B's claim holds)
+   (b) "139 standalone runs = find apps/api/test -name *.test.ts | wc -l"
+       $ find apps/api/test -name "*.test.ts" | wc -l  ->  141
+       (REV-C note: this count now includes REV-C's own two staged probe files if present;
+        tracked-only count follows)
+       $ git ls-files "apps/api/test/**/*.test.ts" | wc -l  ->  139
+
+--- CHECK 6: the ONE undeclared doc-reliance REV-C found in REV-B ---
+REV-B §C row 5 presents the migration-cycle battery row as re-executed and MATCHING, on the
+strength of a unit test that cycles ONE migration. See transcript t03 Part 1. That row is the
+single place in either bundle where a battery figure is endorsed on an artifact that did not
+produce it, WITHOUT a declaration. Filed as REV-C-002 (MAJOR).
+2026-08-23T05:17:55Z
