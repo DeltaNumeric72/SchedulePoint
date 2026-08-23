@@ -14,22 +14,22 @@ orchestrators race, the one whose remote update succeeds owns the run.
 | Run ID | `RUN-20260822-GHRECON-01` |
 | Orchestrator | Claude Fable (Claude Code on the web session, continuous GitHub master authorization of 2026-08-22) |
 | Current milestone | Post-M4 hold: M4 COMPLETE; M3R PAUSED-pending-review; prototype checkpoint and M5 NOT begun |
-| Current packet | GitHub reconciliation (no implementation packet in flight) |
-| Lifecycle state | CI-ENABLEMENT — OPUS-GH-001 ACCEPTED (delta-verified); GH-002 (solver provisioning) and GH-003 (axe defect) queued; replacement-review plan authoring next |
-| origin/main commit | `1593b068c8b524a6ec40cba314d32c9748b6ba3b` |
+| Current packet | replacement-review (doc 38): REV-A next |
+| Lifecycle state | REVIEW-PLAN RATIFIED — PR #3 MERGED (origin/main `93a71f5`, tree byte-identical to the fully-green candidate `332603e`); doc 38 committed and ratified; REV-A launching |
+| origin/main commit | `93a71f52a16c60d99fecd6c862ba952b170cfb3a` |
 | Task branch | `claude/schedulepoint-github-auth-a4ns2p` |
 | Worktree | Claude Code web workspace `/home/user/SchedulePoint` (ephemeral) |
 | Latest pushed commit | this commit (branch tip on origin) |
-| Pull request | [#3](https://github.com/DeltaNumeric72/SchedulePoint/pull/3) (draft; merge once CI is green) |
+| Pull request | PR #3 MERGED; plan PR open from the task branch |
 | Implementer | none active |
 | Reviewer | none active |
 | Active processes / ports | none — no dev server, database, or solver process started this session |
 | Last command | `git push origin milestone/M4` (tag-publication probe) |
 | Last exit code | 1 (HTTP 403 — session credential is branch-scoped; recorded, not retried) |
-| Open findings | GH-001 review's two out-of-scope MAJORs, registered as packets: GH-002 (CI provisions no Python/OR-Tools — 11 unit files fail) · GH-003 (deterministic serious axe `scrollable-region-focusable`, catalogue mobile). M3R's registered findings stand unchanged |
+| Open findings | follow-ups GH-004/GH-008/GH-009 (review input) · owner action issue #4 · M3R findings unchanged pending the review |
 | External blockers | none — [#1](https://github.com/DeltaNumeric72/SchedulePoint/issues/1) CLOSED (all four milestone tags on GitHub, independently verified) · [#2](https://github.com/DeltaNumeric72/SchedulePoint/issues/2) CLOSED (Codex requirement SUPERSEDED BY OWNER DECISION 2026-08-22; replacement gate = Fable-planned, multi-Opus-executed internal review) |
-| Exact next action | Execute GH-002 and GH-003 serially (Opus implement + fresh Opus review each); when CI is green, merge PR #3; then commit and ratify the replacement-review plan (doc 38) and launch Reviewer A |
-| Last update (UTC) | 2026-08-22T16:55:00Z |
+| Exact next action | Launch REV-A (fresh Opus, read-only, evidence to EV-REVIEW-A, probe branch review/rev-a); then REV-B blind to A; then REV-C; adjudicate; repairs; gate per doc 38 §9 |
+| Last update (UTC) | 2026-08-23T02:45:00Z |
 
 ## Reconciliation facts this record rests on
 
