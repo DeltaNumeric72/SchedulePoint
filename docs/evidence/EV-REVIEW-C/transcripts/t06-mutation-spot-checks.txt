@@ -1,0 +1,129 @@
+=== REV-C / T06 — probe-quality spot-checks: ONE mutation probe re-run from EACH reviewer ===
+2026-08-23T05:14:26Z
+HEAD fe0d466
+
+############################################################################
+# SPOT-CHECK 1 — REV-A's mutation probe M3 (checker rule), re-run by REV-C #
+# REV-A claim: 'All four mutation probes bit.'  M3 = MinimumRestBetween     #
+############################################################################
+sha256 before : 94483d69aada7902d7630ec9c2143e312bd4145cb98647c181ac5875b91a946b
+occurrences of the anchor: 1 (must be exactly 1)
+patch applied
+sha256 after  : 3ea0d19a28e2b1629b30989cd60dd168fa86bb8ad830edf767c634b3db409db3
+--- applied diff ---
+diff --git a/packages/domain/src/rules/hard-rule-check.ts b/packages/domain/src/rules/hard-rule-check.ts
+index 2697c6c..a27020c 100644
+--- a/packages/domain/src/rules/hard-rule-check.ts
++++ b/packages/domain/src/rules/hard-rule-check.ts
+@@ -578,7 +578,7 @@ function checkMinimumRestBetween(
+       const current = ordered[index];
+       if (previous === undefined || current === undefined) continue;
+       const rest = current.startsAtMs - previous.endsAtMs;
+-      if (rest >= minMs) continue;
++      if (rest >= minMs - 3_600_000) continue;
+       findings.push({
+         finding: 'breach',
+         ruleKey: rule.ruleKey,
+--- DETECTOR: the SHIPPED domain test (not REV-A's own probe) ---
+$ corepack pnpm exec vitest run --project domain test/rules/hard-rule-check.test.ts
+
+[32m- [[39m
+[32m-   "breach:rest_10:s2",[39m
+[32m- ][39m
+[31m+ [][39m
+
+ ❯ test/rules/hard-rule-check.test.ts:240:39
+    238|       ],
+    239|     });
+    240|     expect(evaluate([rule], subject)).toEqual(['breach:rest_10:s2']);
+       |                                       ^
+    241|   });
+    242| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 39 passed (40)
+   Start at  05:14:27
+   Duration  1.02s (transform 460ms, setup 0ms, collect 569ms, tests 35ms, environment 0ms, prepare 102ms)
+
+DETECTOR_EXIT=1
+--- RESTORE ---
+sha256 restored: 94483d69aada7902d7630ec9c2143e312bd4145cb98647c181ac5875b91a946b
+RESTORE VERIFIED: byte-identical
+(empty above = clean)
+MUTATION_DETECTED=YES
+2026-08-23T05:14:28Z
+
+############################################################################
+# SPOT-CHECK 2 — REV-B's mutation M-07, re-run by REV-C                    #
+# REV-B claim: '10/10 sampled assertions load-bearing, 0 vacuous'          #
+# M-07 = the CAP-068/T-23 client-host scanner (empty-allowlist enforcement)#
+############################################################################
+sha256 before : a4ee2025353466fb2c6015ad1b90df775abd73005e36603136639bc8a07f8b65
+--- line 49 as it stands (REV-B's anchor) ---
+    expect(scan(`fetch("http://localhost:3001/api/health")`).length).toBe(1);
+patch applied
+--- applied diff ---
+diff --git a/scripts/gates/test/network-assertion-guard.test.ts b/scripts/gates/test/network-assertion-guard.test.ts
+index 7aae9e3..6fddfcc 100644
+--- a/scripts/gates/test/network-assertion-guard.test.ts
++++ b/scripts/gates/test/network-assertion-guard.test.ts
+@@ -46,7 +46,7 @@ describe('detects outbound hosts in every shape they arrive in', () => {
+   });
+ 
+   it('flags localhost too — a hardcoded dev URL must not ship', () => {
+-    expect(scan(`fetch("http://localhost:3001/api/health")`).length).toBe(1);
++    expect(scan(`fetch("http://localhost:3001/api/health")`).length).toBe(0);
+   });
+ 
+   it('names the host in the message', () => {
+--- DETECTOR ---
+$ corepack pnpm exec vitest run --project gates test/network-assertion-guard.test.ts
+[31m+ 1[39m
+
+ ❯ test/network-assertion-guard.test.ts:49:70
+     47| 
+     48|   it('flags localhost too — a hardcoded dev URL must not ship', () => {
+     49|     expect(scan(`fetch("http://localhost:3001/api/health")`).length).t…
+       |                                                                      ^
+     50|   });
+     51| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 25 passed (26)
+   Start at  05:14:53
+   Duration  511ms (transform 78ms, setup 0ms, collect 84ms, tests 19ms, environment 0ms, prepare 86ms)
+
+DETECTOR_EXIT=1
+--- RESTORE ---
+sha256 restored: a4ee2025353466fb2c6015ad1b90df775abd73005e36603136639bc8a07f8b65
+RESTORE VERIFIED: byte-identical
+(empty above = clean)
+MUTATION_DETECTED=YES
+
+--- REV-C's reading of REV-B's own count, which looks self-inconsistent and is not ---
+REV-B §A t15 says '10/10 load-bearing'; §C-2 says '9 of 9 load-bearing'; §D says
+'10 assertions sampled ... 9 run (M-10 separately)'. The transcript resolves it: the driver
+was run TWICE — M-01..M-09 in one batch ('9 sampled: 9 load-bearing, 0 vacuous') and M-10
+alone in a second ('1 sampled: 1 load-bearing, 0 vacuous'), because M-10 needs the api
+project and a database. 9 + 1 = 10. The claim is ACCURATE; the three numbers are three
+correctly-scoped views of the same run. No finding.
+
+--- REV-C's assessment of REV-B's mutation DRIVER (code-read of probes/mutation-sample.mjs) ---
+ STRONG: sha256 before/after with byte-identical restore asserted per mutation; an anchor-miss
+   aborts that mutation as ERRORED rather than silently patching the wrong line; the applied
+   diff is printed; the still-green output is dumped when an assertion IS vacuous, so a
+   vacuity finding would carry its own evidence.
+ ONE WEAKNESS, recorded: 'load-bearing' is decided from the runner's EXIT CODE alone. A
+   mutation that broke compilation, or that reddened some OTHER test in the same file, would
+   also exit non-zero and be scored load-bearing. In this sample the risk is small — every
+   mutation is a value swap on one line and every run reported exactly '1 failed', which is
+   the signature of the intended assertion and nothing else — and REV-C's re-run of M-07
+   reproduces that same '1 failed' shape. The claim stands; the driver would be stronger if
+   it asserted the failing test's NAME. Recorded as a note, not a finding.
+2026-08-23T05:14:54Z

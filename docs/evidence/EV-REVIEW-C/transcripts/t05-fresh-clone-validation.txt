@@ -1,0 +1,187 @@
+=== REV-C / T05 — FRESH-CLONE VALIDATION against origin/main (doc 38 §7; NEITHER reviewer ran it) ===
+2026-08-23T05:12:31Z
+
+$ git clone https://github.com/DeltaNumeric72/SchedulePoint.git /tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/freshclone/SchedulePoint
+clone EXIT=0
+$ git rev-parse HEAD ; git rev-parse --abbrev-ref HEAD
+64ddfd1befcce4afdaee81e87ada3636d6f1b254
+main
+$ git status --porcelain   (must be empty on a virgin clone)
+  (empty above = clean)
+
+This clone is byte-independent of the working tree: no node_modules, no .evidence-scratch,
+no build output, no venv, nothing either reviewer produced.
+$ ls -a | head -30
+.
+..
+.dependency-cruiser.cjs
+.env.example
+.git
+.github
+.gitignore
+.prettierignore
+.prettierrc.json
+=
+AGENTS.md
+CLAUDE.md
+Dockerfile.app
+Dockerfile.ingress
+Dockerfile.solver
+SchedulePoint_Claude_Workflow_Playbook.pdf
+apps
+docker-compose.yml
+docs
+eslint.config.js
+ingress.nginx.conf
+package.json
+packages
+pnpm-lock.yaml
+pnpm-workspace.yaml
+schedulepoint-research
+scripts
+solver
+spikes
+tsconfig.base.json
+
+############ VALIDATOR 1 — Fable docs (doc 38 §7 requires 36/36) ############
+$ python3 docs/fable/validate.py
+1a. All 25 numbered deliverables (00-24) exist                                               PASS
+1b. All 13 control documents exist                                                           PASS
+2a. Baseline defines 58 capabilities                                                         PASS
+2b. Every capability has a parity-matrix row                                                 PASS
+2c. Every parity row maps to a milestone                                                     PASS
+3a. Parity tallies sum to 58                                                                 PASS
+4a. Roadmap defines M0..M12                                                                  PASS
+4b. Every milestone has an Exit criterion                                                    PASS
+4c. Compact sequence table present (§6a)                                                     PASS
+5a. Exactly three task packets defined                                                       PASS
+5b. Packets carry field: Escalation conditions (x3)                                          PASS
+5b. Packets carry field: Fable review checklist (x3)                                         PASS
+5b. Packets carry field: Required evidence (x3)                                              PASS
+5b. Packets carry field: Prohibited files (x3)                                               PASS
+5b. Packets carry field: Acceptance criteria (x3)                                            PASS
+5b. Packets carry field: Tenant-isolation requirements (x3)                                  PASS
+5c. Packets are marked not-executed                                                          PASS
+5d. Three finalized M1 packets exist and are marked NOT ISSUED                               PASS
+5e. M1 packets carry field: Escalation conditions (x3)                                       PASS
+5e. M1 packets carry field: Fable acceptance checklist (x3)                                  PASS
+5e. M1 packets carry field: Tenant-isolation requirements (x3)                               PASS
+5e. M1 packets carry field: Acceptance criteria (x3)                                         PASS
+5e. M1 packets carry field: Prohibited files (x3)                                            PASS
+5e. M1 packets carry field: Required evidence (x3)                                           PASS
+6a. All 20 product decisions appear in the resolution record                                 PASS
+6b. All 15 technology gates resolved                                                         PASS
+6c. OI-1..7 addressed                                                                        PASS
+6c. EV-1..8 addressed                                                                        PASS
+6d. FD-1..FD-4 present                                                                       PASS
+7a. No stale blocking language in live control docs                                          PASS
+7b. PROJECT-STATUS names the milestone authorization boundary                                PASS
+8a. All relative markdown links resolve                                                      PASS
+9a. Referenced file exists: internal-verification-2026-08-01.md                              PASS
+9a. Referenced file exists: SPEC-01-request-context-and-tenant-isolation.md                  PASS
+9a. Referenced file exists: SPEC-02-picklist-turn-transaction.md                             PASS
+10a. Docs tree contains no application code                                                  PASS
+
+36 assertions, 36 passed, 0 failed.
+EXIT=0
+
+############ VALIDATOR 2 — Architecture docs (doc 38 §7 requires 95/95) ############
+$ python3 docs/architecture/validate.py
+49b. Delivery material is encrypted and role-restricted                                                 PASS
+49c. A separate hash is retained for lookup only                                                        PASS
+49d. S-05 (Push API) is recorded as a verified source                                                   PASS
+50a. Pending decisions outnumber approved and total 19                                                  PASS
+50b. No pending decision is described as approved                                                       PASS
+50c. PO-DEC-01's non-default branch creates no tables                                                   PASS
+50d. PO-DEC-03 resolution is recorded in SPEC-08 (no live pending claim)                                PASS
+51a. No unqualified claim of exactly-once external delivery                                             PASS
+51b. Ambiguous and unresolved delivery outcomes exist                                                   PASS
+52a. Documentation and research trees contain no application code                                       PASS
+52b. Implementation exists only in authorized locations                                                 PASS
+53a. Report 18 defines 39 unique SBX tests                                                              PASS
+53b. CAR-026 disposition matches reality (prose count [39] vs 39 headings; recorded OPEN=False)         PASS
+53c. Manifest SBX total matches the headings                                                            PASS
+54a. Remediation record exists                                                                          PASS
+54b. All 27 findings are dispositioned                                                                  PASS
+54c. Every finding carries all required fields                                                          PASS
+54d. The independent review is unmodified in this package                                               PASS
+55a. No live document states connect-time-only context/capability resolution                            PASS
+55b. Deleted table `assignment_versions` is never referenced as live                                    PASS
+55c. Every decision described as resolved appears in the resolution record                              PASS
+55d. Document 04 module count is self-consistent (stated == defined; no live 25-to-19 claim)            PASS
+55e. Every internal-verification finding is dispositioned in the corrections record                     PASS
+
+95 assertions, 95 passed, 0 failed.
+EXIT=0
+
+############ VALIDATOR 3 — Research corpus (doc 38 §7 requires PASS) ############
+$ bash schedulepoint-research/validate.sh
+== Directories ==
+OK dir      : reports
+OK dir      : reports/inbox
+OK dir      : screenshots/navigation
+OK dir      : screenshots/schedule
+OK dir      : screenshots/requests
+OK dir      : screenshots/vacation
+OK dir      : screenshots/picklist
+OK dir      : screenshots/admin
+OK dir      : screenshots/errors
+
+== Required files ==
+OK file     : reports/manifest.json
+OK file     : reports/source-page-index.md
+OK file     : reports/evidence-register.md
+OK file     : reports/unresolved-questions.md
+OK file     : MASTER-CHECKLIST.md
+
+== manifest.json JSON validity ==
+OK json     : reports/manifest.json parses
+
+PASS: all required files and directories are present and non-empty.
+EXIT=0
+2026-08-23T05:12:37Z
+
+############ REV-C's OWN FINDING FROM THE FRESH CLONE ############
+
+A virgin clone's very first directory listing shows a tracked file named '=' at the
+repository root. It is not in .gitignore, not documented, and empty.
+
+$ git ls-files | grep -x "="
+=
+$ git cat-file -s "$(git rev-parse HEAD:=)"   (size in bytes)
+0
+$ git log --oneline -- "="   (when it entered)
+dfa717f OPUS-M3-008 ACCEPTED & MERGED: integration and hardening — the final M3 packet
+$ git cat-file -t milestone/M4:=   (present at the frozen M4 tag too?)
+blob
+$ git cat-file -s milestone/M4:=
+0
+
+Almost certainly a shell-redirection artifact ('... >= file' / 'VAR= ' mistyped) committed in
+dfa717f (OPUS-M3-008, the final M3 packet, 2026-08-05). It has since survived: M3 close, the
+whole of M4, the M4 exit hygiene sweep, the M4-005 close battery, the NR-18 raw-NUL sweep, the
+GitHub reconciliation, twelve CI gates on every run, the 65-arm red-case battery, and both
+REV-A and REV-B.
+
+It is functionally harmless — zero bytes, no build path reads it. It is recorded because:
+ (a) it is the FIRST thing a fresh clone shows, which is direct evidence that doc 38 §7's
+     'fresh-clone validation against origin/main' has never actually been performed; and
+ (b) no gate has a file-name hygiene arm, so nothing in the battery can ever notice it.
+Filed as REV-C-007 (MINOR).
+
+--- Cost of a FULL fresh-clone battery, measured/derived on this machine ---
+  clone + three doc validators (executed above)              :  ~26 s   <- CHEAP, done
+  corepack pnpm install (cold store on a virgin clone)       :  measured below
+  corepack pnpm check   (17 gates; unit ~26 min + axe ~11.6 min here) : ~39-45 min, and it
+     currently FAILS on this machine class for REV-A-001/REV-B-003 (two e2-objective arms
+     at 129-131 s against the 120 s ceiling) — so a fresh-clone check gate cannot go green
+     here until that ceiling is repaired.
+  corepack pnpm red-cases (65 arms, serial)                  : 2 h 06 min on the M4 reference
+     machine -> 5.7-8.2 h here (REV-B's measured ratio).
+  corepack pnpm fixture-regression (153 runs)                : >= 6.3 h here (REV-B, from a
+     24.8-min api suite x 13 shuffles), before the 139-run standalone sweep.
+  => A COMPLETE doc 38 §7 fresh-clone battery is a 12-15 hour serial run on this machine and
+     is NOT achievable inside a review packet's budget. The doc-validator third of it is
+     achievable in under a minute and is now DONE, at origin/main, and it PASSES 36/36 +
+     95/95 + PASS.
+2026-08-23T05:13:17Z
