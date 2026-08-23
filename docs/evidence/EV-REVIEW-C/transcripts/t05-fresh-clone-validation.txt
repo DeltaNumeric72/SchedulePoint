@@ -185,3 +185,44 @@ Filed as REV-C-007 (MINOR).
      achievable in under a minute and is now DONE, at origin/main, and it PASSES 36/36 +
      95/95 + PASS.
 2026-08-23T05:13:17Z
+
+--- corepack pnpm install in the fresh clone (the measurement promised above) ---
+=== REV-C fresh-clone: corepack pnpm install ===
+2026-08-23T05:19:24Z
+Scope: all 5 workspace projects
+devDependencies:
++ @eslint/js 9.39.0
++ @types/node 22.18.6
++ dependency-cruiser 17.0.1
++ eslint 9.39.0
++ prettier 3.6.2
++ tsx 4.20.6
++ typescript 5.9.3
++ typescript-eslint 8.46.0
++ vitest 3.2.4
+
+Done in 2.8s using pnpm v11.18.0
+
+real	0m2.929s
+user	0m3.092s
+sys	0m0.908s
+EXIT=0
+2026-08-23T05:19:27Z
+
+HONEST CAVEAT: 2.9 s is a WARM-STORE figure. The pnpm content-addressable store at
+/root/.local/share/pnpm/store/v11 was already populated by this container's existing
+checkout, so 'resolved 465, reused 465, downloaded 0'. A genuinely cold machine would
+download all 465 packages plus the Playwright Chromium and the OR-Tools wheel. REV-C did
+NOT measure a cold store and does not claim one.
+
+So the corrected fresh-clone cost line is:
+  clone                                    ~7 s
+  corepack pnpm install (warm store)        2.9 s   (cold: NOT measured)
+  fable validator        36/36  exit 0     <1 s
+  architecture validator 95/95  exit 0     <1 s
+  research validator     PASS   exit 0     <1 s
+  ------------------------------------------------
+  doc 38 §7's fresh-clone item, to the extent a validator battery covers it: DONE, PASSES.
+  The rest of §7 (check / red-cases / fixture-regression / sbx / real-stack) from this clone
+  is the 12-15 h serial figure derived above and was NOT run from the clone.
+2026-08-23T05:19:51Z
