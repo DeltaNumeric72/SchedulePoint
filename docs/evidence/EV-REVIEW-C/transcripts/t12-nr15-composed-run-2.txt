@@ -1,0 +1,54 @@
+=== REV-C / T12 — REV-B-002 (NR-15) recheck: composed run #2, INVALIDATED, and #2R ===
+2026-08-23T06:01:12Z
+
+############################################################################
+#  RUN #2 IS INVALID. THE FAULT IS REV-C'S. IT IS RECORDED HERE IN FULL.    #
+############################################################################
+
+REV-C staged REV-A's two committed probe files at apps/api/test/rev-c/ at 05:16:11Z, intending
+to run them targeted, and then started composed run #2 at 05:31:29Z WITHOUT REMOVING THEM.
+A whole-workspace vitest run collects every matching file, so REV-A's probes ran INSIDE the
+composed run. That changes the run's composition, and composition is exactly what determines
+whether NR-15 fires. Run #2 is therefore not a valid second attempt and is not counted.
+
+--- the contamination, proven rather than asserted ---
+  run #1 : Test Files 171   Tests 2182
+  run #2 : Test Files 173   Tests 2188      <- +2 files, +6 tests
+  $ ls -l --time-style=+%FT%TZ apps/api/test/rev-c/   (staged BEFORE run #2 started)
+    -rw-r--r-- 13913 2026-08-23T05:16:11Z p2-audit-and-termination.test.ts
+    -rw-r--r-- 13385 2026-08-23T05:16:11Z p3-selection-window.test.ts
+  $ grep -c "test/rev-c/p[23]" composed-2.txt   (they executed inside the run)
+24
+
+--- and it did REAL DAMAGE, which is the reason this matters and is not just bookkeeping ---
+Run #2 reported FOUR failed tests, two of which run #1 did not have:
+   × the objective is TIERED and every component weight is recorded > records rank, multiplier, scale and each rule’s scaled weight 120013ms
+   × status honesty and the metric set, end to end > measures SPEC-04 §7 and leaves the unmeasurable rates NULL 120005ms
+   × SPEC-11 §10 X-02 — a consistently rewritten segment is caught by the SIGNATURE > the chain verifies against itself after a competent rewrite, and the checkpoint does not 190ms
+   × second-review findings — the holes the first submission left > R-04: a checkpoint CANNOT be signed over a hash the chain never had 40ms
+
+The two extra failures are in test/audit/chain.test.ts:
+ FAIL  |api| test/audit/chain.test.ts > SPEC-11 §10 X-02 — a consistently rewritten segment is caught by the SIGNATURE > the chain verifies against itself after a competent rewrite, and the checkpoint does not
+ FAIL  |api| test/audit/chain.test.ts > second-review findings — the holes the first submission left > R-04: a checkpoint CANNOT be signed over a hash the chain never had
+
+REV-A's p2 probe tampers with the audit chain as SUPERUSER WITH TRIGGERS DISABLED — it
+rewrites a middle row's payload and truncates a two-row tail, deliberately, to prove the
+detector is load-bearing. That is outside the FAD-15 isolation contract by construction
+(shared audit tables, superuser, triggers off), so leaving it in a composed run reddens the
+repository's own chain tests. REV-A ran it TARGETED and removed it afterwards — correct
+hygiene, and REV-C's failure to copy that hygiene is what produced this.
+
+TWO THINGS FOLLOW, and neither is a repository defect:
+  1. The two chain.test.ts failures in run #2 are REV-C's artefact. They are NOT a finding
+     against the repository and are not filed as one. Run #2R (clean) is the check.
+  2. A probe-design note for the adjudicator, recorded because it is generalisable: REV-A's
+     p2 is not composed-run-safe, and nothing in the repository would stop a future reviewer
+     or implementer leaving a probe of that shape in the tree. The NR-14 clean-tree discipline
+     covers TRACKED files; an UNTRACKED probe file under apps/api/test/ is invisible to it and
+     participates in every run. Recorded as REV-C-011 (NOTE).
+
+############################################################################
+#  RUN #2R — the valid second attempt, on a verified-clean tree            #
+############################################################################
+(appended below when it completes)
+2026-08-23T06:01:12Z

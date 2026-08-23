@@ -1,0 +1,181 @@
+=== REV-C / T13 — REV-A-003 and REV-A-004 re-run from REV-A's committed probe sources ===
+2026-08-23T05:59:42Z
+ 05:59:42 up  3:44,  0 user,  load average: 0.37, 0.94, 1.06
+Sources taken verbatim from review/rev-a:docs/evidence/EV-REVIEW-A/transcripts/probe-sources/,
+placed at apps/api/test/rev-c/, run TARGETED (never inside a composed run — see t12), removed
+afterwards. No tracked file is modified by either probe.
+
+$ git show review/rev-a:...:p2-audit-and-termination.test.ts | sha256sum   (source identity)
+521e247d500cc5b085f095dcfff65cd83e4412cf84108048be35ec1597f55418  -
+521e247d500cc5b085f095dcfff65cd83e4412cf84108048be35ec1597f55418  apps/api/test/rev-c/p2-audit-and-termination.test.ts
+586f3a0885cab77603473f25f01b607654b44ab4904b573cc7ae75d514119c3b  -
+586f3a0885cab77603473f25f01b607654b44ab4904b573cc7ae75d514119c3b  apps/api/test/rev-c/p3-selection-window.test.ts
+  (identical hashes above = REV-C ran REV-A's bytes, not a paraphrase)
+
+############ REV-A-004 — arm REV-A/H, the same-state UPDATE ############
+$ corepack pnpm exec vitest run --project api test/rev-c/p2-audit-and-termination.test.ts
+[worker(worker-d00fcbc3f7bef70324)] INFO: Completed task 1 (outbox.dispatch, 26.98ms) with success
+[worker(worker-d00fcbc3f7bef70324)] INFO: Completed task 2 (outbox.dispatch, 11.64ms) with success
+[worker(worker-d00fcbc3f7bef70324)] INFO: Completed task 3 (outbox.dispatch, 11.01ms) with success
+[worker(worker-d00fcbc3f7bef70324)] INFO: Completed task 4 (outbox.dispatch, 11.46ms) with success
+[worker(worker-d00fcbc3f7bef70324)] INFO: Completed task 5 (outbox.dispatch, 10.54ms) with success
+[worker(worker-d00fcbc3f7bef70324)] INFO: Completed task 6 (outbox.dispatch, 10.51ms) with success
+[worker(worker-d00fcbc3f7bef70324)] INFO: Completed task 7 (outbox.dispatch, 10.02ms) with success
+[worker(worker-d00fcbc3f7bef70324)] INFO: Completed task 8 (outbox.dispatch, 14.11ms) with success
+[worker(worker-d00fcbc3f7bef70324)] INFO: Completed task 9 (outbox.dispatch, 13.00ms) with success
+[worker(worker-d00fcbc3f7bef70324)] INFO: Completed task 10 (outbox.dispatch, 11.56ms) with success
+[worker(worker-d00fcbc3f7bef70324)] INFO: Completed task 11 (outbox.dispatch, 10.80ms) with success
+stdout | test/rev-c/p2-audit-and-termination.test.ts > REV-A/D2b — audit rows: what actually happened, not what returned > no role deletes an audit row: rowCount 0 everywhere, chain unchanged
+[REV-A/chain] before-delete-attempts: entries=55 problems=0 kinds=[]
+
+stdout | test/rev-c/p2-audit-and-termination.test.ts > REV-A/D2b — audit rows: what actually happened, not what returned > no role deletes an audit row: rowCount 0 everywhere, chain unchanged
+[REV-A/D2b]
+app_migrator: DELETE returned, rows affected = 0 | UPDATE returned, rows affected = 0
+app_runtime: refused (permission denied for table audit_events) | UPDATE refused (permission denied for table audit_events)
+app_worker: refused (permission denied for table audit_events) | UPDATE refused (permission denied for table audit_events)
+app_readonly_support: refused (permission denied for table audit_events) | UPDATE refused (permission denied for table audit_events)
+app_breakglass: refused (permission denied for table audit_events) | UPDATE refused (permission denied for table audit_events)
+
+stdout | test/rev-c/p2-audit-and-termination.test.ts > REV-A/D2b — audit rows: what actually happened, not what returned > no role deletes an audit row: rowCount 0 everywhere, chain unchanged
+[REV-A/chain] after-delete-attempts: entries=55 problems=0 kinds=[]
+
+stdout | test/rev-c/p2-audit-and-termination.test.ts > REV-A/G2 — the audit-chain detector is load-bearing > a tampered payload on a MIDDLE row is DETECTED, and restore puts the chain back
+[REV-A/chain] G2-before: entries=55 problems=0 kinds=[]
+
+stdout | test/rev-c/p2-audit-and-termination.test.ts > REV-A/G2 — the audit-chain detector is load-bearing > a tampered payload on a MIDDLE row is DETECTED, and restore puts the chain back
+[REV-A/G2] tampering with sequence 34
+
+stdout | test/rev-c/p2-audit-and-termination.test.ts > REV-A/G2 — the audit-chain detector is load-bearing > a tampered payload on a MIDDLE row is DETECTED, and restore puts the chain back
+[REV-A/chain] G2-after-tamper: entries=55 problems=1 kinds=["entry_hash_mismatch"]
+
+stdout | test/rev-c/p2-audit-and-termination.test.ts > REV-A/G2 — the audit-chain detector is load-bearing > a tampered payload on a MIDDLE row is DETECTED, and restore puts the chain back
+[REV-A/chain] G2-after-restore: entries=55 problems=0 kinds=[]
+
+stdout | test/rev-c/p2-audit-and-termination.test.ts > REV-A/G2 — the audit-chain detector is load-bearing > a TRUNCATED TAIL is detected — the shape walking the surviving rows cannot see (R-01)
+[REV-A/chain] G2-beta-before: entries=11 problems=0 kinds=[]
+
+stdout | test/rev-c/p2-audit-and-termination.test.ts > REV-A/G2 — the audit-chain detector is load-bearing > a TRUNCATED TAIL is detected — the shape walking the surviving rows cannot see (R-01)
+[REV-A/G2] tail rows deleted from Beta: [33m2[39m
+
+stdout | test/rev-c/p2-audit-and-termination.test.ts > REV-A/G2 — the audit-chain detector is load-bearing > a TRUNCATED TAIL is detected — the shape walking the surviving rows cannot see (R-01)
+[REV-A/chain] G2-beta-after-truncation: entries=9 problems=1 kinds=["head_sequence_ahead_of_chain"]
+
+stdout | test/rev-c/p2-audit-and-termination.test.ts > REV-A/H — the termination facts are not frozen, and the verdict reads them > a same-state UPDATE rewrites termination_reason/solver_status, flipping the verdict
+[REV-A/H] build_runs        : {"id":"8bea70f6-6bef-4c2a-9df1-bd5afaa2ffcb","state":"failed","termination_reason":"rejected","solver_status":"FEASIBLE","reproducibility_mode":"best-effort","solver_parameters":{}}
+[REV-A/H] build_run_results : {"solver_status":"FEASIBLE","termination_reason":"rejected"}
+[REV-A/H] verdict from the recorded facts        : interrupted reproducible=false promise=false
+[REV-A/H] verdict after the rewrite would read   : reproducible reproducible=true promise=true
+
+stdout | test/rev-c/p2-audit-and-termination.test.ts > REV-A/H — the termination facts are not frozen, and the verdict reads them > a same-state UPDATE rewrites termination_reason/solver_status, flipping the verdict
+[REV-A/H] same-state rewrite accepted: [33mtrue[39m
+
+stdout | test/rev-c/p2-audit-and-termination.test.ts > REV-A/H — the termination facts are not frozen, and the verdict reads them > a same-state UPDATE rewrites termination_reason/solver_status, flipping the verdict
+[REV-A/H] AFTER build_runs        : {"state":"failed","termination_reason":"completed","solver_status":"OPTIMAL"}
+[REV-A/H] AFTER build_run_results : {"solver_status":"FEASIBLE","termination_reason":"rejected"}   <-- append-only, unchanged
+[REV-A/H] the two records now DISAGREE: true
+
+stdout | test/rev-c/p2-audit-and-termination.test.ts > REV-A/H — the termination facts are not frozen, and the verdict reads them > a same-state UPDATE rewrites termination_reason/solver_status, flipping the verdict
+[REV-A/H] build_run_results UPDATE : refused(permission denied for table build_run_results)
+
+ ✓ |api| test/rev-c/p2-audit-and-termination.test.ts (4 tests) 1374ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  05:59:43
+   Duration  7.56s (transform 1.19s, setup 424ms, collect 111ms, tests 1.37s, environment 0ms, prepare 73ms)
+
+EXIT=0
+2026-08-23T05:59:51Z
+
+############ REV-A-003 — the doc 36 §10.4 selection window ############
+2026-08-23T06:00:01Z
+ 06:00:01 up  3:44,  0 user,  load average: 0.77, 1.01, 1.08
+$ corepack pnpm exec vitest run --project api test/rev-c/p3-selection-window.test.ts
+[worker(worker-9d17a515d09fb880d8)] INFO: Completed task 1 (outbox.dispatch, 39.76ms) with success
+[worker(worker-9d17a515d09fb880d8)] INFO: Completed task 2 (outbox.dispatch, 18.63ms) with success
+[worker(worker-9d17a515d09fb880d8)] INFO: Completed task 3 (outbox.dispatch, 15.02ms) with success
+[worker(worker-9d17a515d09fb880d8)] INFO: Completed task 4 (outbox.dispatch, 15.01ms) with success
+[worker(worker-9d17a515d09fb880d8)] INFO: Completed task 5 (outbox.dispatch, 15.12ms) with success
+[worker(worker-9d17a515d09fb880d8)] INFO: Completed task 6 (outbox.dispatch, 14.84ms) with success
+[worker(worker-9d17a515d09fb880d8)] INFO: Completed task 7 (outbox.dispatch, 15.20ms) with success
+[worker(worker-9d17a515d09fb880d8)] INFO: Completed task 8 (outbox.dispatch, 14.47ms) with success
+[worker(worker-9d17a515d09fb880d8)] INFO: Completed task 9 (outbox.dispatch, 13.13ms) with success
+[worker(worker-9d17a515d09fb880d8)] INFO: Completed task 10 (outbox.dispatch, 12.81ms) with success
+[worker(worker-9d17a515d09fb880d8)] INFO: Completed task 11 (outbox.dispatch, 15.62ms) with success
+stdout | test/rev-c/p3-selection-window.test.ts > REV-A/W — doc 36 §10.4: the un-falsified selection window > CONTROL: with nothing moved, the identical flow reaches a new draft
+[REV-A/W] CONTROL applied -> e10d773e-1eeb-47e4-92f8-d05529f91c2e assignments [33m1[39m
+
+stdout | test/rev-c/p3-selection-window.test.ts > REV-A/W — doc 36 §10.4: the un-falsified selection window > THE WINDOW: an input moves AFTER the staleness read and BEFORE the write
+[REV-A/W] staleness before the race: {"stale":false,"kinds":[]}
+
+stdout | test/rev-c/p3-selection-window.test.ts > REV-A/W — doc 36 §10.4: the un-falsified selection window > THE WINDOW: an input moves AFTER the staleness read and BEFORE the write
+[REV-A/W] T2 holds the audit advisory lock for this organization
+
+stdout | test/rev-c/p3-selection-window.test.ts > REV-A/W — doc 36 §10.4: the un-falsified selection window > THE WINDOW: an input moves AFTER the staleness read and BEFORE the write
+[REV-A/W] backends waiting on a lock while T2 holds it: 1 (selection is PENDING)
+
+stdout | test/rev-c/p3-selection-window.test.ts > REV-A/W — doc 36 §10.4: the un-falsified selection window > THE WINDOW: an input moves AFTER the staleness read and BEFORE the write
+[REV-A/W] T2 moved [33m1[39m shift_type row(s) and committed
+
+stdout | test/rev-c/p3-selection-window.test.ts > REV-A/W — doc 36 §10.4: the un-falsified selection window > THE WINDOW: an input moves AFTER the staleness read and BEFORE the write
+[REV-A/W] selection outcome: APPLIED draft = d98ce2bc-20a1-4f49-aeaa-ac5781633994
+
+stdout | test/rev-c/p3-selection-window.test.ts > REV-A/W — doc 36 §10.4: the un-falsified selection window > THE WINDOW: an input moves AFTER the staleness read and BEFORE the write
+[REV-A/W] staleness AFTER, for the same run: {"stale":true,"kinds":["shiftType"]}
+
+stdout | test/rev-c/p3-selection-window.test.ts > REV-A/W — doc 36 §10.4: the un-falsified selection window > THE WINDOW: an input moves AFTER the staleness read and BEFORE the write
+[REV-A/W] run state: {"state":"applied_to_draft_schedule","applied":"d98ce2bc-20a1-4f49-aeaa-ac5781633994"}
+[REV-A/W] VERDICT: THE WINDOW IS REACHABLE — a candidate was applied over inputs that moved after the staleness read
+
+ ✓ |api| test/rev-c/p3-selection-window.test.ts (2 tests) 4171ms
+   ✓ REV-A/W — doc 36 §10.4: the un-falsified selection window > CONTROL: with nothing moved, the identical flow reaches a new draft  338ms
+   ✓ REV-A/W — doc 36 §10.4: the un-falsified selection window > THE WINDOW: an input moves AFTER the staleness read and BEFORE the write  2781ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  06:00:02
+   Duration  10.69s (transform 1.14s, setup 448ms, collect 168ms, tests 4.17s, environment 0ms, prepare 83ms)
+
+EXIT=0
+2026-08-23T06:00:14Z
+
+=========================== REV-C'S VERDICTS ===========================
+
+REV-A-004 — CONFIRMED, line for line. REV-C's run reproduced REV-A's reported values exactly:
+  BEFORE build_runs        : state=failed termination_reason=rejected  solver_status=FEASIBLE
+  AFTER  build_runs        : state=failed termination_reason=completed solver_status=OPTIMAL
+  AFTER  build_run_results : termination_reason=rejected solver_status=FEASIBLE  <- append-only
+  the two records now DISAGREE: true
+  build_run_results UPDATE : refused(permission denied for table build_run_results)
+  verdict from the recorded facts : interrupted  reproducible=false promise=false
+  verdict after the rewrite would : reproducible reproducible=true  promise=true
+  The same-state rewrite was ACCEPTED and COMMITTED as app_runtime inside a unit of work.
+  REV-C had already established the same result from the migration source alone (INDEX §1.2):
+  the guard's early return on an unchanged state sits ABOVE every state-conditioned check,
+  and both columns are inside the column-level UPDATE grant. Two independent routes, one
+  answer. REV-A's MAJOR grade stands.
+
+REV-A-003 — CONFIRMED, line for line, on the first attempt:
+  CONTROL applied -> assignments 1                    <- the probe is non-vacuous
+  staleness before the race: {"stale":false,"kinds":[]}
+  backends waiting on a lock while T2 holds it: 1     <- the block is real, read from pg_stat_activity
+  T2 moved 1 shift_type row(s) and committed
+  selection outcome: APPLIED
+  staleness AFTER, for the same run: {"stale":true,"kinds":["shiftType"]}
+  run state: {"state":"applied_to_draft_schedule", ...}
+  VERDICT: THE WINDOW IS REACHABLE
+  doc 36 §10.4 records that 'the reviewer could not construct the interleaving and did not
+  assert it reachable'. It is constructible, deterministically, by two reviewers now, and
+  REV-C established the hook independently from the source before running anything
+  (selection.ts orders buildStaleness -> ... -> createDraftVersion; migration 0003 line 768
+  takes a per-organization advisory lock inside the audit trigger, which sits between them).
+  REV-A's MAJOR grade stands, and so does REV-A's own honest sizing: the artifact is a DRAFT,
+  never a published version, and derived-on-read staleness makes the condition visible
+  afterwards. What is falsified is the word 'un-falsified'.
+
+--- probe hygiene ---
+$ rm -rf apps/api/test/rev-c && git status --porcelain (excluding this bundle)
+  (empty above = the tracked tree is untouched by both probes)
+$ find apps/api/test -name "*.test.ts" | wc -l   (back to the tracked 139)
+139
+2026-08-23T06:00:39Z
