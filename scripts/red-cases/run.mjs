@@ -2002,6 +2002,136 @@ const CASES = [
   },
 ];
 
+/* ── SP_RED_SHARD — the battery, split across CI runners ────────────────────
+ *
+ * Measured, not guessed: on hosted CI (run 32601281611) this job has NEVER once
+ * completed. Serially the battery costs ~5.5–6 h on a hosted runner — the arms
+ * that run the FULL unit gate now perform real CP-SAT solves in both the GREEN
+ * and the RED direction, at roughly 18 runner-minutes per execution — and the
+ * last attempt got through 21 of 65 arms in 88.8 min before the 90-minute job
+ * ceiling cancelled it. GitHub's hard per-job cap is 6 h, so raising the ceiling
+ * does not fix this. The battery has to run in parallel.
+ *
+ * `SP_RED_SHARD="k/N"` selects the arms whose POSITION IN `CASES` satisfies
+ * `index % N === k`. The filter is ADDITIVE; nothing else about the run changes:
+ *
+ *   - unset or empty → every arm, in registration order, exactly as before.
+ *     A local `pnpm red-cases` is byte-for-byte the run it always was.
+ *   - malformed, `N < 1`, or `k >= N` → a HARD ERROR before any arm runs.
+ *     Never a silent empty run: a shard spelling that quietly selects nothing
+ *     is a battery that reports success while proving nothing, which is the one
+ *     failure mode this whole runner exists to make impossible.
+ *   - a well-formed spelling that still selects zero arms (`N` larger than the
+ *     arm count) fails for the same reason.
+ *
+ * The index is the arm's position in the array, not a sort and not a stored
+ * number — no arm is renumbered, reordered or renamed by any of this. Adding an
+ * arm later changes only which shard it lands in, which is fine, because the
+ * completeness guard in `.github/workflows/ci.yml` re-derives the union from
+ * this file on every run: a shard set that no longer covers every arm exactly
+ * once fails the build rather than passing quietly.
+ *
+ * `clearStaleInjections()` deliberately keeps iterating ALL of `CASES`, not the
+ * shard: leftovers from an interrupted run are not the current shard's business
+ * to be selective about.
+ */
+
+/**
+ * A hard stop, before any arm has run.
+ *
+ * `writeFileSync(1, …)` rather than `process.stdout.write`: on CI stdout is a
+ * pipe, where a write is buffered and asynchronous, and "write then
+ * `process.exit`" is precisely how the tail of the first hosted run was lost
+ * (the exit note at the end of `main` tells that story). A misconfigured shard
+ * that exits without saying why would be indistinguishable from a crash.
+ *
+ * @param {string} message
+ * @returns {void}
+ */
+function shardAbort(message) {
+  writeFileSync(
+    1,
+    `\nRED-CASE SHARDING: ${message}\n` +
+      'SP_RED_SHARD must be "k/N" with integers 0 <= k < N and N >= 1, or unset for the whole battery.\n',
+  );
+  process.exit(2);
+}
+
+/**
+ * The shard spelling in force, or `null` for an unsharded run.
+ *
+ * @type {string | null}
+ */
+let SHARD_LABEL = null;
+
+/**
+ * Applies `SP_RED_SHARD` to the registered arms, announcing the selection
+ * before a single arm runs.
+ *
+ * @param {RedCase[]} cases
+ * @returns {RedCase[]}
+ */
+function selectShard(cases) {
+  const spec = (process.env['SP_RED_SHARD'] ?? '').trim();
+  if (spec === '') return cases;
+
+  const match = /^(\d+)\/(\d+)$/.exec(spec);
+  if (match === null) shardAbort(`SP_RED_SHARD="${spec}" is not a shard spelling.`);
+  const [, kText = '', nText = ''] = match ?? [];
+  const k = Number(kText);
+  const n = Number(nText);
+  if (!Number.isSafeInteger(k) || !Number.isSafeInteger(n)) {
+    shardAbort(`SP_RED_SHARD="${spec}" does not parse as two integers.`);
+  }
+  if (n < 1) shardAbort(`SP_RED_SHARD="${spec}" asks for ${String(n)} shard(s).`);
+  if (k >= n) {
+    shardAbort(
+      `SP_RED_SHARD="${spec}" names shard ${String(k)} of ${String(n)}; the last shard is ${String(n - 1)}.`,
+    );
+  }
+
+  const selected = cases.filter((_, index) => index % n === k);
+  const ids = selected.map((testCase) => testCase.id);
+  SHARD_LABEL = `${String(k)}/${String(n)}`;
+
+  /* Printed BEFORE the arms, and synchronously, so that an interrupted or
+   * cancelled shard still tells a reader exactly what it was going to prove. */
+  writeFileSync(
+    1,
+    [
+      '',
+      `=== red-case shard ${SHARD_LABEL} — ${String(selected.length)} of ${String(cases.length)} arm(s) selected ===`,
+      `  arms: ${ids.length > 0 ? ids.join(' ') : '(none)'}`,
+      '',
+      '',
+    ].join('\n'),
+  );
+
+  /* Machine-readable, for the CI completeness guard. Written here rather than
+   * at the end, so a shard that later fails an arm has still recorded WHICH
+   * arms it owned — the guard's question ("was every arm run?") is separate
+   * from the battery's question ("did every arm prove its gate?"). */
+  const stepOutput = process.env['GITHUB_OUTPUT'];
+  if (stepOutput !== undefined && stepOutput !== '') {
+    writeFileSync(
+      stepOutput,
+      `shard=${SHARD_LABEL}\nselected=${String(selected.length)}\ntotal=${String(cases.length)}\narms=${ids.join(' ')}\n`,
+      { flag: 'a' },
+    );
+  }
+
+  if (selected.length === 0) {
+    shardAbort(
+      `shard ${SHARD_LABEL} selected NO arms out of ${String(cases.length)}. A shard that proves nothing must not report success.`,
+    );
+  }
+
+  return selected;
+}
+
+/** The arms this process runs: all of them, unless `SP_RED_SHARD` narrows it. */
+const SELECTED_CASES = selectShard(CASES);
+
 /** @param {string[]} args */
 function pm(args) {
   if (PM_EXECPATH !== undefined && /\.(mjs|cjs|js)$/.test(PM_EXECPATH)) {
@@ -2258,6 +2388,13 @@ async function main() {
     'RED   = the gate fails once the violation is introduced.',
     'A gate that passes its RED check is decorative and the run fails.',
     '',
+    ...(SHARD_LABEL === null
+      ? []
+      : [
+          `Shard ${SHARD_LABEL}: ${String(SELECTED_CASES.length)} of ${String(CASES.length)} arm(s).`,
+          'The other arms run in the other shards; CI asserts the union covers every arm.',
+          '',
+        ]),
   ];
 
   /** @type {{ id: string, gate: string, violation: string, green: boolean, red: boolean, errored: string | null }[]} */
@@ -2286,7 +2423,7 @@ async function main() {
     '',
   );
 
-  for (const testCase of CASES) {
+  for (const testCase of SELECTED_CASES) {
     process.stdout.write(`\n=== ${testCase.id} — ${testCase.gate} ===\n`);
     transcript.push(
       `## ${testCase.id} — ${testCase.gate}`,
@@ -2398,6 +2535,11 @@ async function main() {
     ),
     `${'-'.repeat(width)}  -----  -----  -------`,
     `${String(results.length)} case(s): ${String(results.length - failures.length)} proven, ${String(failures.length)} not proven`,
+    ...(SHARD_LABEL === null
+      ? []
+      : [
+          `shard ${SHARD_LABEL} — ${String(results.length)} of ${String(CASES.length)} arm(s) in this process; the union is asserted by CI, not by this table`,
+        ]),
     '',
     'GREEN "pass" = the gate passes on the clean tree.',
     'RED   "fail" = the gate fails when the violation is present. That is the desired outcome.',
