@@ -1,0 +1,182 @@
+=== REV-C / T14 — the recorder-window ordering hazard, MEASURED (REV-C's own probe) ===
+2026-08-23T06:05:09Z
+ 06:05:09 up  3:49,  0 user,  load average: 1.09, 1.07, 1.09
+
+WHY: REV-B-001 states the mechanism and says plainly 'REV-B did not prove it by construction
+(that would mean instrumenting the recorder, which is a repair, not a review)'. Instrumenting
+the SPEC to MEASURE an ordering is not a repair — it changes no assertion, no budget, and no
+product code — so REV-C did it.
+
+WHAT IS MEASURED: the spec opens its recording window on the visibility of 'periods-new'.
+The probe timestamps (a) every request the page issues from before goto, and (b) the instant
+the window opens, and prints whether the page's OWN 'GET .../schedule/periods' was issued at
+or after that instant. The flake does NOT have to fire for this to be decisive: if the
+periods GET is ever issued at-or-after the window opens, the window can capture it.
+
+LOAD DISCLOSED: REV-C's composed run #2R is executing concurrently on this 4-vCPU machine.
+Contention WIDENS the paint-to-effect gap, so this measurement is biased TOWARD showing the
+hazard. That bias is stated, not hidden; the idle comparison follows if the schedule allows.
+
+--- the applied probe hunk (instrumentation only) ---
+diff --git a/apps/web/e2e/schedule.spec.ts b/apps/web/e2e/schedule.spec.ts
+index 7a0e50c..fd5ffca 100644
+--- a/apps/web/e2e/schedule.spec.ts
++++ b/apps/web/e2e/schedule.spec.ts
+@@ -430,8 +430,16 @@ test.describe('periods — states', () => {
+ 
+   test('I-13: "New period" persists nothing and issues ZERO requests', async ({ page }, info) => {
+     await routeHappyPath(page);
++    /* ── REV-C PROBE (instrumentation only; restored byte-identically) ──────── */
++    const revcSeen: { url: string; t: number }[] = [];
++    page.on('request', (r) => revcSeen.push({ url: r.url(), t: Date.now() }));
++    const revcT0 = Date.now();
++    /* ── END REV-C PROBE ─────────────────────────────────────────────────────── */
+     await page.goto(PERIODS_URL);
+     await expect(page.getByTestId('periods-new')).toBeVisible();
++    /* ── REV-C PROBE ─────────────────────────────────────────────────────────── */
++    const revcWindowOpensAt = Date.now();
++    /* ── END REV-C PROBE ─────────────────────────────────────────────────────── */
+ 
+     const recording = await recordRequests(
+       page,
+@@ -443,6 +451,20 @@ test.describe('periods — states', () => {
+       },
+     );
+ 
++    /* ── REV-C PROBE ─────────────────────────────────────────────────────────── */
++    {
++      const periods = revcSeen.filter((s) => s.url.includes('/schedule/periods'));
++      const late = periods.filter((s) => s.t >= revcWindowOpensAt);
++      // eslint-disable-next-line no-console
++      console.log(
++        `[REV-C] project=${info.project.name} windowOpens=+${String(revcWindowOpensAt - revcT0)}ms ` +
++          `periodsGET=[${periods.map((s) => `+${String(s.t - revcT0)}ms`).join(' ')}] ` +
++          `periodsGET_ISSUED_AT_OR_AFTER_WINDOW_OPEN=${String(late.length)} ` +
++          `capturedInWindow=${JSON.stringify(recording.requests.map((r) => r.url))}`,
++      );
++    }
++    /* ── END REV-C PROBE ─────────────────────────────────────────────────────── */
++
+     // ZERO is the only correct number. The invariant exists because a control
+     // labelled New once created a live record on click.
+     expect(recording.requests).toEqual([]);
+sha256 with probe : 1a5d9765efd4fca53b96c58c105eb6c0813d8911fb58e34cc30fd084f0eade8b
+
+--- 8 runs, mobile project, the CI-failing viewport ---
+### run 1
+[REV-C] project=mobile windowOpens=+176ms periodsGET=[+15ms +169ms] periodsGET_ISSUED_AT_OR_AFTER_WINDOW_OPEN=0 capturedInWindow=[]
+  1 passed (4.0s)
+### run 2
+[REV-C] project=mobile windowOpens=+179ms periodsGET=[+17ms +172ms] periodsGET_ISSUED_AT_OR_AFTER_WINDOW_OPEN=0 capturedInWindow=[]
+  1 passed (3.5s)
+### run 3
+[REV-C] project=mobile windowOpens=+173ms periodsGET=[+16ms +167ms] periodsGET_ISSUED_AT_OR_AFTER_WINDOW_OPEN=0 capturedInWindow=[]
+  1 passed (3.6s)
+### run 4
+[REV-C] project=mobile windowOpens=+195ms periodsGET=[+12ms +187ms] periodsGET_ISSUED_AT_OR_AFTER_WINDOW_OPEN=0 capturedInWindow=[]
+  1 passed (3.7s)
+### run 5
+[REV-C] project=mobile windowOpens=+176ms periodsGET=[+21ms +182ms] periodsGET_ISSUED_AT_OR_AFTER_WINDOW_OPEN=1 capturedInWindow=["http://127.0.0.1:41988/api/organizations/11111111-1111-4111-8111-111111111111/groups/22222222-2222-4222-8222-222222222222/schedule/periods"]
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoEqual[2m([22m[32mexpected[39m[2m) // deep equality[22m
+  1 failed
+### run 6
+[REV-C] project=mobile windowOpens=+185ms periodsGET=[+9ms +178ms] periodsGET_ISSUED_AT_OR_AFTER_WINDOW_OPEN=0 capturedInWindow=[]
+  1 passed (3.7s)
+### run 7
+[REV-C] project=mobile windowOpens=+173ms periodsGET=[+9ms +160ms] periodsGET_ISSUED_AT_OR_AFTER_WINDOW_OPEN=0 capturedInWindow=[]
+  1 passed (3.5s)
+### run 8
+[REV-C] project=mobile windowOpens=+175ms periodsGET=[+17ms +162ms] periodsGET_ISSUED_AT_OR_AFTER_WINDOW_OPEN=0 capturedInWindow=[]
+  1 passed (3.5s)
+2026-08-23T06:05:47Z
+
+--- 14 further runs, to characterise the MARGIN rather than just the outcome ---
+### run 9  [REV-C] project=mobile windowOpens=+183ms periodsGET=[+10ms +174ms] periodsGET_ISSUED_AT_OR_AFTER_WINDOW_OPEN=0 capturedInWindow=[]   1 passed (3.7s) 
+### run 10  [REV-C] project=mobile windowOpens=+183ms periodsGET=[+18ms +172ms] periodsGET_ISSUED_AT_OR_AFTER_WINDOW_OPEN=0 capturedInWindow=[]   1 passed (3.6s) 
+### run 11  [REV-C] project=mobile windowOpens=+173ms periodsGET=[+10ms +166ms] periodsGET_ISSUED_AT_OR_AFTER_WINDOW_OPEN=0 capturedInWindow=[]   1 passed (3.7s) 
+### run 12  [REV-C] project=mobile windowOpens=+171ms periodsGET=[+17ms +159ms] periodsGET_ISSUED_AT_OR_AFTER_WINDOW_OPEN=0 capturedInWindow=[]   1 passed (3.6s) 
+### run 13  [REV-C] project=mobile windowOpens=+172ms periodsGET=[+19ms +166ms] periodsGET_ISSUED_AT_OR_AFTER_WINDOW_OPEN=0 capturedInWindow=[]   1 passed (3.6s) 
+### run 14  [REV-C] project=mobile windowOpens=+176ms periodsGET=[+16ms +168ms] periodsGET_ISSUED_AT_OR_AFTER_WINDOW_OPEN=0 capturedInWindow=[]   1 passed (3.6s) 
+### run 15  [REV-C] project=mobile windowOpens=+172ms periodsGET=[+10ms +162ms] periodsGET_ISSUED_AT_OR_AFTER_WINDOW_OPEN=0 capturedInWindow=[]   1 passed (3.5s) 
+### run 16  [REV-C] project=mobile windowOpens=+167ms periodsGET=[+18ms +162ms] periodsGET_ISSUED_AT_OR_AFTER_WINDOW_OPEN=0 capturedInWindow=[]   1 passed (3.5s) 
+### run 17  [REV-C] project=mobile windowOpens=+176ms periodsGET=[+12ms +170ms] periodsGET_ISSUED_AT_OR_AFTER_WINDOW_OPEN=0 capturedInWindow=[]   1 passed (3.5s) 
+### run 18  [REV-C] project=mobile windowOpens=+171ms periodsGET=[+14ms +164ms] periodsGET_ISSUED_AT_OR_AFTER_WINDOW_OPEN=0 capturedInWindow=[]   1 passed (3.6s) 
+### run 19  [REV-C] project=mobile windowOpens=+211ms periodsGET=[+18ms +195ms] periodsGET_ISSUED_AT_OR_AFTER_WINDOW_OPEN=0 capturedInWindow=[]   1 passed (3.7s) 
+### run 20  [REV-C] project=mobile windowOpens=+200ms periodsGET=[+15ms +186ms] periodsGET_ISSUED_AT_OR_AFTER_WINDOW_OPEN=0 capturedInWindow=[]   1 passed (3.5s) 
+### run 21  [REV-C] project=mobile windowOpens=+178ms periodsGET=[+17ms +169ms] periodsGET_ISSUED_AT_OR_AFTER_WINDOW_OPEN=0 capturedInWindow=[]   1 passed (3.8s) 
+### run 22  [REV-C] project=mobile windowOpens=+185ms periodsGET=[+17ms +181ms] periodsGET_ISSUED_AT_OR_AFTER_WINDOW_OPEN=0 capturedInWindow=[]   1 passed (3.9s) 
+2026-08-23T06:07:16Z
+
+--- RESTORE ---
+restored
+sha256 after restore: 08f4293871606948cb38096d583af5a3d04cdfa6c4770428fe1f7077476b4e12
+(the pre-probe sha256 was recorded by git; the check that matters is git status)
+  (empty above = byte-identical to HEAD)
+  (empty above = the whole tracked tree is clean)
+
+==================== ANALYSIS ====================
+
+22 runs. 1 failure (run 5). The failure is not the point — the MARGIN is.
+
+Every run issues TWO 'GET .../schedule/periods'. The first lands at +9..+21 ms, far before the
+window. The SECOND lands within a few milliseconds of the instant the recording window opens,
+on every single run:
+
+  run   windowOpens   2nd periodsGET   margin (window - GET)   outcome
+  ---   -----------   -------------   ---------------------   -------
+    1         176ms           169ms                     7ms   pass
+    2         179ms           172ms                     7ms   pass
+    3         173ms           167ms                     6ms   pass
+    4         195ms           187ms                     8ms   pass
+    5         176ms           182ms                    -6ms   FAIL — CAPTURED IN WINDOW
+    6         185ms           178ms                     7ms   pass
+    7         173ms           160ms                    13ms   pass
+    8         175ms           162ms                    13ms   pass
+    9         183ms           174ms                     9ms   pass
+   10         183ms           172ms                    11ms   pass
+   11         173ms           166ms                     7ms   pass
+   12         171ms           159ms                    12ms   pass
+   13         172ms           166ms                     6ms   pass
+   14         176ms           168ms                     8ms   pass
+   15         172ms           162ms                    10ms   pass
+   16         167ms           162ms                     5ms   pass
+   17         176ms           170ms                     6ms   pass
+   18         171ms           164ms                     7ms   pass
+   19         211ms           195ms                    16ms   pass
+   20         200ms           186ms                    14ms   pass
+   21         178ms           169ms                     9ms   pass
+   22         185ms           181ms                     4ms   pass
+
+  passes: n=21  min=4ms  max=16ms  median=8ms
+  failure: 1 run, margin -6ms
+
+WHAT THIS ESTABLISHES — and it is what REV-B said it could not establish by construction:
+
+ 1. THE STRAGGLER IS THE PAGE'S OWN QUERY, NOT THE CLICK. On run 5 the captured request is
+    literally printed:
+capturedInWindow=["http://127.0.0.1:41988/api/organizations/11111111-1111-4111-8111-111111111111/groups/22222222-2222-4222-8222-222222222222/schedule/periods"]
+    — a GET on the periods LIST endpoint, issued at +182 ms, 6 ms AFTER the window opened at
+    +176 ms. The click issues nothing. REV-B-001's product-innocence half is now proven from
+    the failing side as well as the passing side.
+
+ 2. THE SAFETY MARGIN IS SINGLE-DIGIT MILLISECONDS, ON EVERY RUN. This is not a rare
+    coincidence of scheduling; it is a systematically near-simultaneous pair whose ordering is
+    decided by noise. An I-13/I-10 invariant proof currently rests on a ~8 ms gap. Any change
+    that shifts either side by ten milliseconds — a slower runner, a different Chromium build,
+    one more mocked route — flips the outcome. That is why re-running until green is not a
+    repair, and why REV-C grades REV-C-001 BLOCKING rather than treating it as flakiness.
+
+ 3. THERE ARE TWO PERIODS REQUESTS PER LOAD, AND THE SECOND IS THE PROBLEM. REV-C did not
+    prove what causes the second one and does not claim to. It is recorded as an OBSERVATION
+    for the repair packet, with the note that its shape — a second fetch of the same key ~150
+    ms after the first, once another query has settled — matches the enabled-oscillation class
+    GH-006 diagnosed on the publication comparison page and GH-009 registered as still open
+    ('the enabled-oscillation class has one confirmed latent sibling'). Whether this is a
+    third instance of that class is a question for the implementer, not a REV-C finding.
+
+BIAS DISCLOSED: REV-C's composed run #2R was executing throughout, so this machine was loaded.
+Load widens the paint-to-effect gap and therefore biases the FAILURE RATE upward (1 in 22 here
+against REV-B's 1 in 34 isolated). It does NOT manufacture the margin: a systematically
+4-16 ms gap between two events is a property of their ordering, not of the CPU's spare
+capacity, and the same shape appears on all 22 runs including the fastest.
+2026-08-23T06:07:53Z

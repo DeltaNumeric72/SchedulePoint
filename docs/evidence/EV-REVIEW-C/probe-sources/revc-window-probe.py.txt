@@ -1,0 +1,82 @@
+#!/usr/bin/env python3
+"""REV-C probe hunk: instrument the I-13 "New period" test so the RELATIVE ORDER of
+(a) the page's own `GET .../schedule/periods` and (b) the moment recordRequests opens
+its window is MEASURED on every run, whether or not the flake fires.
+
+Adds only instrumentation. Weakens no assertion, changes no budget, touches no product
+code. `apply` patches, `restore` is `git checkout --`.
+"""
+import subprocess
+import sys
+
+FILE = "apps/web/e2e/schedule.spec.ts"
+
+ANCHOR_A = """  test('I-13: "New period" persists nothing and issues ZERO requests', async ({ page }, info) => {
+    await routeHappyPath(page);
+    await page.goto(PERIODS_URL);
+    await expect(page.getByTestId('periods-new')).toBeVisible();
+
+    const recording = await recordRequests("""
+
+PATCH_A = """  test('I-13: "New period" persists nothing and issues ZERO requests', async ({ page }, info) => {
+    await routeHappyPath(page);
+    /* ── REV-C PROBE (instrumentation only; restored byte-identically) ──────── */
+    const revcSeen: { url: string; t: number }[] = [];
+    page.on('request', (r) => revcSeen.push({ url: r.url(), t: Date.now() }));
+    const revcT0 = Date.now();
+    /* ── END REV-C PROBE ─────────────────────────────────────────────────────── */
+    await page.goto(PERIODS_URL);
+    await expect(page.getByTestId('periods-new')).toBeVisible();
+    /* ── REV-C PROBE ─────────────────────────────────────────────────────────── */
+    const revcWindowOpensAt = Date.now();
+    /* ── END REV-C PROBE ─────────────────────────────────────────────────────── */
+
+    const recording = await recordRequests("""
+
+ANCHOR_B = """    );
+
+    // ZERO is the only correct number. The invariant exists because a control
+    // labelled New once created a live record on click."""
+
+PATCH_B = """    );
+
+    /* ── REV-C PROBE ─────────────────────────────────────────────────────────── */
+    {
+      const periods = revcSeen.filter((s) => s.url.includes('/schedule/periods'));
+      const late = periods.filter((s) => s.t >= revcWindowOpensAt);
+      // eslint-disable-next-line no-console
+      console.log(
+        `[REV-C] project=${info.project.name} windowOpens=+${String(revcWindowOpensAt - revcT0)}ms ` +
+          `periodsGET=[${periods.map((s) => `+${String(s.t - revcT0)}ms`).join(' ')}] ` +
+          `periodsGET_ISSUED_AT_OR_AFTER_WINDOW_OPEN=${String(late.length)} ` +
+          `capturedInWindow=${JSON.stringify(recording.requests.map((r) => r.url))}`,
+      );
+    }
+    /* ── END REV-C PROBE ─────────────────────────────────────────────────────── */
+
+    // ZERO is the only correct number. The invariant exists because a control
+    // labelled New once created a live record on click."""
+
+
+def apply_patch() -> None:
+    with open(FILE, encoding="utf-8") as fh:
+        text = fh.read()
+    for name, anchor in (("A", ANCHOR_A), ("B", ANCHOR_B)):
+        n = text.count(anchor)
+        print(f"anchor {name}: {n} occurrence(s) (need exactly 1)")
+        if n != 1:
+            sys.exit(3)
+    text = text.replace(ANCHOR_A, PATCH_A).replace(ANCHOR_B, PATCH_B)
+    with open(FILE, "w", encoding="utf-8") as fh:
+        fh.write(text)
+    print("probe hunk applied")
+
+
+if __name__ == "__main__":
+    if sys.argv[1:2] == ["apply"]:
+        apply_patch()
+    elif sys.argv[1:2] == ["restore"]:
+        subprocess.run(["git", "checkout", "--", FILE], check=True)
+        print("restored")
+    else:
+        sys.exit("usage: revc-window-probe.py apply|restore")
