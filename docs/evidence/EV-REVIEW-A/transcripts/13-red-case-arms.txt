@@ -1,0 +1,5 @@
+START 2026-08-23T03:16:36Z
+### REV-A: five red-case arms in REV-A's scope, run as single-arm shards
+### (SP_RED_SHARD=k/65 selects exactly the arm at 0-based index k).
+
+=============== SP_RED_SHARD=48/65 ===============

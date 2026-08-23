@@ -219,7 +219,96 @@ measured, on **both** sides of the knife edge:
 | units NULL · termination NULL · wall NULL | `unrecorded` ×3 |
 | all five interruption reasons | `interrupted` ×5 |
 
+## 8. The database probes — EXECUTED, 17/17
+
+`transcripts/06-db-probes.txt` · sources `probe-sources/p1-*.ts`, `p2-*.ts`
+Two probe files, 17 arms, **exit 0**. Every "reads zero rows" arm is preceded by a
+NON-VACUITY arm proving the rows exist under the correct context (build_runs,
+schedule_versions, assignment_snapshots all non-empty).
+
+| Arm | Result |
+| --- | --- |
+| **I-15 outside the unit of work** — 4 non-BYPASSRLS roles × 17 M4/publication tables | **0 non-zero reads**; an unscoped `update build_runs` tampers **0 rows** |
+| **cross-TENANT** — a Beta-declared context over 17 tables, every role, read AND write | **0 Alpha rows visible, 0 tampered** |
+| **cross-GROUP** — a sibling-group context over build/version tables, every role | 0 for every application role. `app_migrator` sees 1 — migration 0019's `build_runs_organization_capacity_read` policy, ORGANIZATION-scoped by design (REV-A-007, NOTE) |
+| **I-18 at the database, all FIVE roles incl. BYPASSRLS break-glass**, against a version verified `published` first: update-child · delete-child · **insert a NEW child** · delete the version · update the publication record | **every one refused, every role** (`SCHEDULE_PUBLISHED_IMMUTABLE`, `SCHEDULE_VERSION_NO_DELETE`, permission denied, column-privilege denial) |
+| **audit rows, measured by ROW COUNT** (probe 1 had read a zero-row DELETE under RLS as "not refused") | `app_migrator`: DELETE and UPDATE return with **rows affected = 0**; the other four roles refused outright. Chain **55 entries → 55 entries, 0 problems** across the attempts |
+| **transition trigger on REAL ROWS** (the shipped matrix drives the SQL function) | `failed → {draft_configuration, queued, running, completed, approved, reviewed}` all `BUILD_TRANSITION_ILLEGAL` |
+| **epoch fencing** | `claim_epoch - 1` → `BUILD_CLAIM_EPOCH_REGRESSED: claim epoch moves forward only (1 -> 0)` |
+| **identity freeze** | `period_id`, `build_configuration_id`, `source_version_id`, `idempotency_key`, `semantic_request_digest` — every one refused |
+
+## 9. Mutation probes — four, each DETECTED and each RESTORED byte-identical
+
+Driver `probe-sources/mutate.sh`: sha256 before → patch (exactly one occurrence or abort)
+→ print the applied diff → run the detector → `git checkout --` → sha256 after → assert
+byte-identical → `git status` on the file.
+
+| # | Mutation | Detector | Result |
+| --- | --- | --- | --- |
+| **M1** RLS predicate | `build_runs_group_scope` USING → `true OR …` (`0018`) | REV-A's OWN tenancy probes | **DETECTED** — 3 arms red (I-15 fail-closed, cross-tenant, cross-group). `transcripts/07` |
+| **M2** lifecycle guard | `app_build_run_transition_is_legal` → `SELECT true OR …` (`0018`) | REV-A's own trigger arm + the shipped 256-pair matrix | **DETECTED** — 5 arms red. `transcripts/08` |
+| **M3** checker rule | `MinimumRestBetween`: `rest >= minMs` → `rest >= minMs - 3_600_000` | REV-A's boundary probe (rebuilt dist) + the shipped domain test | **DETECTED** — REV-A `[FAIL] rest: 9h59m apart`, 36 arms 1 failed; shipped test 1 failed \| 39 passed. `transcripts/09` |
+| **M4** audit-chain link | superuser, triggers disabled: (a) payload tamper on a MIDDLE row, (b) 2-row tail truncation | `verifyAuditChain` | **DETECTED both** — (a) `entry_hash_mismatch` at sequence 34, restore → 0 problems; (b) `head_sequence_ahead_of_chain`, 11 → 9 entries. `transcripts/06` |
+
+Every one restored: `RESTORE VERIFIED: byte-identical`, `git status` clean on the file, and
+after M3 the rebuilt dist returns the boundary probe to `arms=36 failed=0`.
+
+## 10. Migration cycle 0001–0019 — EXECUTED, and the claim's WORDING does not survive it
+
+`transcripts/10-migration-cycle.txt` — the exact command EV-M4-005 transcript 42 ran.
+
+```
+$ (cd apps/api && corepack pnpm exec tsx test/support/migrate-cycle-cli.ts)
+tables remaining after down: (none)
+policies remaining after down: 0
+MIGRATION CYCLE CLEAN — up -> down -> up -> down -> up, 3826ms
+EXIT=0
+95 "### MIGRATION" legs (19 migrations × 5), 0019 UP ×3 / DOWN ×2 — by NAME
+```
+
+The cycle is clean. **It is also empty**: `migrate-cycle-cli.ts` destroys and re-initialises
+the data directory and never seeds a row; a case-insensitive grep for
+`insert|seed|populat` over the whole transcript matches only this reviewer's own two header
+lines. Genuine POPULATED cycles exist for **5 of 19** migrations (0014, 0016, 0017, 0018,
+0019) as unit tests. Filed as **REV-A-002**.
+
+## 11. SBX — EXECUTED, every figure reproduces
+
+`transcripts/11-sbx.txt`, exit 0.
+
+```
+scenarios required 9 · executed 9 · passed 9 · failed 0 · blocked 0 · vacuous 0 · probe-error 0
+SBX-004 readings: 371 (role, context, table) readings across 7 contexts;
+                  0 wrong-tenant rows; 53 of 53 tables observed with visible rows
+vacuous assertions detected: 0
+```
+
+Identical to EV-M4-005 §24 row 4 and doc 36 §6 (9/9 · 371 · 53/53 · 0 wrong-tenant · 0 vacuous).
+
+## 12. doc 36 §10.4 — the "un-falsified selection window" IS reachable
+
+`transcripts/12-selection-window.txt` · source `probe-sources/p3-selection-window.test.ts`
+
+The record says the reviewer "could not construct the interleaving and did not assert it
+reachable". It is constructible **deterministically**, not by racing. `createDraftVersion`
+writes an audit event, and migration 0003's chain trigger takes
+`pg_advisory_xact_lock(hashtext('schedulepoint.audit'), hashtext(<organization>))` — a hook
+that sits AFTER `buildStaleness` and BEFORE the draft write.
+
+```
+[REV-A/W] CONTROL applied -> 087c03aa-… assignments 1        <- non-vacuous
+[REV-A/W] staleness before the race: {"stale":false,"kinds":[]}
+[REV-A/W] T2 holds the audit advisory lock for this organization
+[REV-A/W] backends waiting on a lock while T2 holds it: 1 (selection is PENDING)   <- the block is VERIFIED
+[REV-A/W] T2 moved 1 shift_type row(s) and committed          <- the M-11 shiftType class, edited as the shipped matrix edits it
+[REV-A/W] selection outcome: APPLIED draft = 7ca80164-…
+[REV-A/W] staleness AFTER, for the same run: {"stale":true,"kinds":["shiftType"]}
+[REV-A/W] run state: {"state":"applied_to_draft_schedule","applied":"7ca80164-…"}
+EXIT=0  (2 passed)
+```
+
+Filed as **REV-A-003**.
+
 ---
 
-*(Findings register: returned in REV-A's report to the orchestrator; sections appended as
-stages complete.)*
+*(Findings register: returned in REV-A's report to the orchestrator.)*
