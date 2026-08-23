@@ -1,0 +1,42 @@
+### REV-B PRIVACY PROBE (I-17 / non-bypass rule 9) — an ordinary request-body value in the log
+probe source: docs/evidence/EV-REVIEW-B/probes/privacy-log-leak.probe.test.ts.txt
+applied as:   apps/api/test/builds/__revb_privacy_probe__.test.ts  (removed afterwards; the tree is restored)
+2026-08-23T04:42:10+00:00
+
+ RUN  v3.2.4 /home/user/SchedulePoint
+
+[core] INFO: Failed to read crontab file '/home/user/SchedulePoint/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-4fea8e13e43d23d4df)] INFO: Completed task 1 (outbox.dispatch, 26.98ms) with success
+[worker(worker-4fea8e13e43d23d4df)] INFO: Completed task 2 (outbox.dispatch, 12.42ms) with success
+[worker(worker-4fea8e13e43d23d4df)] INFO: Completed task 3 (outbox.dispatch, 11.49ms) with success
+[worker(worker-4fea8e13e43d23d4df)] INFO: Completed task 4 (outbox.dispatch, 10.71ms) with success
+[worker(worker-4fea8e13e43d23d4df)] INFO: Completed task 5 (outbox.dispatch, 11.02ms) with success
+[worker(worker-4fea8e13e43d23d4df)] INFO: Completed task 6 (outbox.dispatch, 11.07ms) with success
+[worker(worker-4fea8e13e43d23d4df)] INFO: Completed task 7 (outbox.dispatch, 10.81ms) with success
+[worker(worker-4fea8e13e43d23d4df)] INFO: Completed task 8 (outbox.dispatch, 10.75ms) with success
+[worker(worker-4fea8e13e43d23d4df)] INFO: Completed task 9 (outbox.dispatch, 10.74ms) with success
+[worker(worker-4fea8e13e43d23d4df)] INFO: Completed task 10 (outbox.dispatch, 9.85ms) with success
+[worker(worker-4fea8e13e43d23d4df)] INFO: Completed task 11 (outbox.dispatch, 11.38ms) with success
+stdout | test/builds/__revb_privacy_probe__.test.ts > REV-B: an ordinary request-body value never reaches the log > drives the marker through six wire positions and reads every log line
+
+REV-B PRIVACY PROBE
+  marker: REVB-MARKER-352b3e0d2fcb4947be855afec7c0b26a
+  requests: accepted-body-name=200  refused-body-id=422  refused-unknown-key=422  query-string=404  path-segment=400  unknown-header=200
+  log lines captured: 1
+  log lines containing the marker: 0
+  response bodies echoing the marker: 2
+  ECHOING BODIES:
+    accepted-body-name 200 {"configuration":{"id":"a32487e2-645b-43e1-8ce1-a68250df6742","periodId":"ff6d36c4-f6cd-4e27-a427-309e1428be48","name":"REVB-MARKER-352b3e0d2fcb4947be855afec7c0b26a accepted","randomSeed":0,"numSearchWorkers":1,"maxTimeSeconds":10,"maxDeterministicTime":null,"interleaveSearch":true,"dispatchTimeoutMs":60000,"heartbeatTimeoutMs":120000,"retryLimit":2,"reproducibilityMode":"best-effort"},"correlationId":"73e38749-7965-4a29-8071-8f14cf57b310"}
+    refused-unknown-key 422 {"error":{"code":"VALIDATION_FAILED","message":"Some of the details need attention.","correlationId":"0a433680-7156-4581-9aa5-4a0b60a5eb13","problems":[{"field":"body","message":"Unrecognized key(s) in object: 'REVB-MARKER-352b3e0d2fcb4947be855afec7c0b26a'"}]}}
+
+
+ ✓ |api| test/builds/__revb_privacy_probe__.test.ts (2 tests) 1654ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  04:42:11
+   Duration  8.04s (transform 1.43s, setup 408ms, collect 312ms, tests 1.65s, environment 0ms, prepare 71ms)
+
+EXIT=0
+2026-08-23T04:42:20+00:00

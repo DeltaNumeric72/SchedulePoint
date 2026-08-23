@@ -1,0 +1,68 @@
+### REV-B: REV-B-001 reproduction attempt — the I-13 zero-request assertion, mobile, repeated under load
+note: the full api suite (t14) is running concurrently — this is deliberate; the CI failure occurred on a loaded shared runner.
+start 2026-08-23T04:20:07+00:00
+ 04:20:07 up  2:04,  0 user,  load average: 1.05, 1.16, 1.17
+run 1: exit=0    1 passed (3.3s) 
+run 2: exit=0    1 passed (3.3s) 
+run 3: exit=1    1 failed 
+run 4: exit=0    1 passed (3.4s) 
+run 5: exit=0    1 passed (3.4s) 
+run 6: exit=0    1 passed (3.3s) 
+run 7: exit=0    1 passed (3.3s) 
+run 8: exit=0    1 passed (3.4s) 
+FAILURES: 1 of 8
+finish 2026-08-23T04:20:42+00:00
+ 04:20:42 up  2:05,  0 user,  load average: 1.62, 1.29, 1.21
+
+### second pass — 12 runs, full output retained on failure
+run 1: exit=0 1 marks
+run 2: exit=0 1 marks
+run 3: exit=0 1 marks
+run 4: exit=0 1 marks
+run 5: exit=0 1 marks
+run 6: exit=0 1 marks
+run 7: exit=0 1 marks
+run 8: exit=0 1 marks
+run 9: exit=0 1 marks
+run 10: exit=0 1 marks
+run 11: exit=0 1 marks
+run 12: exit=0 1 marks
+SECOND PASS FAILURES: 0 of 12
+finish 2026-08-23T04:21:46+00:00
+
+### third pass — 10 runs under DELIBERATE CPU load (4 busy loops), full output on failure
+load generators: 3558 3559 3560 3561 
+ 04:22:00 up  2:06,  0 user,  load average: 1.63, 1.38, 1.25
+run 1: exit=0
+run 2: exit=0
+run 3: exit=0
+run 4: exit=0
+run 5: exit=0
+run 6: exit=0
+run 7: exit=0
+run 8: exit=0
+run 9: exit=0
+run 10: exit=0
+THIRD PASS FAILURES: 0 of 10
+ 04:23:12 up  2:07,  0 user,  load average: 5.24, 2.53, 1.66
+[1]   Terminated              ( while :; do
+    :;
+done )
+[2]   Terminated              ( while :; do
+    :;
+done )
+[3]-  Terminated              ( while :; do
+    :;
+done )
+[4]+  Terminated              ( while :; do
+    :;
+done )
+finish 2026-08-23T04:23:12+00:00
+
+### fourth pass — the WHOLE schedule.spec.ts at the mobile project (the CI condition), 4 runs
+run 1: exit=0    1 skipped   38 passed (4.0m) 
+run 2: exit=0    1 skipped   38 passed (3.6m) 
+run 3: exit=0    1 skipped   38 passed (3.6m) 
+run 4: exit=0    1 skipped   38 passed (3.6m) 
+FOURTH PASS FAILURES: 0 of 4
+finish 2026-08-23T04:38:16+00:00

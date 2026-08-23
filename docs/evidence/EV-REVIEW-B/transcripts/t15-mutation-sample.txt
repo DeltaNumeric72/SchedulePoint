@@ -111,3 +111,20 @@ MUTATION SAMPLE SUMMARY
       1 failed | 1 passed (2)
 
 9 sampled: 9 load-bearing, 0 vacuous
+
+==============================================================================
+M-10  apps/api/test/architecture/no-tenant-access-outside-unit-of-work.test.ts:143
+  NR-16 / I-15: the bare-SQL scanner (this is the scanner the NR-16 red case guards).
+  applied diff:
+    - expect(singleFindings.some((f) => f.detail.includes('SQL string literal'))).toBe(true);
+    + expect(singleFindings.some((f) => f.detail.includes('SQL string literal'))).toBe(false);
+  exit=1  tests: 1 failed | 11 passed (12)  (8.3s)
+  VERDICT: LOAD-BEARING (inversion goes RED)
+  restore byte-identical: yes (8a43ebd379a2 -> 8a43ebd379a2)
+
+==============================================================================
+MUTATION SAMPLE SUMMARY
+  M-10  load-bearing   exit=1  restored=true  apps/api/test/architecture/no-tenant-access-outside-unit-of-work.test.ts:143
+      1 failed | 11 passed (12)
+
+1 sampled: 1 load-bearing, 0 vacuous

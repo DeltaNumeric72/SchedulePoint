@@ -1,0 +1,22 @@
+### REV-B: the true cost of the two e2-objective arms that hit the 120s ceiling
+(machine calm; the api suite finished at 04:36:15)
+ 04:36:53 up  2:21,  0 user,  load average: 1.91, 2.31, 2.08
+2026-08-23T04:36:53+00:00
+
+--- arm: records rank, multiplier, scale and each rule ---
+      ·       · tiers: 1:fairness×100(2) 2:work-percentage×10(1) 3:preference×1(1)
+ ✓ |api| test/solver/e2-objective.test.ts (28 tests | 27 skipped) 130261ms
+   ✓ the objective is TIERED and every component weight is recorded > records rank, multiplier, scale and each rule’s scaled weight  130177ms
+ Test Files  1 passed (1)
+      Tests  1 passed | 27 skipped (28)
+   Duration  136.63s (transform 1.31s, setup 520ms, collect 221ms, tests 130.26s, environment 0ms, prepare 74ms)
+exit=0
+
+--- arm: measures SPEC-04 §7 and leaves the unmeasurable rates NULL ---
+ ✓ |api| test/solver/e2-objective.test.ts (28 tests | 27 skipped) 129514ms
+   ✓ status honesty and the metric set, end to end > measures SPEC-04 §7 and leaves the unmeasurable rates NULL  129429ms
+ Test Files  1 passed (1)
+      Tests  1 passed | 27 skipped (28)
+   Duration  135.61s (transform 1.19s, setup 440ms, collect 198ms, tests 129.51s, environment 0ms, prepare 78ms)
+exit=0
+2026-08-23T04:41:28+00:00

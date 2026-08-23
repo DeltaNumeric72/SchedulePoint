@@ -3,3 +3,85 @@ purpose: (a) measure the true cost of the two e2-objective arms that hit the 120
          (b) a second observation of the outbox-dispatch drain seam in a composed run
 start 2026-08-23T04:11:24+00:00
  04:11:24 up  1:55,  0 user,  load average: 0.86, 1.06, 1.14
+ ✓ |api| test/rules/schema.test.ts (8 tests) 168ms
+stdout | test/catalogue/gate-red-cases.test.ts > migration + RLS pairing, against this task's own tables > GREEN: 0005 as shipped has ENABLE + FORCE + a policy for every table it creates
+      · 0005 as shipped: 0 RLS pairing violations
+
+stdout | test/catalogue/gate-red-cases.test.ts > migration + RLS pairing, against this task's own tables > RED: `shift_types` with its policy removed FAILS the gate, naming the table
+      · RED (policy deleted): table "shift_types" created without CREATE POLICY in the same migration
+
+stdout | test/catalogue/gate-red-cases.test.ts > migration + RLS pairing, against this task's own tables > RED: `group_holidays` with FORCE removed FAILS the gate
+      · RED (FORCE deleted): table "group_holidays" created without FORCE ROW LEVEL SECURITY in the same migration
+
+stdout | test/catalogue/gate-red-cases.test.ts > route-without-policy, against this task's own routes > RED: the same route with its policy removed FAILS, naming the route
+      · RED (policy removed): POST /organizations/:organizationId/groups/:groupId/catalogue/shift-types — route registered without a policy declaration (config.policy)
+
+ ✓ |api| test/catalogue/gate-red-cases.test.ts (6 tests) 171ms
+stdout | test/audit/architecture.test.ts > the price of the OPUS-M1-003 connection-owner exemptions > neither exempt file names a TENANT table
+      · 2 exempt modules, 0 tenant-table references — the exemption is paid for
+
+stdout | test/audit/architecture.test.ts > non-bypass rule 6, as a scan > the audit tables are named ONLY inside src/audit
+      · no module outside src/audit names an audit table in SQL
+
+stdout | test/audit/architecture.test.ts > non-bypass rule 6, as a scan > NO module names audit_chain_heads — the chain tip belongs to the trigger
+      · audit_chain_heads appears in no TypeScript module at all
+
+stdout | test/audit/architecture.test.ts > non-bypass rule 6, as a scan > no module issues an UPDATE or DELETE against audit_events
+      · no module contains an UPDATE, DELETE or TRUNCATE against audit_events
+
+ ✓ |api| test/audit/architecture.test.ts (5 tests) 212ms
+stdout | test/solver/corpus/corpus-manifest.test.ts > the E1 corpus manifest > 1. covers every §6d class, exactly once
+      ·       · 15 fixtures across 15 classes
+
+stdout | test/solver/corpus/corpus-manifest.test.ts > the E1 corpus manifest > 2. regenerates byte-identically within one process
+      ·       · 14 generated fixtures reproduced byte for byte
+
+stdout | test/solver/corpus/corpus-manifest.test.ts > the E1 corpus manifest > 3. matches the committed manifest, hash for hash
+      ·       · 15 committed hashes all matched
+
+ ✓ |api| test/solver/corpus/corpus-manifest.test.ts (8 tests) 164ms
+ ✓ |api| test/builds/outcome-and-readiness.test.ts (16 tests) 149ms
+ ✓ |api| test/builds/result-reproducibility-wiring.test.ts (11 tests) 134ms
+ ✓ |api| test/schedule/views-time.test.ts (11 tests) 134ms
+stdout | test/solver/worker-invariants.test.ts > the solver worker package > has sources to scan at all
+      ·       · scanning 10 worker module(s): __init__.py, __main__.py, auth.py, cancellation.py, cpsat_adapter.py, egress_guard.py, model.py, protocol.py, runtime.py, stub_solver.py
+
+stdout | test/solver/worker-invariants.test.ts > the solver worker package > installs NO signal handler — cancellation is a watcher thread (H-4, FAD-10)
+      ·       · no signal handler; the watcher thread is present
+
+stdout | test/solver/worker-invariants.test.ts > the solver worker package > imports `ortools` in at most one adapter module (ADR-0006)
+      ·       · ortools importers: 1 — the allowance is spent, once
+
+stdout | test/solver/worker-invariants.test.ts > the outcome vocabulary is the same in both runtimes > the solver statuses match, value for value
+      ·       · 8 statuses agree across TypeScript and Python
+
+ ✓ |api| test/solver/worker-invariants.test.ts (9 tests) 158ms
+stdout | test/solver/worker-interpreter.test.ts > the worker interpreter resolution order > 6. applySolverEnv publishes the RESOLVED interpreter, not a literal
+      ·       · worker interpreter for this run: /home/user/SchedulePoint/solver/.venv/bin/python
+
+ ✓ |api| test/solver/worker-interpreter.test.ts (8 tests) 142ms
+ ✓ |api| test/rules/contract-parity.test.ts (3 tests) 111ms
+stdout | test/solver/constituent-kind-parity.test.ts > the snapshot constituent vocabulary is one list (OPUS-M4-005) > the contract enum and the domain constant are the SAME set
+      · 13 constituent kind(s), identical on both sides
+
+ ✓ |api| test/solver/constituent-kind-parity.test.ts (4 tests) 118ms
+ ✓ |api| test/builds/tenant-registry.test.ts (2 tests) 111ms
+stdout | test/solver/incorrect-worker-output.test.ts > deliberately incorrect worker output is refused > 2. UNKNOWN REFERENCE: a membership, a shift type, or a date the snapshot never carried
+      ·       · 3 unknown-reference shapes, all refused
+
+stdout | test/solver/incorrect-worker-output.test.ts > deliberately incorrect worker output is refused > 5. HARD VIOLATION: a candidate that breaches the rules it was solved under
+      ·       · 9 hard-rule breaches, each caught BY THE NAMED RULE
+
+stdout | test/solver/incorrect-worker-output.test.ts > deliberately incorrect worker output is refused > 8. MUTATION CONTROL: an HONEST candidate is ACCEPTED
+      ·       · MUTATION CONTROL: the honest candidate is accepted
+
+ ✓ |api| test/solver/incorrect-worker-output.test.ts (8 tests) 138ms
+ ↓ |api| test/solver/deterministic-cost.test.ts (14 tests | 14 skipped)
+
+ Test Files  138 passed | 1 skipped (139)
+      Tests  1444 passed | 14 skipped (1458)
+   Start at  04:11:25
+   Duration  1489.82s (transform 4.31s, setup 56.73s, collect 13.34s, tests 1412.80s, environment 0ms, prepare 72ms)
+
+EXIT=0
+finish 2026-08-23T04:36:15+00:00

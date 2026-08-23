@@ -175,3 +175,101 @@ evidence: scratch — writing under .evidence-scratch/ (tracked artifacts untouc
 ### (empty above == the runner restored the tree)
 
 ALL SELECTED ARMS DONE 2026-08-23T04:16:18+00:00
+
+################################################################
+### REV-B red-case arm index 57   2026-08-23T04:42:45+00:00
+################################################################
+$ node scripts/red-cases/run.mjs
+
+=== red-case shard 57/65 — 1 of 65 arm(s) selected ===
+  arms: result-reproducibility-derivation-removed
+
+
+=== preflight: building apps/web so the bundle arms have a bundle ===
+  built
+
+=== result-reproducibility-derivation-removed — a wall-clock-truncated run never claims reproducibility (SPEC-04 §4 amended, FAD-49) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+CASE                                       GREEN  RED    VERDICT
+-----------------------------------------  -----  -----  -------
+result-reproducibility-derivation-removed  pass   fail   PROVEN
+-----------------------------------------  -----  -----  -------
+1 case(s): 1 proven, 0 not proven
+shard 57/65 — 1 of 65 arm(s) in this process; the union is asserted by CI, not by this table
+
+GREEN "pass" = the gate passes on the clean tree.
+RED   "fail" = the gate fails when the violation is present. That is the desired outcome.
+ERRORED    = the arm did not RUN. Never counted as proven, however its exit code read.
+evidence: scratch — writing under .evidence-scratch/ (tracked artifacts untouched; pass --refresh to update them)
+/home/user/SchedulePoint/.evidence-scratch/scripts/red-cases/evidence-output.txt
+### arm 57 runner exit: 0
+### tree after arm 57:
+### (empty above == the runner restored the tree)
+
+################################################################
+### REV-B red-case arm index 58   2026-08-23T04:43:03+00:00
+################################################################
+$ node scripts/red-cases/run.mjs
+
+=== red-case shard 58/65 — 1 of 65 arm(s) selected ===
+  arms: result-reproducibility-units-branch-removed
+
+
+=== preflight: building apps/web so the bundle arms have a bundle ===
+  built
+
+=== result-reproducibility-units-branch-removed — a completed FEASIBLE run with its deterministic budget UNSPENT never claims reproducibility (FAD-52) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+CASE                                         GREEN  RED    VERDICT
+-------------------------------------------  -----  -----  -------
+result-reproducibility-units-branch-removed  pass   fail   PROVEN
+-------------------------------------------  -----  -----  -------
+1 case(s): 1 proven, 0 not proven
+shard 58/65 — 1 of 65 arm(s) in this process; the union is asserted by CI, not by this table
+
+GREEN "pass" = the gate passes on the clean tree.
+RED   "fail" = the gate fails when the violation is present. That is the desired outcome.
+ERRORED    = the arm did not RUN. Never counted as proven, however its exit code read.
+evidence: scratch — writing under .evidence-scratch/ (tracked artifacts untouched; pass --refresh to update them)
+/home/user/SchedulePoint/.evidence-scratch/scripts/red-cases/evidence-output.txt
+### arm 58 runner exit: 0
+### tree after arm 58:
+### (empty above == the runner restored the tree)
+
+################################################################
+### REV-B red-case arm index 64   2026-08-23T04:43:21+00:00
+################################################################
+$ node scripts/red-cases/run.mjs
+
+=== red-case shard 64/65 — 1 of 65 arm(s) selected ===
+  arms: nr16-bare-line-scanner
+
+
+=== preflight: building apps/web so the bundle arms have a bundle ===
+  built
+
+=== nr16-bare-line-scanner — the I-15 scanner sees a tenant query written across LINES (NR-16) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+CASE                    GREEN  RED    VERDICT
+----------------------  -----  -----  -------
+nr16-bare-line-scanner  pass   fail   PROVEN
+----------------------  -----  -----  -------
+1 case(s): 1 proven, 0 not proven
+shard 64/65 — 1 of 65 arm(s) in this process; the union is asserted by CI, not by this table
+
+GREEN "pass" = the gate passes on the clean tree.
+RED   "fail" = the gate fails when the violation is present. That is the desired outcome.
+ERRORED    = the arm did not RUN. Never counted as proven, however its exit code read.
+evidence: scratch — writing under .evidence-scratch/ (tracked artifacts untouched; pass --refresh to update them)
+/home/user/SchedulePoint/.evidence-scratch/scripts/red-cases/evidence-output.txt
+### arm 64 runner exit: 0
+### tree after arm 64:
+### (empty above == the runner restored the tree)
+
+ALL SELECTED ARMS DONE 2026-08-23T04:43:44+00:00

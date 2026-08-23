@@ -1,0 +1,91 @@
+### REV-B: corepack pnpm sbx — the SPEC-16 sandbox scenarios under their contracts
+2026-08-23T04:43:56+00:00
+ 04:43:56 up  2:28,  0 user,  load average: 1.28, 1.46, 1.76
+  policies exercised: FAD-27 (a HARD rule that cannot be evaluated blocks) | PO-DEC-13 conflict classes (hard-breach blocks approval) | report 24 §3.4 — 100% of injected hard violations detected
+  EVIDENCE_BLOCKED sub-scenarios (never a pass, never a silent skip):
+    - per-conflict REMEDIATION guidance ("each with severity, explanation, and remediation")  ->  EVIDENCE_BLOCKED(no remediation field exists on `BuildConflict` (packages/contracts/src/builds/lifecycle.ts). Severity (`severityRank`), explanation (`detail`) and the blocking decision (`blocksApproval`) are all produced and asserted below; remediation text is not modelled anywhere at M4 and is not invented here)
+    - injecting PickPositionRestriction through the SOLVER CANDIDATE path (validateCandidate)  ->  EVIDENCE_BLOCKED(RK-RULING-04: a solver-produced candidate row carries `pickPosition: null` by construction (apps/api/src/solver/candidate-validation.ts), which the ruling makes satisfy the restriction VACUOUSLY. The kind is injected and detected at the checker boundary below; it is unreachable at the candidate boundary by design, not by gap)
+  weekday-pins: 6 weekday facts asserted, not assumed
+  detection-rate: 22/22 injected hard violations detected (100%), every one explained in domain terms, every satisfied twin clean
+  injected-RequiresQualification: a participant is placed on a shift without holding the required credential that day -> 1 breach finding(s); satisfied twin 0. explanation: membership m-sbx016-a is assigned on 2031-06-05 (DAY) without a valid acls holding on that date
+  injected-MinimumRestBetween: two shifts for one participant separated by less rest than the rule requires -> 1 breach finding(s); satisfied twin 0. explanation: membership m-sbx016-a has 8.00 hours of rest before the assignment on 2031-06-06, and this rule requires 12
+  injected-MaxConsecutive: a run of consecutive working days one longer than the rule permits -> 1 breach finding(s); satisfied twin 0. explanation: membership m-sbx016-a works 3 consecutive days from 2031-06-03, and this rule permits 2
+  injected-MaxAssignmentsInWindow: two assignments inside one rolling window where the rule permits one -> 1 breach finding(s); satisfied twin 0. explanation: membership m-sbx016-a has 2 assignments in the 7-day window from 2031-06-03, and this rule permits 1
+  injected-CallSpacing: two on-call shifts closer together than the rule allows -> 1 breach finding(s); satisfied twin 0. explanation: membership m-sbx016-a is on call on 2031-06-05, 2 day(s) after the call on 2031-06-03; this rule requires 5
+  injected-AvoidDate: an assignment on a date the rule forbids outright -> 1 breach finding(s); satisfied twin 0. explanation: membership m-sbx016-a is assigned on 2031-06-05, which this rule forbids
+  injected-RequiredCount: a required date × shift-type cell left entirely unstaffed -> 1 breach finding(s); satisfied twin 0. explanation: 2031-06-02 (DAY) carries 0 scoped assignments; this rule requires exactly 1
+  injected-MinCoverage: a cell staffed below the floor this rule sets -> 2 breach finding(s); satisfied twin 0. explanation: 2031-06-01 (DAY) carries 1 scoped assignments; this rule requires at least 2
+  injected-MaxCoverage: a cell staffed above the ceiling this rule sets -> 1 breach finding(s); satisfied twin 0. explanation: 2031-06-01 (DAY) carries 2 scoped assignments; this rule requires at most 1
+  injected-MemberOfStaffGroup: an assignee who is not a member of the staff group the rule restricts to -> 1 breach finding(s); satisfied twin 0. explanation: membership m-sbx016-a is assigned on 2031-06-05 (DAY) and is not a member of staff group sg-injected
+  injected-ValidGroupRestriction: an assignment on a shift type the valid group does not admit -> 1 breach finding(s); satisfied twin 0. explanation: the assignment on 2031-06-05 is on shift type DAY, which valid group vg-injected does not admit
+  injected-PickPositionRestriction: a draft pick taken at a position the rule does not allow -> 1 breach finding(s); satisfied twin 0. explanation: the assignment on 2031-06-05 holds pick position 7, which this rule does not allow
+  injected-WeekdayFteLimit: more Mondays worked than the weekday FTE fraction admits over the horizon -> 1 breach finding(s); satisfied twin 0. explanation: membership m-sbx016-a has 3 scoped assignments on mon across 5 such dates in 2031-06-01..2031-06-30; the binding limit is 2 (RK-RULING-05, the tightest of the present terms)
+  injected-NoAdjacent: the forbidden pair worked on consecutive calendar dates -> 1 breach finding(s); satisfied twin 0. explanation: membership m-sbx016-a works DAY on 2031-06-10 and NIGHT on 2031-06-11; this rule forbids the two on consecutive dates (RK-RULING-07)
+  injected-ForbiddenSequence: the forbidden ordered run worked on consecutive dates -> 1 breach finding(s); satisfied twin 0. explanation: membership m-sbx016-a works the forbidden sequence DAY→NIGHT on consecutive dates from 2031-06-14 (RK-RULING-08)
+  injected-LinkedShifts: one half of a linked pair worked without the other, on the same date -> 1 breach finding(s); satisfied twin 0. explanation: membership m-sbx016-a has DAY but not every linked type (DAY, NIGHT) on 2031-06-18 (RK-RULING-09)
+  injected-ImpliesAssignment: the antecedent shift worked without the shift it implies -> 1 breach finding(s); satisfied twin 0. explanation: membership m-sbx016-a works DAY without the implied NIGHT on 2031-06-20 (RK-RULING-09)
+  injected-MutuallyExclusive: two mutually exclusive shift types held by one participant on one date -> 1 breach finding(s); satisfied twin 0. explanation: membership m-sbx016-a works DAY and NIGHT, which this rule makes mutually exclusive on 2031-06-21 (RK-RULING-09)
+  injected-FixedAssignment: a pinned fixed input the candidate silently dropped -> 1 breach finding(s); satisfied twin 0. explanation: the assignment pinned by this rule (m-sbx016-a on 2031-06-24, DAY) is absent from the candidate
+  injected-ProtectedRange: an assignment inside a protected date range removed by the rebuild -> 1 breach finding(s); satisfied twin 0. explanation: the assignment inside the protected range 2031-06-01..2031-06-15 (m-sbx016-a on 2031-06-10, DAY) is absent from the candidate
+  injected-PatternRule: a pattern trigger worked without the segment the pattern requires -> 1 breach finding(s); satisfied twin 0. explanation: membership m-sbx016-a works the pattern trigger DAY on 2031-06-09 but not the required NIGHT on 2031-06-10
+  injected-AlternatingWeek: the alternating shift worked in two distinct week classes of one cycle -> 1 breach finding(s); satisfied twin 0. explanation: membership m-sbx016-a works DAY in 2 distinct week classes of a 2-week cycle over 2031-06-01..2031-06-30; an alternating-week rule admits exactly one
+  build-boundary-validation: validateCandidate: usable=false, rejections=[hard-violation], hardViolations=1; membership 66666666-6666-4666-8666-666666666666 is assigned on 2031-06-05, which this rule forbids
+  build-boundary-conflict: conflictsOf -> class=hard-breach severityRank=1 blocksApproval=true code=rule_breached subject=inj_anchor_avoid_date; detail carried through byte-identically from the checker
+  probe-control: the oracle accepts the truthful 22/22 measurement
+
+==============================================================================
+SBX-017 — Progressive builds — protected assignments preserved exactly, and partial circulation
+STATE: PASS   falsifiability probe: FALSIFIABLE   gate-required: YES   1652 ms
+
+  SPEC-16 §1 contract
+    owner                    OPUS-M4-005 (implementer) / Fable (acceptance)
+    fixtureProvenance        MULTI `full` profile with `seed.catalogue: [alpha]`, provisioned by apps/api/test/support/multi.ts from a slug. The scenario builds its own two-stage history through the production services: stage 1 is a real solve whose candidate is reviewed, approved and written into a new draft; one of the resulting assignments is then PINNED through `setPin`, and stage 2 is a progressive build citing stage 1 in `parent_build_ids` and that identity in `protected_assignment_identities`. Synthetic throughout; a 2048 period window far from every other fixture.
+    deterministicSetup       One embedded PostgreSQL cluster per run, initialised from empty; migrations up -> down -> up. The two stages are strictly sequential — stage 2 is created only after stage 1 has settled — so no result depends on interleaving. Both solves run under the venv CP-SAT worker; every assertion is over rows in the database, never over a duration.
+    externalDependency       The CP-SAT worker subprocess (`SP_SOLVER_WORKER_COMMAND`). Nothing else.
+    faultControls            One injected, plus the probe. The progressive stage is given a protected identity and the solver is free to place everything else, so the stage is a real re-decision of the period rather than a copy. The falsifiability probe hands the preservation oracle a stage output in which the protected assignment MOVED to another membership and requires the oracle to reject it. No notification is sent to any destination and nothing is published.
+    objectiveOracle          Three conjuncts: (1) PROTECTION RECORDED — the stage-2 canonical input carries the protected identity as a fixed input with `isPinned: true`, so the protection is an INPUT rather than a hope; (2) PRESERVED EXACTLY — after the stage-2 candidate is selected into a new draft, the protected identity is present with the SAME membership, the SAME date, the SAME shift type and still pinned; (3) PARTIAL CIRCULATION — the partial draft reaches `in_review` through the EXISTING M3 path (`transitionVersion`) and is readable, while the period is still `planning`, holds no publication record and no current published assignment.
+    retainedArtifact         docs/evidence/EV-M4-005/sbx-017-progressive.txt
+    environment              LIVE-SIM
+    earliestExecutionPoint   E2
+  tables exercised: assignment_identities, assignment_snapshots, current_published_assignments, publication_records, schedule_versions
+  policies exercised: I-18 — nothing published, nothing mutated | SPEC-04 §6 — fixed inputs are recorded, never inferred | report 21 §5 — unlocking a protected assignment is explicit
+  stage-1: a real solve was reviewed, approved and written into a NEW draft 0b6b110f-3f79-4ba2-80c4-1ae03003d7a8; the source draft is untouched
+  protection: identity 3d62c928-908c-4faf-8c17-c3730b3c85c9 pinned on the stage-1 draft (44dd4a46-8b6b-4a89-931c-5ea899d1acf7 on 2048-01-06)
+  stage-2-inputs: the canonical input carries 1 fixed input(s); the protected identity is present and pinned; parent build recorded
+  stage-2-lifecycle: completed -> reviewed -> progressively_extended -> reviewed -> approved -> applied_to_draft_schedule; new draft 9efcb4ca-8831-496f-97f9-e412fd6ab420
+  preserved-exactly: identity 3d62c928-908c-4faf-8c17-c3730b3c85c9 survived the progressive stage with the same membership, date and shift type, and is still pinned (1 assignment(s) on the new draft)
+  partial-circulation: a draft staffing 1 of 7 dates reached in_review through the existing M3 path; the period is still planning, with 0 publication records and 0 published assignments
+  queue-released: 2 build.solve job(s) consumed by the PRODUCTION queue runner, each answering not-claimable because its build had already settled; the shared queue is left as this scenario found it (FAD-15 Layer 3)
+  probe-control: the oracle accepts an exactly-preserved assignment
+
+==============================================================================
+vacuous assertions detected: 0
+
+AUDIT CHAIN AFTER THIS RUN — chain problems / checkpoints signed / checkpoint problems
+(clean is 0 / N>=1 / 0; the middle number is reported rather than pinned, because
+ the periodic sweep may legitimately have signed more than one)
+  54a54a49: 0 / 1 / 0  (227 entries, head 227)
+  4fc3ee7d: 0 / 1 / 0  (11 entries, head 11)
+  c7cb2819: 0 / 1 / 0  (10 entries, head 10)
+
+evidence path: docs/evidence/EV-M2-SBX/scenario-report.txt
+
+/home/user/SchedulePoint/.evidence-scratch/docs/evidence/EV-M2-SBX/scenario-report.txt
+EXIT=0
+2026-08-23T04:44:24+00:00
+
+=== the scenario report this run wrote (head, from .evidence-scratch, mtime 04:44:23 — this run's own output) ===
+OPUS-M2-001 — SBX evidence harness, G-ARCH tenancy subset
+generated: 2026-08-23T04:44:23.501Z
+
+G-ARCH IS NOT CLOSED BY THIS RUN. It also needs SBX-011, 013, 014b, 022, 023
+and 028 at later milestones. This subset clears the tenancy part.
+
+scenarios required 9 · executed 9 · passed 9 · failed 0 · blocked 0 · vacuous 0 · probe-error 0 · not-runnable 0
+
+==============================================================================
+...
+  readings: 371 (role, context, table) readings across 7 contexts; 0 wrong-tenant rows; 53 of 53 tables observed with visible rows
+...
+scenarios marked FALSIFIABLE: 9
+scenarios marked NOT falsifiable: 0
