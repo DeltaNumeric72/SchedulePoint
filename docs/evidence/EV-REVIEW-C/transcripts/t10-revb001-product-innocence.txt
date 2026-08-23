@@ -1,0 +1,155 @@
+=== REV-C / T10 — REV-B-001's PRODUCT-INNOCENCE half, rechecked (charter item 1) ===
+2026-08-23T05:24:14Z
+
+REV-B-001's claim: 'It is not a product amplification. Against the REAL stack, the same
+interaction records 0 requests at both viewports, in REV-B's own run (t12) and in the
+retained M4 record (transcript 43).'
+
+--- 1. The retained real-stack ledger, read directly by REV-C ---
+  desktop  recordedAt 2026-08-18T13:06:56.661Z   ledger entries: 8
+     critical-path-open-new-period          0 request(s)
+     critical-path-save-period              2 request(s)
+     critical-path-save-requirement         2 request(s)
+     critical-path-create-draft-version     2 request(s)
+     critical-path-open-new-configuration   0 request(s)
+     critical-path-save-configuration       2 request(s)
+     critical-path-launch-build             2 request(s)
+     critical-path-apply-candidate          1 request(s)
+  mobile  recordedAt 2026-08-18T13:07:12.821Z   ledger entries: 8
+     critical-path-open-new-period          0 request(s)
+     critical-path-save-period              2 request(s)
+     critical-path-save-requirement         2 request(s)
+     critical-path-create-draft-version     2 request(s)
+     critical-path-open-new-configuration   0 request(s)
+     critical-path-save-configuration       2 request(s)
+     critical-path-launch-build             2 request(s)
+     critical-path-apply-candidate          1 request(s)
+
+  CONFIRMED, and with its own non-vacuity built in: 'critical-path-open-new-period' records
+  ZERO at BOTH viewports, against a real API (http://127.0.0.1:42732/api/...) and a real
+  migrated database — and the very NEXT step, 'critical-path-save-period', records POST + GET.
+  A ledger that recorded nothing anywhere would be hollow; this one records 2 on the step
+  immediately after, so the 0 is a measurement and not an absence of measurement.
+  => REV-B-001's product-innocence half is CONFIRMED, on stronger evidence than REV-B cited.
+
+--- 2. The mechanism half, verified by REV-C from source (REV-B stated it, did not prove it) ---
+$ grep -n "periods-new|SurfaceState|useQuery|schedule-periods|NewPeriodForm" apps/web/src/schedule/PeriodsPage.tsx
+1:import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+25:import { SurfaceState } from '../components/SurfaceState.js';
+66:  const queryClient = useQueryClient();
+70:  const periods = useQuery({
+71:    queryKey: ['schedule-periods', scope.organizationId, scope.groupId],
+85:        <NewPeriodForm
+87:            void queryClient.invalidateQueries({ queryKey: ['schedule-periods'] });
+91:        <SurfaceState
+181:        </SurfaceState>
+198:function NewPeriodForm({ onSaved }: { onSaved: () => void }): JSX.Element {
+228:          data-testid="periods-new"
+333:  const queryClient = useQueryClient();
+
+  Line 70-71: the periods query, keyed ['schedule-periods', org, group].
+  Line 85   : <NewPeriodForm ...>  — rendered ABOVE the SurfaceState.
+  Line 91   : <SurfaceState ...>   — the query's loading/empty/error wrapper.
+  Line 228  : data-testid="periods-new" lives inside NewPeriodForm.
+  => The button paints independently of the periods query, exactly as REV-B-001 states.
+     The spec opens its recording window on that button's visibility
+     (apps/web/e2e/schedule.spec.ts:434), so the page's own initial GET can be issued after
+     the window is already open. MECHANISM CONFIRMED BY CODE-READ.
+
+--- 3. REV-C's SHARPENING: the class is 18 interactions wide, not one ---
+  budgeted interactions            : 44
+  ZERO-budget (the I-13/I-10 class): 18
+      rules-open-new-rule
+      schedule-open-new-period
+      schedule-fill-period-form
+      schedule-open-cell-editor
+      rules-open-edit
+      my-schedule-switch-view
+      catalogue-open-new-shift-type
+      authn-fill-activation-form
+      authn-submit-activation-refused-by-client
+      settings-open-new-location
+      publication-open-confirm
+      publication-fill-confirm
+      publication-open-clone-confirm
+      publication-open-revert-confirm
+      builds-open-new-configuration
+      builds-open-launch-form
+      builds-open-cancel-confirm
+      builds-toggle-deterministic
+  Every one of these is recorded through the SAME support/request-budget.ts recordRequests
+  helper, with the same open-side window and the same DOM-visibility trigger. The recorder
+  window is therefore a shared hazard across 18 zero-budget interactions, and any of them
+  whose page has an above-the-fold control plus an independent initial query can straggle the
+  same way. GH-009 registered the CLOSE side of this class; REV-B-001 is the OPEN side; the
+  WIDTH (18) is REV-C's addition. Recorded under REV-C-001.
+
+--- 4. A FIGURE REV-C FIRST THOUGHT WAS WRONG, AND IS NOT — plus what checking it DID find ---
+
+REV-C's first pass compared REV-B §C row 6a ('nine per-interaction request counts,
+0/2/2/1/2/0/2/2/2, identical to the retained record') against the retained JSON ledgers
+docs/evidence/EV-M4-005/critical-path-requests.{desktop,mobile}.json, which hold EIGHT
+entries reading 0,2,2,2,0,2,2,1. On that comparison REV-B looked wrong, and REV-C drafted a
+finding saying so. THAT DRAFT WAS REV-C'S ERROR and is withdrawn. REV-B named
+transcript 43, not the JSON, and transcript 43 prints exactly nine lines in exactly REV-B's
+order:
+$ grep -nE "request\(s\)" docs/evidence/EV-M4-005/transcripts/43-acceptance-real-stack.txt | sed -n "1,9p"
+72:[critical-path/desktop] open new period: 0 request(s)
+73:[critical-path/desktop] save period: 2 request(s)
+74:[critical-path/desktop] save requirement: 2 request(s)
+75:[critical-path/desktop] qualifications (API, no browser surface): 1 request(s)
+76:[critical-path/desktop] create draft version: 2 request(s)
+77:[critical-path/desktop] open new configuration: 0 request(s)
+78:[critical-path/desktop] save configuration: 2 request(s)
+79:[critical-path/desktop] launch build: 2 request(s)
+80:[critical-path/desktop] select candidate into a new draft: 2 request(s)
+
+  REV-B's figure is CORRECT against the artifact REV-B cited. Claim CONFIRMED, no finding.
+  (The ninth line, 'qualifications (API, no browser surface)', is printed to the budget list
+   but never pushed to the JSON ledger — which is why the two artifacts differ in length.)
+
+############ BUT the check surfaced something else, and it IS real ############
+
+The two retained artifacts INSIDE EV-M4-005 disagree with each other on the LAST step:
+
+  docs/evidence/EV-M4-005/critical-path-requests.desktop.json   critical-path-apply-candidate = 1
+    desktop  recordedAt 2026-08-18T13:06:56.661Z   apply-candidate = 1
+    mobile   recordedAt 2026-08-18T13:07:12.821Z   apply-candidate = 1
+  docs/evidence/EV-M4-005/transcripts/19-critical-path-real-stack.txt :
+    [critical-path/desktop] select candidate into a new draft: 1 request(s)
+    [critical-path/mobile] select candidate into a new draft: 1 request(s)
+  docs/evidence/EV-M4-005/transcripts/43-acceptance-real-stack.txt (the ACCEPTANCE run, 2026-08-21):
+    [critical-path/desktop] select candidate into a new draft: 2 request(s)
+    [critical-path/mobile] select candidate into a new draft: 2 request(s)
+  REV-B's own re-execution, 2026-08-23:
+    [critical-path/desktop] select candidate into a new draft: 2 request(s)
+    [critical-path/mobile] select candidate into a new draft: 2 request(s)
+
+  So the same interaction cost 1 request on 2026-08-18, and 2 requests on 2026-08-21 and
+  again on 2026-08-23 — and the TRACKED JSON artifact in the evidence bundle still carries
+  the 08-18 value, because writeLedger goes through the NR-14 evidence redirect:
+    function writeLedger(project: string, ledger: readonly CriticalPathRecording[]): void {
+      const path = resolveEvidencePath(
+        `docs/evidence/EV-M4-005/critical-path-requests.${project}.json`,
+      );
+      mkdirSync(resolve(path, '..'), { recursive: true });
+      writeFileSync(
+        path,
+        `${JSON.stringify({ project, recordedAt: new Date().toISOString(), ledger }, null, 2)}\n`,
+        'utf8',
+      );
+  A plain run writes to .evidence-scratch/; only --refresh updates the tracked file, and the
+  acceptance run did not refresh it.
+
+  Two things follow, both MINOR and neither found by A or B:
+   (a) EV-M4-005 contains two retained artifacts that disagree about a recorded figure, with
+       no note saying which supersedes. A reader diffing the bundle against a fresh run gets
+       a different answer depending on which artifact they open.
+   (b) The apply-candidate interaction's request count DOUBLED (1 -> 2) inside M4-005 with no
+       recorded reason. It is not caught by any budget, because the real-stack ledger is
+       deliberately outside the request-budget gate — which the spec discloses in its own
+       docblock, and which is a defensible decision. But the consequence is that an I-10
+       amplification on the critical path's FINAL step is measured by nobody: the mocked
+       suite's budgets do not cover these step names, and the real-stack ledger has no gate.
+   Filed together as REV-C-009 (MINOR), re-scoped from REV-C's withdrawn first draft.
+2026-08-23T05:25:43Z
