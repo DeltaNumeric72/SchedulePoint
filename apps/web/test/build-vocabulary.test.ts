@@ -40,26 +40,35 @@ const ALL_STRINGS = [
 /**
  * **FAD-49 — the RESULT labels never promise what only the server can know.**
  *
- * These four strings label a run that has FINISHED, and the client cannot see
+ * These strings label a run that has FINISHED, and the client cannot see
  * how its search ended. The reason travels with the build (`detail` on the
  * wire, asserted in `packages/domain/test/ports/result-reproducibility.test.ts`),
- * so the client's job here is only to name the verdict — and, for the three
+ * so the client's job here is only to name the verdict — and, for the four
  * that refuse, to refuse visibly. A label that hedged would let the honest
  * server sentence sit under a heading that undoes it.
  */
 describe('the RESULT reproducibility labels say which way the verdict went', () => {
-  it('names all four verdicts and no others', () => {
+  it('names all six verdicts and no others', () => {
     expect(Object.keys(RESULT_REPRODUCIBILITY_LABELS).sort()).toEqual([
       'best-effort',
       'interrupted',
       'reproducible',
+      /* FAD-52. Present here or the page falls back to rendering the raw enum
+         name, which is the "no raw enum leaks to a reader" rule broken by
+         omission rather than by commission. */
+      'stopped-early',
       'unrecorded',
       'wall-clock-truncated',
     ]);
   });
 
   it('every refusing verdict reads as a refusal at a glance', () => {
-    for (const verdict of ['wall-clock-truncated', 'best-effort', 'interrupted'] as const) {
+    for (const verdict of [
+      'wall-clock-truncated',
+      'best-effort',
+      'interrupted',
+      'stopped-early',
+    ] as const) {
       expect(RESULT_REPRODUCIBILITY_LABELS[verdict]).toMatch(/^Not reproducible/);
     }
     /* `unrecorded` is NOT "Not reproducible": the run may well be reproducible
@@ -72,6 +81,19 @@ describe('the RESULT reproducibility labels say which way the verdict went', () 
 
   it('the wall-clock verdict names the wall clock, so the label alone is actionable', () => {
     expect(RESULT_REPRODUCIBILITY_LABELS['wall-clock-truncated']).toContain('wall clock');
+  });
+
+  it('the stopped-early verdict names NO cause — FAD-52', () => {
+    /* The one label whose value is in what it does not say. `stopped-early` is
+       exactly the case where the wall clock is NOT established as the stop, and
+       the set of other stops (solution limits, gap limits, callbacks) is open.
+       A label that borrowed the wall-clock wording would turn "we do not know
+       what stopped it" into a specific wrong answer, which is the class FAD-49
+       and FAD-50 were both written to delete. */
+    const label = RESULT_REPRODUCIBILITY_LABELS['stopped-early'] ?? '';
+    expect(label).toMatch(/^Not reproducible/);
+    expect(label).not.toContain('wall clock');
+    expect(label).not.toContain('deadline');
   });
 });
 

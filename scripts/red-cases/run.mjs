@@ -1744,6 +1744,73 @@ const CASES = [
     restore: [['exec', 'tsc', '-b', 'packages/domain', '--force']],
   },
   {
+    id: 'result-reproducibility-units-branch-removed',
+    gate: 'a completed FEASIBLE run with its deterministic budget UNSPENT never claims reproducibility (FAD-52)',
+    violation: 'the result verdict stops reading the deterministic units and falls back to the wall clock alone',
+    /* **The sibling of the arm above, and it exists because that arm was not
+     * enough.**
+     *
+     * `result-reproducibility-derivation-removed` guards the wall-clock half of
+     * FAD-49(1)'s derivation — "wall time vs wall budget". The other half,
+     * "deterministic units vs deterministic budget", was never implemented, and
+     * the gap between them is reachable: a pinned run of the B-fairness-shaped
+     * class under a 10s clock completes FEASIBLE at wall 8.6-9.1s having spent
+     * **8.076904 of 100** deterministic units. 8.7 of 10 is BELOW the 0.9
+     * wall-clock fraction, so that arm's rule says nothing, and the verdict was
+     * `reproducible` with the promise sentence attached. Raising the budget 36x
+     * or unpinning it changes the units not at all: the wall clock is the sole
+     * stop, and the wall-clock rule cannot see it. Measured 15+ times by two
+     * independent reviewers.
+     *
+     * The patch is that defect exactly as it stood: the units-aware branch stops
+     * being entered, so a feasible run that left its budget nearly untouched is
+     * called reproducible again — and the `unrecorded` fail-closed for a run
+     * that recorded no deterministic time goes with it, since both live behind
+     * this one condition. Compile-clean by construction — `status` is still
+     * compared and the block still type-checks — so the `prepare` rebuild
+     * succeeds, which is the `retired-verdict` lesson applied.
+     *
+     * The arm points at the domain proof alone, deliberately and for the reason
+     * its sibling gives: the predicate, the boundary and the SENTENCE it hands
+     * the screen are all in that one file, so this fails on the verdict, on the
+     * threshold and on the wording. The static client labels cannot detect a
+     * predicate mutation, and naming a file the arm does not depend on would
+     * read as coverage it has not got. */
+    patch: [
+      {
+        file: 'packages/domain/src/ports/solver-port.ts',
+        find: '  if (status === \'FEASIBLE\') {',
+        /* The mutation redirects the branch at a status no real completed run
+         * on this path carries, rather than the ` && false` spelling its
+         * sibling uses. That spelling makes the block UNREACHABLE, and TypeScript
+         * discards flow narrowing inside unreachable code — the patched file
+         * then fails to compile (TS18047 on both nullable reads), the `prepare`
+         * rebuild does not produce the artifact the arm is supposed to observe,
+         * and the arm would be reporting on a build that never happened. The
+         * `retired-verdict` lesson: a violation that does not compile proves
+         * nothing. This form keeps the branch reachable and compile-clean while
+         * making it fire on nothing the platform can produce here. */
+        replace:
+          '  if (status === \'MODEL_INVALID\') {'
+          + ' // red case: the units-aware branch no longer fires on a feasible result',
+      },
+    ],
+    greenCommand: [
+      'exec',
+      'vitest',
+      'run',
+      'packages/domain/test/ports/result-reproducibility.test.ts',
+    ],
+    prepare: [['exec', 'tsc', '-b', 'packages/domain', '--force']],
+    redCommand: [
+      'exec',
+      'vitest',
+      'run',
+      'packages/domain/test/ports/result-reproducibility.test.ts',
+    ],
+    restore: [['exec', 'tsc', '-b', 'packages/domain', '--force']],
+  },
+  {
     id: 'solver-demand-not-independently-checked',
     gate: 'demand coverage is measured by the INDEPENDENT checker (SPEC-04 §7, FAD-46 F-03)',
     violation: 'the MODEL stops posting demand as a hard equality',
@@ -1934,6 +2001,136 @@ const CASES = [
     ],
   },
 ];
+
+/* ── SP_RED_SHARD — the battery, split across CI runners ────────────────────
+ *
+ * Measured, not guessed: on hosted CI (run 32601281611) this job has NEVER once
+ * completed. Serially the battery costs ~5.5–6 h on a hosted runner — the arms
+ * that run the FULL unit gate now perform real CP-SAT solves in both the GREEN
+ * and the RED direction, at roughly 18 runner-minutes per execution — and the
+ * last attempt got through 21 of 65 arms in 88.8 min before the 90-minute job
+ * ceiling cancelled it. GitHub's hard per-job cap is 6 h, so raising the ceiling
+ * does not fix this. The battery has to run in parallel.
+ *
+ * `SP_RED_SHARD="k/N"` selects the arms whose POSITION IN `CASES` satisfies
+ * `index % N === k`. The filter is ADDITIVE; nothing else about the run changes:
+ *
+ *   - unset or empty → every arm, in registration order, exactly as before.
+ *     A local `pnpm red-cases` is byte-for-byte the run it always was.
+ *   - malformed, `N < 1`, or `k >= N` → a HARD ERROR before any arm runs.
+ *     Never a silent empty run: a shard spelling that quietly selects nothing
+ *     is a battery that reports success while proving nothing, which is the one
+ *     failure mode this whole runner exists to make impossible.
+ *   - a well-formed spelling that still selects zero arms (`N` larger than the
+ *     arm count) fails for the same reason.
+ *
+ * The index is the arm's position in the array, not a sort and not a stored
+ * number — no arm is renumbered, reordered or renamed by any of this. Adding an
+ * arm later changes only which shard it lands in, which is fine, because the
+ * completeness guard in `.github/workflows/ci.yml` re-derives the union from
+ * this file on every run: a shard set that no longer covers every arm exactly
+ * once fails the build rather than passing quietly.
+ *
+ * `clearStaleInjections()` deliberately keeps iterating ALL of `CASES`, not the
+ * shard: leftovers from an interrupted run are not the current shard's business
+ * to be selective about.
+ */
+
+/**
+ * A hard stop, before any arm has run.
+ *
+ * `writeFileSync(1, …)` rather than `process.stdout.write`: on CI stdout is a
+ * pipe, where a write is buffered and asynchronous, and "write then
+ * `process.exit`" is precisely how the tail of the first hosted run was lost
+ * (the exit note at the end of `main` tells that story). A misconfigured shard
+ * that exits without saying why would be indistinguishable from a crash.
+ *
+ * @param {string} message
+ * @returns {void}
+ */
+function shardAbort(message) {
+  writeFileSync(
+    1,
+    `\nRED-CASE SHARDING: ${message}\n` +
+      'SP_RED_SHARD must be "k/N" with integers 0 <= k < N and N >= 1, or unset for the whole battery.\n',
+  );
+  process.exit(2);
+}
+
+/**
+ * The shard spelling in force, or `null` for an unsharded run.
+ *
+ * @type {string | null}
+ */
+let SHARD_LABEL = null;
+
+/**
+ * Applies `SP_RED_SHARD` to the registered arms, announcing the selection
+ * before a single arm runs.
+ *
+ * @param {RedCase[]} cases
+ * @returns {RedCase[]}
+ */
+function selectShard(cases) {
+  const spec = (process.env['SP_RED_SHARD'] ?? '').trim();
+  if (spec === '') return cases;
+
+  const match = /^(\d+)\/(\d+)$/.exec(spec);
+  if (match === null) shardAbort(`SP_RED_SHARD="${spec}" is not a shard spelling.`);
+  const [, kText = '', nText = ''] = match ?? [];
+  const k = Number(kText);
+  const n = Number(nText);
+  if (!Number.isSafeInteger(k) || !Number.isSafeInteger(n)) {
+    shardAbort(`SP_RED_SHARD="${spec}" does not parse as two integers.`);
+  }
+  if (n < 1) shardAbort(`SP_RED_SHARD="${spec}" asks for ${String(n)} shard(s).`);
+  if (k >= n) {
+    shardAbort(
+      `SP_RED_SHARD="${spec}" names shard ${String(k)} of ${String(n)}; the last shard is ${String(n - 1)}.`,
+    );
+  }
+
+  const selected = cases.filter((_, index) => index % n === k);
+  const ids = selected.map((testCase) => testCase.id);
+  SHARD_LABEL = `${String(k)}/${String(n)}`;
+
+  /* Printed BEFORE the arms, and synchronously, so that an interrupted or
+   * cancelled shard still tells a reader exactly what it was going to prove. */
+  writeFileSync(
+    1,
+    [
+      '',
+      `=== red-case shard ${SHARD_LABEL} — ${String(selected.length)} of ${String(cases.length)} arm(s) selected ===`,
+      `  arms: ${ids.length > 0 ? ids.join(' ') : '(none)'}`,
+      '',
+      '',
+    ].join('\n'),
+  );
+
+  /* Machine-readable, for the CI completeness guard. Written here rather than
+   * at the end, so a shard that later fails an arm has still recorded WHICH
+   * arms it owned — the guard's question ("was every arm run?") is separate
+   * from the battery's question ("did every arm prove its gate?"). */
+  const stepOutput = process.env['GITHUB_OUTPUT'];
+  if (stepOutput !== undefined && stepOutput !== '') {
+    writeFileSync(
+      stepOutput,
+      `shard=${SHARD_LABEL}\nselected=${String(selected.length)}\ntotal=${String(cases.length)}\narms=${ids.join(' ')}\n`,
+      { flag: 'a' },
+    );
+  }
+
+  if (selected.length === 0) {
+    shardAbort(
+      `shard ${SHARD_LABEL} selected NO arms out of ${String(cases.length)}. A shard that proves nothing must not report success.`,
+    );
+  }
+
+  return selected;
+}
+
+/** The arms this process runs: all of them, unless `SP_RED_SHARD` narrows it. */
+const SELECTED_CASES = selectShard(CASES);
 
 /** @param {string[]} args */
 function pm(args) {
@@ -2191,6 +2388,13 @@ async function main() {
     'RED   = the gate fails once the violation is introduced.',
     'A gate that passes its RED check is decorative and the run fails.',
     '',
+    ...(SHARD_LABEL === null
+      ? []
+      : [
+          `Shard ${SHARD_LABEL}: ${String(SELECTED_CASES.length)} of ${String(CASES.length)} arm(s).`,
+          'The other arms run in the other shards; CI asserts the union covers every arm.',
+          '',
+        ]),
   ];
 
   /** @type {{ id: string, gate: string, violation: string, green: boolean, red: boolean, errored: string | null }[]} */
@@ -2219,7 +2423,7 @@ async function main() {
     '',
   );
 
-  for (const testCase of CASES) {
+  for (const testCase of SELECTED_CASES) {
     process.stdout.write(`\n=== ${testCase.id} — ${testCase.gate} ===\n`);
     transcript.push(
       `## ${testCase.id} — ${testCase.gate}`,
@@ -2331,6 +2535,11 @@ async function main() {
     ),
     `${'-'.repeat(width)}  -----  -----  -------`,
     `${String(results.length)} case(s): ${String(results.length - failures.length)} proven, ${String(failures.length)} not proven`,
+    ...(SHARD_LABEL === null
+      ? []
+      : [
+          `shard ${SHARD_LABEL} — ${String(results.length)} of ${String(CASES.length)} arm(s) in this process; the union is asserted by CI, not by this table`,
+        ]),
     '',
     'GREEN "pass" = the gate passes on the clean tree.',
     'RED   "fail" = the gate fails when the violation is present. That is the desired outcome.',
@@ -2351,9 +2560,33 @@ async function main() {
   );
   mkdirSync(dirname(transcriptPath), { recursive: true });
   writeFileSync(transcriptPath, transcript.join('\n'), 'utf8');
-  process.stdout.write(`${evidenceDestinationBanner(EVIDENCE_REFRESH)}\n${transcriptPath}\n`);
-
-  process.exit(failures.length === 0 ? 0 : 1);
+  /* Exit from the LAST stdout write's callback, not before it.
+   *
+   * `process.exit()` does not drain pending stdout writes, and on CI stdout is a
+   * pipe, where writes are buffered and asynchronous rather than immediate. The
+   * first hosted-runner CI run lost the tail of `pnpm check` that way — every
+   * gate's output after `unit`, and the summary table, truncated mid-line. This
+   * runner ends the same way and carries the same hazard: the summary table
+   * above is the one thing a reader actually needs, and it is written last.
+   *
+   * The bare `process.exitCode` fix that `scripts/check.mjs` uses is NOT safe
+   * here. That script is a straight line of `spawnSync` calls; this one probes a
+   * TCP port and spawns vitest, Playwright and an embedded-postgres cluster
+   * through its arms. If any handle outlives `main()`, letting Node exit on its
+   * own turns a truncated transcript into a hung job, which is worse. Writing
+   * the last chunk and exiting from its callback keeps `exit()`'s
+   * kill-whatever-lingers behaviour, and because writes to one stream complete
+   * in order, every earlier line has flushed by the time the callback runs.
+   * Nothing here writes to stderr — every child's stderr is captured by
+   * `spawnSync` and re-emitted onto stdout above — so this one stream is the
+   * whole transcript. */
+  const code = failures.length === 0 ? 0 : 1;
+  process.stdout.write(
+    `${evidenceDestinationBanner(EVIDENCE_REFRESH)}\n${transcriptPath}\n`,
+    () => {
+      process.exit(code);
+    },
+  );
 }
 
 await main();

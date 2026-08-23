@@ -29,7 +29,14 @@ jobs:
   check:
     name: gate battery
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # A PROVISIONAL ceiling, sized from the first real measurements rather than
+    # from taste. `pnpm check` took 11.4 min on the runner while the unit gate
+    # was still failing fast on the missing interpreter — that is the floor with
+    # no solving in it at all — and the solver suites add roughly 10–15 runner-
+    # minutes once they actually solve. 20 could not have held. This is a
+    # ceiling, not a budget: tighten it once a complete green run records what
+    # the job actually costs.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
@@ -72,21 +79,218 @@ jobs:
         run: corepack pnpm exec playwright install-deps chromium
         working-directory: apps/web
 
+      # ── The solver interpreter ──────────────────────────────────────────────
+      #
+      # The unit gate is not Node-only. `apps/api/test/solver` and
+      # `apps/api/test/sbx` perform REAL CP-SAT solves through a Python worker
+      # this process spawns, so a runner with no OR-Tools does not skip those
+      # suites — it fails them. A child that dies on
+      # `from ortools.sat.python import cp_model` has crashed, and the client
+      # correctly reports `FAILED`/`crashed`; eleven test files then read as a
+      # solver defect. Provisioning the interpreter is what makes that gate mean
+      # what it says.
+      #
+      # 3.12 is PINNED here rather than inherited from the runner image.
+      # `Dockerfile.solver` builds `FROM python:3.12-slim-bookworm` and
+      # `solver/pyproject.toml` records why (FAD-10: 3.9 is end-of-life and gets
+      # no security patches). ubuntu-latest happens to ship 3.12 today, and
+      # "happens to" is how a runner-image bump silently changes the interpreter
+      # every measurement in this repository was taken under. docs/dev-setup.md
+      # §8 names re-running the suite against the pinned 3.12 as a **standing CI
+      # condition, not a solved problem** — this is where that condition starts
+      # being met, on every run.
+      - name: Provision the solver interpreter
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # Same shape as the pnpm store step above: ask the tool where its cache
+      # lives rather than hard-coding `~/.cache/pip` and hoping.
+      - name: Resolve the pip cache path
+        id: pip-cache
+        run: echo "path=$(python -m pip cache dir)" >> "$GITHUB_OUTPUT"
+
+      # This caches pip's DOWNLOADS, not the venv, and that is the deliberate
+      # half of the trade.
+      #
+      # A venv is not portable in the ways that would matter here. `pip install
+      # -e` writes the worktree's ABSOLUTE path into the editable finder module,
+      # and `pyvenv.cfg` plus every console shebang bake in the absolute path of
+      # the interpreter that created it. Restore such a tree against an image
+      # whose 3.12 has moved by a patch release and it points at an interpreter
+      # that is no longer there — arriving not as a cache miss but as a crashed
+      # worker inside a solver test, which is precisely the diagnosis-eating
+      # failure mode `apps/api/test/support/solver.ts` exists to have removed
+      # once already. Keying the venv on the patch version instead would mean a
+      # cache that misses on exactly the weeks the image moves, for a saving of
+      # seconds.
+      #
+      # Wheels have no such fragility: they are ABI-tagged (cp312), so a patch
+      # bump leaves them valid — which is why this key carries only the pinned
+      # dependency file, in the same voice as the pnpm and Playwright keys. The
+      # venv itself is rebuilt from scratch on every run against the interpreter
+      # actually present; what the cache saves is the ~100 MB fetch of the
+      # pinned OR-Tools wheel and its dependencies.
+      - name: Cache pip downloads
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pip-cache.outputs.path }}
+          key: pip-${{ runner.os }}-${{ hashFiles('solver/pyproject.toml') }}
+          restore-keys: pip-${{ runner.os }}-
+
+      # The two commands from docs/dev-setup.md §8, unchanged.
+      #
+      # It installs the PACKAGE rather than naming OR-Tools directly, because
+      # `solver/pyproject.toml` pins that dependency by exact version — SPEC-04
+      # §4 makes `solver_version` part of the reproducibility record, and a
+      # second copy of the number in this file is a second thing to forget to
+      # update. The pin resolves here for the first time; until now it was
+      # carried by an image that has never been built.
+      - name: Create the solver venv
+        run: |
+          python -m venv solver/.venv
+          solver/.venv/bin/pip install --disable-pip-version-check -e './solver[dev]'
+
+      # Fail HERE if the library is absent, rather than in a solver suite twenty
+      # minutes later. An interpreter without OR-Tools does not announce itself;
+      # it presents as a crashed child, and the attribution is not even wrong —
+      # which is what makes it expensive.
+      - name: Prove the interpreter carries OR-Tools
+        run: |
+          solver/.venv/bin/python -c "from ortools.sat.python import cp_model; import ortools; print(ortools.__version__)"
+
+      # `pip install -e` leaves a setuptools build artifact (`*.egg-info`) in the
+      # source tree. It is untracked and not gitignored, and the red-case job
+      # fails on a dirty working tree BY DESIGN — so provisioning cleans up after
+      # itself rather than teaching that check to look away. Nothing needs it at
+      # runtime: the editable install resolves through the finder module in
+      # site-packages, and the round trip was re-run with the artifact removed to
+      # confirm that.
+      - name: Remove the setuptools build artifact
+        run: rm -rf solver/*.egg-info
+
+      # Rung 1 of the resolution order documented in
+      # `apps/api/test/support/solver.ts`: an explicit `SP_SOLVER_WORKER_COMMAND`
+      # outranks everything else, and that header names it "the deployment/CI
+      # answer". Discovery (rung 3) would find the same interpreter at
+      # `solver/.venv/bin/python` today — saying it explicitly means CI does not
+      # depend on a fallback rung continuing to fire, and `worker-interpreter`
+      # already pins that precedence because a default that overrode the
+      # deployment's own setting is a defect that happened once.
+      #
+      # Absolute, and through the runner's own `$GITHUB_WORKSPACE` rather than an
+      # expression: the worker is spawned with its working directory set to
+      # `solver/`, so a relative command would be resolved against the wrong
+      # directory. Written to `$GITHUB_ENV` rather than declared per-step so the
+      # whole remainder of the job runs under it — a step-level `env:` is one
+      # more place for a future step to be added without it.
+      - name: Point the solver client at the venv interpreter
+        run: echo "SP_SOLVER_WORKER_COMMAND=$GITHUB_WORKSPACE/solver/.venv/bin/python" >> "$GITHUB_ENV"
+
       - name: pnpm check
         run: corepack pnpm check
 
+      # The transcript comes from `.evidence-scratch/`, not from the tracked
+      # path. Under the NR-14 redesign (scripts/evidence-target.mjs) a plain run
+      # writes its transcript under that git-ignored root at the SAME relative
+      # path; only `--refresh` touches the tracked file. Pointing at the tracked
+      # file would upload whatever was last committed and silently discard the
+      # transcript of the run that just failed.
       - name: Upload gate transcript
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: check-output
-          path: scripts/check-output.txt
+          path: .evidence-scratch/scripts/check-output.txt
           if-no-files-found: warn
 
+  # ── The red-case battery, sharded ─────────────────────────────────────────
+  #
+  # This job had never once completed on a hosted runner. Run 32601281611 is the
+  # only measurement there is: 21 of 65 arms in 88.8 minutes, then cancelled by
+  # the ceiling. Everything else about cost below is an ESTIMATE and is labelled
+  # as one. GitHub's hard per-job cap is 6 h and the serial battery is estimated
+  # at ~5.5–6 h, so no ceiling fixes this — the battery has to be split.
+  #
+  # `SP_RED_SHARD="k/N"` (scripts/red-cases/run.mjs) selects the arms whose
+  # position in the registry satisfies `index % N === k`. Assignment is by
+  # position, so which shard a heavy arm lands in is NOT a choice — it is a
+  # consequence of N, and the only lever is N itself.
+  #
+  # ── The heavy-arm census, counted from the registry (65 arms) ──────────────
+  #
+  # Every arm runs its command TWICE, GREEN then RED, so each line below costs
+  # twice what its suites cost once.
+  #
+  #   full unit gate (`gate:unit` — the whole vitest run, solver suites included)
+  #     index  2  unit                                     → shard 2
+  #     index 13  provider-boundary-runtime-mutation       → shard 0
+  #     index 23  stale-edit-cas                           → shard 10
+  #     index 24  draft-invisibility                       → shard 11
+  #   axe / Playwright (`gate:axe`, two viewports)
+  #     index 20  axe                                      → shard 7
+  #     index 21  i13-schedule-authoring                   → shard 8
+  #     index 22  publish-idempotency-key-retained         → shard 9
+  #   direct vitest over REAL CP-SAT suites — as expensive as they look, and the
+  #   census originally missed them. `e2-objective.test.ts` carries single tests
+  #   MEASURED at 150–177 s, and vitest runs tests in a file serially:
+  #     index 43  solver-model-constraint-dropped          → shard 4
+  #     index 44  solver-checker-disabled                  → shard 5
+  #     index 45  solver-fail-closed-kind-skipped          → shard 6
+  #     index 53  solver-objective-scale-drift             → shard 1
+  #     index 54  solver-t2-false-minimality               → shard 2
+  #     index 55  solver-progressive-pin-unfixed           → shard 3
+  #     index 56  builds-comparability-unenforced          → shard 4
+  #     index 59  solver-demand-not-independently-checked  → shard 7
+  #   builds subset (`gate:unit:builds`, a narrow vitest run)
+  #     indices 48, 49, 50, 52                             → shards 9, 10, 11, 0
+  #
+  # At N = 13 no shard carries two full-unit arms, no shard carries two axe arms,
+  # and no shard carries both a full-unit and an axe arm. What it does NOT avoid,
+  # because index-modulo assignment is not a choice:
+  #
+  #   shard 2 — the full unit gate AND solver-t2-false-minimality (e2-objective
+  #             plus corpus-agreement, both directions). On the estimates
+  #             available this is plausibly the heaviest shard, and it is the one
+  #             to watch on the first complete run.
+  #   shard 7 — the axe arm AND solver-demand-not-independently-checked.
+  #   shard 4 — two of the direct CP-SAT arms (43 and 56).
+  #
+  # NO PER-SHARD COST HERE HAS BEEN MEASURED ON A HOSTED RUNNER. Nothing has: the
+  # job has never completed on one. Treat the assignment above as arithmetic —
+  # which it is, exactly — and the costs as guesses until the first complete run
+  # records real durations, then revisit both N and the ceiling.
+  #
+  # N = 8 and N = 10 were computed first and rejected: N = 8 puts a full-unit arm
+  # and an axe arm together in shard 5, and N = 10 puts TWO full-unit arms in
+  # shard 3.
+  #
+  # N is pinned in `SP_RED_SHARD_TOTAL` below and the matrix must list exactly
+  # 0..N-1. Nothing here enforces that by itself — the `red-cases-union` job
+  # does, mechanically, on every run: it fails unless the shards' reported arm
+  # ids union to the complete registry exactly once each.
   red-cases:
-    name: red-case proofs
+    name: red-case proofs (shard ${{ matrix.shard }})
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # 120, not the serial job's 90: shard 2's cost is unmeasured and the census
+    # above says it is the one at risk. This ceiling guards environment wedges
+    # only — vitest's per-test timeouts remain the hang detector — so head room
+    # costs nothing and a false cancellation costs the whole run's evidence
+    # (same rationale as the GH-002 ceilings). Tighten it once shards record
+    # real durations.
+    timeout-minutes: 120
+    strategy:
+      # One failing shard must not cancel the other twelve. A cancelled shard
+      # proves nothing about its arms, and the union guard would then be failing
+      # for the wrong reason — "we never looked" reported as "we looked and it
+      # was fine" is the exact confusion this battery exists to prevent.
+      fail-fast: false
+      matrix:
+        # 0..N-1, and N is SP_RED_SHARD_TOTAL. Keep the two in step; the union
+        # job fails loudly if they ever drift.
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    env:
+      SP_RED_SHARD_TOTAL: '13'
     steps:
       - uses: actions/checkout@v4
 
@@ -125,14 +329,116 @@ jobs:
         run: corepack pnpm exec playwright install-deps chromium
         working-directory: apps/web
 
+      # ── The solver interpreter ──────────────────────────────────────────────
+      #
+      # Same block as the check job, for the same reasons, which are written out
+      # there: 3.12 pinned rather than inherited (FAD-10, and docs/dev-setup.md
+      # §8's standing CI condition), pip DOWNLOADS cached rather than the venv
+      # (an editable venv bakes in absolute paths and an interpreter that a patch
+      # bump moves), the package installed rather than OR-Tools named directly
+      # (the exact pin lives in solver/pyproject.toml and SPEC-04 §4 depends on
+      # it), and `SP_SOLVER_WORKER_COMMAND` set explicitly because it is rung 1
+      # of the resolution order.
+      #
+      # This job needs it too: red cases run gate arms over the same suites, and
+      # a red case that fails for want of an interpreter proves nothing about the
+      # gate it was supposed to be testing — it reports a violation caught when
+      # the run never reached the violation.
+      - name: Provision the solver interpreter
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Resolve the pip cache path
+        id: pip-cache
+        run: echo "path=$(python -m pip cache dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pip downloads
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pip-cache.outputs.path }}
+          key: pip-${{ runner.os }}-${{ hashFiles('solver/pyproject.toml') }}
+          restore-keys: pip-${{ runner.os }}-
+
+      - name: Create the solver venv
+        run: |
+          python -m venv solver/.venv
+          solver/.venv/bin/pip install --disable-pip-version-check -e './solver[dev]'
+
+      - name: Prove the interpreter carries OR-Tools
+        run: |
+          solver/.venv/bin/python -c "from ortools.sat.python import cp_model; import ortools; print(ortools.__version__)"
+
+      # Not optional in THIS job: `*.egg-info` is untracked and not gitignored,
+      # and "Fail if a red case left the tree dirty" below would report it as a
+      # red case that failed to restore the tree — a true statement about the
+      # wrong thing.
+      - name: Remove the setuptools build artifact
+        run: rm -rf solver/*.egg-info
+
+      - name: Point the solver client at the venv interpreter
+        run: echo "SP_SOLVER_WORKER_COMMAND=$GITHUB_WORKSPACE/solver/.venv/bin/python" >> "$GITHUB_ENV"
+
+      # Typecheck first, because `gate:build` cannot run without it. `apps/web`
+      # imports `@schedulepoint/contracts`, whose package exports point at
+      # `dist/`, and `dist/` is what `tsc -b` emits — on a fresh checkout vite
+      # fails with "Failed to resolve entry for package @schedulepoint/contracts".
+      # `pnpm check` never hits this because scripts/check.mjs orders typecheck
+      # ahead of build; this job runs the build gate on its own and has to
+      # reproduce that ordering itself.
+      - name: Build the workspace packages
+        run: corepack pnpm run gate:typecheck
+
       # The build gate has to run once first: several red cases assert against
       # the built bundle, and the runner's GREEN check for the bundle scan needs
       # a clean bundle to exist.
       - name: Produce a clean bundle
         run: corepack pnpm run gate:build
 
-      - name: pnpm red-cases
+      # `run.mjs` announces its selection BEFORE it runs anything, and writes
+      # `shard`, `selected`, `total` and `arms` to `$GITHUB_OUTPUT` — which is
+      # why this step carries an id. A malformed spelling, or one that selects
+      # no arms, is a hard error there rather than an empty run that passes.
+      - name: pnpm red-cases (shard ${{ matrix.shard }})
+        id: red-cases
+        env:
+          SP_RED_SHARD: ${{ matrix.shard }}/${{ env.SP_RED_SHARD_TOTAL }}
         run: corepack pnpm red-cases
+
+      # `always()`, deliberately: a shard whose ARM failed still ran its arms,
+      # and the union question ("was every arm run by somebody?") is a different
+      # question from the battery's ("did every arm prove its gate?"). The union
+      # job answers the first from these records and the second from the job
+      # results, so neither answer can stand in for the other.
+      #
+      # Written to `$RUNNER_TEMP`, NOT into the workspace: "Fail if a red case
+      # left the tree dirty" below is a check this job must not be teaching to
+      # look away from, and an untracked `shard-coverage/` in the checkout is
+      # exactly what it is there to catch.
+      #
+      # The heredoc delimiter is QUOTED. Actions substitutes `${{ … }}` before
+      # bash ever sees the text, so the values are identical either way; the
+      # quoting turns off shell expansion of whatever those values contain.
+      - name: Record which arms this shard owned
+        if: always()
+        run: |
+          cat > "$RUNNER_TEMP/coverage.json" <<'JSON'
+          {
+            "shard": "${{ steps.red-cases.outputs.shard }}",
+            "selected": "${{ steps.red-cases.outputs.selected }}",
+            "total": "${{ steps.red-cases.outputs.total }}",
+            "arms": "${{ steps.red-cases.outputs.arms }}"
+          }
+          JSON
+          cat "$RUNNER_TEMP/coverage.json"
+
+      - name: Upload this shard's coverage record
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: red-case-shard-coverage-${{ matrix.shard }}
+          path: ${{ runner.temp }}/coverage.json
+          if-no-files-found: error
 
       - name: Fail if a red case left the tree dirty
         run: |
@@ -142,10 +448,181 @@ jobs:
             exit 1
           fi
 
+      # Same NR-14 reason as the gate transcript above: a plain run's evidence
+      # lands under the git-ignored scratch root, at the same relative path.
+      # Shard-suffixed: every shard writes its transcript to the same relative
+      # path in its own workspace, and an unsuffixed name would be thirteen
+      # uploads fighting over one artifact.
       - name: Upload red-case transcript
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: red-case-output
-          path: scripts/red-cases/evidence-output.txt
+          name: red-case-output-shard-${{ matrix.shard }}
+          path: .evidence-scratch/scripts/red-cases/evidence-output.txt
           if-no-files-found: warn
+
+  # ── The completeness guard ────────────────────────────────────────────────
+  #
+  # Sharding introduces a failure mode the serial job did not have: the battery
+  # can now be INCOMPLETE while every job that ran was green. A shard silently
+  # dropped from the matrix, an N that drifted from the matrix length, a shard
+  # cancelled by the ceiling — each one leaves arms nobody proved, and thirteen
+  # green ticks that say otherwise. So the union is checked as its own required
+  # job, and it is the one to make required in branch protection.
+  #
+  # `if: always()` is load-bearing. With a plain `needs:` a failed shard SKIPS
+  # this job, and a skipped required job reads as "not run yet" rather than as
+  # red — the failure would be reported as an absence. Running always and
+  # asserting the matrix result explicitly means every non-success outcome
+  # (failure, cancelled, skipped) arrives here as a loud red.
+  red-cases-union:
+    name: red-case shard completeness
+    runs-on: ubuntu-latest
+    needs: [red-cases]
+    if: always()
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      # `needs.<matrix job>.result` is the AGGREGATE: `success` only when every
+      # shard succeeded. Anything else — one failed arm, one cancelled shard,
+      # a matrix that never started — is reported here rather than inferred
+      # from a job that quietly did not run.
+      - name: Fail unless every shard succeeded
+        env:
+          MATRIX_RESULT: ${{ needs['red-cases'].result }}
+        run: |
+          echo "red-cases matrix result: $MATRIX_RESULT"
+          if [ "$MATRIX_RESULT" != "success" ]; then
+            echo "::error::The red-case matrix did not succeed (result: $MATRIX_RESULT). The battery is not proven."
+            exit 1
+          fi
+
+      - name: Collect the shard coverage records
+        uses: actions/download-artifact@v4
+        with:
+          pattern: red-case-shard-coverage-*
+          path: shard-coverage
+
+      # The total is DERIVED from the registry in `run.mjs`, never hard-coded:
+      # a number typed here would go stale the first time an arm is added, and
+      # would go stale in the direction that passes.
+      - name: Assert the shards cover every arm exactly once
+        run: |
+          cat > "$RUNNER_TEMP/union-check.cjs" <<'NODE'
+          const { readdirSync, readFileSync, statSync } = require('node:fs');
+          const { join } = require('node:path');
+
+          const problems = [];
+
+          // ── the registry, as the runner itself declares it ──────────────────
+          const source = readFileSync('scripts/red-cases/run.mjs', 'utf8');
+          const open = source.indexOf('\nconst CASES = [\n');
+          const close = source.indexOf('\n];\n', open);
+          if (open < 0 || close < 0) {
+            console.error('Could not locate the CASES registry in scripts/red-cases/run.mjs.');
+            process.exit(1);
+          }
+          const expected = [...source.slice(open, close).matchAll(/^ {4}id: '([^']+)',$/gm)].map((m) => m[1]);
+          if (expected.length === 0) {
+            console.error('Parsed the CASES registry and found no arms. The scan is wrong, not the battery.');
+            process.exit(1);
+          }
+          console.log(`registry: ${expected.length} arm(s) declared in scripts/red-cases/run.mjs`);
+
+          // ── what the shards say they ran ────────────────────────────────────
+          const root = 'shard-coverage';
+          const files = [];
+          const walk = (dir) => {
+            for (const entry of readdirSync(dir)) {
+              const path = join(dir, entry);
+              if (statSync(path).isDirectory()) walk(path);
+              else if (entry === 'coverage.json') files.push(path);
+            }
+          };
+          /* An absent or empty download directory is a REAL failure — no shard
+           * uploaded anything — and it must arrive as that sentence rather than
+           * as an ENOENT stack trace from a directory walk. */
+          try {
+            walk(root);
+          } catch (error) {
+            console.error(`::error::red-case coverage: could not read "${root}" (${error.message}).`);
+            console.error('No shard coverage records were downloaded, so the battery is not proven.');
+            process.exit(1);
+          }
+          if (files.length === 0) {
+            console.error(`::error::red-case coverage: "${root}" contains no coverage.json — no shard reported which arms it ran.`);
+            console.error(`The battery is INCOMPLETE: 0 of the ${expected.length} arms are accounted for.`);
+            process.exit(1);
+          }
+          console.log(`coverage records downloaded: ${files.length}`);
+
+          const seen = new Map();
+          const shardNumbers = new Set();
+          const divisors = new Set();
+          let sum = 0;
+
+          for (const file of files) {
+            const record = JSON.parse(readFileSync(file, 'utf8'));
+            const spelling = /^(\d+)\/(\d+)$/.exec(String(record.shard));
+            if (spelling === null) {
+              problems.push(`${file}: shard spelling "${record.shard}" is not "k/N" (did the shard run at all?)`);
+              continue;
+            }
+            const k = Number(spelling[1]);
+            const n = Number(spelling[2]);
+            divisors.add(n);
+            if (shardNumbers.has(k)) problems.push(`shard ${k} reported twice`);
+            shardNumbers.add(k);
+
+            const selected = Number(record.selected);
+            const total = Number(record.total);
+            const arms = String(record.arms).split(' ').filter((id) => id !== '');
+            sum += selected;
+
+            if (arms.length !== selected) {
+              problems.push(`shard ${record.shard}: reported ${selected} selected but listed ${arms.length} arm(s)`);
+            }
+            if (total !== expected.length) {
+              problems.push(`shard ${record.shard}: saw a registry of ${total} arm(s); this job derived ${expected.length}`);
+            }
+            for (const id of arms) {
+              if (seen.has(id)) problems.push(`arm "${id}" claimed by shard ${seen.get(id)} AND shard ${record.shard}`);
+              else seen.set(id, record.shard);
+            }
+            console.log(`  shard ${record.shard}: ${selected} arm(s)`);
+          }
+
+          // ── the assertions ─────────────────────────────────────────────────
+          if (divisors.size !== 1) {
+            problems.push(`the shards disagree about N: ${[...divisors].join(', ')}`);
+          }
+          const n = [...divisors][0];
+          if (divisors.size === 1) {
+            if (files.length !== n) problems.push(`N is ${n} but ${files.length} shard(s) reported — the matrix and N have drifted`);
+            for (let k = 0; k < n; k += 1) {
+              if (!shardNumbers.has(k)) problems.push(`shard ${k}/${n} never reported`);
+            }
+          }
+          if (sum !== expected.length) {
+            problems.push(`the shards ran ${sum} arm(s); the registry declares ${expected.length}`);
+          }
+          for (const id of expected) {
+            if (!seen.has(id)) problems.push(`arm "${id}" was run by NO shard`);
+          }
+          for (const id of seen.keys()) {
+            if (!expected.includes(id)) problems.push(`arm "${id}" was run but is not in the registry`);
+          }
+
+          if (problems.length > 0) {
+            for (const problem of problems) console.error(`::error::red-case coverage: ${problem}`);
+            console.error(`\nThe red-case battery is INCOMPLETE: ${problems.length} problem(s) above.`);
+            process.exit(1);
+          }
+          console.log(`\nEvery one of the ${expected.length} red-case arms was run by exactly one of the ${n} shards.`);
+          NODE
+          node "$RUNNER_TEMP/union-check.cjs"

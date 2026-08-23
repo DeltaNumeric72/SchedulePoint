@@ -289,7 +289,18 @@ export function ShiftGroupsPage(): JSX.Element {
         emptyMessage="No shift groups yet. Bundle shift types together to score them as a set or to let staff request off all of them at once."
         label="shift groups"
       >
-        <div className="w-full overflow-auto">
+        {/* `tabIndex={0}` is load-bearing, not decoration (I-12, SP-HR-5).
+            This wrapper scrolls at narrow widths — the request-off column makes
+            the table wider than a 390px viewport. Chromium ≥127 makes a
+            genuinely overflowing scroller natively focusable, so it is already
+            reachable THERE without this attribute; in a browser without that
+            behaviour the keyboard has nothing to send the arrow keys to. The
+            explicit tab stop is the portable spelling, and it is what axe-core
+            checks — `scrollable-region-focusable` (serious) is how the missing
+            one was found. The accessible name is the table's own visible
+            `<caption>`. Same spelling as every other scrolling table wrapper
+            in this app (`publication/`, `builds/`). */}
+        <div className="w-full overflow-auto" tabIndex={0}>
           <table className="min-w-full border-collapse text-left" data-testid="shift-group-table">
             <caption className="pb-sp-2 text-left text-text-muted">
               {groups.length === 1 ? '1 shift group' : `${String(groups.length)} shift groups`}
@@ -652,7 +663,9 @@ export function ValidGroupsPage(): JSX.Element {
         emptyMessage="No valid combinations yet. Without one, no pairing of shift type and draft position is constrained."
         label="valid combinations"
       >
-        <div className="w-full overflow-auto">
+        {/* Focusable for the reason given at the shift-group table above: the
+            portable tab stop for a scrolling container, and what axe checks. */}
+        <div className="w-full overflow-auto" tabIndex={0}>
           <table className="min-w-full border-collapse text-left" data-testid="valid-group-table">
             <caption className="pb-sp-2 text-left text-text-muted">
               {groups.length === 1

@@ -472,6 +472,12 @@ export const buildRunDetailSchema = z
         verdict: z.enum([
           'reproducible',
           'wall-clock-truncated',
+          /* FAD-52. The run FINISHED, the wall clock is not established as the
+             stop, and the deterministic budget went demonstrably unspent — so
+             something else stopped it and the record does not say what. Never
+             conflated with `wall-clock-truncated`: that verdict names a cause
+             this one deliberately does not. */
+          'stopped-early',
           /* FAD-50 B-1. A run something ENDED — cancelled, deadlined, killed,
              crashed, or refused before it began. Distinct from `unrecorded`,
              where the facts are missing rather than damning. */

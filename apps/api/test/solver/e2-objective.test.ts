@@ -238,7 +238,28 @@ describe('the objective is TIERED and every component weight is recorded', () =>
       `      · preference weight ${String(beforeWeight)} → ${String(afterWeight)}; ` +
         'every other recorded weight unchanged',
     );
-  });
+    /* **The explicit timeout, and it bounds nothing but the clock.**
+     *
+     * This arm drives TWO full solves of `B-fairness-shaped` — the base snapshot
+     * and the weight-edited one — and how much SEARCH each does is fixed by the
+     * pinned deterministic budget, not by the machine. What the machine decides
+     * is only how many wall-seconds those 100 deterministic units cost. Where
+     * this was authored that was ~33 s a solve (the `DETERMINISTIC_PARAMETERS`
+     * docblock's 32.61863 s / 76.702882 units, and its ~43 s figure for the full
+     * budget), so the pair sat inside `apps/api/vitest.config.ts`'s 120 s global
+     * `testTimeout` with room to spare. On the container this was measured in,
+     * ONE solve of the same class under the same pinned set costs ~87 s and the
+     * pair costs **150.4 s and 155.2 s across the two runs it was measured in**
+     * — so the arm timed out for a reason with nothing to do with the objective
+     * record it exists to pin.
+     *
+     * 480 s is the larger of those measurements times three. The precedent is
+     * R-B4a in `packages/domain/test/time/zoned-time.test.ts`, and so is the
+     * argument: a timeout should catch a hang, not a slow box, and the global
+     * default is not the place to say so for one arm. Nothing else moves — the
+     * parameters, the snapshot edit and every assertion above are
+     * byte-identical. */
+  }, 480_000);
 });
 
 describe('S-08t under E2 objectives — bit-identical on a soft-rule-bearing class', () => {
@@ -278,7 +299,14 @@ describe('S-08t under E2 objectives — bit-identical on a soft-rule-bearing cla
       ['second', second],
     ] as const) {
       const verdict = wallClockVerdict(outcome, DETERMINISTIC_PARAMETERS);
-      expect(verdict.bound, `${label} solve: ${verdict.detail}`).toBe(false);
+      /* FAD-52: `reproducible`, not `bound`. The precondition means "this run IS
+         a reproducibility basis", and `bound` only ever answered the narrower
+         "did the WALL CLOCK stop it" — which since FAD-52 is one of two ways to
+         fail this, not the question itself. A run that came back FEASIBLE with
+         its deterministic budget unspent reads `stopped-early` with `bound`
+         false, and would have satisfied the old spelling while reproducing
+         nothing. `bound` is unchanged and still means only the clock. */
+      expect(verdict.reproducible, `${label} solve: ${verdict.detail}`).toBe(true);
     }
 
     /* The MACHINE-INDEPENDENT half of the claim, and it is strictly stronger
@@ -300,7 +328,19 @@ describe('S-08t under E2 objectives — bit-identical on a soft-rule-bearing cla
         `units in ${String(first.statistics.wallTimeSeconds)}s against a ` +
         `${String(DETERMINISTIC_PARAMETERS.maxTimeInSeconds)}s net`,
     );
-  });
+    /* **The explicit timeout, for the same reason as the weight-change arm and
+     * with the same discipline.** Two solves of the identical snapshot are what
+     * bit-identity MEANS here, so the cost is two full deterministic budgets:
+     * ~66 s where this was authored (~33 s a solve), **174.3 s and 177.2 s
+     * across the two runs it was measured in** on the container this was
+     * measured in, against a 120 s global `testTimeout`.
+     *
+     * 540 s is the larger of those measurements times three. The reproducibility
+     * claim itself is untouched — the deterministic set, the wall-clock
+     * precondition, the statistics comparison and the three byte comparisons are
+     * all unchanged. This bounds only how long the arm is allowed to take before
+     * vitest calls it a hang. */
+  }, 540_000);
 
   it('B-1: a REAL cancelled solve is never reproducible, whatever its wall clock says', async () => {
     /* **FAD-50 B-1, against real CP-SAT.** The reviewer's RP-1 shape as a
@@ -364,6 +404,11 @@ describe('S-08t under E2 objectives — bit-identical on a soft-rule-bearing cla
       const claim = resultReproducibility({
         parameters: DETERMINISTIC_PARAMETERS,
         wallTimeSeconds: wall,
+        /* FAD-52's third fact, forwarded rather than defaulted. It changes
+           nothing here — the termination is checked first, so a cancelled run
+           never reaches the units branch — and that is the point: the arm has
+           to state it, so nobody can quietly assume it. */
+        deterministicTimeUnits: outcome.statistics.deterministicTimeUnits,
         terminationReason: outcome.terminationReason,
         status: SOLVER_STATUSES.find((s) => s === outcome.status) ?? null,
       });
@@ -384,7 +429,7 @@ describe('S-08t under E2 objectives — bit-identical on a soft-rule-bearing cla
     }
   }, 180_000);
 
-  it('the precondition BITES: with the old 10s wall clock the search is wall-bound', async () => {
+  it('the precondition BITES: with the old 10s wall clock the run is never reproducible', async () => {
     /* The non-vacuity control. Without it the check above could be asserting
      * `false` against a condition nothing can ever satisfy, and the repair would
      * be decoration.
@@ -393,7 +438,7 @@ describe('S-08t under E2 objectives — bit-identical on a soft-rule-bearing cla
      * — and the verdict flips. It also records the two facts that make the
      * test-side precondition necessary in the first place:
      *
-     *   1. the deterministic budget is nowhere near spent (100 pinned, ~12–22
+     *   1. the deterministic budget is nowhere near spent (100 pinned, ~8–22
      *      consumed), so it demonstrably was NOT what stopped the search; and
      *   2. the DISPATCH mode still reads `deterministic`, because that is a
      *      statement about the parameters the platform sent.
@@ -403,15 +448,36 @@ describe('S-08t under E2 objectives — bit-identical on a soft-rule-bearing cla
      * said a wall clock had cut the search short, so the run's own record
      * claimed `deterministic` and the build detail screen turned that into "the
      * same problem run again … produces the same schedule". The ruling granted
-     * the RESULT-side verdict, derived from facts already persisted. So the
-     * dispatch mode is asserted UNCHANGED — it was never wrong, it was answering
-     * a different question — and the result-side verdict is asserted to refuse
-     * the claim and to name the wall clock as the reason. */
+     * the RESULT-side verdict, derived from facts already persisted.
+     *
+     * ## UPDATED AGAIN, DELIBERATELY (FAD-52) — and this one is a spec-directed
+     * ## change to what the arm EXPECTS, disclosed rather than slipped in
+     *
+     * This arm used to assert `wall-clock-truncated` exactly. That expectation
+     * was wrong about this run about half the time, and the failure it produced
+     * was the FAD-52 defect showing through: the 10s solve of this class
+     * completes `FEASIBLE` at wall **8.6–9.1s** — measured 15+ times — and
+     * 8.7 of 10 is BELOW `WALL_CLOCK_BINDING_FRACTION`, so the wall-clock rule
+     * did not fire and the shipped predicate answered `reproducible`. Under
+     * load the wall crosses 9s and it answered `wall-clock-truncated`. A knife
+     * edge, load-sensitive in the wrong direction.
+     *
+     * So the arm now asserts what is true on BOTH sides of that edge, and the
+     * LOAD-BEARING half is unchanged and unconditional: **this run is never
+     * `reproducible`, on any surface.** Which honest refusal it is depends on
+     * where the wall landed, and each branch is then checked for the specific
+     * sentence it owes — the wall-clock one must name the clock, the
+     * `stopped-early` one must NOT, because for it the clock is not
+     * established. Nothing here is weakened to a disjunction that could pass
+     * vacuously: every branch of it refuses the claim. */
     const wallBound = { ...DETERMINISTIC_PARAMETERS, maxTimeInSeconds: 10 };
     const outcome = await solve(documentFor('B-fairness-shaped'), { maxTimeInSeconds: 10 });
 
     const verdict = wallClockVerdict(outcome, wallBound);
-    expect(verdict.bound, verdict.detail).toBe(true);
+    /* Was `expect(verdict.bound).toBe(true)`. `bound` means the WALL CLOCK
+     * specifically, which is exactly the fact this run does not reliably
+     * establish; `reproducible` is the question the arm is actually about. */
+    expect(verdict.reproducible, verdict.detail).toBe(false);
 
     const consumed = outcome.statistics.deterministicTimeUnits;
     expect(consumed).not.toBeNull();
@@ -424,37 +490,93 @@ describe('S-08t under E2 objectives — bit-identical on a soft-rule-bearing cla
     const claim = resultReproducibility({
       parameters: wallBound,
       wallTimeSeconds: outcome.statistics.wallTimeSeconds,
+      /* FAD-52: the second measured clock, which is what the units-aware branch
+         reads. Passing it is not optional — the predicate requires it, so an
+         arm that forgot the fact could not compile. */
+      deterministicTimeUnits: outcome.statistics.deterministicTimeUnits,
       /* Read off the real outcome (FAD-50 B-1) rather than assumed: this solve
-         DID complete — the clock stopped the search, nobody stopped the run —
-         and saying so is what keeps the assertion below about the wall clock. */
+         DID complete — a limit stopped the search, nobody stopped the run. */
       terminationReason: outcome.terminationReason,
       status: SOLVER_STATUSES.find((s) => s === outcome.status) ?? null,
     });
-    expect(claim.verdict).toBe('wall-clock-truncated');
-    expect(claim.reproducible).toBe(false);
-    expect(claim.detail).toContain('WALL CLOCK');
 
-    /* Falsifiability, kept: the SAME run's statistics under the repaired budget
-     * are judged reproducible. Without this the assertions above would pass for
-     * a predicate that refuses everything, which is a different way of being
-     * useless than the one this arm was written to catch. */
-    const underTheRepairedBudget = resultReproducibility({
+    /* THE LOAD-BEARING ASSERTION, both sides of the knife edge. */
+    expect(claim.reproducible, claim.detail).toBe(false);
+    expect(claim.detail).not.toContain('produces the same schedule');
+    expect(
+      ['wall-clock-truncated', 'stopped-early'],
+      `the 10s run must read as an honest refusal, not '${claim.verdict}'`,
+    ).toContain(claim.verdict);
+
+    /* …and each branch owes its OWN sentence, so the disjunction above cannot
+     * be satisfied by a verdict that names the wrong cause. */
+    if (claim.verdict === 'wall-clock-truncated') {
+      expect(claim.detail).toContain('WALL CLOCK');
+    } else {
+      expect(claim.detail).toContain(String(consumed));
+      expect(claim.detail).toContain('deterministic units');
+      expect(claim.detail).toContain('may produce a different schedule');
+      /* the cause it must NOT name */
+      expect(claim.detail).not.toContain('WALL CLOCK');
+    }
+
+    /* ## FALSIFIABILITY, RE-FOUNDED (FAD-52 item 6) — not weakened, not deleted
+     *
+     * This control used to re-judge THIS run's statistics under the repaired
+     * 900s budget and assert `reproducible`, proving the predicate does not
+     * simply refuse everything. **That control INVERTS under the new rule**,
+     * and correctly so: this run is `FEASIBLE` with ~8 of 100 deterministic
+     * units spent, so it is not reproducible under ANY wall budget — the
+     * measurement that made FAD-52 a product defect is precisely that raising
+     * the budget 36× moves `deterministicTimeUnits` not at all. Keeping the old
+     * assertion would mean asserting the defect.
+     *
+     * So it is re-founded on a run that has genuinely EARNED the claim, in the
+     * only way that keeps the control real: a fresh solve of the SAME class
+     * under the full pinned set — the S-08t run — which proves optimality and
+     * spends ~76–83 of its 100 units getting there. If the predicate ever
+     * became a blanket refusal, this fails.
+     *
+     * It is solved HERE rather than borrowed from the S-08t arm above on
+     * purpose: a module-level value carried between arms would make this
+     * control silently vacuous whenever the arm is run alone with `-t`, which
+     * is exactly how this defect is reproduced and verified. */
+    const genuinelyReproducible = await solve(documentFor('B-fairness-shaped'));
+    const earned = resultReproducibility({
       parameters: DETERMINISTIC_PARAMETERS,
-      wallTimeSeconds: outcome.statistics.wallTimeSeconds,
-      terminationReason: outcome.terminationReason,
-      status: SOLVER_STATUSES.find((s) => s === outcome.status) ?? null,
+      wallTimeSeconds: genuinelyReproducible.statistics.wallTimeSeconds,
+      deterministicTimeUnits: genuinelyReproducible.statistics.deterministicTimeUnits,
+      terminationReason: genuinelyReproducible.terminationReason,
+      status: SOLVER_STATUSES.find((s) => s === genuinelyReproducible.status) ?? null,
     });
-    expect(underTheRepairedBudget.verdict).toBe('reproducible');
-    expect(underTheRepairedBudget.reproducible).toBe(true);
+    expect(genuinelyReproducible.status, 'the control run must prove optimality').toBe('OPTIMAL');
+    expect(earned.verdict, earned.detail).toBe('reproducible');
+    expect(earned.reproducible).toBe(true);
 
     log(
-      `      · precondition control: wall ${String(outcome.statistics.wallTimeSeconds)}s of 10s ` +
-        `ended the search after only ${String(consumed)} of ` +
-        `${String(DETERMINISTIC_PARAMETERS.maxDeterministicTime)} deterministic units; ` +
+      `      · precondition control: wall ${String(outcome.statistics.wallTimeSeconds)}s of 10s, ` +
+        `only ${String(consumed)} of ` +
+        `${String(DETERMINISTIC_PARAMETERS.maxDeterministicTime)} deterministic units spent; ` +
         `dispatch mode '${outcome.runtime.reproducibilityMode}', ` +
         `result verdict '${claim.verdict}'`,
     );
-  });
+    log(
+      `      · falsifiability, re-founded: the same class under the full pinned set is ` +
+        `${genuinelyReproducible.status} after ` +
+        `${String(genuinelyReproducible.statistics.deterministicTimeUnits)} of ` +
+        `${String(DETERMINISTIC_PARAMETERS.maxDeterministicTime)} units in ` +
+        `${String(genuinelyReproducible.statistics.wallTimeSeconds)}s → '${earned.verdict}'`,
+    );
+    /* **The explicit timeout, on the same discipline as the two arms above.**
+     * The re-founded control adds a FULL deterministic solve of this class to
+     * an arm that previously ran one 10-second solve. That solve was measured
+     * at ~33s where the S-08t arm was authored and at ~87s on the container it
+     * was measured in, so this arm's worst measured cost is ~10 + ~87 s against
+     * a 120 s global `testTimeout` — close enough that a slow run would be
+     * reported as a hang rather than as itself. 300 s is the largest measured
+     * total times roughly three. It bounds how long the arm may take; it
+     * changes no assertion. */
+  }, 300_000);
 });
 
 describe('T2: EXPLAINED_MINIMAL is earned, and a false claim is refused', () => {

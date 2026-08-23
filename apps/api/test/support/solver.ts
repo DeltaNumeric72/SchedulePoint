@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import {
   SOLVER_STATUSES,
   resultReproducibility,
+  type ResultReproducibility,
   type SolverParameters,
   type TerminationReason,
 } from '@schedulepoint/domain';
@@ -223,10 +224,22 @@ export function applyHostileWorkerEnv(mode: string): () => void {
  * search a run did. With the wall clock binding it moves with the load — 21.76
  * on a calm machine, 12.53 under ten CPU hogs, and **21.760483 vs 21.660444
  * between two solves in one process**. With the wall clock out of the way it is
- * `76.702882` in every run, on a calm machine and a machine running 1.7× slower
- * alike, and the candidate is byte-identical across all of them. That is the
- * property §4 promises and the reason S-08t/E2 diverged roughly one run in
+ * `76.702882` in every run ON THAT MACHINE, on a calm one and one running 1.7×
+ * slower alike, and the candidate is byte-identical across all of them. That is
+ * the property §4 promises and the reason S-08t/E2 diverged roughly one run in
  * three, standalone, on an idle machine.
+ *
+ * **CORRECTED (FAD-52).** The table above, and the sentence it used to carry,
+ * read as though `76.702882` were a portable constant. It is not. The same
+ * snapshot under the same pin measures **83.130356** units on the container
+ * this correction was made on, against 76.702882 on the machine of record.
+ * Deterministic units are **same-machine stable, not cross-machine portable**:
+ * they remove the WALL CLOCK's dependence on how fast the box is, not every
+ * dependence on which box it is — a different OR-Tools build, a different CPU
+ * feature set or a different worker count changes how much work a unit counts.
+ * What reproduces across machines is the CANDIDATE, which is the claim §4 makes
+ * and the one S-08t asserts. Nothing here should be read as promising that a
+ * unit count measured on one machine will be seen on another.
  *
  * ## Why the wall clock is now 900 rather than removed
  *
@@ -254,6 +267,19 @@ export const DETERMINISTIC_PARAMETERS: SolverParameters = {
 export interface WallClockVerdict {
   /** `true` when the WALL CLOCK ended the search — so the run is not a reproducibility basis. */
   readonly bound: boolean;
+  /**
+   * The domain verdict itself, carried rather than reduced (FAD-52).
+   *
+   * `bound` answers ONE question — did the wall clock stop it — and since FAD-52
+   * there are two distinct ways for a run to be non-reproducible without the
+   * clock being the established cause. An assertion that means *"this run may
+   * not be used as a reproducibility basis"* must read {@link reproducible},
+   * not `bound`; an assertion that means *"the clock specifically"* keeps
+   * reading `bound`. Both spellings exist so neither has to be approximated.
+   */
+  readonly verdict: ResultReproducibility;
+  /** `true` for exactly one verdict. The single question a caller should branch on. */
+  readonly reproducible: boolean;
   readonly wallTimeSeconds: number | null;
   readonly budgetSeconds: number;
   readonly detail: string;
@@ -274,7 +300,11 @@ export interface WallClockVerdict {
  */
 export function wallClockVerdict(
   outcome: {
-    readonly statistics: { readonly wallTimeSeconds: number | null };
+    readonly statistics: {
+      readonly wallTimeSeconds: number | null;
+      /** FAD-52: the predicate reads this too, so the adapter must pass it. */
+      readonly deterministicTimeUnits: number | null;
+    };
     readonly terminationReason: TerminationReason;
     readonly status: string;
   },
@@ -283,15 +313,19 @@ export function wallClockVerdict(
   /* Takes the whole OUTCOME rather than its statistics (FAD-50 B-1). The
    * predicate now reads the termination too, and a helper that kept passing
    * only the numbers would have had to invent one — which is exactly the
-   * "assume it finished" hole B-1 was. */
+   * "assume it finished" hole B-1 was. FAD-52 added a second measured number
+   * for the same reason, and it is forwarded rather than defaulted. */
   const verdict = resultReproducibility({
     parameters,
     wallTimeSeconds: outcome.statistics.wallTimeSeconds,
+    deterministicTimeUnits: outcome.statistics.deterministicTimeUnits,
     terminationReason: outcome.terminationReason,
     status: SOLVER_STATUSES.find((s) => s === outcome.status) ?? null,
   });
   return {
     bound: verdict.verdict === 'wall-clock-truncated',
+    verdict: verdict.verdict,
+    reproducible: verdict.reproducible,
     wallTimeSeconds: outcome.statistics.wallTimeSeconds,
     budgetSeconds: parameters.maxTimeInSeconds,
     detail: `[${verdict.verdict}] ${verdict.detail}`,

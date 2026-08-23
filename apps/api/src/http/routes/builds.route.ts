@@ -569,13 +569,16 @@ export default function buildRoutes(app: FastifyInstance): void {
            * Correct, worth recording, and NOT a claim about the result. */
           reproducibility: row.reproducibility_mode,
           /* The RESULT-side verdict (FAD-49, EV-M4-005 §21). Derived on read
-           * from the run's recorded parameters and the search time the result
+           * from the run's recorded parameters and BOTH clocks the result
            * recorded, because a request pinned `deterministic` can still have
-           * been ended by its wall clock — and then it reproduces nothing. */
-          resultReproducibility: builds.runResultReproducibility(
-            row,
-            detail.result?.quality.solverStatistics['wallTimeSeconds'] ?? null,
-          ),
+           * been ended by its wall clock — and then it reproduces nothing —
+           * and can also have been ended by neither, with its deterministic
+           * budget nearly untouched, which reproduces nothing either (FAD-52). */
+          resultReproducibility: builds.runResultReproducibility(row, {
+            wallTimeSeconds: detail.result?.quality.solverStatistics['wallTimeSeconds'] ?? null,
+            deterministicTimeUnits:
+              detail.result?.quality.solverStatistics['deterministicTimeUnits'] ?? null,
+          }),
           /* doc 35 §6g ruling 4: the staleness is visible on the screen BEFORE
            * the scheduler decides, not only in the refusal after they have. */
           /* FAD-50 C-4. Computed over every constituent (FAD-29 — the gate reads

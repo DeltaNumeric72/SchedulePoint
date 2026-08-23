@@ -290,6 +290,16 @@ describe('overnight shifts and the DST-day durations', () => {
     },
   );
 
+  /* The explicit timeout: thousands of `Intl.DateTimeFormat` resolutions make
+   * this the one test in the file whose cost is bounded by raw machine speed
+   * rather than by logic, and the spread across machines is wide. Measured at
+   * 6.3 s in a container and 7.4 s on a loaded shared CI runner — both past
+   * vitest's 5 s default, failing the gate for a reason that has nothing to do
+   * with the code under test. The generous ceiling is the one
+   * `apps/api/vitest.config.ts` uses for its storm tests, and for the same
+   * reason: a timeout should catch a hang, not a slow box. The sweep's ranges,
+   * step and assertion below are unchanged — this bounds only how long it is
+   * allowed to take. */
   it('R-B4a: NO (start, end) pair in any gap zone resolves to a non-positive interval', () => {
     /* The exhaustive form of the finding. Before the repair this enumeration
      * produced 399 degenerate pairs — 78 in New York, 21 in Lord Howe, 300 in
@@ -310,7 +320,7 @@ describe('overnight shifts and the DST-day durations', () => {
       }
     }
     expect(degenerate).toBe(0);
-  });
+  }, 120_000);
 
   it('a shift starting inside a GAP is normalized forward and stays positive', () => {
     const interval = resolveShiftInterval(TORONTO, TORONTO_SPRING, '02:30', '10:00');

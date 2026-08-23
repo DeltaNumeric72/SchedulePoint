@@ -66,6 +66,7 @@ export {
  * package exposes exactly one entry point, so a new port is unreachable without
  * it. Additive: no existing export is changed, removed or reordered. */
 export {
+  DETERMINISTIC_BUDGET_UNSPENT_FRACTION,
   DishonestSolverOutcomeError,
   MAX_SOLVER_RESPONSE_BYTES,
   SOLVER_PROTOCOL_VERSION,

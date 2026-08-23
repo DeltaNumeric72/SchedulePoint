@@ -712,7 +712,7 @@ explicitly, serially, one at a time on a quiet machine:
 
 ```bash
 corepack pnpm check               # the seventeen gates
-corepack pnpm red-cases           # 64 cases, both directions
+corepack pnpm red-cases           # 65 cases, both directions
 corepack pnpm fixture-regression  # FAD-15: 13 fixed seeds + a rotating one + every file alone
 corepack pnpm sbx                 # the SPEC-16 sandbox scenarios under their contracts
 ```
