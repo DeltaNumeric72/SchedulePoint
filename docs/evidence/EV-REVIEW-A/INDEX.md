@@ -340,6 +340,37 @@ Filed as **REV-A-003**.
 | `corepack pnpm fixture-regression` | **NOT EXECUTED — DECLARED, WITH THE REASON.** 153 runs over 13 fixed seeds + rotating + a standalone sweep, six of them full `B-fairness-shaped` deterministic solves; the S-08t repair alone added ~44 min on the reference machine, and this machine measures ONE such solve at ~129 s against ~33 s there (≈3.9×), so a faithful run is multiple hours. **No CI evidence exists for it either** — `ci.yml` runs `pnpm check` and `pnpm red-cases` and nothing else. Its sole evidence remains the frozen EV-M4-005 transcript 40 (153/153, M4 machine). REV-A makes no statement about its current state. |
 | real-stack e2e at both viewports | **NOT EXECUTED** — REV-B's lane. The axe gate (430 passed \| 16 skipped) and the request-budget gate (44 interactions, 87 recordings) did run here inside `pnpm check`. |
 
+## 15. The five red-case arms REV-A executed
+
+`transcripts/13-red-case-arms.txt`, each run as a single-arm shard (`SP_RED_SHARD=k/65`
+selects exactly the arm at 0-based registration index `k`), all exit 0:
+
+| k | arm | result |
+| --- | --- | --- |
+| 48 | `builds-fencing-trigger` | 1 proven, 0 not proven |
+| 50 | `builds-transition-guard` | 1 proven, 0 not proven |
+| 52 | `builds-fencing-state-clause` | 1 proven, 0 not proven |
+| 44 | `solver-checker-disabled` | 1 proven, 0 not proven |
+| 58 | `result-reproducibility-units-branch-removed` (FAD-52's new arm; the battery 64→65) | 1 proven, 0 not proven |
+
+Observed in passing and worth recording: during arm 44 the runner's own patch made
+`packages/domain/src/rules/hard-rule-check.ts` show as modified in `git status`, and it
+reverted to a byte-identical blob on completion — the `nr14-clean-tree` arm's property,
+seen working from outside.
+
+## 16. Probe hygiene
+
+Every probe this reviewer authored under `apps/api/test/rev-a/` was **removed** after the
+final run; the sources are retained under `transcripts/probe-sources/`. Every mutation
+probe restored its file to a byte-identical blob, verified by sha256 and by `git status`
+inside the driver. The committed tree of `review/rev-a` differs from its base `f855340`
+**only under `docs/evidence/EV-REVIEW-A/`** —
+
+```
+$ git diff --name-only f855340 HEAD | grep -v '^docs/evidence/EV-REVIEW-A/'
+(no output)
+```
+
 ---
 
 *(Findings register: returned in REV-A's report to the orchestrator.)*

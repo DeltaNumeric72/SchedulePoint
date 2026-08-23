@@ -28,3 +28,38 @@ ERRORED    = the arm did not RUN. Never counted as proven, however its exit code
 ARM_EXIT=0
 
 =============== SP_RED_SHARD=52/65 ===============
+=== red-case shard 52/65 — 1 of 65 arm(s) selected ===
+  arms: builds-fencing-state-clause
+=== preflight: building apps/web so the bundle arms have a bundle ===
+CASE                         GREEN  RED    VERDICT
+1 case(s): 1 proven, 0 not proven
+shard 52/65 — 1 of 65 arm(s) in this process; the union is asserted by CI, not by this table
+GREEN "pass" = the gate passes on the clean tree.
+RED   "fail" = the gate fails when the violation is present. That is the desired outcome.
+ERRORED    = the arm did not RUN. Never counted as proven, however its exit code read.
+ARM_EXIT=0
+
+=============== SP_RED_SHARD=44/65 ===============
+=== red-case shard 44/65 — 1 of 65 arm(s) selected ===
+  arms: solver-checker-disabled
+=== preflight: building apps/web so the bundle arms have a bundle ===
+CASE                     GREEN  RED    VERDICT
+1 case(s): 1 proven, 0 not proven
+shard 44/65 — 1 of 65 arm(s) in this process; the union is asserted by CI, not by this table
+GREEN "pass" = the gate passes on the clean tree.
+RED   "fail" = the gate fails when the violation is present. That is the desired outcome.
+ERRORED    = the arm did not RUN. Never counted as proven, however its exit code read.
+ARM_EXIT=0
+
+=============== SP_RED_SHARD=58/65 ===============
+=== red-case shard 58/65 — 1 of 65 arm(s) selected ===
+  arms: result-reproducibility-units-branch-removed
+=== preflight: building apps/web so the bundle arms have a bundle ===
+CASE                                         GREEN  RED    VERDICT
+1 case(s): 1 proven, 0 not proven
+shard 58/65 — 1 of 65 arm(s) in this process; the union is asserted by CI, not by this table
+GREEN "pass" = the gate passes on the clean tree.
+RED   "fail" = the gate fails when the violation is present. That is the desired outcome.
+ERRORED    = the arm did not RUN. Never counted as proven, however its exit code read.
+ARM_EXIT=0
+END 2026-08-23T03:21:02Z
