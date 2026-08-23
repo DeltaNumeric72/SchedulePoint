@@ -1,0 +1,113 @@
+
+==============================================================================
+M-01  packages/domain/test/ports/result-reproducibility.test.ts:81
+  FAD-49/52: the positive verdict. If inverting it stays green the verdict is not measured.
+  applied diff:
+    - expect(verdict.reproducible).toBe(true);
+    + expect(verdict.reproducible).toBe(false);
+  exit=1  tests: 1 failed | 30 passed (31)  (1.9s)
+  VERDICT: LOAD-BEARING (inversion goes RED)
+  restore byte-identical: yes (6f8e2e767ed4 -> 6f8e2e767ed4)
+
+==============================================================================
+M-02  packages/domain/test/ports/result-reproducibility.test.ts:143
+  FAD-49/52: the REFUSAL. The negative claim is the one a wall-clock-truncated run needs.
+  applied diff:
+    - expect(verdict.reproducible).toBe(false);
+    + expect(verdict.reproducible).toBe(true);
+  exit=1  tests: 1 failed | 30 passed (31)  (1.8s)
+  VERDICT: LOAD-BEARING (inversion goes RED)
+  restore byte-identical: yes (6f8e2e767ed4 -> 6f8e2e767ed4)
+
+==============================================================================
+M-03  packages/domain/test/context-verification.test.ts:100
+  I-14/15 declared-vs-verified: the epoch actually carried through.
+  applied diff:
+    - expect(result.context.sessionEpoch).toBe(2);
+    + expect(result.context.sessionEpoch).toBe(3);
+  exit=1  tests: 1 failed | 43 passed (44)  (1.9s)
+  VERDICT: LOAD-BEARING (inversion goes RED)
+  restore byte-identical: yes (7b816bfa9217 -> 7b816bfa9217)
+
+==============================================================================
+M-04  apps/web/test/build-vocabulary.test.ts:155
+  UI/backend vocabulary agreement: distinct labels per conflict class.
+  applied diff:
+    - expect(new Set(Object.values(CONFLICT_CLASS_LABELS)).size).toBe(4);
+    + expect(new Set(Object.values(CONFLICT_CLASS_LABELS)).size).toBe(5);
+  exit=1  tests: 1 failed | 12 passed (13)  (2.2s)
+  VERDICT: LOAD-BEARING (inversion goes RED)
+  restore byte-identical: yes (6d3fcdeb8790 -> 6d3fcdeb8790)
+
+==============================================================================
+M-05  apps/web/test/context-declaration.test.ts:196
+  I-10: the exact request count the client issues.
+  applied diff:
+    - expect(calls).toHaveLength(4);
+    + expect(calls).toHaveLength(5);
+  exit=1  tests: 1 failed | 9 passed (10)  (2.5s)
+  VERDICT: LOAD-BEARING (inversion goes RED)
+  restore byte-identical: yes (ec8711c34be0 -> ec8711c34be0)
+
+==============================================================================
+M-06  packages/contracts/test/health.test.ts:22
+  contract refusal: a malformed payload must not parse.
+  applied diff:
+    - expect(result.success).toBe(false);
+    + expect(result.success).toBe(true);
+  exit=1  tests: 1 failed | 3 passed (4)  (1.6s)
+  VERDICT: LOAD-BEARING (inversion goes RED)
+  restore byte-identical: yes (687f0f139cd2 -> 687f0f139cd2)
+
+==============================================================================
+M-07  scripts/gates/test/network-assertion-guard.test.ts:49
+  CAP-068/T-23: the client-host scanner detecting a request-shaped host.
+  applied diff:
+    - expect(scan(`fetch("http://localhost:3001/api/health")`).length).toBe(1);
+    + expect(scan(`fetch("http://localhost:3001/api/health")`).length).toBe(0);
+  exit=1  tests: 1 failed | 25 passed (26)  (1.2s)
+  VERDICT: LOAD-BEARING (inversion goes RED)
+  restore byte-identical: yes (a4ee20253534 -> a4ee20253534)
+
+==============================================================================
+M-08  scripts/gates/test/request-budget.test.ts:61
+  SP-HR-2/I-10: the budget gate reporting an over-budget interaction.
+  applied diff:
+    - expect(violations).toHaveLength(1);
+    + expect(violations).toHaveLength(0);
+  exit=1  tests: 1 failed | 7 passed (8)  (1.2s)
+  VERDICT: LOAD-BEARING (inversion goes RED)
+  restore byte-identical: yes (cc1765d3d2bd -> cc1765d3d2bd)
+
+==============================================================================
+M-09  packages/domain/test/layering.test.ts:38
+  the domain-imports-nothing boundary.
+  applied diff:
+    - expect(offenders).toEqual([]);
+    + expect(offenders).toEqual(['REV-B forced non-empty']);
+  exit=1  tests: 1 failed | 1 passed (2)  (2.1s)
+  VERDICT: LOAD-BEARING (inversion goes RED)
+  restore byte-identical: yes (f8b34902e8a7 -> f8b34902e8a7)
+
+==============================================================================
+MUTATION SAMPLE SUMMARY
+  M-01  load-bearing   exit=1  restored=true  packages/domain/test/ports/result-reproducibility.test.ts:81
+      1 failed | 30 passed (31)
+  M-02  load-bearing   exit=1  restored=true  packages/domain/test/ports/result-reproducibility.test.ts:143
+      1 failed | 30 passed (31)
+  M-03  load-bearing   exit=1  restored=true  packages/domain/test/context-verification.test.ts:100
+      1 failed | 43 passed (44)
+  M-04  load-bearing   exit=1  restored=true  apps/web/test/build-vocabulary.test.ts:155
+      1 failed | 12 passed (13)
+  M-05  load-bearing   exit=1  restored=true  apps/web/test/context-declaration.test.ts:196
+      1 failed | 9 passed (10)
+  M-06  load-bearing   exit=1  restored=true  packages/contracts/test/health.test.ts:22
+      1 failed | 3 passed (4)
+  M-07  load-bearing   exit=1  restored=true  scripts/gates/test/network-assertion-guard.test.ts:49
+      1 failed | 25 passed (26)
+  M-08  load-bearing   exit=1  restored=true  scripts/gates/test/request-budget.test.ts:61
+      1 failed | 7 passed (8)
+  M-09  load-bearing   exit=1  restored=true  packages/domain/test/layering.test.ts:38
+      1 failed | 1 passed (2)
+
+9 sampled: 9 load-bearing, 0 vacuous

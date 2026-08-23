@@ -1,0 +1,177 @@
+
+################################################################
+### REV-B red-case arm index 17   2026-08-23T04:13:13+00:00
+################################################################
+$ node scripts/red-cases/run.mjs
+
+=== red-case shard 17/65 — 1 of 65 arm(s) selected ===
+  arms: network-guard-source
+
+Waiting for the embedded-postgres port 55887 to be released (a previous `pnpm check` may still be shutting down)...
+Port 55887 is STILL held after 30s. Continuing anyway — a GREEN-arm failure below is then a real finding, not this transient. See the runbook
+standing port-hygiene discipline for how to identify and clear the holder.
+
+=== preflight: building apps/web so the bundle arms have a bundle ===
+  built
+
+=== network-guard-source — network-assertion guard (SP-HR-1) — source scan ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+CASE                  GREEN  RED    VERDICT
+--------------------  -----  -----  -------
+network-guard-source  pass   fail   PROVEN
+--------------------  -----  -----  -------
+1 case(s): 1 proven, 0 not proven
+shard 17/65 — 1 of 65 arm(s) in this process; the union is asserted by CI, not by this table
+
+GREEN "pass" = the gate passes on the clean tree.
+RED   "fail" = the gate fails when the violation is present. That is the desired outcome.
+ERRORED    = the arm did not RUN. Never counted as proven, however its exit code read.
+evidence: scratch — writing under .evidence-scratch/ (tracked artifacts untouched; pass --refresh to update them)
+/home/user/SchedulePoint/.evidence-scratch/scripts/red-cases/evidence-output.txt
+### arm 17 runner exit: 0
+### tree after arm 17:
+### (empty above == the runner restored the tree)
+
+################################################################
+### REV-B red-case arm index 18   2026-08-23T04:13:50+00:00
+################################################################
+$ node scripts/red-cases/run.mjs
+
+=== red-case shard 18/65 — 1 of 65 arm(s) selected ===
+  arms: network-guard-bundle
+
+Waiting for the embedded-postgres port 55887 to be released (a previous `pnpm check` may still be shutting down)...
+Port 55887 is STILL held after 30s. Continuing anyway — a GREEN-arm failure below is then a real finding, not this transient. See the runbook
+standing port-hygiene discipline for how to identify and clear the holder.
+
+=== preflight: building apps/web so the bundle arms have a bundle ===
+  built
+
+=== network-guard-bundle — network-assertion guard (SP-HR-1) — built-bundle scan ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+CASE                  GREEN  RED    VERDICT
+--------------------  -----  -----  -------
+network-guard-bundle  pass   fail   PROVEN
+--------------------  -----  -----  -------
+1 case(s): 1 proven, 0 not proven
+shard 18/65 — 1 of 65 arm(s) in this process; the union is asserted by CI, not by this table
+
+GREEN "pass" = the gate passes on the clean tree.
+RED   "fail" = the gate fails when the violation is present. That is the desired outcome.
+ERRORED    = the arm did not RUN. Never counted as proven, however its exit code read.
+evidence: scratch — writing under .evidence-scratch/ (tracked artifacts untouched; pass --refresh to update them)
+/home/user/SchedulePoint/.evidence-scratch/scripts/red-cases/evidence-output.txt
+### arm 18 runner exit: 0
+### tree after arm 18:
+### (empty above == the runner restored the tree)
+
+################################################################
+### REV-B red-case arm index 46   2026-08-23T04:14:27+00:00
+################################################################
+$ node scripts/red-cases/run.mjs
+
+=== red-case shard 46/65 — 1 of 65 arm(s) selected ===
+  arms: request-budget-over
+
+Waiting for the embedded-postgres port 55887 to be released (a previous `pnpm check` may still be shutting down)...
+Port 55887 is STILL held after 30s. Continuing anyway — a GREEN-arm failure below is then a real finding, not this transient. See the runbook
+standing port-hygiene discipline for how to identify and clear the holder.
+
+=== preflight: building apps/web so the bundle arms have a bundle ===
+  built
+
+=== request-budget-over — requests per interaction (SP-HR-2) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+CASE                 GREEN  RED    VERDICT
+-------------------  -----  -----  -------
+request-budget-over  pass   fail   PROVEN
+-------------------  -----  -----  -------
+1 case(s): 1 proven, 0 not proven
+shard 46/65 — 1 of 65 arm(s) in this process; the union is asserted by CI, not by this table
+
+GREEN "pass" = the gate passes on the clean tree.
+RED   "fail" = the gate fails when the violation is present. That is the desired outcome.
+ERRORED    = the arm did not RUN. Never counted as proven, however its exit code read.
+evidence: scratch — writing under .evidence-scratch/ (tracked artifacts untouched; pass --refresh to update them)
+/home/user/SchedulePoint/.evidence-scratch/scripts/red-cases/evidence-output.txt
+### arm 46 runner exit: 0
+### tree after arm 46:
+### (empty above == the runner restored the tree)
+
+################################################################
+### REV-B red-case arm index 47   2026-08-23T04:15:04+00:00
+################################################################
+$ node scripts/red-cases/run.mjs
+
+=== red-case shard 47/65 — 1 of 65 arm(s) selected ===
+  arms: request-budget-missing
+
+Waiting for the embedded-postgres port 55887 to be released (a previous `pnpm check` may still be shutting down)...
+Port 55887 is STILL held after 30s. Continuing anyway — a GREEN-arm failure below is then a real finding, not this transient. See the runbook
+standing port-hygiene discipline for how to identify and clear the holder.
+
+=== preflight: building apps/web so the bundle arms have a bundle ===
+  built
+
+=== request-budget-missing — requests per interaction (SP-HR-2) — missing measurement ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+CASE                    GREEN  RED    VERDICT
+----------------------  -----  -----  -------
+request-budget-missing  pass   fail   PROVEN
+----------------------  -----  -----  -------
+1 case(s): 1 proven, 0 not proven
+shard 47/65 — 1 of 65 arm(s) in this process; the union is asserted by CI, not by this table
+
+GREEN "pass" = the gate passes on the clean tree.
+RED   "fail" = the gate fails when the violation is present. That is the desired outcome.
+ERRORED    = the arm did not RUN. Never counted as proven, however its exit code read.
+evidence: scratch — writing under .evidence-scratch/ (tracked artifacts untouched; pass --refresh to update them)
+/home/user/SchedulePoint/.evidence-scratch/scripts/red-cases/evidence-output.txt
+### arm 47 runner exit: 0
+### tree after arm 47:
+### (empty above == the runner restored the tree)
+
+################################################################
+### REV-B red-case arm index 61   2026-08-23T04:15:41+00:00
+################################################################
+$ node scripts/red-cases/run.mjs
+
+=== red-case shard 61/65 — 1 of 65 arm(s) selected ===
+  arms: red-case-runner-errored-signatures
+
+Waiting for the embedded-postgres port 55887 to be released (a previous `pnpm check` may still be shutting down)...
+Port 55887 is STILL held after 30s. Continuing anyway — a GREEN-arm failure below is then a real finding, not this transient. See the runbook
+standing port-hygiene discipline for how to identify and clear the holder.
+
+=== preflight: building apps/web so the bundle arms have a bundle ===
+  built
+
+=== red-case-runner-errored-signatures — the runner tells 'this arm did not RUN' from 'this gate failed' (OPUS-M4-005) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+CASE                                GREEN  RED    VERDICT
+----------------------------------  -----  -----  -------
+red-case-runner-errored-signatures  pass   fail   PROVEN
+----------------------------------  -----  -----  -------
+1 case(s): 1 proven, 0 not proven
+shard 61/65 — 1 of 65 arm(s) in this process; the union is asserted by CI, not by this table
+
+GREEN "pass" = the gate passes on the clean tree.
+RED   "fail" = the gate fails when the violation is present. That is the desired outcome.
+ERRORED    = the arm did not RUN. Never counted as proven, however its exit code read.
+evidence: scratch — writing under .evidence-scratch/ (tracked artifacts untouched; pass --refresh to update them)
+/home/user/SchedulePoint/.evidence-scratch/scripts/red-cases/evidence-output.txt
+### arm 61 runner exit: 0
+### tree after arm 61:
+### (empty above == the runner restored the tree)
+
+ALL SELECTED ARMS DONE 2026-08-23T04:16:18+00:00

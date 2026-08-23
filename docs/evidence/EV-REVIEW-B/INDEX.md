@@ -43,3 +43,9 @@ coverage table, could-not-falsify list and battery-figure table are at the end.)
 | t08 | `transcripts/t08-e2e-inventory.txt` | e2e spec and 320-pixel inventory | 11 specs, 188 `test(` declarations, 10 explicit 320px assertions |
 | t09 | `transcripts/t09-route-policy.txt` | route/policy inventory and SBX-001 matrix coverage | 113 routes, all policy-declared; 112 covered by the role×route matrix |
 
+| t10 | `transcripts/t10-error-body-echo.txt` | do 4xx validation messages echo caller-supplied text? | one shape does: `Unrecognized key(s) in object: '<caller string>'` |
+| t11 | `transcripts/t11-interface-states.txt` | interface-state (loading/empty/error/denied) inventory | centralized in `SurfaceState`; 4 states, 6–16 e2e references each |
+| t12 | `transcripts/t12-real-stack-critical-path.txt` | **the real-stack 14-step critical path, both viewports** | **2 passed (56.6s), exit 0** — every recorded request count identical to the M4 record |
+| t13 | `transcripts/t13-outbox-drain-repeat.txt` | the drain failure, re-run standalone and per-directory | passes alone (12/12, 1.0s) and with the whole `test/audit` directory (83/83) |
+| t14 | `transcripts/t14-api-suite-raised-timeout.txt` | the full `api` project with `--testTimeout=600000` | see §C |
+

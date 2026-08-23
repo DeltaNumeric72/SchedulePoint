@@ -1,0 +1,5 @@
+=== REV-B: full api project, testTimeout raised to 600000ms ===
+purpose: (a) measure the true cost of the two e2-objective arms that hit the 120s ceiling
+         (b) a second observation of the outbox-dispatch drain seam in a composed run
+start 2026-08-23T04:11:24+00:00
+ 04:11:24 up  1:55,  0 user,  load average: 0.86, 1.06, 1.14

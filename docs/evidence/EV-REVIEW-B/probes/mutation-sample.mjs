@@ -137,7 +137,12 @@ let vacuous = 0;
 let proven = 0;
 const rows = [];
 
-for (const m of MUTATIONS) {
+/* An optional id filter, so the api-project mutation can be run separately from
+   the ones that need no database: `node mutation-sample.mjs M-01 M-02`. */
+const only = process.argv.slice(2);
+const selected = only.length > 0 ? MUTATIONS.filter((m) => only.includes(m.id)) : MUTATIONS;
+
+for (const m of selected) {
   process.stdout.write(`\n${'='.repeat(78)}\n${m.id}  ${m.file}:${m.line}\n  ${m.why}\n`);
   const before = sha256(m.file);
   let applied;
@@ -195,6 +200,6 @@ for (const r of rows) {
   );
 }
 process.stdout.write(
-  `\n${String(MUTATIONS.length)} sampled: ${String(proven)} load-bearing, ${String(vacuous)} vacuous\n`,
+  `\n${String(selected.length)} sampled: ${String(proven)} load-bearing, ${String(vacuous)} vacuous\n`,
 );
 process.exitCode = 0;

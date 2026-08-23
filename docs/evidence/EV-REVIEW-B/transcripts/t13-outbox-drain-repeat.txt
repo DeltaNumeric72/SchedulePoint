@@ -1,0 +1,88 @@
+=== REV-B: NR-15 drain recurrence — outbox-dispatch.test.ts ALONE, run 1 ===
+start 2026-08-23T04:09:41+00:00
+ 04:09:41 up  1:54,  0 user,  load average: 0.64, 1.10, 1.16
+[worker(worker-f0dadb649a65e64a6a)] INFO: Completed task 20 (outbox.dispatch, 10.50ms) with success
+
+stdout | test/audit/outbox-dispatch.test.ts
+[worker(worker-f0dadb649a65e64a6a)] INFO: Completed task 21 (outbox.dispatch, 10.24ms) with success
+
+stdout | test/audit/outbox-dispatch.test.ts
+[worker(worker-f0dadb649a65e64a6a)] INFO: Completed task 22 (outbox.dispatch, 10.33ms) with success
+
+stdout | test/audit/outbox-dispatch.test.ts
+[worker(worker-f0dadb649a65e64a6a)] INFO: Completed task 23 (outbox.dispatch, 9.71ms) with success
+
+stdout | test/audit/outbox-dispatch.test.ts
+[worker(worker-f0dadb649a65e64a6a)] INFO: Completed task 25 (outbox.dispatch, 10.98ms) with success
+
+stdout | test/audit/outbox-dispatch.test.ts
+[worker(worker-f0dadb649a65e64a6a)] INFO: Completed task 27 (outbox.dispatch, 2.69ms) with success
+
+stdout | test/audit/outbox-dispatch.test.ts
+[worker(worker-f0dadb649a65e64a6a)] INFO: Completed task 28 (outbox.dispatch, 2.62ms) with success
+
+stdout | test/audit/outbox-dispatch.test.ts
+[worker(worker-f0dadb649a65e64a6a)] INFO: Completed task 29 (outbox.dispatch, 9.54ms) with success
+
+stdout | test/audit/outbox-dispatch.test.ts
+[worker(worker-f0dadb649a65e64a6a)] INFO: Completed task 30 (outbox.dispatch, 10.14ms) with success
+
+stdout | test/audit/outbox-dispatch.test.ts
+[worker(worker-f0dadb649a65e64a6a)] INFO: Completed task 31 (outbox.dispatch, 3.71ms) with success
+
+stdout | test/audit/outbox-dispatch.test.ts
+[worker(worker-f0dadb649a65e64a6a)] INFO: Completed task 32 (outbox.dispatch, 2.84ms) with success
+
+stdout | test/audit/outbox-dispatch.test.ts
+[worker(worker-f0dadb649a65e64a6a)] INFO: Completed task 33 (outbox.dispatch, 3.52ms) with success
+
+stdout | test/audit/outbox-dispatch.test.ts
+      · finalized 20 queued job(s) through the production dispatcher; the queue this file hands on is EMPTY
+
+ ✓ |api| test/audit/outbox-dispatch.test.ts (12 tests) 1017ms
+
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+   Start at  04:09:42
+   Duration  6.59s (transform 1.02s, setup 425ms, collect 180ms, tests 1.02s, environment 0ms, prepare 73ms)
+
+
+real	0m8.215s
+user	0m8.192s
+sys	0m1.879s
+EXIT=0
+=== REV-B: NR-15 drain recurrence — reproduce with the audit directory only ===
+$ vitest run --project api apps/api/test/audit
+2026-08-23T04:10:36+00:00
+
+stdout | test/audit/outbox-dispatch.test.ts
+[worker(worker-29c1eed8f4dde7ad11)] INFO: Completed task 120 (outbox.dispatch, 4.03ms) with success
+
+stdout | test/audit/outbox-dispatch.test.ts
+[worker(worker-29c1eed8f4dde7ad11)] INFO: Completed task 121 (outbox.dispatch, 3.68ms) with success
+
+stdout | test/audit/outbox-dispatch.test.ts
+      · finalized 83 queued job(s) through the production dispatcher; the queue this file hands on is EMPTY
+
+ ✓ |api| test/audit/outbox-dispatch.test.ts (12 tests) 1966ms
+stdout | test/audit/architecture.test.ts > the price of the OPUS-M1-003 connection-owner exemptions > neither exempt file names a TENANT table
+      · 2 exempt modules, 0 tenant-table references — the exemption is paid for
+
+stdout | test/audit/architecture.test.ts > non-bypass rule 6, as a scan > the audit tables are named ONLY inside src/audit
+      · no module outside src/audit names an audit table in SQL
+
+stdout | test/audit/architecture.test.ts > non-bypass rule 6, as a scan > NO module names audit_chain_heads — the chain tip belongs to the trigger
+      · audit_chain_heads appears in no TypeScript module at all
+
+stdout | test/audit/architecture.test.ts > non-bypass rule 6, as a scan > no module issues an UPDATE or DELETE against audit_events
+      · no module contains an UPDATE, DELETE or TRUNCATE against audit_events
+
+ ✓ |api| test/audit/architecture.test.ts (5 tests) 157ms
+
+ Test Files  9 passed (9)
+      Tests  83 passed (83)
+   Start at  04:10:37
+   Duration  20.96s (transform 1.58s, setup 1.57s, collect 785ms, tests 13.15s, environment 0ms, prepare 77ms)
+
+EXIT=0
+2026-08-23T04:10:59+00:00
