@@ -347,3 +347,31 @@ cannot fail. This is a defensible review-probe stance — both files say so expl
 reports; it does not decide") and it stops the probe failing merely for finding the other
 outcome — but it means REV-A-003 and REV-A-004 rest on **reading a printed line**, not on a test
 result. REV-C therefore re-ran both and read the same lines independently (t13).
+
+---
+
+## 6. REV-C's own additional probes
+
+The packet asks for "at least two" additional bounded probes where either report is thin. REV-C
+ran six.
+
+| # | Probe | Why it was needed | Result |
+| --- | --- | --- | --- |
+| P1 | **The GitHub Actions ledger for `main`, read directly** (t04) | REV-A accepted 60 red-case arms on CI evidence; REV-B read one CI run. Neither established what CI does *now*. | Run **32616586257** on main @ `64ddfd1` concluded **failure**: `red-case proofs (shard 8)` failed with `i13-schedule-authoring` **NOT PROVEN** (its GREEN half failed on a clean tree), taking `red-case shard completeness` — the union guard — with it. The gate battery passed in that run. Three consecutive push runs on `main` have now concluded failure. **REV-C-001.** |
+| P2 | **Fresh-clone validation against `origin/main`** (t05) | doc 38 §7 requires it; neither reviewer ran it (REV-B declared it explicitly as a §7 item outside its packet). | Clone → `64ddfd1`, clean tree; install exit 0; **36/36 · 95/95 · PASS**, all exit 0. Also surfaced the tracked `=` file (**REV-C-007**) and the measured cost of the full battery from a clone (12–15 h serial here). |
+| P3 | **The M3R findings-register enumeration** (t01) | doc 38 §2.7 puts it in the requirements surface; REV-A declared it out of lane, REV-B was silent. | No enumerable register exists; no `M3R-nnn` identifier exists; the term is never expanded; the seven candidate control registers contain the string zero times. **REV-C-004.** |
+| P4 | **Re-running each reviewer's committed probes** (t06, t07, t13) | Both reports' key findings rest on probes only their author had executed. | REV-A's `repro-truth-table.mjs` reproduces row for row; REV-A's M3 mutation and REV-B's M-07 mutation both bite and both restore byte-identically; REV-A's `p2`/`p3` re-run in t13. |
+| P5 | **The zero-budget class width** (t10) | REV-B-001 reads as a one-interaction flake. | 18 of 44 budgeted interactions carry `maxRequests: 0`, and every one is recorded through the same `recordRequests` helper with the same DOM-visibility trigger. The hazard is class-wide, not instance-local. Folded into **REV-C-001**. |
+| P6 | **The recorder-window ordering, instrumented** (t14) | REV-B stated the mechanism and said explicitly it "did not prove it by construction". | See t14. |
+
+**Declared, not executed, with the reason** — REV-C makes no statement about the current state of
+any of these:
+
+| Not executed | Reason |
+| --- | --- |
+| red-case arms 21 (`i13-schedule-authoring`) and 22 (`publish-idempotency-key-retained`) locally | ≈ 35 min each here (three `gate:axe` runs at ~11.6 min). REV-C substituted CI's own execution of arm 21 at main's tip, which returned **NOT PROVEN** — a more informative observation than a local green would have been. |
+| the complete serial 65-arm red-case battery | 5.7–8.2 h at this machine's measured ratio (REV-B's arithmetic, which REV-C did not re-derive). |
+| `pnpm fixture-regression` | ≥ 6.3 h here before the 139-run standalone sweep. Third consecutive reviewer to decline it; see REV-C-004. |
+| the full doc 38 §7 battery from the fresh clone | 12–15 h serial. The validator third was executed and passes. |
+| a cold-store `pnpm install` | The container's pnpm store was already warm (`reused 465, downloaded 0`). REV-C reports 2.9 s as a **warm-store** figure and claims nothing about a cold one. |
+| assistive-technology sessions (SPEC-14 M-cells) | Already honestly unclaimed in doc 36 §3. REV-C confirms they remain unclaimed and does not claim them. |
