@@ -150,3 +150,200 @@ carries `data-testid="periods-new"` at line 228 — is rendered at line 85, **ab
 query. `apps/web/e2e/schedule.spec.ts:434` opens the recording window on that button's visibility.
 The page's own initial `GET …/schedule/periods` can therefore be issued after the window is
 already open. Measured directly in t14.
+
+---
+
+## 2. REV-A vs REV-B — overlap, contradiction, cross-misses
+
+Full working in **t09**. Summary:
+
+### 2.1 Where they overlap: one defect, found twice
+
+**REV-A-001 and REV-B-003 are the same finding.** Same file, same two arms, same line numbers
+(`e2-objective.test.ts:159` and `:754`); same mechanism (GH-005/`dbee625` raised ceilings to
+480 s / 540 s on the two **two-solve** arms and left the **single-solve** arms at the 120 s
+default — REV-C verified the delta contains exactly `+ }, 480_000);` and `+ }, 540_000);`);
+same severity (MAJOR). Measurements agree within 1.0 %:
+
+| arm | REV-A | REV-B | ceiling | over by |
+| --- | --- | --- | --- | --- |
+| `:159` | 128,836 ms | 130,177 ms | 120,000 ms | 7.4 % / 8.5 % |
+| `:754` | 130,714 ms | 129,429 ms | 120,000 ms | 8.9 % / 7.9 % |
+
+REV-C's own composed runs reproduce both arms timing out at exactly `120009 ms` / `120006 ms`.
+**They must be merged in the register with both IDs preserved** — doc 38 §5 forbids
+combining-away.
+
+Other agreements REV-C checked and found consistent: SBX (9/9 · 371 readings · 53/53 tables ·
+0 wrong-tenant · 0 vacuous — identical figures, REV-B adding 9/9 FALSIFIABLE); the M-22
+numbering gap (both confirm it is a disclosed gap, not a renumbering); the machine-speed ratio
+(~3.9× vs 2.7–3.9×); and the delta's additive character — reached by two different methods,
+REV-A by tree-hash identity, REV-B by reading every hunk.
+
+### 2.2 The one real contradiction
+
+| | |
+| --- | --- |
+| **REV-A-002** | the "migration **populated** cycle 0001–0019" battery row is not what its transcript executed — the CLI destroys the data directory and seeds nothing |
+| **REV-B §C row 5** | the same row, "matches" |
+
+These cannot both be right. REV-C adjudicated it by execution and code-read (t03 Part 1) and
+**REV-A-002 stands**:
+
+* the CLI that produced the claimed row (`apps/api/test/support/migrate-cycle-cli.ts`) says in
+  its own docblock that "the up migration applies to an **empty** database";
+* the artifact REV-B credited (`apps/api/test/builds/migration-0019-populated-cycle.test.ts`)
+  cycles **one** migration — `while (!down.some((name) => name.includes('0019')))` — and its own
+  docblock is titled "**Migration 0019**, up → down → up, over a POPULATED database". It cannot
+  corroborate a 0001–0019 row.
+
+REV-B's row-5 verdict is withdrawn by REV-C and refiled as **REV-C-002**. This is the single
+factual disagreement between the two reports, and the blind-review design is exactly what
+surfaced it: REV-B endorsed the row *because* it had not read REV-A.
+
+### 2.3 A near-contradiction that is not one
+
+REV-A: "CI's gate battery passed at `332603e`, so the runner is fast enough." REV-B: "CI on
+`main` @ `93a71f5` concluded **failure**." Both are true — the two commits have **byte-identical
+trees** (REV-A proved it: both hash to `be81cfa6c62c…`), so the same tree passed one CI run and
+failed the next. That is the intermittency, seen from two sides. REV-A's narrow claim — that the
+runner is fast enough, so the e2-objective failure is machine speed and not a code defect —
+survives intact; only the implicature that CI is green on this tree does not.
+
+### 2.4 What each lane could have caught and did not
+
+* **REV-B could have caught REV-A-002.** "Database consistency" is verbatim in REV-B's scope;
+  REV-B looked at exactly that battery row and endorsed it. This is the sharpest cross-miss in
+  the pair — not a coverage gap but a wrong verdict inside covered ground.
+* **REV-B could have caught REV-A-004.** "Database consistency" and "API enforcement" are in
+  REV-B's scope and the probe is a two-statement `UPDATE` as `app_runtime`. REV-B did not attempt
+  it. A fair lane split could equally put it in REV-A's "concurrency and stale writes".
+* **REV-A recorded the same fact as REV-B-004 and read it the other way.** REV-A logged "no
+  frozen record was retro-edited" as a positive; REV-B logged "doc 36 carries superseded figures
+  with **no pointer** to FAD-52" as a defect. Not a contradiction — a difference in what each
+  thought the fact meant. REV-B's reading is the one a reader of doc 36 needs.
+* **REV-A did not miss REV-B-002.** It did not occur in REV-A's composed run — a non-occurrence,
+  now corroborated by REV-C's own run #1. Likewise REV-B-001: the two gates REV-A could have
+  witnessed it through (axe, request-budget) both passed in REV-A's run.
+* **REV-A could not reasonably have been expected to catch REV-B-001 or REV-B-007** — CI
+  accuracy, error handling and privacy are REV-B's enumerated lane.
+
+---
+
+## 3. Shared omissions — what NEITHER report covered
+
+| Omission | Status after REV-C |
+| --- | --- |
+| **`fixture-regression` has no evidence anywhere current** | **CONFIRMED and WIDENED.** Both reviewers declared it not-executed with measured arithmetic (≥ 6.3 h here). REV-C verified REV-A's stronger claim that **no CI evidence exists either**: `.github/workflows/ci.yml` runs `pnpm check` and `pnpm red-cases` and nothing else. **REV-C adds that `pnpm sbx` is in the same position** — doc 38 §7 requires SBX 9/9 in the final battery and CI never runs it, so its only evidence is whoever last ran it locally. Two of §7's eight battery items have no automated home. Filed **REV-C-004**. |
+| **Red-case arms 21 / 22 never re-executed locally** | **DECLARED, with a better substitute.** Each costs ≈ 35 min here (three `gate:axe` runs at ~11.6 min each). REV-C did not run them. It did something more informative: it read CI's own execution of **arm 21** at main's current tip, where the arm's GREEN half **failed** and the arm returned **NOT PROVEN** (t04). A local green would have proved less than this observed red. |
+| **Fresh-clone validation (doc 38 §7)** | **EXECUTED — and it PASSES.** t05: `git clone` of `origin/main` into a scratch directory → HEAD `64ddfd1`, clean tree; `corepack pnpm install --frozen-lockfile` exit 0 (2.9 s, warm store — REV-C did **not** measure a cold store and does not claim one); **fable validator 36/36 exit 0 · architecture validator 95/95 exit 0 · research validator PASS exit 0.** The full §7 battery from that clone is a 12–15 h serial run on this machine and was not attempted; the arithmetic is in t05. The clone also produced REV-C-007 (below). |
+| **The M3R registered findings (doc 38 §2.7)** | **ENUMERATED — and there is nothing to enumerate.** See §3.1. |
+
+### 3.1 The M3R registered findings — the enumeration, and its result
+
+doc 38 §2.7 places "the M3R registered findings" inside the requirements surface this review is
+testing. REV-A declared it "not executable in REV-A's lane (control-document state)"; REV-B is
+silent on it. REV-C attempted the enumeration the packet asks for (t01, every command with its
+exit code):
+
+* `git grep -ln "M3R"` over every tracked `.md`/`.json`/`.ts`/`.py`/`.yml`/`.sql`/`.sh` returns
+  **ten files**, all of which mention M3R only as a *status* ("M3R is PAUSED", "M3R findings
+  unchanged pending the review", "M3R remains PAUSED").
+* `git grep -nE "M3R-[0-9]+|M3-R-[0-9]+"` — **no match**. There is no M3R finding identifier
+  anywhere in the repository.
+* The seven candidate control registers — RISK-REGISTER, TEST-TRACEABILITY, OPEN-QUESTIONS,
+  ARCHITECTURE-DECISIONS, PRODUCT-DECISIONS, EVIDENCE-INDEX, FEATURE-PARITY-MATRIX — contain the
+  string "M3R" **zero times each**.
+* The two registers that *do* enumerate findings
+  (`docs/architecture/remediation/codex-review-remediation.md`, 27 `CAR-*` findings, and
+  `internal-verification-corrections.md`) contain **no** mention of M3R; those are the Codex
+  **architecture** review, a different body of work.
+* The term is never expanded anywhere. `docs/fable/34-m4-entry-and-prerequisite-register.md` §1
+  asserts "its outstanding findings remain in **the project register**" without naming one.
+
+**Result:** the M3R findings cannot be listed as addressed, unaddressed, or unverifiable, because
+no enumerable register of them exists in this repository. Filed **REV-C-004** together with the
+fixture-regression / SBX gap, since both are the same shape: a doc 38 §7/§2 requirement whose
+evidence has no home. This is not a defect in either reviewer's work — it is a defect in the
+review surface as written, and it means doc 38 §9 criterion 2 ("complete per their completion
+criteria") cannot be fully satisfied against §2.7 by anybody, including REV-C.
+
+### 3.2 Omissions REV-C found on its own
+
+* **CI on `main` is red at the current tip**, and neither reviewer saw that run (REV-C-001, t04).
+* **A tracked, empty, undocumented file named `=` sits at the repository root** since `dfa717f`
+  (2026-08-05) and has survived every gate, every validator, the M4 exit hygiene sweep and both
+  reviewers (REV-C-007, t05). It is the first thing a virgin clone lists — which is itself the
+  evidence that doc 38 §7's fresh-clone item had never been performed.
+* **The recorder-window class is 18 interactions wide**, not one: 18 of the 44 budgeted
+  interactions carry `maxRequests: 0` and every one is recorded through the same
+  `recordRequests` helper with the same DOM-visibility trigger (REV-C-001, t10).
+* **`ALLOWED_IMPL_ROOTS` in `docs/architecture/validate.py` names `docs/evidence` and assertion
+  52a never consults it** — a dead allowlist that is precisely the trap REV-B-005 fell into, and
+  the reason nothing catches a stray file at the repository root (REV-C-008, t06).
+* **Two retained artifacts inside EV-M4-005 disagree** about the apply-candidate request count
+  (JSON ledger 1, acceptance transcript 43 says 2), and the count doubled inside M4-005 with no
+  recorded reason and no budget covering it (REV-C-009, t10).
+
+---
+
+## 4. Doc-reliance detection
+
+Full working in **t08**.
+
+**REV-A.** Its two flagged declarations are **accurate and not understated**. The battery table
+has six rows: three EXECUTED, one PARTIALLY EXECUTED (red-cases, 5 of 65 local + 60 on CI
+evidence, disclosed in the same sentence and again in §14), two NOT EXECUTED with measured
+reasons. REV-C confirmed the strongest of those reasons by execution: `ci.yml` really does run
+only `pnpm check` and `pnpm red-cases`, so `fixture-regression` really has no CI evidence.
+REV-A's §13 limitation verdicts rest on **reading source files**, which for a claim about what a
+source file says is the right instrument, and each carries a checkable file-and-line citation;
+REV-C spot-checked three and all three are verbatim present.
+
+**One completion defect, though (REV-C-003):** REV-A's report says its "full per-scope-area
+coverage table" is "in INDEX.md §§13–16". There is no per-scope-area table anywhere in
+EV-REVIEW-A. §13 is the M4-limitations table, §14 the battery table, §15 the five red-case arms,
+§16 probe hygiene. doc 38 §3's REV-A completion criterion requires *every scope area* covered or
+declared, and the fifteen enumerated scope areas are never enumerated. REV-B, by contrast,
+reproduces its scope enumeration verbatim as its §D. Most of REV-A's areas *are* covered
+somewhere in the bundle; "authorization and entitlements" and "M1–M4 cross-module composition"
+have no dedicated declared coverage beyond gate lines in §1.
+
+**REV-B.** Its §F declarations are accurate. REV-C verified two as statements of fact: no
+`-t`/`--testNamePattern` filter exists in `package.json`, `scripts/`, or `ci.yml` (no match), and
+`git ls-files` over `apps/api/test` returns exactly **139** `.test.ts` files, which is REV-B's
+arithmetic. Its one undeclared doc-reliance is §C row 5 (REV-C-002).
+
+---
+
+## 5. Probe quality and non-vacuity
+
+Full working in **t06**. Three probes sampled from each reviewer; one mutation from each re-run.
+
+**Spot-check of REV-A's "all four mutation probes bit" — CONFIRMED.** REV-C re-ran M3
+(`MinimumRestBetween`: `rest >= minMs` → `rest >= minMs - 3_600_000`) against the **shipped**
+domain test, not REV-A's own probe: `1 failed | 39 passed (40)`, detector exit 1, restore
+byte-identical (`94483d69…` → `94483d69…`), `git status` clean. That is REV-A's exact figure.
+
+**Spot-check of REV-B's "10/10 load-bearing" — CONFIRMED.** REV-C re-ran M-07 (the CAP-068/T-23
+client-host scanner): `1 failed | 25 passed (26)`, exit 1, restore byte-identical
+(`a4ee2025…` → `a4ee2025…`). REV-B's three differing counts (§A "10/10", §C-2 "9 of 9", §D "10
+sampled … 9 run") looked self-inconsistent and are not: the driver ran twice — M-01..M-09 in one
+batch and M-10 alone (it needs the `api` project and a database). 9 + 1 = 10. **No finding.**
+
+| Probe | Verdict |
+| --- | --- |
+| REV-A `repro-truth-table.mjs` *(re-run)* | **Proves what it claims.** Direct calls into the shipped export; the promise column is a regex over the returned detail, not a re-derivation; both thresholds are printed so a different build would announce itself. Reproduced row for row. |
+| REV-A `mutate.sh` *(code-read + M3 re-run)* | **Proves what it claims — the stronger of the two mutation drivers.** Aborts unless the find-string occurs **exactly once**, prints the applied diff, compares sha256, runs `git status` on the file. |
+| REV-A `dst-sweep.mjs` *(code-read)* | **Proves what it claims and is non-vacuous by construction.** Prints `gap starts observed: 108` / `fold starts observed: 93` — a sweep that enumerated the right dates but never landed on a transition would report 0 and be visibly hollow. Exits non-zero on any violation. |
+| REV-B `mutation-sample.mjs` *(code-read + M-07 re-run)* | **Proves what it claims**, with one recorded weakness: "load-bearing" is decided from the runner's **exit code alone**, so a compile break or an unrelated failure would also score load-bearing. Low risk here — every mutation is a one-line value swap and every run reported exactly `1 failed` — but the driver would be stronger asserting the failing test's *name*. |
+| REV-B `red-case-arms.sh.txt` *(code-read)* | **Proves what it claims**, and makes the right design choice: it drives the **shipped** shard filter (`SP_RED_SHARD=k/65`) rather than a bespoke harness, reads `PIPESTATUS` rather than the tail's exit, and runs `git status --porcelain` after every arm. |
+| REV-B `privacy-log-leak.probe.test.ts.txt` *(code-read)* | **Proves what it claims — and REV-B graded its own result correctly.** It carries both guards this shape needs: a non-vacuity assertion (`expect(harness.logs.length).toBeGreaterThan(0)`) and a planted-needle control arm. REV-B then declined to call the result a pass because only one log line was captured, and filed it a NOTE with that caveat. REV-C endorses both the probe and the restraint. |
+
+**One design weakness common to REV-A's two finding-bearing DB probes, recorded for the
+adjudicator:** neither `p3-selection-window` nor `p2/H` asserts its **outcome**. `p3` ends with
+non-vacuity assertions only; `p2/H` ends with `expect(typeof accepted).toBe('boolean')`, which
+cannot fail. This is a defensible review-probe stance — both files say so explicitly ("REV-A
+reports; it does not decide") and it stops the probe failing merely for finding the other
+outcome — but it means REV-A-003 and REV-A-004 rest on **reading a printed line**, not on a test
+result. REV-C therefore re-ran both and read the same lines independently (t13).
