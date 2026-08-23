@@ -2,9 +2,9 @@
   "runId": "RUN-20260822-GHRECON-01",
   "orchestrator": "Claude Fable (Claude Code on the web; continuous GitHub master authorization 2026-08-22)",
   "currentMilestone": "post-M4 hold (M4 COMPLETE; M3R PAUSED-pending-review; prototype checkpoint and M5 NOT begun)",
-  "currentPacket": "replacement-review (doc 38): REV-A next",
-  "lifecycleState": "REVIEW-PLAN RATIFIED: PR #3 MERGED (origin/main 93a71f5, tree byte-identical to the fully-green candidate 332603e); doc 38 committed and ratified; REV-A launching",
-  "originMainCommit": "93a71f52a16c60d99fecd6c862ba952b170cfb3a",
+  "currentPacket": "repair phase R-1..R-11 (FAD-53); R-1 recorder-window determinism first",
+  "lifecycleState": "REVIEW FILED+ADJUDICATED: REV-A/B/C complete (2 BLOCKING, 6 MAJOR, 12 MINOR, 8 NOTE \u2014 all accepted at filed severity, FAD-53); REV-C recommends REVISE; repair phase open",
+  "originMainCommit": "64ddfd1befcce4afdaee81e87ada3636d6f1b254",
   "taskBranch": "claude/schedulepoint-github-auth-a4ns2p",
   "worktree": "/home/user/SchedulePoint (Claude Code web workspace, ephemeral)",
   "latestPushedCommit": "branch tip on origin (this commit)",
@@ -14,8 +14,8 @@
   "activeProcessesAndPorts": [],
   "lastCommand": "git push origin milestone/M4",
   "lastExitCode": 1,
-  "openFindings": "follow-ups GH-004/GH-008/GH-009 (review input); owner actions: issue #4; M3R findings unchanged pending the review",
+  "openFindings": "FAD-53 docket R-1..R-11; M3R ruled resolved-by-substitution riding the gate; owner issue #4 open",
   "externalBlockers": [],
-  "exactNextAction": "Launch REV-A (fresh Opus, read-only, evidence to EV-REVIEW-A, probe branch review/rev-a); then REV-B blind to A; then REV-C; adjudicate; repairs; gate per doc 38 \u00a79",
-  "lastUpdateUtc": "2026-08-23T02:40:00Z"
+  "exactNextAction": "R-1 (fresh Opus implementer + reviewer + delta by REV-B): shared recorder quiescence; then R-2, R-6, R-4, R-5, records/honesty batches; \u00a77 serial battery; gate decision",
+  "lastUpdateUtc": "2026-08-23T07:05:00Z"
 }
