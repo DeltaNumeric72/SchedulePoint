@@ -1,0 +1,59 @@
+=== REV-C / T17 — this bundle does not redden the validators (the REV-B-005 convention, verified) ===
+2026-08-23T06:04:18Z
+$ ls docs/evidence/EV-REVIEW-C/ docs/evidence/EV-REVIEW-C/transcripts/ | head -30
+docs/evidence/EV-REVIEW-C/:
+INDEX.md
+probe-sources
+transcripts
+
+docs/evidence/EV-REVIEW-C/transcripts/:
+t01-m3r-findings-enumeration.txt
+t02-capability-figure-recheck.txt
+t03-revb-figure-match.txt
+t04-ci-on-main-third-occurrence.txt
+t05-fresh-clone-validation.txt
+t06-mutation-spot-checks.txt
+t07-repro-truth-table-recheck.txt
+t08-doc-reliance.txt
+t09-a-vs-b-comparison.txt
+t10-revb001-product-innocence.txt
+t11-nr15-composed-run-1.txt
+t12-nr15-composed-run-2.txt
+t13-reva-003-004-rerun.txt
+t15-reva-id-collisions.txt
+t16-revb-006-007-recheck.txt
+t17-validators-with-this-bundle.txt
+
+$ python3 docs/fable/validate.py | tail -3
+10a. Docs tree contains no application code                                                  PASS
+
+36 assertions, 36 passed, 0 failed.
+EXIT=0
+$ python3 docs/architecture/validate.py | tail -3
+55e. Every internal-verification finding is dispositioned in the corrections record                     PASS
+
+95 assertions, 95 passed, 0 failed.
+EXIT=0
+$ bash schedulepoint-research/validate.sh | tail -2
+
+PASS: all required files and directories are present and non-empty.
+EXIT=0
+
+--- and the vitest web project does NOT collect apps/web/e2e (so a Playwright probe cannot
+    contaminate a composed vitest run the way t12's probe did) ---
+$ grep -nE "include|dir|name" vitest.config.ts 2>/dev/null | head -20
+2026-08-23T06:04:18Z
+
+--- (re-run with the right path) the vitest project includes ---
+$ grep -nE "name:|include:" vitest.config.ts
+6: * Vitest projects rather than per-package invocations: a single `vitest run`
+11:    projects: [
+
+$ grep -nE "name:|include:" apps/api/vitest.config.ts
+22:    name: 'api',
+24:    include: ['test/**/*.test.ts'],
+
+CONFIRMED: the 'api' project includes test/**/*.test.ts — which is why REV-C's untracked probe
+files under apps/api/test/rev-c/ were collected by the composed run (t12). apps/web/e2e is
+Playwright, not vitest, so an e2e probe cannot contaminate a composed vitest run the same way.
+2026-08-23T06:04:33Z
