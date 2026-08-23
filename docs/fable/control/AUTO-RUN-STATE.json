@@ -2,8 +2,8 @@
   "runId": "RUN-20260822-GHRECON-01",
   "orchestrator": "Claude Fable (Claude Code on the web; continuous GitHub master authorization 2026-08-22)",
   "currentMilestone": "post-M4 hold (M4 COMPLETE; M3R PAUSED-pending-review; prototype checkpoint and M5 NOT begun)",
-  "currentPacket": "repair phase: R-1 ACCEPTED; R-2 next (single-solve timeout arms)",
-  "lifecycleState": "REPAIR PHASE: R-1 (BLOCKING recorder-window) ACCEPTED \u2014 REV-B-001/REV-C-001 CLOSED by the original finder with forced-race and injection proofs; docket remaining R-2/R-6/R-4/R-5 + batches",
+  "currentPacket": "repair phase: R-2 ACCEPTED; R-6 next (NR-15 signer-less drainQueue)",
+  "lifecycleState": "REPAIR PHASE: R-2 (MAJOR single-solve timeout arms) ACCEPTED \u2014 REV-A-001/REV-B-003 CLOSED WITH RESIDUE by a fresh delta surrogate (REV-A/REV-B contexts non-continuable, doc 38 \u00a74 fallback, recorded); CI GREEN attempt-1 on 9385632 (run 32645176400) \u2014 first green with the R-1 recorder fix; docket remaining R-6/R-4/R-5 + batches",
   "originMainCommit": "64ddfd1befcce4afdaee81e87ada3636d6f1b254",
   "taskBranch": "claude/schedulepoint-github-auth-a4ns2p",
   "worktree": "/home/user/SchedulePoint (Claude Code web workspace, ephemeral)",
@@ -12,10 +12,10 @@
   "implementer": null,
   "reviewer": null,
   "activeProcessesAndPorts": [],
-  "lastCommand": "git push origin milestone/M4",
-  "lastExitCode": 1,
-  "openFindings": "FAD-53 docket: R-2..R-11 remaining; new residuals from R-1 rounds recorded (critical-path recordStep shape + >500ms-outliving-request narrowing) \u2014 fold into R-11/records batch",
+  "lastCommand": "git status --porcelain (R-2 delta verified; committing)",
+  "lastExitCode": 0,
+  "openFindings": "FAD-53 docket: R-6/R-4/R-5 + batches remaining; R-1 residuals (critical-path recordStep shape + >500ms-outliving-request narrowing) \u2014 fold into R-11/records batch; NEW from R-2 review: the pre-existing 480s/540s comment blocks carry the same budget-fixes-search imprecision R-2-002 corrected \u2014 fold into R-7 sentence sweep; R-2 residue: pnpm check greenness is R-2+R-6 jointly (REV-B-002), full 17/17 deferred to \u00a77 battery",
   "externalBlockers": [],
-  "exactNextAction": "Launch R-2 (fresh Opus: measured ceilings on the two single-solve e2-objective arms), then R-6, R-4, R-5, batches; \u00a77 serial battery; gate decision",
-  "lastUpdateUtc": "2026-08-23T15:35:00Z"
+  "exactNextAction": "Launch R-6 (fresh Opus: NR-15 signer-less drainQueue at outbox-dispatch afterAll; NR-15 register re-worded at acceptance), then R-4, R-5, batches; \u00a77 serial battery; gate decision",
+  "lastUpdateUtc": "2026-08-23T15:55:00Z"
 }

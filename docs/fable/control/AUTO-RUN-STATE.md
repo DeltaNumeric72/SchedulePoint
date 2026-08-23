@@ -14,22 +14,22 @@ orchestrators race, the one whose remote update succeeds owns the run.
 | Run ID | `RUN-20260822-GHRECON-01` |
 | Orchestrator | Claude Fable (Claude Code on the web session, continuous GitHub master authorization of 2026-08-22) |
 | Current milestone | Post-M4 hold: M4 COMPLETE; M3R PAUSED-pending-review; prototype checkpoint and M5 NOT begun |
-| Current packet | replacement-review (doc 38): REV-A next |
-| Lifecycle state | REVIEW-PLAN RATIFIED — PR #3 MERGED (origin/main `93a71f5`, tree byte-identical to the fully-green candidate `332603e`); doc 38 committed and ratified; REV-A launching |
-| origin/main commit | `93a71f52a16c60d99fecd6c862ba952b170cfb3a` |
+| Current packet | repair phase (FAD-53 docket): R-2 ACCEPTED; R-6 next |
+| Lifecycle state | REPAIR PHASE — reviews REV-A/B/C filed on their pushed branches; FAD-53 adjudicated all 28 findings at filed severity; R-1 (BLOCKING recorder window) ACCEPTED and CLOSED by the original finder; R-2 (MAJOR single-solve timeout arms) ACCEPTED, REV-A-001/REV-B-003 CLOSED WITH RESIDUE by a fresh delta surrogate (REV-A/REV-B contexts non-continuable — doc 38 §4 fallback, recorded); CI GREEN attempt-1 on `9385632` (run 32645176400), the first green run carrying the R-1 recorder fix |
+| origin/main commit | `64ddfd1befcce4afdaee81e87ada3636d6f1b254` |
 | Task branch | `claude/schedulepoint-github-auth-a4ns2p` |
 | Worktree | Claude Code web workspace `/home/user/SchedulePoint` (ephemeral) |
 | Latest pushed commit | this commit (branch tip on origin) |
-| Pull request | PR #3 MERGED; plan PR open from the task branch |
-| Implementer | none active |
-| Reviewer | none active |
-| Active processes / ports | none — no dev server, database, or solver process started this session |
-| Last command | `git push origin milestone/M4` (tag-publication probe) |
-| Last exit code | 1 (HTTP 403 — session credential is branch-scoped; recorded, not retried) |
-| Open findings | follow-ups GH-004/GH-008/GH-009 (review input) · owner action issue #4 · M3R findings unchanged pending the review |
+| Pull request | PR #3 MERGED · PR #5 (doc 38 plan) MERGED · PR #6 open (repair phase: FAD-53 + R-1 + R-2) |
+| Implementer | none active — R-2 implementer released after its condition round |
+| Reviewer | none active — R-2 reviewer released after delta verification (ACCEPT; both conditions SATISFIED) |
+| Active processes / ports | none — no dev server, database, or solver process left running |
+| Last command | `git status --porcelain` (R-2 delta verified; committing) |
+| Last exit code | 0 |
+| Open findings | FAD-53 docket R-6/R-4/R-5 + batches · R-1 residuals (critical-path recordStep shape, >500ms-outliving-request narrowing) → R-11/records batch · R-2 review follow-up: the pre-existing 480 s/540 s comment blocks carry the budget-fixes-search imprecision R-2-002 corrected → R-7 sentence sweep · R-2 residue: `pnpm check` greenness is R-2+R-6 jointly (REV-B-002); full 17/17 deferred to the §7 battery · follow-ups GH-004/GH-009 · owner action issue #4 |
 | External blockers | none — [#1](https://github.com/DeltaNumeric72/SchedulePoint/issues/1) CLOSED (all four milestone tags on GitHub, independently verified) · [#2](https://github.com/DeltaNumeric72/SchedulePoint/issues/2) CLOSED (Codex requirement SUPERSEDED BY OWNER DECISION 2026-08-22; replacement gate = Fable-planned, multi-Opus-executed internal review) |
-| Exact next action | Launch REV-A (fresh Opus, read-only, evidence to EV-REVIEW-A, probe branch review/rev-a); then REV-B blind to A; then REV-C; adjudicate; repairs; gate per doc 38 §9 |
-| Last update (UTC) | 2026-08-23T02:45:00Z |
+| Exact next action | Launch R-6 (fresh Opus: NR-15 signer-less drainQueue at the outbox-dispatch afterAll; NR-15 register re-worded at acceptance); then R-4, R-5, batches; §7 serial battery; gate decision per doc 38 §9 |
+| Last update (UTC) | 2026-08-23T15:55:00Z |
 
 ## Reconciliation facts this record rests on
 
