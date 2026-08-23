@@ -46,10 +46,11 @@ and REV-C re-verified the validators green from a fresh clone with this bundle a
 | t11 | `transcripts/t11-nr15-composed-run-1.txt` | REV-B-002 recheck, composed run #1 |
 | t12 | `transcripts/t12-nr15-composed-run-2.txt` | REV-B-002 recheck, composed run #2 |
 | t13 | `transcripts/t13-reva-003-004-rerun.txt` | REV-A-003 and REV-A-004, re-run from REV-A's committed probe sources |
-| t14 | `transcripts/t14-recorder-window-instrumented.txt` | REV-C's own probe: the recorder-window ordering hazard, measured |
-| — | `probe-sources/` | Every REV-C probe source, `.txt`-suffixed |
-
-*(This file is written incrementally; sections land as their evidence does.)*
+| t14 | `transcripts/t14-recorder-window-instrumented.txt` | REV-C's own probe: the recorder-window ordering hazard, measured over 22 runs |
+| t15 | `transcripts/t15-reva-id-collisions.txt` | REV-A's finding IDs are not stable between its two documents |
+| t16 | `transcripts/t16-revb-006-007-recheck.txt` | REV-B-006 and REV-B-007, rechecked |
+| t17 | `transcripts/t17-validators-with-this-bundle.txt` | The three validators, green with this bundle present |
+| — | `probe-sources/revc-window-probe.py.txt` | REV-C's only authored probe source. The re-run probes are REV-A's own, taken byte-identically from `review/rev-a` and not re-committed here. |
 
 ---
 
@@ -149,7 +150,31 @@ carries `data-testid="periods-new"` at line 228 — is rendered at line 85, **ab
 `SurfaceState` at line 91 that wraps that query's states. The button paints independently of the
 query. `apps/web/e2e/schedule.spec.ts:434` opens the recording window on that button's visibility.
 The page's own initial `GET …/schedule/periods` can therefore be issued after the window is
-already open. Measured directly in t14.
+already open.
+
+**REV-C then proved it by construction — the step REV-B stated it had deliberately not taken**
+("REV-B did not prove it by construction"). An instrumentation-only probe (t14; source in
+`probe-sources/`, applied and restored byte-identically) timestamps every request the page issues
+and the instant the recording window opens. Over **22 runs at the mobile project**:
+
+* every load issues **two** `GET …/schedule/periods` — the first at +9…+21 ms, the second at
+  +159…+195 ms;
+* the **second** one lands within **4–16 ms of the window opening on every single pass**
+  (median 8 ms);
+* on run 5 it landed **6 ms after** the window opened, was captured, and the test failed — and
+  the captured URL printed by the probe is the periods **list** endpoint, not anything the click
+  issued.
+
+So the straggler is the page's own query, proven from the failing side as well as the passing
+side, and the invariant proof currently rests on a **single-digit-millisecond** margin. That is
+why REV-C grades REV-C-001 BLOCKING rather than treating it as flakiness: a margin this thin is
+flipped by a slower runner, a different Chromium build, or one more mocked route, and re-running
+until green is therefore not a repair.
+
+*(Observation, not a finding: the second request's shape — a refetch of the same key ~150 ms
+after the first, once another query has settled — resembles the enabled-oscillation class GH-006
+diagnosed on the publication comparison page and GH-009 left open. REV-C did not establish its
+cause and does not claim it.)*
 
 ---
 
@@ -362,7 +387,7 @@ ran six.
 | P3 | **The M3R findings-register enumeration** (t01) | doc 38 §2.7 puts it in the requirements surface; REV-A declared it out of lane, REV-B was silent. | No enumerable register exists; no `M3R-nnn` identifier exists; the term is never expanded; the seven candidate control registers contain the string zero times. **REV-C-004.** |
 | P4 | **Re-running each reviewer's committed probes** (t06, t07, t13) | Both reports' key findings rest on probes only their author had executed. | REV-A's `repro-truth-table.mjs` reproduces row for row; REV-A's M3 mutation and REV-B's M-07 mutation both bite and both restore byte-identically; REV-A's `p2`/`p3` re-run in t13. |
 | P5 | **The zero-budget class width** (t10) | REV-B-001 reads as a one-interaction flake. | 18 of 44 budgeted interactions carry `maxRequests: 0`, and every one is recorded through the same `recordRequests` helper with the same DOM-visibility trigger. The hazard is class-wide, not instance-local. Folded into **REV-C-001**. |
-| P6 | **The recorder-window ordering, instrumented** (t14) | REV-B stated the mechanism and said explicitly it "did not prove it by construction". | See t14. |
+| P6 | **The recorder-window ordering, instrumented** (t14) | REV-B stated the mechanism and said explicitly it "did not prove it by construction". | **Proven by construction.** 22 runs; the page's second periods `GET` lands **4–16 ms before** the window opens on every pass and **6 ms after** on the one failure, where the probe printed the captured URL — the periods list endpoint, not the click. Margin median **8 ms**. Instrumentation only: no assertion, budget, or product code touched; file restored byte-identically, `git status` clean. |
 
 **Declared, not executed, with the reason** — REV-C makes no statement about the current state of
 any of these:
@@ -391,7 +416,7 @@ not an adjudication — adjudication is Fable's.
 | ID | Finding | REV-C |
 | --- | --- | --- |
 | **REV-B-001** | GitHub CI is red on `main` at the review baseline (`93a71f5`, run 32612471848): the `axe` and `request-budget` gates fail on the I-13 "New period" mobile interaction, which records 1 request where the invariant demands 0. Mechanism: the shared `recordRequests` window can open before the page's own initial query is on the wire. **Not a product amplification** — the real stack records 0. | **CONFIRMED on both halves, and extended.** Product innocence verified against the retained real-stack ledger with its non-vacuous neighbour (§1.4). Mechanism verified by code-read of `PeriodsPage.tsx` — the button renders above the `SurfaceState`, independent of the `['schedule-periods']` query. REV-B's disposition ("repair the recorder window, never raise the budget or relax the assertion") is correct and follows from CLAUDE.md rule 10. |
-| **REV-C-001** | **The same defect is red on `main`'s CURRENT tip, in a different battery, and neither reviewer saw it.** Run **32616586257** on `64ddfd1` concluded failure: `red-case proofs (shard 8)` failed because the `i13-schedule-authoring` arm's **GREEN half failed on a clean tree**, returning **NOT PROVEN**, which took the `red-case shard completeness` union guard with it. The gate battery passed that run — the two batteries traded places on one defect. Three consecutive push runs on `main` have concluded failure. The class is **18 interactions wide** (18 of 44 budgeted interactions carry `maxRequests: 0`, all through the same recorder). | Shares REV-B-001's root cause; **one repair addresses both**, which is why it is graded here rather than under-graded elsewhere. Its distinct consequence is that doc 38 §7's "65/65 arms, both directions, union guard green" and §9 criterion 8 both fail **today**, and that the arm whose purpose is to prove the I-13 detector works cannot currently certify it. Evidence: t04. |
+| **REV-C-001** | **The same defect is red on `main`'s CURRENT tip, in a different battery, and neither reviewer saw it.** Run **32616586257** on `64ddfd1` concluded failure: `red-case proofs (shard 8)` failed because the `i13-schedule-authoring` arm's **GREEN half failed on a clean tree**, returning **NOT PROVEN**, which took the `red-case shard completeness` union guard with it. The gate battery passed that run — the two batteries traded places on one defect. Three consecutive push runs on `main` have concluded failure. The class is **18 interactions wide** (18 of 44 budgeted interactions carry `maxRequests: 0`, all through the same recorder). | Shares REV-B-001's root cause; **one repair addresses both**, which is why it is graded here rather than under-graded elsewhere. Its distinct consequence is that doc 38 §7's "65/65 arms, both directions, union guard green" and §9 criterion 8 both fail **today**, and that the arm whose purpose is to prove the I-13 detector works cannot currently certify it. **REV-C additionally measured the margin** (t14): over 22 instrumented runs the page's second periods `GET` and the recording window are separated by **4–16 ms** (median 8 ms) on every pass and by **−6 ms** on the one failure, where the probe printed the captured URL — the periods list endpoint, not the click. The invariant proof is decided by scheduler noise inside a 10 ms band, which is why this is graded BLOCKING and not flakiness. Evidence: t04, t14. |
 
 ### MAJOR
 
@@ -493,6 +518,11 @@ GH-009 registered on the close side. Three properties make it worse than "a flak
    NOT PROVEN means the battery cannot currently certify that the invariant CLAUDE.md rule 10
    forbids weakening is actually detected. That is the precise inversion the red-case battery
    exists to prevent.
+4. **The margin is single-digit milliseconds, on every run.** REV-C measured it (t14, §1.4): the
+   page's second periods `GET` and the window opening are separated by **4–16 ms** on 21 passes
+   (median 8 ms) and by **−6 ms** on the one failure. The proof of an I-13/I-10 invariant is
+   currently decided by scheduler noise inside a 10 ms band. That is a different thing from a
+   flake, and it is why REV-C grades this BLOCKING.
 
 **Therefore, re-running until green is not a repair, and a green re-run must not be recorded as
 one.** The correct disposition is REV-B's: repair the recorder window at the class level; never
