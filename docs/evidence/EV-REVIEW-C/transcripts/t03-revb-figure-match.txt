@@ -1,0 +1,112 @@
+=== REV-C / T03 — figure-match chosen from REV-B: §C row 5 (migration cycle) + the zero-test/skip sweep ===
+2026-08-23T05:09:20Z
+HEAD 9579d18
+
+########## PART 1 — REV-B §C row 5, the migration-cycle figure-match ##########
+
+REV-B §C row 5 claims:  claimed = "migration populated cycle 0001-0019 | CLEAN by name,
+  up->down->up->down->up, exit 0";  re-executed = "ran inside the unit gate
+  (migration-0019-populated-cycle.test.ts, 2 tests) - passed"; verdict = "matches".
+
+--- What that test actually cycles (REV-C read the loop) ---
+file: apps/api/test/builds/migration-0019-populated-cycle.test.ts
+
+    let up: readonly string[] = [];
+    let midwayFunction: FunctionShape | null = null;
+    let midwayPolicy: { cmd: string; roles: string } | null = null;
+    const down: string[] = [];
+    try {
+      while (!down.some((name) => name.includes('0019'))) {
+        const step = await migrate('down', { count: 1 });
+        if (step.applied.length === 0) {
+          throw new Error('ran out of migrations before reaching 0019 — the ledger is empty');
+        }
+        down.push(...step.applied);
+      }
+      midwayFunction = await functionShape();
+      midwayPolicy = await policyShape();
+    } finally {
+      up = (await migrate('up', { count: down.length })).applied;
+    }
+
+    /* The down migration really removed both. A `DROP … IF EXISTS` that named
+     * the wrong signature would leave them in place and every assertion after
+     * the re-up would pass without the cycle having tested anything. */
+    expect(midwayFunction, 'the down migration left the function behind').toBeNull();
+    expect(midwayPolicy, 'the down migration left the policy behind').toBeNull();
+
+    expect(up).toHaveLength(down.length);
+    expect(up.some((name) => name.includes('0019'))).toBe(true);
+
+    const after = await functionShape();
+
+The loop steps DOWN one migration at a time and stops as soon as a name containing
+"0019" has been reversed - i.e. it reverses the TOP migration only, then re-ups it.
+Its own docblock says so:
+12: * **Migration 0019, up → down → up, over a POPULATED database** (OPUS-M4-005;
+13- * doc 35 §6g Acceptance, "migration cycle 0001–0018(19)").
+14- *
+
+--- The command that produced the CLAIMED row (EV-M4-005 transcript 42), for contrast ---
+$ grep -n "migrate-cycle-cli" -r apps/api/test/support/migrate-cycle-cli.ts | head -1
+-rw-r--r-- 1 root root 3876 Aug 22 15:40 apps/api/test/support/migrate-cycle-cli.ts
+$ head -30 apps/api/test/support/migrate-cycle-cli.ts
+import { bootstrapCluster, rolePasswordsFromEnv } from '../../src/db/bootstrap.js';
+import { migrate, migrateCycle } from '../../src/db/migrate.js';
+import { startClusterDaemon, stopClusterDaemon } from './cluster-process.js';
+import { applyHarnessEnv } from './env.js';
+
+/**
+ * `pnpm --filter @schedulepoint/api migrate:cycle:embedded`
+ *
+ * The migration cycle, end to end, against a throwaway embedded cluster — a
+ * command a reviewer can run and capture without a database of their own.
+ *
+ * The cycle is `up → down → up` on a data directory that is destroyed first, so
+ * it proves three things at once: the up migration applies to an empty database,
+ * the down migration is genuinely executable, and the up migration applies again
+ * to the schema the down migration left behind. Execution standards §E requires
+ * a stated rollback path before merge; a down migration that has never been run
+ * is a comment, not a rollback path.
+ *
+ * `globalSetup` runs the same cycle before every test run, so the schema every
+ * test sees is one whose reversibility was just demonstrated.
+ */
+
+applyHarnessEnv();
+
+const started = Date.now();
+const daemon = await startClusterDaemon();
+
+try {
+  process.stdout.write('cluster: started (embedded PostgreSQL, FAD-7 substitution)\n');
+
+
+VERDICT: REV-B s row-5 "matches" is NOT CONFIRMED. The artifact REV-B credited is a
+single-migration populated cycle; the battery row is a 19-migration cycle. REV-B did not
+run the 0001-0019 cycle at all, and endorsed the row on a different artifact. This is the
+same row REV-A attacked (REV-A-002) and reached the opposite conclusion on.
+Filed as REV-C-002 (MAJOR).
+
+########## PART 2 — REV-B's zero-test / skip / .only sweep, re-derived ##########
+
+$ git grep -nE "\.only\(" -- "apps/**/test/**" "packages/**/test/**" "apps/web/e2e/**"
+  EXIT=0 (1 = none)
+
+$ git grep -nE "(test|it)\.todo\(" -- apps packages
+  EXIT=0 (1 = none)
+
+--- zero-declaration test files (REV-B: "zero test files with zero it()/test() declarations") ---
+tracked test/spec files scanned : 184
+files with ZERO it()/test() decl: 0 []
+
+--- e2e inventory (REV-B: 11 specs, 188 test( declarations, 10 explicit 320px assertions) ---
+$ ls apps/web/e2e/*.spec.ts | wc -l
+11
+$ grep -ohE "^\s*test\(" apps/web/e2e/*.spec.ts | wc -l
+188
+$ grep -rn "width: 320" apps/web/e2e | wc -l
+10
+$ grep -rlnE "width:\s*320" apps/web/e2e | wc -l  (specs touching 320px)
+6
+2026-08-23T05:09:20Z

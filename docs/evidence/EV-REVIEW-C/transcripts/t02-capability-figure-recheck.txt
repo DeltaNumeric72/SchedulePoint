@@ -1,0 +1,61 @@
+=== REV-C / T02 — independent re-derivation of REV-A's capability figure (58 rows, 18/3/37) ===
+Chosen by REV-C as the figure-match from REV-A. Consequential: CLAUDE.md rule 11 / non-bypass rule 11.
+2026-08-23T05:08:53Z
+HEAD 9579d18
+
+--- REV-C's OWN parser (python; not awk, not the shipped gate, not REV-A's command) ---
+report 19 headings (scope authority) : 58
+doc 06 numbered rows / distinct ids  : 58 / 58
+doc 18 distinct CAP ids              : 58
+report19 - doc06 (DROPPED?)          : EMPTY
+report19 - doc18 (DROPPED?)          : EMPTY
+doc06 - report19 (INVENTED?)         : EMPTY
+doc18 - report19 (INVENTED?)         : EMPTY
+doc 06 status tally (first word of the last non-empty cell):
+   not-started    37   
+   verified       18   
+   in-progress     3   018 020 057
+verified+in-progress+not-started = 58
+
+VERDICT: REV-A's figure CONFIRMED. 58 = 58 = 58; nothing dropped, nothing invented;
+         18 verified / 3 in-progress (018,020,057) / 37 not-started, matching doc 36 §7
+         and control/FEATURE-PARITY-MATRIX:
+      2 18 verified
+      2 3 in-progress
+      2 37 not-started
+
+--- ACCURACY NOTE on REV-A's stated METHOD (not on its conclusion) ---
+REV-A INDEX §2: "Report 19 (scope authority) ID set vs doc 06 ID set: byte-identical, 58 = 58.
+(`diff` of the two sorted `CAP-0NN` sets -> no output.)"
+But doc 06 does not spell its rows `CAP-0NN`; it spells them as bare three-digit numbers:
+$ grep -c "CAP-0" docs/fable/06-feature-parity-matrix.md
+4
+$ grep -oE "CAP-[0-9]{3}" docs/fable/06-feature-parity-matrix.md | sort -u
+CAP-007
+CAP-014
+CAP-015
+CAP-030
+CAP-050
+So a literal `CAP-0NN` set diff against doc 06 could not have returned 58=58.
+REV-A s own awk line (INDEX §2) shows it actually parsed `^\| [0-9]{3} \|` rows, which is correct;
+the PROSE describing the method is what is inaccurate. Conclusion unaffected. Filed as REV-C-006 (NOTE).
+
+--- REV-A-010 (NOTE) re-checked: doc 06 numbered rows missing a trailing pipe ---
+  no trailing pipe: row 015
+  no trailing pipe: row 017
+  no trailing pipe: row 018
+  no trailing pipe: row 059
+  REV-A named 015, 017, 018, 059 -> CONFIRMED, exactly those four.
+
+--- REV-A-009 (NOTE) re-checked: CAP-061 name divergence ---
+$ grep -hE "^#+ *CAP-061" (report 19)   -> heading name REDACTED here by REV-C:
+  report 19 heading names CAP-061 after a SOURCE-PRODUCT proper noun.
+  (REV-C does not re-copy that noun into the review record; CLAUDE.md rule 1. It is present in the
+   research corpus, which is where the clean-room boundary permits it, and nowhere in code.)
+$ grep -hE "^\| *061 \|" docs/fable/06-feature-parity-matrix.md | cut -c1-90
+| 061 | Connector certification pipeline | **DEFERRED** (post-beta per R19) | Gated on EV-
+  CONFIRMED: the doc 06 row carries a different, clean-room-safe name and no rename annotation.
+  REV-C additionally checked that the rename did not leak the source noun into code:
+$ git grep -il "<the report-19 CAP-061 proper noun>" -- apps packages solver scripts   (searched, output suppressed)
+  (no output above = the noun appears in NO code path) EXIT=0
+2026-08-23T05:08:53Z
