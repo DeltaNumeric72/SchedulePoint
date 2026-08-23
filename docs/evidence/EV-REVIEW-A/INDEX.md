@@ -70,4 +70,156 @@ correctly; a naive column-index parser mis-reads them (this reviewer's first tal
 
 ---
 
-*(Sections appended as stages complete. Findings register: `REPORT.md`.)*
+## 1. Baseline `corepack pnpm check` — EXECUTED, and it does NOT reproduce green
+
+`transcripts/01-check.txt` (4555 lines). Started 02:21:18Z, ended 03:00:25Z (39 min).
+
+```
+GATE                     RESULT   TIME
+lint                     PASS      16845ms
+typecheck                PASS      32866ms
+unit                     FAIL     1584119ms      <<<<
+import-boundary          PASS       2939ms
+route-policy             PASS       1950ms
+migration-rls            PASS        762ms
+invariant-ids            PASS        701ms
+rule-node-mapping        PASS        683ms
+rule-kind-registry       PASS        863ms
+provider-boundary        PASS        714ms
+solver-kind-parity       PASS        675ms
+secret-scan              PASS       1734ms
+raw-nul                  PASS        961ms
+build                    PASS       4288ms
+network-guard            PASS        685ms
+axe                      PASS     694592ms
+request-budget           PASS        747ms
+17 gate(s): 16 passed, 1 failed
+EXIT=1
+```
+
+```
+Test Files  1 failed | 169 passed | 1 skipped (171)
+     Tests  2 failed | 2166 passed | 14 skipped (2182)
+
+FAIL api test/solver/e2-objective.test.ts > the objective is TIERED … >
+     records rank, multiplier, scale and each rule's scaled weight
+  Error: Test timed out in 120000ms.   (test/solver/e2-objective.test.ts:159)
+
+FAIL api test/solver/e2-objective.test.ts > status honesty and the metric set, end to end >
+     measures SPEC-04 §7 and leaves the unmeasurable rates NULL
+  Error: Test timed out in 120000ms.   (test/solver/e2-objective.test.ts:754)
+```
+
+Filed as **REV-A-001**. Every other figure the gates report corroborates a claim:
+
+| Gate line, as printed | Claim it corroborates |
+| --- | --- |
+| `route-policy — 113 registered route(s)` | I-02: every registered route declares a policy |
+| `migration-rls-pairing (I-15) — 19 migration file(s)` | migrations 0001–0019, every CREATE TABLE ENABLE+FORCE+policy in the same migration |
+| `invariant-id-uniqueness — 64 document(s), 22 invariant definition(s), 22 distinct ID(s)` | I-01..I-22, rule 13 (no ID removed or renumbered) |
+| `rule-node → compiler-mapping closure — 30 declared node(s) / 30 compiler mapping(s)` | SPEC-04 §3.2 closure |
+| `rule-kind registry — 30 unique kind(s), 22 evaluated / 8 not-evaluable, 0 one ruling away` | doc 36 §7's "22 M4-evaluable kinds … the 8 later-milestone kinds failing closed" |
+| `solver/checker HARD-kind parity — 22 in model.py, 22 in hard-rule-check.ts` | SPEC-04 §3.3 independent re-validation, kind-for-kind |
+| `network-assertion-guard — requestHosts allowlist: 0 (must be 0)` | CAP-068 / T-23, the EMPTY client allowlist |
+| `axe — 430 passed, 16 skipped (11.5m)` · `request-budget — 44 budgeted interaction(s), 87 recording(s)` | I-12 / CAP-066 and I-10 |
+| `raw-nul-scan — 1298 text file(s), 273 binary skipped, 0 known violation(s)` | NR-18 closed with an EMPTY baseline |
+| `provider-boundary — 152 module(s), 2 declared @provider-port module(s)` | SPEC-12 U-07 |
+| `secret-scan — 1394 file(s), 11 detectors` | — |
+
+## 3. The delta `milestone/M4..origin/main` — EXECUTED
+
+```
+$ git rev-parse 332603e^{tree}   → be81cfa6c62c0e9a345c1f5b5f8808872345f678
+$ git rev-parse 93a71f5^{tree}   → be81cfa6c62c0e9a345c1f5b5f8808872345f678   (byte-identical)
+$ git log --oneline milestone/M4..93a71f5   → the 11 commits doc 38 §1 names, exactly
+$ git diff --name-only milestone/M4 93a71f5 -- docs/fable/36-m4-exit-report.md \
+      docs/evidence/ apps/api/migrations/                          → EMPTY
+```
+
+Three consequences, all established by execution rather than by reading the record:
+
+1. **No frozen record was retro-edited.** Doc 36 and every `EV-*` bundle are byte-identical
+   to `milestone/M4`. FAD-52's supersession is carried in `ARCHITECTURE-DECISIONS.md` only,
+   exactly as FAD-52(5) says it is.
+2. **No migration changed.** Migrations 0001–0019 at `origin/main` are byte-identical to
+   the tag, so every M4 schema claim carries forward unaltered.
+3. The 29-file change surface matches doc 38 §1's per-commit description with no file
+   outside it.
+
+## 4. Solver / checker independence — EXECUTED, both sides extracted independently
+
+`packages/domain/package.json` declares `"dependencies": {}` — the checker package has no
+runtime dependency at all. The two HARD-kind declarations were extracted by this reviewer
+with its own parsers (not the shipped gate) and compared:
+
+```
+python  solver/schedulepoint_solver/model.py  HARD_KINDS      = 22
+ts      packages/domain/.../hard-rule-check.ts EVALUATED_...  = 22
+sorted sets: IDENTICAL
+```
+
+## 5. R-B4 / R-B5 / overnight — EXECUTED far beyond the shipped set
+
+`transcripts/02-dst-overnight-sweep.txt` · source `transcripts/probe-sources/dst-sweep.mjs`
+
+**23 IANA zones × 3 years × every offset-transition date ±1 day × 16 authored windows =
+5424 intervals**, including Lord Howe's 30-minute DST shift, Chatham's :45 offset,
+four midnight-transition zones, +14 and −12, and eight overnight windows.
+
+```
+gap starts observed : 108      (the R-B4 path is genuinely exercised — not vacuous)
+fold starts observed:  93
+fold ends observed  :  78
+P1 degenerate/refused                       : 0
+P2 gap start NOT translated (R-B4a)         : 0
+P3a non-positive elapsed                    : 0
+P3b delta not a whole quarter-hour          : 0
+TOTAL VIOLATIONS: 0        EXIT=0
+```
+
+The M4-000B claim ("399 enumerated → 0") holds under a 13.6× wider enumeration.
+
+## 6. Hard-rule checker — EXECUTED at the boundaries
+
+`transcripts/03-hard-rule-boundaries.txt` · source `probe-sources/hard-rule-boundaries.mjs`
+
+**36 hand-crafted arms, 0 failures.** Eight M4-evaluable HARD kinds, each attacked where a
+checker is most likely to be wrong and least likely to be tested — the limit itself:
+
+- `MinimumRestBetween` — exactly 10h clean / 9h59m breach; a violation across a two-day gap
+  (the M4-002 R-1 defect class) caught; two different memberships never paired.
+- `MaxConsecutive` — exactly 3 clean / 4 breach; **4 in a row across a month boundary**
+  caught; two memberships alternating not counted; a doubled date not counted twice.
+- `MaxAssignmentsInWindow` — exactly 2-in-7 clean / 3-in-7 breach; 3 spread wide clean.
+- `RequiresQualification` — held on the date clean; held the day before, the day after, or
+  by the other membership all breach; an **unknown key reads `not-evaluable`, never satisfied**.
+- `CallSpacing` — exactly 3 days clean / 2 days breach; `isOnCall=false` pairs never fire.
+- `AvoidDate` — on the date breach; ±1 day clean.
+- `FixedAssignment` — the pin dropped, moved to another membership, moved to another date,
+  or given another shift type all breach; **with no `candidateFacts` it is `not-evaluable`,
+  never a silent pass**.
+- The registry: 30 kinds = 22 evaluated + 8 not, every unevaluated kind carrying a named reason.
+
+## 7. `resultReproducibility` (FAD-49/50/52) — EXECUTED over its whole input space
+
+`transcripts/04-repro-truth-table.txt` · source `probe-sources/repro-truth-table.mjs`
+
+26 direct calls. The FAD-52 repair holds on the exact ground truth the GH-007 record
+measured, on **both** sides of the knife edge:
+
+| Facts | Verdict |
+| --- | --- |
+| wall 8.68s / 10s, 8.076904 of 100 units, FEASIBLE, completed | `stopped-early` (claims-less) |
+| wall 9.07s / 10s, same otherwise | `wall-clock-truncated` |
+| CANCELLED status vs `completed` termination (FAD-50 B-1) | `interrupted` |
+| OPTIMAL at 76.702882 units · OPTIMAL at 5 units · INFEASIBLE at 0.0 units | `reproducible` (the three FAD-52 counterexamples, correctly NOT `stopped-early`) |
+| units exactly 50.0 of 100 | `stopped-early` |
+| **units 50.000001 of 100, FEASIBLE, completed** | **`reproducible`, with the promise sentence** ← REV-A-003 (GH-008 M-1) |
+| **`solver_status` NULL or unrecognised, completed, low wall** | **`reproducible`, with the promise sentence** ← REV-A-004 (GH-008 M-2) |
+| units NULL · termination NULL · wall NULL | `unrecorded` ×3 |
+| all five interruption reasons | `interrupted` ×5 |
+
+---
+
+*(Findings register: returned in REV-A's report to the orchestrator; sections appended as
+stages complete.)*

@@ -1,0 +1,35 @@
+START 2026-08-23T03:01:12Z
+=== REV-A: reproduce the two check-gate failures with a RAISED global timeout ===
+=== the question: is the cause DURATION (a slow box) or a hang/defect? ===
+
+$ vitest run apps/api/test/solver/e2-objective.test.ts -t 'records rank, multiplier, scale' --testTimeout=900000
+
+ RUN  v3.2.4 /home/user/SchedulePoint
+
+[core] INFO: Failed to read crontab file '/home/user/SchedulePoint/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-e80319e717fcef79d7)] INFO: Completed task 1 (outbox.dispatch, 33.35ms) with success
+[worker(worker-e80319e717fcef79d7)] INFO: Completed task 2 (outbox.dispatch, 11.61ms) with success
+[worker(worker-e80319e717fcef79d7)] INFO: Completed task 3 (outbox.dispatch, 11.06ms) with success
+[worker(worker-e80319e717fcef79d7)] INFO: Completed task 4 (outbox.dispatch, 12.46ms) with success
+[worker(worker-e80319e717fcef79d7)] INFO: Completed task 5 (outbox.dispatch, 11.73ms) with success
+[worker(worker-e80319e717fcef79d7)] INFO: Completed task 6 (outbox.dispatch, 11.71ms) with success
+[worker(worker-e80319e717fcef79d7)] INFO: Completed task 7 (outbox.dispatch, 10.43ms) with success
+[worker(worker-e80319e717fcef79d7)] INFO: Completed task 8 (outbox.dispatch, 10.86ms) with success
+[worker(worker-e80319e717fcef79d7)] INFO: Completed task 9 (outbox.dispatch, 15.24ms) with success
+[worker(worker-e80319e717fcef79d7)] INFO: Completed task 10 (outbox.dispatch, 11.17ms) with success
+[worker(worker-e80319e717fcef79d7)] INFO: Completed task 11 (outbox.dispatch, 11.53ms) with success
+stdout | test/solver/e2-objective.test.ts > the objective is TIERED and every component weight is recorded > records rank, multiplier, scale and each rule’s scaled weight
+      ·       · tiers: 1:fairness×100(2) 2:work-percentage×10(1) 3:preference×1(1)
+
+ ✓ |api| test/solver/e2-objective.test.ts (28 tests | 27 skipped) 128929ms
+   ✓ the objective is TIERED and every component weight is recorded > records rank, multiplier, scale and each rule’s scaled weight  128836ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 27 skipped (28)
+   Start at  03:01:13
+   Duration  135.05s (transform 1.17s, setup 434ms, collect 183ms, tests 128.93s, environment 0ms, prepare 72ms)
+
+ARM1_EXIT=0
+
+$ vitest run apps/api/test/solver/e2-objective.test.ts -t 'measures SPEC-04' --testTimeout=900000
