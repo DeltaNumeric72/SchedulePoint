@@ -273,3 +273,177 @@ evidence: scratch — writing under .evidence-scratch/ (tracked artifacts untouc
 ### (empty above == the runner restored the tree)
 
 ALL SELECTED ARMS DONE 2026-08-23T04:43:44+00:00
+
+################################################################
+### REV-B red-case arm index 48   2026-08-23T04:44:58+00:00
+################################################################
+$ node scripts/red-cases/run.mjs
+
+=== red-case shard 48/65 — 1 of 65 arm(s) selected ===
+  arms: builds-fencing-trigger
+
+
+=== preflight: building apps/web so the bundle arms have a bundle ===
+  built
+
+=== builds-fencing-trigger — build result fencing (doc 35 §6e (3)) — the DATABASE arm ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+CASE                    GREEN  RED    VERDICT
+----------------------  -----  -----  -------
+builds-fencing-trigger  pass   fail   PROVEN
+----------------------  -----  -----  -------
+1 case(s): 1 proven, 0 not proven
+shard 48/65 — 1 of 65 arm(s) in this process; the union is asserted by CI, not by this table
+
+GREEN "pass" = the gate passes on the clean tree.
+RED   "fail" = the gate fails when the violation is present. That is the desired outcome.
+ERRORED    = the arm did not RUN. Never counted as proven, however its exit code read.
+evidence: scratch — writing under .evidence-scratch/ (tracked artifacts untouched; pass --refresh to update them)
+/home/user/SchedulePoint/.evidence-scratch/scripts/red-cases/evidence-output.txt
+### arm 48 runner exit: 0
+### tree after arm 48:
+### (empty above == the runner restored the tree)
+
+ALL SELECTED ARMS DONE 2026-08-23T04:46:12+00:00
+
+################################################################
+### REV-B red-case arm index 22   2026-08-23T04:46:22+00:00
+################################################################
+
+### NOTE: arm 22 (publish-idempotency-key-retained) was STARTED at 04:46:22 and ABANDONED at 04:56:30.
+### Its green/red/restore are three full `gate:axe` runs (~12 min each here, measured: the axe gate took 697s in t01),
+### i.e. ~36 min for one arm. It was interrupted during its GREEN half, before any patch was applied;
+### the tree was verified clean immediately afterwards (git status --porcelain: only this transcript).
+### The same is true of arm 21 (i13-schedule-authoring), which was never attempted for the same reason.
+
+################################################################
+### REV-B red-case arm index 51   2026-08-23T04:56:59+00:00
+################################################################
+$ node scripts/red-cases/run.mjs
+
+=== red-case shard 51/65 — 1 of 65 arm(s) selected ===
+  arms: raw-nul-scan
+
+
+=== preflight: building apps/web so the bundle arms have a bundle ===
+  built
+
+=== raw-nul-scan — raw U+0000 scan (FAD-45(1)) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+CASE          GREEN  RED    VERDICT
+------------  -----  -----  -------
+raw-nul-scan  pass   fail   PROVEN
+------------  -----  -----  -------
+1 case(s): 1 proven, 0 not proven
+shard 51/65 — 1 of 65 arm(s) in this process; the union is asserted by CI, not by this table
+
+GREEN "pass" = the gate passes on the clean tree.
+RED   "fail" = the gate fails when the violation is present. That is the desired outcome.
+ERRORED    = the arm did not RUN. Never counted as proven, however its exit code read.
+evidence: scratch — writing under .evidence-scratch/ (tracked artifacts untouched; pass --refresh to update them)
+/home/user/SchedulePoint/.evidence-scratch/scripts/red-cases/evidence-output.txt
+### arm 51 runner exit: 0
+### tree after arm 51:
+### (empty above == the runner restored the tree)
+
+################################################################
+### REV-B red-case arm index 62   2026-08-23T04:57:06+00:00
+################################################################
+$ node scripts/red-cases/run.mjs
+
+=== red-case shard 62/65 — 1 of 65 arm(s) selected ===
+  arms: raw-nul-magic-bytes
+
+
+=== preflight: building apps/web so the bundle arms have a bundle ===
+  built
+
+=== raw-nul-magic-bytes — the NUL gate cannot be evaded by RENAMING a file (OPUS-M4-005; M4-003 §6f D-3) ===
+  GREEN (clean tree): gate failed, AS THIS ARM REQUIRES (inverted polarity)
+  RED   (violation in tree): gate passed, AS THIS ARM REQUIRES (inverted polarity)
+
+CASE                 GREEN  RED    VERDICT
+-------------------  -----  -----  -------
+raw-nul-magic-bytes  pass   fail   PROVEN
+-------------------  -----  -----  -------
+1 case(s): 1 proven, 0 not proven
+shard 62/65 — 1 of 65 arm(s) in this process; the union is asserted by CI, not by this table
+
+GREEN "pass" = the gate passes on the clean tree.
+RED   "fail" = the gate fails when the violation is present. That is the desired outcome.
+ERRORED    = the arm did not RUN. Never counted as proven, however its exit code read.
+evidence: scratch — writing under .evidence-scratch/ (tracked artifacts untouched; pass --refresh to update them)
+/home/user/SchedulePoint/.evidence-scratch/scripts/red-cases/evidence-output.txt
+### arm 62 runner exit: 0
+### tree after arm 62:
+### (empty above == the runner restored the tree)
+
+################################################################
+### REV-B red-case arm index 63   2026-08-23T04:57:14+00:00
+################################################################
+$ node scripts/red-cases/run.mjs
+
+=== red-case shard 63/65 — 1 of 65 arm(s) selected ===
+  arms: nr15-capture-widening
+
+
+=== preflight: building apps/web so the bundle arms have a bundle ===
+  built
+
+=== nr15-capture-widening — a failing fixture-regression run retains its FULL output (NR-15) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+CASE                   GREEN  RED    VERDICT
+---------------------  -----  -----  -------
+nr15-capture-widening  pass   fail   PROVEN
+---------------------  -----  -----  -------
+1 case(s): 1 proven, 0 not proven
+shard 63/65 — 1 of 65 arm(s) in this process; the union is asserted by CI, not by this table
+
+GREEN "pass" = the gate passes on the clean tree.
+RED   "fail" = the gate fails when the violation is present. That is the desired outcome.
+ERRORED    = the arm did not RUN. Never counted as proven, however its exit code read.
+evidence: scratch — writing under .evidence-scratch/ (tracked artifacts untouched; pass --refresh to update them)
+/home/user/SchedulePoint/.evidence-scratch/scripts/red-cases/evidence-output.txt
+### arm 63 runner exit: 0
+### tree after arm 63:
+### (empty above == the runner restored the tree)
+
+################################################################
+### REV-B red-case arm index 52   2026-08-23T04:57:21+00:00
+################################################################
+$ node scripts/red-cases/run.mjs
+
+=== red-case shard 52/65 — 1 of 65 arm(s) selected ===
+  arms: builds-fencing-state-clause
+
+
+=== preflight: building apps/web so the bundle arms have a bundle ===
+  built
+
+=== builds-fencing-state-clause — build result fencing — the SETTLED-RUN clause (FAD-45(3), review R-3) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+CASE                         GREEN  RED    VERDICT
+---------------------------  -----  -----  -------
+builds-fencing-state-clause  pass   fail   PROVEN
+---------------------------  -----  -----  -------
+1 case(s): 1 proven, 0 not proven
+shard 52/65 — 1 of 65 arm(s) in this process; the union is asserted by CI, not by this table
+
+GREEN "pass" = the gate passes on the clean tree.
+RED   "fail" = the gate fails when the violation is present. That is the desired outcome.
+ERRORED    = the arm did not RUN. Never counted as proven, however its exit code read.
+evidence: scratch — writing under .evidence-scratch/ (tracked artifacts untouched; pass --refresh to update them)
+/home/user/SchedulePoint/.evidence-scratch/scripts/red-cases/evidence-output.txt
+### arm 52 runner exit: 0
+### tree after arm 52:
+### (empty above == the runner restored the tree)
+
+ALL SELECTED ARMS DONE 2026-08-23T04:58:32+00:00

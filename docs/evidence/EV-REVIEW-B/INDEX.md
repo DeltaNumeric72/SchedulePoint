@@ -27,9 +27,6 @@ whose tree differs from `origin/main` only by doc 38 and the AUTO-RUN-STATE sync
 
 ---
 
-*(This file is written incrementally as stages complete. The findings register,
-coverage table, could-not-falsify list and battery-figure table are at the end.)*
-
 ## A. Stage log (what was executed, in order, with its transcript)
 
 | # | Transcript | What ran | Result |
@@ -38,16 +35,23 @@ coverage table, could-not-falsify list and battery-figure table are at the end.)
 | t02 | `transcripts/t02-validators-green.txt` | the three doc validators | architecture **95/95** · fable **36/36** · research **PASS** — all exit 0 |
 | t03 | `transcripts/t03-vitest-zero-match.txt` | the GH-008 vitest zero-match hazard | **reproduced: exit 0 with 31 skipped / 0 executed** |
 | t04 | `transcripts/t04-vitest-nofiles-and-errored-signatures.txt` | vitest against a non-existent path | exit 1, `No test files found` — the ERRORED signature has a real string to match |
+| t05 | `transcripts/t05-privacy-static-sweep.txt` | I-07/I-17 static sweep: every `request.log.*` call site, `console.*` in every `src/`, audit payload handling | 0 `console.*` in production source; the pg-error path logs only `correlationId` + `sqlstate` |
 | t06 | `transcripts/t06-ci-on-main.txt` | GitHub Actions run ledger + the `main` gate-battery job log | **CI on `main` @ 93a71f5 is RED** |
 | t07 | `transcripts/t07-bundle-third-party-scan.txt` | REV-B's own third-party-host scan of the built bundle | **0 request-capable third-party hosts**; 4 vendor string hosts, all inert |
 | t08 | `transcripts/t08-e2e-inventory.txt` | e2e spec and 320-pixel inventory | 11 specs, 188 `test(` declarations, 10 explicit 320px assertions |
 | t09 | `transcripts/t09-route-policy.txt` | route/policy inventory and SBX-001 matrix coverage | 113 routes, all policy-declared; 112 covered by the role×route matrix |
-
 | t10 | `transcripts/t10-error-body-echo.txt` | do 4xx validation messages echo caller-supplied text? | one shape does: `Unrecognized key(s) in object: '<caller string>'` |
 | t11 | `transcripts/t11-interface-states.txt` | interface-state (loading/empty/error/denied) inventory | centralized in `SurfaceState`; 4 states, 6–16 e2e references each |
 | t12 | `transcripts/t12-real-stack-critical-path.txt` | **the real-stack 14-step critical path, both viewports** | **2 passed (56.6s), exit 0** — every recorded request count identical to the M4 record |
 | t13 | `transcripts/t13-outbox-drain-repeat.txt` | the drain failure, re-run standalone and per-directory | passes alone (12/12, 1.0s) and with the whole `test/audit` directory (83/83) |
-| t14 | `transcripts/t14-api-suite-raised-timeout.txt` | the full `api` project with `--testTimeout=600000` | see §C |
+| t14 | `transcripts/t14-api-suite-raised-timeout.txt` | the full `api` project with `--testTimeout=600000` | **138 files passed \| 1 skipped; 1444 tests passed \| 14 skipped; exit 0; 24.8 min** |
+| t15 | `transcripts/t15-mutation-sample.txt` | assertion-mutation sampling, 10 assertions, 7 files, 5 vitest projects | **10/10 load-bearing, 0 vacuous**, every file restored byte-identically |
+| t16 | `transcripts/t16-red-case-arms.txt` | 13 red-case arms through the runner's own shard filter | **13/13 PROVEN in both directions**, tree clean after each |
+| t17 | `transcripts/t17-validator-falsifiability.txt` | can the doc validators fail? | **3/3 arms fail on demand and restore**; plus the §B REV-B-005 side finding |
+| t18 | `transcripts/t18-i13-repeat.txt` | REV-B-001 reproduction, 34 runs in four passes | **1 failure in 34** |
+| t19 | `transcripts/t19-e2-objective-cost.txt` | the true cost of the two arms that hit the 120 s ceiling | **130177 ms and 129429 ms** |
+| t20 | `transcripts/t20-privacy-log-probe.txt` | I-17 marker driven through six wire positions, hunted in the server's own log | **0 log lines carry it**; needle control found; 2 response bodies echo it |
+| t21 | `transcripts/t21-sbx.txt` | `corepack pnpm sbx` | **9/9, 371 readings, 53 of 53 tables, 0 wrong-tenant, 0 vacuous, 9/9 FALSIFIABLE, exit 0** |
 
 
 ## B. Findings register (doc 38 §5 format)
@@ -96,9 +100,25 @@ rendered by `NewPeriodForm`, which sits ABOVE the `SurfaceState` in
 own fetch is necessarily on the wire, so the page's OWN initial load request can land
 inside the recording window. That is the open side of the class GH-009 registered on
 the close side ("the shared recorder's DOM-signal close is the class-level hole this
-instance's fix does not remove"). REV-B did not, in the time available, reproduce the
-failure locally to confirm the mechanism by construction — it is stated as the
-mechanism the evidence supports, not as a verified one.
+instance's fix does not remove"). The mechanism is stated as the one the evidence
+supports; REV-B did not prove it by construction (that would mean instrumenting the
+recorder, which is a repair, not a review).
+
+**REPRODUCED LOCALLY.** REV-B re-ran the failing test in isolation at the mobile
+project 30 times and the whole `schedule.spec.ts` at the mobile project 4 times:
+
+| pass | form | runs | failures |
+| --- | --- | --- | --- |
+| 1 | isolated, `--grep "New period"`, machine otherwise busy | 8 | **1** |
+| 2 | same, full output retained on failure | 12 | 0 |
+| 3 | same, under a deliberate 4-core load (1-min load average 5.24) | 10 | 0 |
+| 4 | the whole `schedule.spec.ts` at `--project=mobile` (the CI shape) | 4 | 0 |
+
+**1 failure in 34 local runs.** It is genuinely intermittent and it is not simply
+"slower machine loses": the deliberate-load pass did not raise the rate at all. The
+verbatim failure text was not captured on the one local failure (the capture filter
+missed it) — the verbatim reproduction in this finding is CI's, quoted above from the
+job log.
 
 **What it is NOT.** It is not a product amplification. Against the REAL stack, the same
 interaction records **0 requests at both viewports**, in REV-B's own run
@@ -150,9 +170,14 @@ support module's own docblock describes.
 | `vitest run` (the whole workspace, the `check` gate) | **FAILED** — 336 drainable jobs after 45 s |
 | `vitest run --project api apps/api/test/audit/outbox-dispatch.test.ts` | passed, 12/12, 1.0 s |
 | `vitest run --project api apps/api/test/audit` (the whole directory) | passed, 9 files / 83 tests, 21.0 s |
+| `vitest run --project api --testTimeout=600000` (the whole `api` project, 139 files / 1458 tests, 24.8 min) | **passed** — 138 passed \| 1 skipped, exit 0; the drain did **not** recur |
 
-So it is composed-run and order/timing dependent, not standalone. REV-B could not, in
-the time available, isolate which earlier file leaves the backlog.
+So it is composed-run, order- and timing-dependent, and **intermittent even between two
+composed runs**: one occurrence in two full composed runs on the same tree. REV-B could
+not, in the time available, isolate which earlier file leaves the backlog. Note the two
+composed runs differ in extent — the failing one was the whole workspace (171 files /
+2182 tests, all five vitest projects), the passing one the `api` project alone (139
+files / 1458 tests) — so "different file set" is not excluded as the discriminator.
 
 **The seam is visible in the source.** `drainableJobCount`
 (`apps/api/test/support/queue.ts:72`) counts `outbox.%` and `audit.%`.
@@ -204,7 +229,19 @@ file with the same fixture, and they were left at the 120 s default. The repair 
 generalised to its own class, so `pnpm check` is not green on a correct-but-slower
 machine — while `red-cases` and the real-stack e2e both are.
 
-**Measured cost.** See §C: the same two arms, re-run with `--testTimeout=600000`.
+**Measured cost, on a calm machine, with `--testTimeout=600000`:**
+
+```
+✓ the objective is TIERED … > records rank, multiplier, scale and each rule's scaled weight   130177ms
+✓ status honesty and the metric set, end to end > measures SPEC-04 §7 …                        129429ms
+```
+
+**130.2 s and 129.4 s against a 120.0 s ceiling — over by 8.5 % and 7.9 %.** This is a
+knife edge, not a gulf: the same two arms pass on the GitHub runner (the CI unit gate
+completed in 906 s on the baseline) and fail here. With the ceiling raised, the whole
+`api` project passes — **138 files passed | 1 skipped, 1444 tests passed | 14 skipped,
+exit 0, 1489.8 s** — which is what makes this a ceiling problem and not a defect in the
+code under test.
 
 **Affected.** doc 36 §6 row 1 · doc 38 §7 · GH-005's record · the standing CI condition
 in doc 36 §10.1 (a Python-3.12 rerun on other hardware runs straight into this).
@@ -335,6 +372,53 @@ and because a future route could put a free-text value in that position.
 
 ---
 
+### REV-B-008 — NOTE
+
+**Claim attacked.** I-17 / non-bypass rule 9 for the class it names first: "never log
+delivery material or **payload bodies**". The repository proves this for authn secret
+material (`apps/api/test/authn/secrecy.test.ts`) and proves audit payloads are closed
+(`apps/api/test/audit/payload-closedness.test.ts`). REV-B could find **no test that
+proves it for an ordinary request-body value**, and `apps/api/src/index.ts` ships
+`logger: true` with no `redact` configuration.
+
+**What REV-B measured.** A probe (source retained at
+`probes/privacy-log-leak.probe.test.ts.txt`, applied as
+`apps/api/test/builds/__revb_privacy_probe__.test.ts` and removed afterwards; tree
+verified clean) drove one marker through six wire positions against the real server on
+the real database and then read every line the server's own logger wrote:
+
+```
+REV-B PRIVACY PROBE
+  marker: REVB-MARKER-352b3e0d2fcb4947be855afec7c0b26a
+  requests: accepted-body-name=200  refused-body-id=422  refused-unknown-key=422
+            query-string=404  path-segment=400  unknown-header=200
+  log lines captured: 1
+  log lines containing the marker: 0
+  response bodies echoing the marker: 2
+```
+
+Both probe tests passed, including the falsifiability control (a needle planted through
+`harness.app.log.info` IS found by the same hunt).
+
+**The honest caveat, which is why this is a NOTE and not a clean pass.** Only **one** log
+line was captured across six requests. The marker did not reach the log because on these
+paths the server writes almost nothing: `buildServer` sets
+`disableRequestLogging: true` (so no `req.url` line, which is what would otherwise carry
+a query string), and `builds.route.ts`'s Postgres-error path logs only
+`{ correlationId, sqlstate }`. That is a good design and it is the reason for the
+result — but a "0 hits in 1 line" measurement is a thin haystack, and it says nothing
+about routes whose 5xx path reaches `errors.ts`'s `request.log.error({ err: error }, …)`
+with a driver error whose `detail` quotes a row value. REV-B did not construct such a
+5xx.
+
+**Recommendation (for the adjudicator, not a repair).** A standing regression of this
+shape — marker in, log hunted, needle control — is cheap and would make rule 9's first
+clause a tested property rather than a design intention.
+
+**Evidence.** `transcripts/t20-privacy-log-probe.txt` · `transcripts/t05-privacy-static-sweep.txt`.
+
+---
+
 ## C. Every battery figure, claimed against re-executed
 
 Claimed = EV-M4-005 §24 (the M4 acceptance battery on `4f41935`, the frozen record) and,
@@ -354,7 +438,7 @@ where the delta supersedes it, the delta's own record. Re-executed = REV-B on
 | 2 | `corepack pnpm red-cases` | **64/64 proven** (frozen record) / **65 arms** after FAD-52 | **not run in full — declared (§D)**. 5 arms run in the runner's own form, both directions: `network-guard-source`, `network-guard-bundle`, `request-budget-over`, `request-budget-missing`, `red-case-runner-errored-signatures` — **5/5 PROVEN, tree restored after each**. Plus the arms below. | as far as executed, matches |
 | 2b | the full battery at the baseline | — | **corroborated independently**: CI run 32612471848 on `main` @ 93a71f5 ran all 13 shards green with the completeness guard reporting "Every one of the **65** red-case arms was run by exactly one of the 13 shards" | the 65/65 claim holds at the baseline |
 | 3 | `corepack pnpm fixture-regression` | 153/153 (13 fixed seeds + 1 rotating + 139 standalone) | **not run — declared (§D)**; the arithmetic 13 + 1 + 139 = 153 verified against `scripts/sbx/fixture-regression.mjs` and `find apps/api/test -name '*.test.ts' \| wc -l` = **139** | the composition of the number is exact |
-| 4 | `corepack pnpm sbx` | 9/9, 371 readings / 53 of 53 tables / 0 wrong-tenant, 0 vacuous | see §C-2 | |
+| 4 | `corepack pnpm sbx` | 9/9, 371 readings / 53 of 53 tables / 0 wrong-tenant, 0 vacuous | **`scenarios required 9 · executed 9 · passed 9 · failed 0 · blocked 0 · vacuous 0 · probe-error 0 · not-runnable 0`**; `readings: 371 (role, context, table) readings across 7 contexts; 0 wrong-tenant rows; 53 of 53 tables observed with visible rows`; all 9 marked `falsifiability probe: FALSIFIABLE`, 0 NOT-falsifiable; audit chain 0/1/0 per organization across 3 organizations; exit 0 | **matches, figure for figure** |
 | 5 | migration populated cycle 0001–0019 | CLEAN by name, up→down→up→down→up, exit 0 | ran inside the unit gate (`migration-0019-populated-cycle.test.ts`, 2 tests) — **passed**; `migration-rls` gate PASS over 19 migration files | matches |
 | 6 | real-stack critical path | **2 passed (39.4 s)**, both viewports, zero skipped | **2 passed (56.6 s), exit 0**, both viewports, zero skipped, MustRunReporter armed | **matches** |
 | 6a | └ per-interaction request counts | 0 / 2 / 2 / 1 / 2 / 0 / 2 / 2 / 2 | **0 / 2 / 2 / 1 / 2 / 0 / 2 / 2 / 2** at both viewports | **identical to the retained record** |
@@ -456,3 +540,92 @@ a review that reports only what it found is half a review.
     count moved 64→65 by ADDITION. Held. (The one documentation consequence is
     REV-B-004.)
 
+
+## F. Declared not executed, with the reason and the arithmetic
+
+Nothing in this list is silent, and nothing in it is dismissed as unimportant.
+
+| Not executed | Reason, measured |
+| --- | --- |
+| the complete serial `pnpm red-cases` battery (65 arms) | **2 h 06 min** on the M4 reference machine (transcript 39: begins 14:23:44Z, ends 16:30:19Z) → **5.7–8.2 h** at this machine's measured ratio. 13 arms were run individually instead, and the complete battery is independently corroborated green at this baseline by CI's 13 shards plus the completeness guard. |
+| `pnpm fixture-regression` (153 runs) | 13 full shuffled `api` suites + 1 rotating + 139 standalone runs. One full `api` suite measured **1489.8 s (24.8 min)** here (t14), so the shuffled half alone is ≈ **6.3 h** before the standalone sweep. The composition of the claimed 153 was verified exactly instead (13 + 1 + 139, with `find apps/api/test -name '*.test.ts' \| wc -l` = 139). |
+| red-case arms 21 (`i13-schedule-authoring`) and 22 (`publish-idempotency-key-retained`) | each runs `gate:axe` three times (green, red, restore). The axe gate measured **697 s** here (t01), so each arm costs ≈ **35 min**. Arm 22 was started and abandoned after 10 min; the interruption happened inside its GREEN half, before any patch, and the tree was verified clean immediately (`git status --porcelain` → only this bundle). Both arms are covered green at this baseline by CI shards 8 and 9. |
+| a genuinely fresh clone for the research validator, and doc 38 §7's "fresh-clone validation against `origin/main`" | §7's final-battery item, not a §3 REV-B probe. The research validator was run from the repository root (PASS, exit 0). |
+| an independent axe configuration | the gate's own Playwright + `@axe-core/playwright` configuration was used, at both standing viewports. REV-B did not build a second accessibility harness; the packet asks for keyboard and accessibility BEHAVIOUR, which the existing suite exercises and which ran green. |
+| assistive-technology sessions | doc 36 §3 already declares SPEC-14's 10 M-cells unclaimed. REV-B confirms they are unclaimed and does not claim them. |
+| reading `.evidence-scratch/` and the untracked `scripts/gates/request-budget/recordings/` produced by an earlier process in this container (before 03:27) | **the blindness rule.** Those artifacts could carry another reviewer's output. They were not read. Files written by REV-B's OWN runs were read, with the mtime checked first (e.g. the SBX scenario report, mtime 04:44:23). |
+
+## G. The delta (`milestone/M4..origin/main`), judged per doc 38 §1
+
+**(a) Does it alter a frozen M4 claim it does not explicitly supersede?** No, on
+inspection of the whole diff. The code changes are additive or comment-only:
+two explicit per-test timeouts (`e2-objective.test.ts` — 480 s / 540 s), one explicit
+timeout on the R-B4a sweep (`zoned-time.test.ts`, 120 s), four `tabIndex={0}` attributes
+in `apps/web/src/catalogue/**`, a latched period id in `VersionComparisonPage.tsx`, a
+sixth `resultReproducibility` value (`stopped-early`) with its contracts enum entry, its
+route lift, its web label and its own new red-case arm, `process.exit` →
+`process.exitCode` in `check.mjs` (a stdout-flush fix), and additive fields on the
+`wallClockVerdict` test helper. **No assertion was deleted, no budget raised, no gate
+removed, no arm renamed or reordered.** The battery moved 64 → 65 by ADDITION, which the
+CI completeness guard now asserts mechanically.
+
+**(b) Its own correctness.** The FAD-52 derivation is exercised by 31 domain tests, and
+REV-B inverted two of its assertions (both polarities of `reproducible`) and both went
+red; both of its red-case arms bite in both directions. The GH-006 latching fix is
+exercised by `publication-change-comparison` at budget 2, which passed here. The GH-003
+`tabIndex` change is covered by the axe gate, which passed here (430/0). The GH-005
+timeout raise is correct as far as it goes — **and incomplete**, which is REV-B-003.
+
+**(c) One documentation consequence.** doc 36 is a frozen record and was deliberately not
+retro-edited; FAD-52 carries the supersession. doc 36 nonetheless contains a
+now-superseded portability claim and a now-superseded arm count with **no pointer to
+FAD-52**, which is REV-B-004.
+
+## H. The single question
+
+> **Does the evidence at the baseline support the claims the exit reports make — no more,
+> no less?**
+
+**Substantially yes, with two exceptions that are real and one class of documentation
+drift.**
+
+What the evidence genuinely supports, re-executed rather than read: the marquee claim —
+the 14-step critical path against a real browser, a real API, a real migrated
+RLS-enforced PostgreSQL, the real queue runner and real CP-SAT — reproduces at both
+viewports with request counts identical to the retained record. SBX reproduces figure
+for figure: 9/9, 0 vacuous, 371 readings, 53 of 53 tables, 0 wrong-tenant, every
+scenario carrying a falsifiability probe. The complete 65-arm red-case battery is green
+on this exact tree in CI with a mechanical completeness guard, and 13 arms re-proven
+locally bite in both directions. Ten sampled assertions across five vitest projects are
+all load-bearing; none is vacuous. Three doc-validator assertions can be made to fail on
+demand. The client contacts no third party — verified against the built bundle with
+REV-B's own scanner, not the repository's. Every registered route declares a policy and
+112 of 113 are swept by a role×route matrix that refuses to pass if nothing is allowed.
+The disclosed limitations REV-B could check (the M-22 gap, the two API-only critical-path
+steps) are real and honestly sized. This is a strong evidentiary record, and it is
+stronger than most of what is claimed for it.
+
+Where it does **not** support the claim as stated:
+
+1. **"17/17 gates, exit 0" is not a property of this tree.** It is red on `main` in CI at
+   the baseline (REV-B-001, an intermittent I-13/I-10 harness race, reproduced locally 1
+   in 34) and it is red on a correct-but-slower machine (REV-B-003, two arms exceeding
+   the 120 s ceiling by 8 %). Doc 38 §9's criterion 8 does not hold today.
+2. **"NR-15 … VERIFIED, clean across the complete seed set" did not hold** on the first
+   full composed run REV-B executed on the baseline (REV-B-002), and the seam it names is
+   still visible at the failing call site.
+3. **doc 36 carries superseded figures with no pointer to their supersession**
+   (REV-B-004) — the frozen-record convention is defensible, but a reader of the exit
+   report alone is currently misled about a portability property and an arm count.
+
+None of the three falsifies a product claim. All three falsify a claim about the
+*evidence*, which is exactly what this packet was asked to test. The correct disposition
+for REV-B-001 is to repair the recorder window; the invariant and its budget must not
+move.
+
+---
+
+**Filed by REV-B, 2026-08-23, blind to REV-A. This reviewer implemented nothing. Every
+figure above was produced by a command whose exit code was read; every command's output
+is in `transcripts/`; every code-modifying probe was restored and the tree verified
+clean after each.**
