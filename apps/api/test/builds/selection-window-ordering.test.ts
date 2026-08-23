@@ -2,9 +2,18 @@
  * **The selection window, closed — doc 35 §6g ruling 4 held under concurrency.**
  *
  * This file is the permanent regression for REV-A-003, and it is REV-A's own
- * probe (`EV-REVIEW-A/transcripts/probe-sources/p3-selection-window.test.ts`)
- * kept as a proof rather than as a report: the probe recorded whichever outcome
- * it found; this file requires the one the ruling prescribes.
+ * probe `p3-selection-window` — committed on the review branch `review/rev-a`,
+ * under `docs/evidence/EV-REVIEW-A/transcripts/probe-sources/`, and NOT present
+ * in this tree — kept as a proof rather than as a report: the probe recorded
+ * whichever outcome it found; this file requires the one the ruling prescribes.
+ *
+ * (The provenance is unchanged; only its SPELLING is. The original wording put
+ * the probe's full filename in the sentence, and `transcripts/` ends in the
+ * literal `scripts/`, so the full-path sweep in
+ * `citation-integrity.test.ts` read the tail as a citable path here and
+ * correctly reported that nothing is there. It was invisible while this file was
+ * untracked — the sweep enumerates `git ls-files` — and went red the moment the
+ * file was committed. The REV-B-005 / R-9 class, in a test docblock.)
  *
  * ## The construction, unchanged from the finding
  *
@@ -33,6 +42,14 @@
  *  * **THE WINDOW** — the finding's interleaving, with the block VERIFIED in
  *    `pg_locks` (a waiter on THIS organization's audit lock) and the constituent
  *    move asserted non-vacuous, so the arm cannot pass by never racing at all.
+ *  * **THE SOURCE WINDOW** — R4-REV-2, the mirror the R-4 reviewer demonstrated:
+ *    the same interleaving with an ordinary audited edit of the SOURCE DRAFT,
+ *    which moves the material-input digest and no 0016 constituent. R-4 brought
+ *    the staleness verdict inside the ordering domain and left FAD-26(2)'s
+ *    compare-and-set outside it, so the selection APPLIED over an edit it never
+ *    saw. This arm requires `STALE_BUILD_SOURCE` — the existing refusal, not a
+ *    new kind — and it is the one that makes the two arms a pair rather than a
+ *    single closed case beside an open one.
  *  * **ORDERING** — the review's own construction against the repair: a
  *    concurrent `schedule_periods` writer, which took the audit lock in the
  *    opposite order and made the first version of the repair deadlock (`40P01`).
@@ -45,12 +62,13 @@
  */
 import { randomUUID } from 'node:crypto';
 import { sql } from 'kysely';
+import type pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import type { SolverInputSnapshotDocument } from '@schedulepoint/domain';
 
 import { claimQueuedBuild } from '../../src/builds/claim.js';
-import { BuildInputsMovedError } from '../../src/builds/errors.js';
+import { BuildInputsMovedError, BuildSourceMovedError } from '../../src/builds/errors.js';
 import { persistOutcome, submitBuild } from '../../src/builds/runner.js';
 import { applyCandidateToNewDraft } from '../../src/builds/selection.js';
 import { buildStaleness } from '../../src/builds/staleness.js';
@@ -65,10 +83,18 @@ import {
 } from '../../src/builds/service.js';
 import { transitionPeriodStatus } from '../../src/schedule/publication.js';
 import { assembleCanonicalInput } from '../../src/solver/canonical-input.js';
-import { createDraftVersion, createPeriod, setRequirement } from '../../src/schedule/service.js';
+import {
+  addManualAssignment,
+  createDraftVersion,
+  createPeriod,
+  setRequirement,
+} from '../../src/schedule/service.js';
+import type { PgUnitOfWork } from '../../src/db/unit-of-work.js';
+import { waitUntilBlockedOnLock } from '../profiles/lock-observation.js';
+import { adminClient } from '../support/admin-client.js';
 import { createRuntime, type Runtime } from '../support/harness.js';
 import { ownedMulti } from '../support/owned-multi.js';
-import { scheduleActor } from '../support/schedule.js';
+import { fixtureInstant, scheduleActor } from '../support/schedule.js';
 import { syntheticOutcome } from '../support/builds.js';
 
 const multi = ownedMulti('r4-selection-window', {
@@ -78,6 +104,8 @@ const multi = ownedMulti('r4-selection-window', {
 
 let runtime: Runtime;
 let second: Runtime;
+/** Harness OBSERVATION only — see `../support/admin-client.ts`. */
+let admin: pg.Client;
 
 let organizationId: string;
 let groupId: string;
@@ -85,7 +113,9 @@ let membershipId: string;
 let userId: string;
 let shiftTypeId: string;
 
-beforeAll(() => {
+beforeAll(async () => {
+  admin = adminClient();
+  await admin.connect();
   runtime = createRuntime('app_runtime', { max: 6 });
   second = createRuntime('app_runtime', { max: 3 });
   const alpha = multi().alpha;
@@ -101,6 +131,7 @@ beforeAll(() => {
 afterAll(async () => {
   await runtime?.destroy();
   await second?.destroy();
+  await admin?.end();
 });
 
 const actor = (): ReturnType<typeof scheduleActor> => scheduleActor(userId);
@@ -118,7 +149,7 @@ async function buildToApproved(
   label: string,
   startDate: string,
   endDate: string,
-): Promise<{ buildRunId: string; periodId: string }> {
+): Promise<{ buildRunId: string; periodId: string; sourceVersionId: string }> {
   const seeded = await runtime.runner.run(context(label), async (uow) => {
     const periodId = await createPeriod(uow, actor(), {
       name: `R-4 selection window ${label}`,
@@ -193,7 +224,11 @@ async function buildToApproved(
     loadRun(uow, seeded.buildRunId),
   );
   expect(approved?.state, `${label}: the fixture did not reach approved`).toBe('approved');
-  return { buildRunId: seeded.buildRunId, periodId: seeded.periodId };
+  return {
+    buildRunId: seeded.buildRunId,
+    periodId: seeded.periodId,
+    sourceVersionId: seeded.versionId,
+  };
 }
 
 async function stalenessOf(
@@ -253,24 +288,15 @@ async function auditLockWaiters(label: string): Promise<number> {
 }
 
 /**
- * How many backends are blocked on a ROW lock, anywhere in the cluster.
+ * This backend's pid, read inside the caller's own transaction.
  *
- * Deliberately not narrowed to a tuple: a waiter on a row lock waits on the
- * HOLDER'S transaction id, and the arm below only needs to know that its second
- * writer has stopped moving — which of the two shapes it stopped in (the period
- * row, before the repair the audit lock) is the thing under test, not a
- * precondition of it.
+ * The ORDERING arm needs it to name its two writers to `waitUntilBlockedOnLock`
+ * — see the arm for why naming them is the difference between a proof and a
+ * coincidence (R4-REV-2 note N-1).
  */
-async function rowLockWaiters(label: string): Promise<number> {
-  return runtime.runner.run(context(label), async ({ query }) => {
-    const rows = await sql<{ n: string }>`
-      select count(*)::text as n
-        from pg_locks
-       where not granted
-         and locktype in ('transactionid', 'tuple')
-    `.execute(query);
-    return Number(rows.rows[0]?.n ?? '0');
-  });
+async function backendPid(uow: PgUnitOfWork): Promise<number> {
+  const row = await sql<{ pid: number }>`select pg_backend_pid() as pid`.execute(uow.query);
+  return row.rows[0]?.pid ?? 0;
 }
 
 /** Wait until a backend is blocked on the audit lock, or fail saying it never was. */
@@ -417,6 +443,143 @@ describe('REV-A-003 — the selection window is closed by the audit ordering', (
   }, 300_000);
 
   /**
+   * **THE SOURCE WINDOW — R4-REV-2, the mirror of REV-A-003.**
+   *
+   * R-4 brought the STALENESS verdict inside the ordering domain. It left the
+   * OTHER precondition — FAD-26(2)'s source-digest compare-and-set — outside it,
+   * and the reviewer's construction below shows that the same window the arm
+   * above closes was still open one check to its left.
+   *
+   * The mover here is not a catalogue edit. It is an ordinary audited edit of
+   * the SOURCE DRAFT — `addManualAssignment`, the cell editor's own writer —
+   * which moves the material-input digest and moves NO 0016 constituent. So the
+   * staleness verdict this build reads is honestly `fresh`, and before the
+   * repair the pre-lock CAS had already compared a digest read one statement
+   * before the edit committed: the selection applied, and the docblock promise
+   * in `src/builds/selection.ts` item 4 — "not a schedule that quietly
+   * discarded somebody's work" — was false as worded.
+   *
+   * The repair re-evaluates the CAS under the two locks. A source mover audits,
+   * so it holds the organization's audit lock until it commits: it either
+   * commits before the grant, and the re-read sees it, or it is ordered after
+   * this transaction. The refusal is the EXISTING vocabulary — the same
+   * `BuildSourceMovedError` / `STALE_BUILD_SOURCE` the pre-lock CAS raises — and
+   * this arm requires exactly that and not a new kind.
+   */
+  it('THE SOURCE WINDOW: a source draft that moves under the audit lock is REFUSED, not applied', async () => {
+    const { buildRunId, periodId, sourceVersionId } = await buildToApproved(
+      'source',
+      '2030-05-06',
+      '2030-05-19',
+    );
+    const before = await stalenessOf(buildRunId, 'source-before');
+    expect(before.stale, 'the fixture was already stale before the race').toBe(false);
+
+    const digest = await digestOf(buildRunId, 'source');
+    const versionsBefore = await versionCount(periodId, 'source');
+
+    /* ── T2: hold this organization's audit advisory lock ───────────────────── */
+    let holderHasLock: (() => void) | undefined;
+    const lockHeld = new Promise<void>((resolve) => {
+      holderHasLock = resolve;
+    });
+    let releaseHolder: (() => void) | undefined;
+    const mayRelease = new Promise<void>((resolve) => {
+      releaseHolder = resolve;
+    });
+
+    const holder = second.runner.run(context('source-holder'), async (uow) => {
+      await sql`select pg_advisory_xact_lock(hashtext('schedulepoint.audit'), hashtext(${organizationId}::uuid::text))`.execute(
+        uow.query,
+      );
+      holderHasLock?.();
+      await mayRelease;
+      /* An ordinary audited edit of the SOURCE draft, in this same transaction,
+       * so it commits when the lock is released. It moves the material-input
+       * digest (`assignment_snapshots` is its first class) and no constituent —
+       * which is what makes this the MIRROR of the arm above rather than a
+       * second spelling of it. */
+      const added = await addManualAssignment(uow, actor(), {
+        versionId: sourceVersionId,
+        membershipId,
+        shiftTypeId,
+        date: '2030-05-06',
+        startsAt: fixtureInstant('2030-05-06', 8),
+        endsAt: fixtureInstant('2030-05-06', 16),
+      });
+      return added.assignmentIdentityId;
+    });
+
+    let addedIdentity: string | null = null;
+    let outcome = 'PENDING';
+    let draftVersionId: string | null = null;
+    let refusal: unknown = null;
+
+    try {
+      await lockHeld;
+
+      /* ── T1: the selection. It blocks on T2's lock. ───────────────────────── */
+      const selection = runtime.runner
+        .run(context('source'), async (uow) =>
+          applyCandidateToNewDraft(uow, actor(), buildRunId, 'approved', digest),
+        )
+        .then((result) => {
+          outcome = 'APPLIED';
+          draftVersionId = result.draftVersionId;
+          return result;
+        })
+        .catch((error: unknown) => {
+          outcome = 'REFUSED';
+          refusal = error;
+          return null;
+        });
+
+      /* VERIFIED, not assumed: a backend is waiting on THIS organization's audit
+       * lock while T2 holds it. Before the repair the selection had already
+       * compared the digest by the time it got here — which is the finding. */
+      await awaitAuditLockWaiter('source-observe');
+      expect(outcome, 'the selection completed before the source draft moved').toBe('PENDING');
+
+      releaseHolder?.();
+      addedIdentity = await holder;
+      await selection;
+    } finally {
+      releaseHolder?.();
+      await holder.catch(() => null);
+    }
+
+    expect(
+      addedIdentity,
+      'the construction added no assignment to the source draft — the arm would be vacuous',
+    ).toBeTruthy();
+
+    /* Non-vacuous in the term the CAS actually compares: the digest MOVED. */
+    const digestAfter = await digestOf(buildRunId, 'source-after');
+    expect(digestAfter, 'the source edit did not move the digest').not.toBe(digest);
+
+    /* And it moved NOTHING the staleness verdict reads, so this arm cannot be
+     * satisfied by the constituent ordering the arm above proves. */
+    const after = await stalenessOf(buildRunId, 'source-after');
+    expect(after.stale, 'the source edit moved a constituent — this is not the mirror').toBe(false);
+
+    expect(outcome, `the selection applied over a moved source (draft ${String(draftVersionId)})`).toBe(
+      'REFUSED',
+    );
+    expect(refusal).toBeInstanceOf(BuildSourceMovedError);
+    const moved = refusal as BuildSourceMovedError;
+    expect(moved.code).toBe('STALE_BUILD_SOURCE');
+    expect(moved.currentSourceDigest).toBe(digestAfter);
+
+    /* Nobody's work was discarded: no draft, no application, the run still approved. */
+    const state = await runtime.runner.run(context('source'), async (uow) =>
+      loadRun(uow, buildRunId),
+    );
+    expect(state?.state).toBe('approved');
+    expect(state?.applied_to_version_id).toBeNull();
+    expect(await versionCount(periodId, 'source')).toBe(versionsBefore);
+  }, 300_000);
+
+  /**
    * **The price of moving the acquisition, and the proof it is paid.**
    *
    * Taking the audit advisory lock before the draft write means holding it while
@@ -459,46 +622,76 @@ describe('REV-A-003 — the selection window is closed by the audit ordering', (
     let periodError: unknown = null;
     let bothBlocked = false;
 
+    /* The two writers' backend pids, resolved from INSIDE their own
+     * transactions. `waitUntilBlockedOnLock` checks `pg_blocking_pids()` against
+     * a named backend, and a pid read anywhere else would be a different
+     * connection (R4-REV-2 note N-1). */
+    let announceSelectionPid: ((pid: number) => void) | undefined;
+    const selectionPid = new Promise<number>((resolve) => {
+      announceSelectionPid = resolve;
+    });
+    let announcePeriodPid: ((pid: number) => void) | undefined;
+    const periodPid = new Promise<number>((resolve) => {
+      announcePeriodPid = resolve;
+    });
+
+    const inFlight: Promise<unknown>[] = [];
+
     try {
       await lockHeld;
 
       /* T1 — the selection, which will block at the audit lock. */
       const selection = runtime.runner
-        .run(context('order'), async (uow) =>
-          applyCandidateToNewDraft(uow, actor(), buildRunId, 'approved', digest),
-        )
+        .run(context('order'), async (uow) => {
+          announceSelectionPid?.(await backendPid(uow));
+          return applyCandidateToNewDraft(uow, actor(), buildRunId, 'approved', digest);
+        })
         .catch((error: unknown) => {
           selectionError = error;
+          announceSelectionPid?.(0);
           return null;
         });
+      inFlight.push(selection);
 
       await awaitAuditLockWaiter('order-observe');
 
       /* T2 — the period writer: `schedule_periods … FOR UPDATE`, then an audit
        * write. This is the transaction the cycle needs. */
       const periodWriter = runtime.runner
-        .run(context('order-period'), async (uow) =>
-          transitionPeriodStatus(uow, actor(), periodId, 'closed'),
-        )
+        .run(context('order-period'), async (uow) => {
+          announcePeriodPid?.(await backendPid(uow));
+          return transitionPeriodStatus(uow, actor(), periodId, 'closed');
+        })
         .catch((error: unknown) => {
           periodError = error;
+          announcePeriodPid?.(0);
           return null;
         });
+      inFlight.push(periodWriter);
 
-      /* Wait until T2 has ALSO stopped — on the period row (repaired: T1 already
-       * holds it in KEY SHARE) or on the audit lock itself (the pre-repair shape,
-       * two advisory waiters). Either way both writers are in flight before T0
-       * lets go, which is what makes the cycle possible at all. */
-      const deadline = Date.now() + 30_000;
-      while (Date.now() < deadline) {
-        const advisory = await auditLockWaiters('order-observe');
-        const rows = await rowLockWaiters('order-observe');
-        if (advisory >= 2 || (advisory >= 1 && rows >= 1)) {
-          bothBlocked = true;
-          break;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      }
+      /* Wait until T2 has ALSO stopped, and stopped BEHIND T1 — one named
+       * backend blocked by the other, checked through `pg_blocking_pids()`.
+       *
+       * The first version of this arm counted ungranted `('transactionid',
+       * 'tuple')` locks across the WHOLE cluster, which the R-4 review filed as
+       * N-1: a composed run has a worker pool and other fixtures alive, so an
+       * unrelated backend queued on an unrelated row satisfied the flag and the
+       * arm could report "both blocked" without T2 ever having stopped. The
+       * in-repo observer names the backends instead, and it is the same one
+       * arm D of `requires-expiry-flip-serialization.test.ts` uses for exactly
+       * this — a deliberate cycle whose second edge has to be VERIFIED before
+       * the holder lets go.
+       *
+       * `blockedBy` and no `waitEvent`, deliberately: WHICH lock T2 stops on is
+       * the thing under test (the period row after the repair; the advisory lock
+       * before it, with T1 ahead of it in the queue), not a precondition of the
+       * arm — so constraining the event here would make the red case fail as an
+       * observation error instead of as the `40P01` it exists to show. */
+      await waitUntilBlockedOnLock(admin, await periodPid, {
+        blockedBy: await selectionPid,
+        budgetMs: 30_000,
+      });
+      bothBlocked = true;
 
       releaseHolder?.();
       await holder;
@@ -506,6 +699,7 @@ describe('REV-A-003 — the selection window is closed by the audit ordering', (
     } finally {
       releaseHolder?.();
       await holder.catch(() => 'released');
+      await Promise.allSettled(inFlight);
     }
 
     /* Non-vacuous: if the second writer never blocked, nothing was ordered and a

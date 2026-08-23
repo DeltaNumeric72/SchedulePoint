@@ -2,8 +2,8 @@
   "runId": "RUN-20260822-GHRECON-01",
   "orchestrator": "Claude Fable (Claude Code on the web; continuous GitHub master authorization 2026-08-22)",
   "currentMilestone": "post-M4 hold (M4 COMPLETE; M3R PAUSED-pending-review; prototype checkpoint and M5 NOT begun)",
-  "currentPacket": "repair phase: R-4 ACCEPTED; R-4b next (CAS mirror window + N-1/N-2)",
-  "lifecycleState": "REPAIR PHASE: R-4 (product, REV-A-003 selection window) ACCEPTED after a REVISE round \u2014 the repair's own lock-order inversion (40P01, reproduced by the reviewer) closed by period-row KEY SHARE before the audit lock (row-then-audit per 0017 \u00a73), three-arm regression incl. the ORDERING deadlock arm red-cased both by implementer and reviewer; doc 35 \u00a76g ruling 4's ABSOLUTE sentence now TRUE AS WORDED; REV-A-003 CLOSED WITH RESIDUE by a fresh delta surrogate; CI GREEN attempt-1 on 9385632/d28f669/1b49d97; docket remaining R-4b/R-5 + batches",
+  "currentPacket": "repair phase: R-4b ACCEPTED; R-5 next (migration 0020 termination-facts freeze)",
+  "lifecycleState": "REPAIR PHASE: R-4b (MAJOR R4-REV-2 CAS mirror window) ACCEPTED \u2014 under-lock source-digest re-read below staleness (precedence preserved, migration-0005 overlap argued and verified; digest/constituent partition proven exact: no third window of this shape); SOURCE WINDOW arm red on a0458a4 / green with repair, both proven independently by the finder; N-1 (waitUntilBlockedOnLock) + N-2 (fail-loud period lock) + NR-20 registered with correctly-spanned measured figures; R4-REV-2 CLOSED WITH RESIDUE by its original finder (continuable this time \u2014 no surrogate); also carries the citation-integrity respelling that closes CI red on a0458a4 (the transcripts/-ends-in-scripts/ regex tail-match); docket remaining R-5 + batches",
   "originMainCommit": "64ddfd1befcce4afdaee81e87ada3636d6f1b254",
   "taskBranch": "claude/schedulepoint-github-auth-a4ns2p",
   "worktree": "/home/user/SchedulePoint (Claude Code web workspace, ephemeral)",
@@ -12,10 +12,10 @@
   "implementer": null,
   "reviewer": null,
   "activeProcessesAndPorts": [],
-  "lastCommand": "git status --porcelain (R-4 delta verified ACCEPT; committing)",
+  "lastCommand": "git status --porcelain (R-4b delta confirmed ACCEPT; committing)",
   "lastExitCode": 0,
-  "openFindings": "FAD-53 docket: R-4b/R-5 + batches remaining. R-4b (new finding R4-REV-2, MAJOR, demonstrated): the FAD-26(2) digest CAS still evaluates outside the ordering domain \u2014 an audited source-draft edit moving no 0016 constituent commits inside the window and the selection APPLIES; falsifies selection.ts docblock item 4's promise, NOT ruling 4; + R-4 review MINORs N-1 (ORDERING arm's bothBlocked flag cluster-wide \u2014 use waitUntilBlockedOnLock) and N-2 (lockPeriodBeforeAudit discards its row \u2014 fail loud) + a durable register home for the audit-lock serialization span (~310-380ms fixture, UNMEASURED at scale). Carried from earlier reviews: periodic.test.ts:226 stale message -> R-7; TEST-TRACEABILITY line 8 -> R-3; vitest results-cache confound -> R-9; locked-backlog candidate unmeasured -> R-11; R-1 residuals -> R-11/records; 480s/540s comment imprecision -> R-7; pnpm check 17/17 + fixture-regression deferred to \u00a77 battery",
+  "openFindings": "FAD-53 docket: R-5 + batches remaining. NEW to R-3 records batch from the R-4b close: the proportion sentence in selection.ts + NR-20 states 10-17% where the mean-delta arithmetic gives ~17% (9-16% is the per-call band) \u2014 one-word fix, reviewer's own phrasing; also the reviewer's report-precision note (head clause wording) needs no artifact change. R-4b residue: the unenforced audit premise now load-bearing for BOTH the staleness verdict and the source CAS (all three source-only digest classes have audited shipped writers today; a future non-audited writer of assignment_snapshots/credits/schedule_conflicts reopens silently \u2014 no gate would say so); NR-20 unmeasured at realistic size. Carried: periodic.test.ts:226 -> R-7; TEST-TRACEABILITY line 8 -> R-3; results-cache confound -> R-9; locked-backlog candidate -> R-11; R-1 residuals -> R-11/records; 480s/540s comment imprecision -> R-7; pnpm check 17/17 + fixture-regression deferred to \u00a77 battery",
   "externalBlockers": [],
-  "exactNextAction": "Launch R-4b (fresh Opus: source digest re-evaluated under the ordering domain + N-1/N-2 + register entry), then R-5, batches; \u00a77 serial battery; gate decision",
-  "lastUpdateUtc": "2026-08-23T19:55:00Z"
+  "exactNextAction": "Launch R-5 (fresh Opus: migration 0020 freezing termination_reason/solver_status against same-state UPDATE \u2014 the app_guard_build_run_transition early-return hole (REV-A-004); populated-cycle test + red-case arm), then batches; \u00a77 serial battery; gate decision",
+  "lastUpdateUtc": "2026-08-23T20:45:00Z"
 }

@@ -47,6 +47,16 @@ import {
  *     the selection, the answer is `STALE_BUILD_SOURCE` and not a schedule that
  *     quietly discarded somebody's work.
  *
+ *     That sentence was **false as worded** until R4-REV-2, and the mirror of
+ *     REV-A-003 is why: the compare-and-set was evaluated OUTSIDE the ordering
+ *     domain, so an ordinary audited edit of the source draft could be held
+ *     behind the audit advisory lock, commit while the selection waited for it,
+ *     and be discarded by a selection that had already compared a digest read
+ *     one statement earlier. It is now evaluated TWICE — once where it always
+ *     was, and once under the locks — and the second evaluation is what makes
+ *     the promise true rather than likely. The permanent proof is the
+ *     "THE SOURCE WINDOW" arm of `selection-window-ordering.test.ts`.
+ *
  * ## ONE assignment write path (FAD-44(1))
  *
  * Every row this function writes goes through `addAssignment` — the schedule
@@ -128,7 +138,14 @@ export async function applyCandidateToNewDraft(
 
   /* The CAS comes BEFORE anything is created. A draft created and then abandoned
    * because the source moved would leave an orphan version in the period's list
-   * for a scheduler to wonder about. */
+   * for a scheduler to wonder about.
+   *
+   * **This evaluation stays exactly here, and R4-REV-2 did not move it.** It is
+   * what decides the answer for a source that had ALREADY moved when the
+   * selection began, and that answer is `STALE_BUILD_SOURCE` even when an input
+   * moved too — the precedence this position has always given. The second
+   * evaluation added below is strictly additional: it refuses a case that used
+   * to APPLY, and it changes the answer to nothing that previously refused. */
   const currentDigest = await sourceDigestOf(uow, run);
   if (currentDigest !== expectedSourceDigest) throw new BuildSourceMovedError(currentDigest);
 
@@ -185,7 +202,9 @@ export async function applyCandidateToNewDraft(
    * INPUT still refuses as `STALE_BUILD_INPUTS` and not as the source refusal:
    * the two answer different questions and errors.ts says why collapsing them
    * sends half of the schedulers to the wrong place. (The digest CAS keeps the
-   * evaluation position it has always had, outside this domain.)
+   * evaluation position it has always had; R4-REV-2 added a SECOND evaluation
+   * of it below the staleness verdict rather than moving this one, and the
+   * order of the two refusals is argued where the second one is written.)
    *
    * **The premise, stated rather than assumed.** The guarantee is exactly as
    * wide as "a transaction that moves a constituent records that it did, in the
@@ -196,12 +215,24 @@ export async function applyCandidateToNewDraft(
    * statement the scan's mutation detector does not match — would not be caught
    * by that gate, and this ordering would not see it either.
    *
-   * **The cost, measured where it was measured.** The audit lock is now held
-   * across `buildStaleness` — which re-runs the whole canonical-input assembly —
-   * and every audited write of the same organization blocks for that whole
-   * span. On the test fixture the selection transaction runs ~310–380 ms end to
-   * end; the assembly's cost at a realistic tenant size is UNMEASURED, and the
-   * hold grows with it. */
+   * **The cost, measured where it was measured — and the span named.** The
+   * audit lock is now held across `buildStaleness`, which re-runs the whole
+   * canonical-input assembly, and every audited write of the same organization
+   * blocks for that whole span. On the test fixture the SELECTION TRANSACTION
+   * measures **49–71 ms** across both variants (R-4 alone 60/49/57 ms; R-4 plus
+   * the R4-REV-2 re-read 71/64/66 ms), from the R-4b review's measurement.
+   *
+   * An earlier note here said ~310–380 ms, and that figure is SUPERSEDED: it was
+   * the CONTROL test case's duration — fixture build, read-backs and apply — not
+   * the transaction. It is corrected rather than deleted because a control
+   * document that quietly swaps a number teaches nobody which span was measured.
+   *
+   * **The LOCK HOLD is a subset of the transaction and has NOT been isolated as
+   * its own measurement.** Everything above the acquisition — the capability
+   * check, the run load, the pre-lock digest CAS — is outside the hold, so the
+   * hold is shorter than these figures and by an unmeasured amount. The
+   * assembly's cost at a realistic tenant size is UNMEASURED, and the hold grows
+   * with it. */
   await lockPeriodBeforeAudit(uow, run.period_id);
   await lockAuditOrdering(uow);
 
@@ -225,6 +256,73 @@ export async function applyCandidateToNewDraft(
    * already how SPEC-04 §2 says a re-posed problem is expressed. */
   const staleness = await buildStaleness(uow, run);
   if (staleness.stale) throw new BuildInputsMovedError(staleness);
+
+  /* ── R4-REV-2: the SAME compare-and-set, re-evaluated INSIDE this domain ────
+   *
+   * The mirror of REV-A-003, and it was demonstrated the same way rather than
+   * argued. R-4 brought the STALENESS verdict inside the ordering domain and
+   * left the source-digest compare-and-set outside it, so the window simply
+   * moved one check to the left: a transaction holding this organization's audit
+   * lock performs an ordinary audited edit of the SOURCE DRAFT — the cell
+   * editor's own `addManualAssignment` — which moves the material-input digest
+   * and moves NO 0016 constituent. The selection reads the digest pre-edit,
+   * blocks at the lock, the editor commits, the staleness verdict is honestly
+   * `fresh`, and the selection APPLIES over an edit it never saw. That falsified
+   * this function's own item 4: "not a schedule that quietly discarded somebody's
+   * work".
+   *
+   * Re-reading it here closes that, and for the same reason the staleness read
+   * above is here: a transaction that moves the source draft WRITES AN AUDIT
+   * EVENT (every schedule writer does — `schedule.assignment.added` and its
+   * siblings), so it holds this lock until it commits. It therefore either
+   * committed before the grant, and this READ COMMITTED re-read — a new
+   * statement, a new snapshot — sees it; or it cannot commit until this
+   * transaction has, and it is ordered AFTER this draft rather than invisibly
+   * inside it. The premise is exactly as wide as it is for staleness, and it is
+   * stated in the same place: a mover that does not audit is not ordered.
+   *
+   * **The refusal is the EXISTING one.** `BuildSourceMovedError` /
+   * `STALE_BUILD_SOURCE`, carrying the digest as read here. "The draft you were
+   * building on has been edited" is the same fact whichever side of the lock
+   * grant the edit landed on, and a second refusal kind for the same condition
+   * would be a second thing for a client to handle and a second thing to
+   * document — the S-01 defect class, applied to refusals.
+   *
+   * ## Why BELOW the staleness verdict, and it is load-bearing
+   *
+   * The two refusals are ordered by POSITION, and three cases fix the order
+   * between them:
+   *
+   *  * **the source moved before the selection began** — the pre-lock CAS
+   *    answers, `STALE_BUILD_SOURCE`, exactly as it always has, and it answers
+   *    first even when an input moved too. That precedence is untouched because
+   *    that evaluation was not moved;
+   *  * **a constituent moved under the lock** — a catalogue edit bumps
+   *    `shift_types.version` (migration 0005's `app_maintain_catalogue_version`),
+   *    and that column is BOTH a 0016 constituent and a term of the material-input
+   *    digest, so such a mover moves both. The staleness verdict must answer,
+   *    because "the PROBLEM changed, re-pose the build" is the actionable half
+   *    and `STALE_BUILD_SOURCE` would send that scheduler to look at a draft
+   *    nobody edited. Putting this re-read ABOVE the verdict would flip that
+   *    case's refusal, which is R-4's accepted behaviour and is pinned by "THE
+   *    WINDOW" arm;
+   *  * **the source moved under the lock and nothing else did** — the case this
+   *    repair exists for. Staleness is genuinely fresh, so it declines, and this
+   *    re-read answers.
+   *
+   * So: no case that refused before refuses differently, and one case that
+   * silently applied now refuses. That is the whole behavioural delta.
+   *
+   * **The cost.** One more full `materialInputDigests` assembly inside the lock
+   * hold, reached only when the staleness verdict passed. Measured on the test
+   * fixture by the R-4b review as a **mean delta of ≈11.7 ms** on a transaction
+   * that runs 49–71 ms — so roughly **10–17%** of the transaction, not a
+   * rounding error, though `buildStaleness` still dominates the hold. (An
+   * independent probe timed one `materialInputDigest` at 6.1–11.0 ms over six
+   * samples, which corroborates it.) See the note on the acquisition above for
+   * the span these figures cover and the one they do not. */
+  const lockedDigest = await sourceDigestOf(uow, run);
+  if (lockedDigest !== expectedSourceDigest) throw new BuildSourceMovedError(lockedDigest);
 
   if (run.snapshot_id === null) {
     throw new BuildPreconditionError(
@@ -365,14 +463,33 @@ export async function applyCandidateToNewDraft(
  * period exists in this tenant by the time a run is loadable, and inventing a
  * second "period not found" answer here would give the same condition two
  * spellings.
+ *
+ * It does still CHECK, though — R4-REV-2 note N-2. A `SELECT … FOR KEY SHARE`
+ * that matches no row takes no lock and raises nothing, so discarding the result
+ * would let a future RLS narrowing, or a period made invisible to this context,
+ * silently skip the acquisition and resurrect the lock-order inversion this
+ * function exists to prevent. The check is spelled as an internal invariant
+ * rather than as a typed refusal for the reason above: nothing a caller does can
+ * reach it.
  */
 async function lockPeriodBeforeAudit(uow: Uow, periodId: string): Promise<void> {
-  await uow.query
+  const row = await uow.query
     .selectFrom('schedule_periods')
     .select('id')
     .where('id', '=', periodId)
     .forKeyShare()
     .executeTakeFirst();
+
+  if (row === undefined) {
+    /* Unreachable through RLS — the run was loaded under this same context and
+     * its `period_id` is a foreign key. Kept because "the lock statement matched
+     * no row" must never become "the audit lock was taken first after all".  */
+    throw new Error(
+      'SELECTION_PERIOD_LOCK_MATCHED_NO_ROW: the period row lock that must precede the audit ' +
+        `advisory lock matched no row for period ${periodId}. This transaction must not proceed ` +
+        'to acquire the audit lock without it.',
+    );
+  }
 }
 
 /** `YYYY-MM-DD` one day after `date`. Pure string arithmetic, no zone. */
