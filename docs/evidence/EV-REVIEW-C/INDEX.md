@@ -25,7 +25,7 @@ which pins this machine to the same class as FAD-52's.
 **Probe-source convention:** REV-B-005 established that `.ts`/`.sh` under `docs/` turns the
 architecture and fable validators red. REV-C's probe sources therefore carry `.txt` suffixes,
 and REV-C re-verified the validators green from a fresh clone with this bundle absent
-(t05) and green on this branch with it present (t14).
+(t05, 36/36 + 95/95 + PASS) and green on this branch with it present (t17, the same three).
 
 ---
 
