@@ -1,0 +1,54 @@
+START 2026-08-23T03:15:50Z
+$ corepack pnpm exec vitest run apps/api/test/rev-a/p3-selection-window.test.ts
+
+ RUN  v3.2.4 /home/user/SchedulePoint
+
+[core] INFO: Failed to read crontab file '/home/user/SchedulePoint/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-52f9b118f8c6647fcc)] INFO: Completed task 1 (outbox.dispatch, 26.47ms) with success
+[worker(worker-52f9b118f8c6647fcc)] INFO: Completed task 2 (outbox.dispatch, 12.36ms) with success
+[worker(worker-52f9b118f8c6647fcc)] INFO: Completed task 3 (outbox.dispatch, 10.79ms) with success
+[worker(worker-52f9b118f8c6647fcc)] INFO: Completed task 4 (outbox.dispatch, 10.82ms) with success
+[worker(worker-52f9b118f8c6647fcc)] INFO: Completed task 5 (outbox.dispatch, 12.45ms) with success
+[worker(worker-52f9b118f8c6647fcc)] INFO: Completed task 6 (outbox.dispatch, 11.79ms) with success
+[worker(worker-52f9b118f8c6647fcc)] INFO: Completed task 7 (outbox.dispatch, 10.73ms) with success
+[worker(worker-52f9b118f8c6647fcc)] INFO: Completed task 8 (outbox.dispatch, 14.52ms) with success
+[worker(worker-52f9b118f8c6647fcc)] INFO: Completed task 9 (outbox.dispatch, 12.75ms) with success
+[worker(worker-52f9b118f8c6647fcc)] INFO: Completed task 10 (outbox.dispatch, 11.08ms) with success
+[worker(worker-52f9b118f8c6647fcc)] INFO: Completed task 11 (outbox.dispatch, 10.50ms) with success
+stdout | test/rev-a/p3-selection-window.test.ts > REV-A/W — doc 36 §10.4: the un-falsified selection window > CONTROL: with nothing moved, the identical flow reaches a new draft
+[REV-A/W] CONTROL applied -> 087c03aa-bead-48c4-80b3-beb3194bdb42 assignments [33m1[39m
+
+stdout | test/rev-a/p3-selection-window.test.ts > REV-A/W — doc 36 §10.4: the un-falsified selection window > THE WINDOW: an input moves AFTER the staleness read and BEFORE the write
+[REV-A/W] staleness before the race: {"stale":false,"kinds":[]}
+
+stdout | test/rev-a/p3-selection-window.test.ts > REV-A/W — doc 36 §10.4: the un-falsified selection window > THE WINDOW: an input moves AFTER the staleness read and BEFORE the write
+[REV-A/W] T2 holds the audit advisory lock for this organization
+
+stdout | test/rev-a/p3-selection-window.test.ts > REV-A/W — doc 36 §10.4: the un-falsified selection window > THE WINDOW: an input moves AFTER the staleness read and BEFORE the write
+[REV-A/W] backends waiting on a lock while T2 holds it: 1 (selection is PENDING)
+
+stdout | test/rev-a/p3-selection-window.test.ts > REV-A/W — doc 36 §10.4: the un-falsified selection window > THE WINDOW: an input moves AFTER the staleness read and BEFORE the write
+[REV-A/W] T2 moved [33m1[39m shift_type row(s) and committed
+
+stdout | test/rev-a/p3-selection-window.test.ts > REV-A/W — doc 36 §10.4: the un-falsified selection window > THE WINDOW: an input moves AFTER the staleness read and BEFORE the write
+[REV-A/W] selection outcome: APPLIED draft = 7ca80164-6d32-485a-823b-6d0a3c6f3741
+
+stdout | test/rev-a/p3-selection-window.test.ts > REV-A/W — doc 36 §10.4: the un-falsified selection window > THE WINDOW: an input moves AFTER the staleness read and BEFORE the write
+[REV-A/W] staleness AFTER, for the same run: {"stale":true,"kinds":["shiftType"]}
+
+stdout | test/rev-a/p3-selection-window.test.ts > REV-A/W — doc 36 §10.4: the un-falsified selection window > THE WINDOW: an input moves AFTER the staleness read and BEFORE the write
+[REV-A/W] run state: {"state":"applied_to_draft_schedule","applied":"7ca80164-6d32-485a-823b-6d0a3c6f3741"}
+[REV-A/W] VERDICT: THE WINDOW IS REACHABLE — a candidate was applied over inputs that moved after the staleness read
+
+ ✓ |api| test/rev-a/p3-selection-window.test.ts (2 tests) 4045ms
+   ✓ REV-A/W — doc 36 §10.4: the un-falsified selection window > CONTROL: with nothing moved, the identical flow reaches a new draft  310ms
+   ✓ REV-A/W — doc 36 §10.4: the un-falsified selection window > THE WINDOW: an input moves AFTER the staleness read and BEFORE the write  2780ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  03:15:51
+   Duration  10.32s (transform 1.08s, setup 415ms, collect 138ms, tests 4.05s, environment 0ms, prepare 77ms)
+
+EXIT=0
+END 2026-08-23T03:16:02Z
