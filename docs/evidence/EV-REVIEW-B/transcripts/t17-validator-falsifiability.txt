@@ -1,0 +1,55 @@
+### REV-B: validator falsifiability — can the doc validators FAIL?
+Baseline (t02): architecture 95/95 exit 0 · fable 36/36 exit 0 · research PASS exit 0.
+
+--- V1: plant an application-source file inside the architecture package ---
+exit=1
+31. No application source, migration, or infrastructure file in the package                             FAIL  <- ['__revb_probe__.ts']
+52a. Documentation and research trees contain no application code                                       FAIL  <- ['docs/architecture/__revb_probe__.ts', 'docs/evidence/EV-REVIEW-B/probes/red-case-arms.sh', 'docs/evidence/EV-REVIEW-B/probes/privacy-log-leak.probe.test.ts']
+95 assertions, 93 passed, 2 failed.
+restored; re-run:
+95 assertions, 94 passed, 1 failed.
+
+--- V2: break one relative link in the architecture package ---
+exit=1
+33. Every relative link resolves                                                                        FAIL  <- ['README.md -> ./__no_such_document__.md']
+52a. Documentation and research trees contain no application code                                       FAIL  <- ['docs/evidence/EV-REVIEW-B/probes/red-case-arms.sh', 'docs/evidence/EV-REVIEW-B/probes/privacy-log-leak.probe.test.ts']
+95 assertions, 93 passed, 2 failed.
+restored; re-run:
+95 assertions, 94 passed, 1 failed.
+
+--- V3: plant application code inside the fable docs tree ---
+exit=1
+10a. Docs tree contains no application code                                                  FAIL
+36 assertions, 35 passed, 1 failed.
+restored; re-run:
+36 assertions, 35 passed, 1 failed.
+
+--- tree after all three probes ---
+(empty above == every probe restored)
+
+--- SIDE FINDING, measured here rather than reasoned about ---
+The V1/V2 output above shows a SECOND failing assertion that REV-B did not plant:
+
+  52a. Documentation and research trees contain no application code  FAIL
+       <- ['docs/evidence/EV-REVIEW-B/probes/red-case-arms.sh',
+            'docs/evidence/EV-REVIEW-B/probes/privacy-log-leak.probe.test.ts']
+  10a. Docs tree contains no application code                        FAIL   (fable, 35/36)
+
+Those two files are REV-B's own probe sources, placed exactly where doc 38 §3
+directs a reviewer to put them ("evidence written ONLY under
+docs/evidence/EV-REVIEW-{A,B,C}/", "Required probes ... transcripts under
+EV-REVIEW-*"). docs/fable/validate.py:166 forbids .ts/.tsx/.js/.sql/.tf/
+.dockerfile/.py anywhere under docs/, and docs/architecture/validate.py's 52a
+forbids the same class (plus .sh) across the documentation trees.
+
+So a reviewer who follows doc 38 §3 literally makes doc 38 §7's own required
+final battery ("Fable docs validators ... 36/36 · 95/95") FAIL.
+
+REV-B's resolution, applied: every probe source in this bundle carries a
+non-code extension (`red-case-arms.sh.txt`, `privacy-log-leak.probe.test.ts.txt`).
+`.mjs` is not in either validator's list and is left as-is.
+
+  $ python3 docs/architecture/validate.py | tail -1
+  95 assertions, 95 passed, 0 failed.
+  $ python3 docs/fable/validate.py | tail -1
+  36 assertions, 36 passed, 0 failed.
