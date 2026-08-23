@@ -1,0 +1,62 @@
+=== REV-C / T15 — REV-A's finding IDs are not stable between its two documents ===
+2026-08-23T05:35:36Z
+
+CLAUDE.md non-bypass rule 13: 'never remove or renumber a stable ID', because 'a stable ID
+that silently changes meaning corrupts every document that cites it, and the citation still
+looks correct'. Its origin story is I-05 meaning two different things (CAR-023).
+
+--- Every REV-A-0NN citation in REPORT.md ---
+  REV-A-001 : ### REV-A-001 — `corepack pnpm check` does not reproduce green; the unit gate is machine-speed-dependent wit
+  REV-A-002 : ### REV-A-002 — the "migration populated cycle 0001–0019" battery row is not what its transcript executed
+  REV-A-003 : ### REV-A-003 — doc 36 §10.4's "un-falsified selection window" IS reachable, and deterministically construc
+  REV-A-004 : ### REV-A-004 — the reproducibility verdict reads a MUTABLE copy of the termination facts while an append-on
+  REV-A-005 : ### REV-A-005 — GH-008 M-1 (mid-band overclaim) reproduced exactly, plus a sentence-accuracy defect
+  REV-A-006 : ### REV-A-006 — GH-008 M-2 (`solver_status` fail-open) reproduced, and it is wider than "null"
+  REV-A-007 : ### REV-A-007 — a stale count in a load-bearing docblock triples the apparent unenforced surface
+  REV-A-008 : - **REV-A-008** — `build_runs` cross-**group** visibility for `app_migrator` (1 foreign-group row from a sib
+  REV-A-009 : - **REV-A-009** — CAP-061 is renamed relative to report 19 ("<source-product noun redacted by REV-C> connector" → "Connector certification p
+  REV-A-010 : - **REV-A-010** — doc 06 rows 015, 017, 018, 059 are missing their trailing `|`. Renders fine; a column-inde
+
+--- Every REV-A-0NN citation in INDEX.md, with its subject ---
+61:**REV-A-006 (NOTE)** — CAP-061 "<source-product noun redacted by REV-C> connector" → "Connector certification pipeline".
+113:Filed as **REV-A-001**. Every other figure the gates report corroborates a claim:
+217:| **units 50.000001 of 100, FEASIBLE, completed** | **`reproducible`, with the promise sentence** ← REV-A-003 (GH-008 M-1) |
+218:| **`solver_status` NULL or unrecognised, completed, low wall** | **`reproducible`, with the promise sentence** ← REV-A-004 (GH-008 M-2) |
+233:| **cross-GROUP** — a sibling-group context over build/version tables, every role | 0 for every application role. `app_migrator` sees 1 — migration 0019
+273:0019) as unit tests. Filed as **REV-A-002**.
+310:Filed as **REV-A-003**.
+325:| §10.4 | The un-falsified selection window | **FALSIFIED AS "UNFALSIFIABLE" — it is reachable.** See §12 and finding REV-A-003. |
+336:| `corepack pnpm check` | **EXECUTED** — 16/17, exit 1 (REV-A-001). `transcripts/01` |
+338:| migration cycle 0001–0019 | **EXECUTED** — clean, 95 legs, exit 0 (and empty — REV-A-002). `transcripts/10` |
+
+--- THE COLLISIONS ---
+  ID          REPORT.md means                                  INDEX.md means
+  ---------   ----------------------------------------------   -------------------------------------------
+  REV-A-003   the doc 36 §10.4 selection window (MAJOR)         GH-008 M-1, the mid-band overclaim (§7)
+  REV-A-004   the mutable termination facts (MAJOR)             GH-008 M-2, solver_status fail-open (§7)
+  REV-A-006   GH-008 M-2, solver_status fail-open (MINOR)       the CAP-061 rename (§2, called a NOTE)
+  REV-A-007   the stale docblock count (MINOR)                  the app_migrator cross-group row (§8)
+
+Four IDs denote different findings depending on which of REV-A's two files you open, and
+BOTH files are committed on review/rev-a as the reviewer's evidence. An adjudicator writing
+'accept REV-A-004' gets the termination-facts finding from the report and the solver_status
+fail-open from the index. doc 38 §5 requires the reviewer's severity to be preserved verbatim
+per finding; that is not performable while a finding has two IDs and an ID has two findings.
+
+REV-C's reading of what happened: the INDEX was written incrementally as stages completed
+(its own header says 'further sections appended as stages complete') and the REPORT was
+written last, after two further NOTEs (the doc 06 pipes, and the CAP-061 rename promoted out
+of a formatting note) were inserted into the sequence — which shifted every ID above them.
+The REPORT's numbering is the later and, being the findings register proper, the
+authoritative one. Nothing is lost and nothing is wrong in substance; the RECORD is
+ambiguous, which is the exact failure mode rule 13 exists to prevent.
+
+Filed as REV-C-010 (MINOR). The repair is a record repair, not a code repair: the adjudicator
+should cite REPORT.md's numbering and the INDEX's four stale citations should be corrected
+to match it — a renumbering of a CITATION to restore a stable ID, which is the opposite of
+what rule 13 forbids.
+2026-08-23T05:35:36Z
+
+NOTE: REV-C redacted the source-product proper noun from the two quoted lines above
+(CLAUDE.md rule 1). It is present verbatim in research report 19 and in EV-REVIEW-A/REPORT.md,
+which is where the clean-room boundary permits it; REV-C does not re-copy it forward.
