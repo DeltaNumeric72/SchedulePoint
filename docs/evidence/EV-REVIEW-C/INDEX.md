@@ -613,3 +613,84 @@ Two, both caught by REV-C and both recorded in the transcripts rather than quiet
 
 A third, minor: REV-C's spot-check of REV-A's `checkpoint-signer.ts` citation initially reported
 ABSENT because REV-C guessed the wrong path. REV-A's quote is verbatim correct. Corrected in t08.
+
+---
+
+## 9. REV-C's own per-obligation coverage
+
+REV-C filed REV-C-003 against REV-A for lacking this table. It would be hypocritical not to
+provide one. **executed** = REV-C ran something and read its exit code or output. **declared** =
+not done, with the reason. No obligation is silent.
+
+| Charter obligation (doc 38 §3 REV-C, and the packet's enumeration) | Status | Evidence |
+| --- | --- | --- |
+| Independently recheck REV-A-003 | **executed** | t13 — REV-A's committed probe re-run byte-identically, plus an independent source derivation |
+| Independently recheck REV-A-004 | **executed** | t13 — same, plus migration `0018` guard + grant read |
+| Attempt the NR-15 recurrence **at least twice** | **executed — three attempts, two valid** | t11 (#1), t12 (#2 invalid + #2R). Both valid attempts clean |
+| Recheck REV-B-001's product-innocence half | **executed** | t10 (retained ledger + code-read), t14 (proven by construction from the failing side) |
+| One figure-match from REV-A | **executed** | t02 — the 58-capability figure, re-derived with REV-C's own parser |
+| One figure-match from REV-B | **executed** | t03 — §C row 5; **not confirmed** |
+| Compare A and B: overlap | **executed** | t09 §§2.1, 2.3 |
+| Compare A and B: disagreements — name each or state there are none | **executed** | t09 §2.2 — **one**, named and adjudicated |
+| Compare A and B: cross-misses | **executed** | t09 §2.4 |
+| Shared omissions: `fixture-regression` | **executed** | t08 CHECK 3 — confirmed, and widened to SBX |
+| Shared omissions: red-case arms 21/22 | **declared, with a substitute** | §6 — ≈ 35 min each; CI's own execution of arm 21 read instead (t04) |
+| Shared omissions: fresh-clone validation | **executed** | t05 — 36/36 · 95/95 · PASS from a genuine clone of `origin/main` |
+| Shared omissions: the M3R registered findings | **executed — and there is nothing to enumerate** | t01 |
+| Doc-reliance detection, both reports | **executed** | t08 — six checks, three sampled source citations |
+| Verify REV-A's two declared-not-executed rows are accurate, not understated | **executed** | t08 CHECK 2 and CHECK 3 — **accurate** |
+| Probe quality: sample ≥ 3 from each reviewer | **executed** | t06 — three each, two re-run and four code-read |
+| Spot-check one of REV-A's four mutation probes | **executed** | t06 — M3, bites, restores, REV-A's exact figure |
+| Spot-check one of REV-B's 10 sampled assertions | **executed** | t06 — M-07, bites, restores, REV-B's exact figure |
+| Additional bounded probes, ≥ 2 | **executed — six** | §6 |
+| Consolidated findings register | **delivered** | §7 — 28 entries, 29 original IDs, every severity preserved |
+| Recommend ACCEPT or REVISE | **delivered** | §8 — **REVISE** |
+| **Not in REV-C's charter and not attempted:** adjudicating findings; deciding the gate; implementing any repair | **prohibited** | doc 38 §3, §4.3, §4.6 — REV-C did none of these |
+
+### 9.1 Could not falsify — what REV-C attacked and could not break
+
+1. **REV-A's four mutation probes.** REV-C re-ran M3 against the **shipped** domain test rather
+   than REV-A's own probe, on the theory that a mutation might only be visible to its author's
+   instrument. It was not: the shipped test caught it, with REV-A's exact figure.
+2. **REV-B's non-vacuity claim.** REV-C looked for the arithmetic to be wrong (three different
+   counts appear in REV-B's index) and it is not — the driver ran twice, 9 + 1 = 10, and the
+   transcript shows both summaries.
+3. **The capability baseline.** REV-C wrote its own parser specifically because REV-A's stated
+   method could not have worked as written (REV-C-006). The conclusion survived: 58 = 58 = 58,
+   nothing dropped.
+4. **REV-B's real-stack figure.** REV-C drafted a finding that it did not match the retained
+   record, and was wrong — REV-B had cited the transcript, which matches exactly. Withdrawn.
+5. **REV-A-003 and REV-A-004.** REV-C tried to establish both from source *without* the probes,
+   expecting to find the probes doing work the code did not support. Both mechanisms were
+   already visible in the migrations and the route. Then both probes reproduced first time.
+6. **REV-A's source citations.** Three sampled, three verbatim present.
+7. **The doc validators.** REV-C ran all three from a genuinely fresh clone, on the theory that
+   something in the working tree was propping them up. 36/36 · 95/95 · PASS.
+8. **REV-B's declared-not-executed list.** REV-C checked the two checkable declarations as
+   statements of fact. Both hold, including the exact `139`.
+
+---
+
+## 10. Probe hygiene
+
+* Every code-modifying probe was applied, measured, and restored, with the restore verified:
+  REV-A's M3 mutation (sha256 `94483d69…` → `94483d69…`), REV-B's M-07 mutation
+  (`a4ee2025…` → `a4ee2025…`), and REV-C's own instrumentation of `apps/web/e2e/schedule.spec.ts`
+  (restored, `git status` clean on the file).
+* REV-A's two re-run probe files were staged under `apps/api/test/rev-c/` and **removed**. They
+  are REV-A's bytes, verified by matching sha256 against `review/rev-a`, and are deliberately not
+  re-committed here — they already live in REV-A's bundle.
+* **One hygiene failure, declared:** those files were left in place when composed run #2 started
+  and were collected by it. Recorded in full in t12 and §8.5; the run is invalidated and #2R was
+  executed on a verified-clean tree.
+* The final tree of `review/rev-c` differs from its base `64ddfd1` **only under
+  `docs/evidence/EV-REVIEW-C/`**.
+
+---
+
+**Filed by REV-C, 2026-08-23. This reviewer implemented nothing, adjudicated nothing, and does
+not decide the gate. Every figure above was produced by a command whose output is in
+`transcripts/`; every claim REV-C could not execute is declared with its reason; and REV-C's own
+two errors are recorded in §8.5 rather than quietly corrected.**
+
+**Recommendation: REVISE.**
