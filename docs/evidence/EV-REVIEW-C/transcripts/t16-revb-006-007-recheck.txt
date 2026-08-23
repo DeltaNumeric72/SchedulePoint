@@ -1,0 +1,75 @@
+=== REV-C / T16 — the remaining REV-B findings, rechecked cheaply ===
+2026-08-23T05:36:56Z
+NOTE ON LOAD: REV-C's composed run #2 is executing concurrently. Neither check below is
+timing-sensitive (one is an exit code, one is a source read), so the load is disclosed and
+immaterial.
+
+--- REV-B-006: the vitest zero-match-exits-0 hazard ---
+$ corepack pnpm exec vitest run packages/domain/test/ports/result-reproducibility.test.ts -t "NO_SUCH_TEST_NAME_REVC"
+
+ RUN  v3.2.4 /home/user/SchedulePoint
+
+ ↓ |domain| test/ports/result-reproducibility.test.ts (31 tests | 31 skipped)
+
+ Test Files  1 skipped (1)
+      Tests  31 skipped (31)
+   Start at  05:36:58
+   Duration  1.04s (transform 327ms, setup 0ms, collect 471ms, tests 0ms, environment 0ms, prepare 137ms)
+
+EXIT=0
+
+$ corepack pnpm exec vitest run packages/domain/test/ports/NO_SUCH_FILE_REVC.test.ts   (the wrong-PATH half)
+
+|gates| 
+
+include: test/**/*.test.ts
+exclude:  **/node_modules/**, **/dist/**, **/cypress/**, **/.{idea,git,cache,output,temp}/**, **/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*
+
+EXIT=1
+
+REV-B-006 CONFIRMED, both halves: a wrong NAME filter exits 0 with zero tests executed and no
+diagnostic; a wrong PATH exits non-zero with 'No test files found', which
+scripts/red-cases/errored-signatures.mjs matches and scores ERRORED. REV-C also re-verified
+REV-B's mitigating half — that no -t/--testNamePattern filter is used anywhere in the
+repository (t08 CHECK 5a, no match). The hazard is LATENT, exactly as REV-B graded it.
+
+--- REV-B-007: does a 4xx body echo caller-supplied text? (source read) ---
+$ sed -n "145,165p" apps/api/src/http/routes/builds.route.ts
+  | { readonly kind: 'stale-source'; readonly currentSourceDigest: string }
+  | { readonly kind: 'stale-inputs'; readonly staleness: StalenessWire }
+  | { readonly kind: 'invalid'; readonly problems: readonly FieldProblem[] };
+
+const MAX_PROBLEM_MESSAGE = 300;
+
+function parseBody<T>(
+  schema: { safeParse: (value: unknown) => { success: boolean; data?: T; error?: unknown } },
+  body: unknown,
+): Outcome<T> {
+  const parsed = schema.safeParse(body);
+  if (parsed.success && parsed.data !== undefined) return { kind: 'ok', value: parsed.data };
+
+  const issues =
+    (parsed.error as { issues?: { path: (string | number)[]; message: string }[] } | undefined)
+      ?.issues ?? [];
+  const problems = issues.slice(0, 40).map((issue) => ({
+    field: (issue.path.length > 0 ? issue.path.join('.') : 'body').slice(0, 64),
+    message:
+      issue.message.length > MAX_PROBLEM_MESSAGE
+        ? `${issue.message.slice(0, MAX_PROBLEM_MESSAGE - 1)}…`
+
+$ grep -n "message" apps/api/src/http/errors.ts | head
+10: *     failure — is `{ error: { code, message, correlationId } }`. Fastify's
+12: *  2. **Nothing leaks.** For 5xx the message is a fixed string. Framework
+13: *     messages routinely quote the offending value, and a quoted value is how
+21:export function buildEnvelope(code: string, message: string, correlationId: string): ErrorEnvelope {
+24:  return errorEnvelopeSchema.parse({ error: { code, message, correlationId } });
+53:          error.message.length > 0 ? error.message : 'The request was rejected.',
+
+REV-B-007 CONFIRMED by source: parseBody relays issue.message verbatim into the validation
+problem body. zod's unrecognized-keys message embeds the caller's own key name, so the key
+name returns to the same caller. REV-B graded it a NOTE because the text is the caller's own,
+returns to the same caller in the same exchange, crosses no tenant boundary, and (per
+REV-B-008's probe) does not reach the log. REV-C endorses the grade and the reasoning, and
+endorses REV-B's stated worry: a future route that puts a FREE-TEXT VALUE in that position
+would be relaying free text out of a protected ingestion path (I-17, non-bypass rule 8).
+2026-08-23T05:37:00Z
