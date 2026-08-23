@@ -1,0 +1,71 @@
+=== REV-C / T04 — CI on main: an INDEPENDENT check, and a THIRD occurrence neither A nor B saw ===
+2026-08-23T05:11:49Z
+
+REV-C read the GitHub Actions ledger for DeltaNumeric72/SchedulePoint directly (MCP GitHub API),
+not through either reviewer's transcript.
+
+--- Every CI run on branch main, in order ---
+  run 32581602951  cc9f3f9 (M4 CLOSE)                      push/main   CANCELLED
+  run 32581910984  1593b06 (CLAUDE.md delegations)          push/main   FAILURE
+  run 32612471848  93a71f5 (Merge PR #3 = REVIEW BASELINE)  push/main   FAILURE   <- REV-B-001's evidence
+  run 32616586257  64ddfd1 (Merge PR #5 = main's CURRENT tip) push/main FAILURE   <- NEITHER reviewer saw this
+
+--- Run 32616586257, main @ 64ddfd1 (= the base commit of review/rev-c), job outcomes ---
+    created 2026-08-23T03:56:09Z, concluded 2026-08-23T04:58:22Z, conclusion = FAILURE
+
+  gate battery                    SUCCESS      <- pnpm check 17/17 PASSED this time
+  pnpm check                      SUCCESS
+  red-case proofs (shards 0-7,9-12)  SUCCESS   (12 of 13)
+  red-case proofs (shard 8)       FAILURE      <<<<
+  red-case shard completeness     FAILURE      <<<< (the union guard, failing on the non-success shard)
+
+--- The shard-8 arm table, verbatim from job 97138225886's log ---
+=== red-case shard 8/13 — 5 of 65 arm(s) selected ===
+  arms: solver-kind-parity i13-schedule-authoring timezone-basis-stale-gate request-budget-missing builds-optimality-wording
+
+=== i13-schedule-authoring — I-13 zero-requests-before-Save, on the schedule surface ===
+  GREEN (clean tree): GATE FAILED
+  RED   (violation in tree): gate failed as required
+
+CASE                       GREEN  RED    VERDICT
+-------------------------  -----  -----  -------
+solver-kind-parity         pass   fail   PROVEN
+i13-schedule-authoring     FAIL   fail   NOT PROVEN
+timezone-basis-stale-gate  pass   fail   PROVEN
+request-budget-missing     pass   fail   PROVEN
+builds-optimality-wording  pass   fail   PROVEN
+-------------------------  -----  -----  -------
+5 case(s): 4 proven, 1 not proven
+[ELIFECYCLE] Command failed with exit code 1.
+
+--- What this establishes, that neither A nor B could establish ---
+1. The recorder-window class (REV-B-001) is not confined to the GATE battery. At 64ddfd1 the
+   gate battery went GREEN and the class surfaced instead in the RED-CASE battery, taking the
+   union guard with it. The two batteries traded places on the same defect.
+2. The arm it took down is i13-schedule-authoring — the arm whose entire purpose is to prove
+   the I-13 detector bites. Its GREEN half failing means the arm returns NOT PROVEN: the
+   battery cannot currently certify that the I-13 gate works, on the clean tree, in CI.
+3. doc 38 §7's required final battery item 'the complete red-case battery (65/65 arms, both
+   directions ... with the union guard green)' does NOT hold on main today.
+4. doc 38 §9 criterion 8 ('GitHub CI passes on main') does NOT hold on main today, and this is
+   the THIRD consecutive push run on main to conclude failure (1593b06, 93a71f5, 64ddfd1).
+5. REV-A accepted 60 of 65 red-case arms on the CI evidence at 332603e, and REV-B corroborated
+   the complete 65-arm battery on CI at 93a71f5. Both were TRUE OF THEIR OWN BASELINES. Neither
+   is true as a standing property: the very next push run on main put the union guard red.
+   The transferable lesson is that a green battery on one run of a load-sensitive harness is
+   not evidence about the harness, and both reviewers' red-case corroboration inherits that.
+
+--- Corroborating record already in the tree: the PR #5 merge commit's own message ---
+Merge PR #5: doc 38 — the post-M4 internal review plan, committed and ratified
+
+Docs-only. All checks green on f855340 (gate battery on the single-flake re-run: the I-13 New-period mobile recording straggler, second occurrence of the recorder-window class, registered as packet GH-011). REV-A filed; REV-B executing blind.
+
+  i.e. a SECOND occurrence was already known and registered as packet GH-011 at merge time;
+  run 32616586257 is the THIRD, and the first inside the red-case battery.
+  Does GH-011 exist in the control registers yet?
+  $ git grep -n "GH-011" -- docs/
+  (no match outside this transcript; re-verified: `git grep -c "GH-011" -- docs/` exits 1)
+  => GH-011 is named in the PR #5 merge-commit message and appears in NO control register:
+     not RISK-REGISTER, not ARCHITECTURE-DECISIONS, not AUTO-RUN-STATE (whose "Open findings"
+     row still lists only GH-004/GH-008/GH-009). Filed as REV-C-005 (MINOR).
+2026-08-23T05:11:49Z
