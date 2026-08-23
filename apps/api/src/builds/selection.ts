@@ -316,11 +316,15 @@ export async function applyCandidateToNewDraft(
    * **The cost.** One more full `materialInputDigests` assembly inside the lock
    * hold, reached only when the staleness verdict passed. Measured on the test
    * fixture by the R-4b review as a **mean delta of ≈11.7 ms** on a transaction
-   * that runs 49–71 ms — so roughly **10–17%** of the transaction, not a
-   * rounding error, though `buildStaleness` still dominates the hold. (An
-   * independent probe timed one `materialInputDigest` at 6.1–11.0 ms over six
-   * samples, which corroborates it.) See the note on the acquisition above for
-   * the span these figures cover and the one they do not. */
+   * that runs 49–71 ms — so **≈17%** of the transaction (11.7 ms against the
+   * ≈67 ms mean of the variant that carries it: 71/64/66), not a rounding
+   * error, though `buildStaleness` still dominates the hold. (An independent
+   * probe timed one `materialInputDigest` at 6.1–11.0 ms over six samples,
+   * which corroborates it and is the **per-call band, 9–16%**.) The two
+   * figures answer different questions and are not interchangeable: ≈17% is
+   * the mean cost this re-read adds, 9–16% is the spread of a single call.
+   * See the note on the acquisition above for the span these figures cover and
+   * the one they do not. */
   const lockedDigest = await sourceDigestOf(uow, run);
   if (lockedDigest !== expectedSourceDigest) throw new BuildSourceMovedError(lockedDigest);
 

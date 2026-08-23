@@ -2,8 +2,8 @@
   "runId": "RUN-20260822-GHRECON-01",
   "orchestrator": "Claude Fable (Claude Code on the web; continuous GitHub master authorization 2026-08-22)",
   "currentMilestone": "post-M4 hold (M4 COMPLETE; M3R PAUSED-pending-review; prototype checkpoint and M5 NOT begun)",
-  "currentPacket": "repair phase: R-5 ACCEPTED; batches next (R-3 records first)",
-  "lifecycleState": "REPAIR PHASE: R-5 (MAJOR REV-A-004 mutable termination facts) ACCEPTED \u2014 migration 0020 write-once freeze above the guard's early return (four-direction truth table proven live by the reviewer incl. erasure-to-NULL refused; down leg restores 0018 verbatim; writers re-enumerated independently: only transitionRun via 3 call sites, all out-of-NULL on state change); 5 regression arms red/green both sides; populated cycle by-behaviour incl. midway-reversed acceptance; red-case arm builds-termination-facts-unfrozen (battery 65->66, shard 0 now 6 arms, union guard re-derives); REV-A-004 CLOSED WITH RESIDUE by a fresh delta surrogate. All six pre-batch packets closed: R-1, R-2, R-6, R-4, R-4b, R-5. CI GREEN attempt-1 on 9385632/d28f669/1b49d97/c5ac1b3 (a0458a4's one-defect red closed by R-4b)",
+  "currentPacket": "repair phase: R-3 ACCEPTED; R-7 next (honesty batch)",
+  "lifecycleState": "REPAIR PHASE: batches — R-3 (records) ACCEPTED: doc 38 §7 row split into schema-cycle + six populated-cycle tests under a dated FAD-53 amendment; root '=' removed (C-007); doc 06 CAP-061 rename annotated clean-room-safe + four broken rows repaired (REV-A-010's symptom re-proven cured by both parsers); TEST-TRACEABILITY line-8 supersession pointer; migrations README accurate; R-4b proportion corrected. Delta: REV-A-002 CLOSED, REV-A-009 CLOSED (amended from residue), REV-A-010 CLOSED, C-007 CLOSED WITH RESIDUE (no root-file hygiene gate — orchestrator-held). Remaining: R-7/R-9/R-10/R-11, §7 battery, gate decision",
   "originMainCommit": "64ddfd1befcce4afdaee81e87ada3636d6f1b254",
   "taskBranch": "claude/schedulepoint-github-auth-a4ns2p",
   "worktree": "/home/user/SchedulePoint (Claude Code web workspace, ephemeral)",
@@ -12,10 +12,10 @@
   "implementer": null,
   "reviewer": null,
   "activeProcessesAndPorts": [],
-  "lastCommand": "git status --porcelain (R-5 delta verified ACCEPT; committing)",
+  "lastCommand": "git status --porcelain (R-3 delta confirmed ACCEPT; committing)",
   "lastExitCode": 0,
-  "openFindings": "FAD-53 docket: batches R-3/R-7/R-9/R-10/R-11 remaining, serial. R-5 residue (RECORDED per the review's one NOTE condition, no shipped route reaches either): (1) build_runs has NO BEFORE INSERT guard \u2014 a two-row fabrication (run + statistics rows) reads 'reproducible'; verified reachable; (2) the 0020 freeze introduces a pre-emptive-write poisoning mode \u2014 a NULL->value same-state write on a RUNNING run is accepted and then the legitimate terminating transition is refused, wedging the run in running (crash recovery cannot free it); a single INSERT-side/state-aware guard would close both \u2014 registered as a post-gate defence-in-depth follow-up, NOT a gate blocker. To R-3: R-4b proportion sentence (10-17% -> ~17%, 9-16% per-call); TEST-TRACEABILITY line 8; migrations/README.md stale 'Empty by design'. To R-7: periodic.test.ts:226; 480s/540s comment imprecision. To R-9: results-cache confound. To R-11: locked-backlog candidate; R-1 residuals. Carried: R-4b audit-premise residue (doubly load-bearing, unenforced); NR-20 unmeasured at scale; pnpm check 17/17 + fixture-regression deferred to \u00a77 battery",
+  "openFindings": "FAD-53 batches R-7/R-9/R-10/R-11 remaining, serial. To R-7 (honesty batch = GH-008 + A-005/006/007 + B-006/B-008-pin + routed): mid-band sentence, solver_status fail-closed, vitest zero-match guard, hard-rule-check docblock 24->8, disableRequestLogging pin, typed web label record, sentence-sweep enumeration, periodic.test.ts:226 stale message, 480s/540s comment imprecision, doc 06 §2 parity tally 5/30 -> mechanical 4/31 (R-3 review N-5). C-007 residue orchestrator-held (no root-file hygiene gate; FAD-53 authorizes none). R-5 residue recorded (INSERT-side guard, post-gate). R-4b audit-premise residue carried. NR-20 unmeasured at scale. pnpm check 17/17 + fixture-regression deferred to §7 battery",
   "externalBlockers": [],
-  "exactNextAction": "Launch R-3 (records batch: doc 38 \u00a77 battery-row rename + populated-cycle item; root '=' file removal; doc 06 CAP-061 annotation + 4 rows; TEST-TRACEABILITY line-8 handling; migrations README; R-4b proportion fix), then R-7, R-9, R-10, R-11; \u00a77 serial battery; gate decision",
-  "lastUpdateUtc": "2026-08-23T22:05:00Z"
+  "exactNextAction": "Launch R-7 (fresh Opus: honesty batch), then R-9, R-10, R-11; §7 serial battery; gate decision",
+  "lastUpdateUtc": "2026-08-23T23:20:00Z"
 }

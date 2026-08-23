@@ -185,9 +185,27 @@ Fable docs validators (plan 36/36 · architecture 95/95 · research PASS) · `co
 pnpm check` (17/17 gates) · the complete red-case battery (65/65 arms, both
 directions — sharded in CI, with the union guard green; a serial local run is
 equivalent evidence) · `fixture-regression` (fixed seeds + rotating) · `sbx` (9/9,
-371 readings, 0 wrong-tenant, 53/53 tables) · migration populated cycle 0001–0019 ·
-real-stack e2e at both viewports · **fresh-clone validation against `origin/main`** ·
-**GitHub CI fully green on `main`** (gate battery + all shards + shard completeness).
+371 readings, 0 wrong-tenant, 53/53 tables) · **migration schema cycle on an empty
+database, 0001–0020** · **the migration populated-cycle tests (six: 0014, 0016, 0017,
+0018, 0019, 0020)** · real-stack e2e at both viewports · **fresh-clone validation
+against `origin/main`** · **GitHub CI fully green on `main`** (gate battery + all
+shards + shard completeness).
+
+> **AMENDMENT 2026-08-23 (FAD-53, repair packet R-3; finding REV-A-002).** As
+> committed, this section's sixth battery item read "migration populated cycle
+> 0001–0019". That wording was inherited verbatim from doc 36 §6 row 5 / EV-M4-005 §24
+> row 5, and REV-A falsified it: the transcript behind it executes
+> `test/support/migrate-cycle-cli.ts`, which "destroys and re-initialises the data
+> directory and seeds nothing — its own docblock says 'the up migration applies to an
+> **empty** database'". One item has therefore become two, naming what is actually
+> executed: (a) the **schema** cycle on an empty database, and (b) the
+> **populated**-cycle tests, which exist for six migrations only — 0014, 0016, 0017,
+> 0018 and 0019 at the M4 baseline, plus 0020 added by repair packet R-5. The range is
+> also updated from 0001–0019 to **0001–0020**, migration 0020 having been added by
+> R-5. Nothing is relaxed: the schema cycle's scope is unchanged and the populated
+> cycles are now demanded by name rather than implied. The frozen milestone records
+> (doc 36, EV-M4-005) are **not** retro-edited — FAD-53 rules them record-only and
+> carries the correction, and this amendment is the plan-side half of that ruling.
 
 ## §8 GitHub branch, pull-request and evidence strategy
 
