@@ -48,6 +48,13 @@ verified:    001 002 003 004 005 006 008 009 011 012 013 014 015 016 017 019 058
 
 - **Report 19 (scope authority) ID set vs doc 06 ID set: byte-identical, 58 = 58.**
   (`diff` of the two sorted `CAP-0NN` sets → no output.)
+  [**corrected 2026-08-24 (FAD-53 repair R-10, finding REV-C-006): "`diff` of the two
+  sorted `CAP-0NN` sets" → "`diff` of the two sorted ID sets — report 19's 58 `CAP-0NN`
+  headings against the 58 bare three-digit row numbers the `awk` line above parses out of
+  doc 06 (`^\| [0-9]{3} \|`), compared as three-digit numbers" — doc 06 carries only five
+  literal `CAP-0NN` strings in its whole text, so a `CAP-0NN`-set-to-`CAP-0NN`-set `diff`
+  could not have run as described. The method actually used is the correct one and the
+  result is unchanged: 58 = 58, no output, nothing dropped and nothing invented**]
 - **Doc 18 (architecture traceability) covers all 58** — `comm -23` of report 19's set
   against doc 18's set is empty.
 - **Counts match doc 36 §7 and FEATURE-PARITY-MATRIX exactly**: 18 verified · 3
@@ -58,7 +65,10 @@ verified:    001 002 003 004 005 006 008 009 011 012 013 014 015 016 017 019 058
 Name-level comparison of report 19's `#### CAP-0NN · <name>` headings against doc 06's
 row names: 40 rows differ by abbreviation only (e.g. "Authentication and session
 management" → "AuthN & sessions"); one row differs semantically and is filed as
-**REV-A-006 (NOTE)** — CAP-061 "ORSOS connector" → "Connector certification pipeline".
+**REV-A-009 (NOTE)** [**corrected 2026-08-24 (FAD-53 repair R-10, finding REV-C-010):
+REV-A-006 → REV-A-009 — REPORT.md's numbering is the later and authoritative one; there
+REV-A-006 is the `solver_status` fail-open finding and this CAP-061 rename is
+REV-A-009**] — CAP-061 "ORSOS connector" → "Connector certification pipeline".
 The substance (external specification required before connector certification; blocks
 connector release) is preserved in doc 06's row, and the rename is required by the
 clean-room rule, but doc 06 carries no rename annotation.
@@ -214,8 +224,8 @@ measured, on **both** sides of the knife edge:
 | CANCELLED status vs `completed` termination (FAD-50 B-1) | `interrupted` |
 | OPTIMAL at 76.702882 units · OPTIMAL at 5 units · INFEASIBLE at 0.0 units | `reproducible` (the three FAD-52 counterexamples, correctly NOT `stopped-early`) |
 | units exactly 50.0 of 100 | `stopped-early` |
-| **units 50.000001 of 100, FEASIBLE, completed** | **`reproducible`, with the promise sentence** ← REV-A-003 (GH-008 M-1) |
-| **`solver_status` NULL or unrecognised, completed, low wall** | **`reproducible`, with the promise sentence** ← REV-A-004 (GH-008 M-2) |
+| **units 50.000001 of 100, FEASIBLE, completed** | **`reproducible`, with the promise sentence** ← REV-A-005 (GH-008 M-1) [**corrected 2026-08-24 (R-10 / REV-C-010): REV-A-003 → REV-A-005 — see CORRIGENDUM**] |
+| **`solver_status` NULL or unrecognised, completed, low wall** | **`reproducible`, with the promise sentence** ← REV-A-006 (GH-008 M-2) [**corrected 2026-08-24 (R-10 / REV-C-010): REV-A-004 → REV-A-006 — see CORRIGENDUM**] |
 | units NULL · termination NULL · wall NULL | `unrecorded` ×3 |
 | all five interruption reasons | `interrupted` ×5 |
 
@@ -230,7 +240,7 @@ schedule_versions, assignment_snapshots all non-empty).
 | --- | --- |
 | **I-15 outside the unit of work** — 4 non-BYPASSRLS roles × 17 M4/publication tables | **0 non-zero reads**; an unscoped `update build_runs` tampers **0 rows** |
 | **cross-TENANT** — a Beta-declared context over 17 tables, every role, read AND write | **0 Alpha rows visible, 0 tampered** |
-| **cross-GROUP** — a sibling-group context over build/version tables, every role | 0 for every application role. `app_migrator` sees 1 — migration 0019's `build_runs_organization_capacity_read` policy, ORGANIZATION-scoped by design (REV-A-007, NOTE) |
+| **cross-GROUP** — a sibling-group context over build/version tables, every role | 0 for every application role. `app_migrator` sees 1 — migration 0019's `build_runs_organization_capacity_read` policy, ORGANIZATION-scoped by design (REV-A-008, NOTE) [**corrected 2026-08-24 (R-10 / REV-C-010): REV-A-007 → REV-A-008 — see CORRIGENDUM**] |
 | **I-18 at the database, all FIVE roles incl. BYPASSRLS break-glass**, against a version verified `published` first: update-child · delete-child · **insert a NEW child** · delete the version · update the publication record | **every one refused, every role** (`SCHEDULE_PUBLISHED_IMMUTABLE`, `SCHEDULE_VERSION_NO_DELETE`, permission denied, column-privilege denial) |
 | **audit rows, measured by ROW COUNT** (probe 1 had read a zero-row DELETE under RLS as "not refused") | `app_migrator`: DELETE and UPDATE return with **rows affected = 0**; the other four roles refused outright. Chain **55 entries → 55 entries, 0 problems** across the attempts |
 | **transition trigger on REAL ROWS** (the shipped matrix drives the SQL function) | `failed → {draft_configuration, queued, running, completed, approved, reviewed}` all `BUILD_TRANSITION_ILLEGAL` |
@@ -374,3 +384,90 @@ $ git diff --name-only f855340 HEAD | grep -v '^docs/evidence/EV-REVIEW-A/'
 ---
 
 *(Findings register: returned in REV-A's report to the orchestrator.)*
+
+---
+
+## CORRIGENDUM — 2026-08-24 (FAD-53 repair packet R-10)
+
+**Nothing above has been deleted or rewritten.** This bundle is a filed record. Each
+correction below was made **in place and visibly marked**: prose sites carry the full
+bracketed `[**corrected …**]` marker at the point of correction; table cells, where a full
+marker would not fit, carry a compact marker pointing here. **No finding has been
+renumbered** — the corrections are to *citations*, per the binding ruling in REV-C-010:
+"`REPORT.md`'s numbering is the later and authoritative one … The repair is a citation
+repair in the index, not a renumbering of findings." The finding IDs `REV-A-001`…`-010`
+mean exactly what `REPORT.md` says they mean, unchanged (CLAUDE.md non-bypass rule 13).
+
+Executed by a recorded surrogate for the REV-A reviewer, which is non-continuable
+(doc 38 §4 fallback). The surrogate re-derived every figure below from the primary source
+before correcting it.
+
+### C-010 — four stale finding-ID citations in this INDEX
+
+REV-C-010, verbatim: *"**REV-A's finding IDs are not stable between its own two
+documents.** `REV-A-003`, `-004`, `-006` and `-007` each denote a different finding in
+`REPORT.md` than in `INDEX.md` … The repair is a citation repair in the index, not a
+renumbering of findings."*
+
+All ten `REV-A-0NN` citations in this file were enumerated; six were already correct and
+are untouched. The four stale ones:
+
+| § | Before | After | The finding being cited | Why the old citation was wrong |
+| --- | --- | --- | --- | --- |
+| §2 (prose) | `REV-A-006 (NOTE)` | `REV-A-009 (NOTE)` | the CAP-061 rename against report 19 | `REV-A-006` in REPORT.md is the `solver_status` fail-open finding (MINOR) |
+| §7 (table row) | `REV-A-003 (GH-008 M-1)` | `REV-A-005 (GH-008 M-1)` | the mid-band overclaim at 50.000001 units | `REV-A-003` in REPORT.md is the doc 36 §10.4 selection window (MAJOR) |
+| §7 (table row) | `REV-A-004 (GH-008 M-2)` | `REV-A-006 (GH-008 M-2)` | the `solver_status` fail-open branch | `REV-A-004` in REPORT.md is the mutable termination facts (MAJOR) |
+| §8 (table row) | `REV-A-007, NOTE` | `REV-A-008, NOTE` | `app_migrator`'s cross-group `build_runs` row | `REV-A-007` in REPORT.md is the stale docblock count (MINOR) |
+
+The six citations already matching `REPORT.md`, left untouched: §1 `REV-A-001`; §10
+`REV-A-002`; §12 `REV-A-003`; §13 §10.4 row `REV-A-003`; §14 battery rows `REV-A-001` and
+`REV-A-002`. Severity labels carried in the corrected citations (`NOTE`, `NOTE`) were
+already correct against `REPORT.md` and were not altered.
+
+### C-006 — the capability-check method as described in §2
+
+REV-C-006, verbatim: *"REV-A's INDEX §2 states the capability check as a "`diff` of the
+two sorted `CAP-0NN` sets"; doc 06 contains only 5 `CAP-0NN` strings (its rows are bare
+three-digit numbers), so that comparison cannot have run as described. REV-A's own `awk`
+line shows it actually parsed `^\| [0-9]{3} \|` rows, which is correct."*
+
+Re-derived here before correcting, at `6cac92f`:
+
+```
+$ grep -o 'CAP-0[0-9][0-9]' docs/fable/06-feature-parity-matrix.md | sort -u
+CAP-007
+CAP-014
+CAP-015
+CAP-030
+CAP-050                                    <- 5 occurrences, 5 distinct, in the whole file
+$ grep -cE '^\| [0-9]{3} \|' docs/fable/06-feature-parity-matrix.md
+58                                         <- the rows the awk line parses
+$ diff <(report-19 CAP-NNN set, sorted) <(doc-06 row numbers, sorted)
+(no output)                                <- 58 = 58, unchanged
+```
+
+**Correction: prose only.** The stated method is inaccurate; the method actually used —
+report 19's `CAP-0NN` headings against doc 06's bare three-digit row numbers — is correct,
+and the finding it produced is unaffected. The adjacent doc 18 bullet (`comm -23` of report
+19's set against doc 18's set) **is** performable exactly as written — doc 18 does carry all
+58 `CAP-0NN` strings — and is therefore not corrected. Re-verified empty here.
+
+### Observed during R-10, NOT corrected
+
+Recorded for the next reader, and **deliberately left alone**: neither is named by any
+finding in the FAD-53 docket, and R-10 does not adjudicate beyond the findings it was
+issued for.
+
+1. §2's formatting note calls doc 06's four rows missing a trailing `|` "not a finding";
+   in `REPORT.md` that same observation is filed as **REV-A-010 (NOTE)**. A divergence of
+   disposition, not of ID — no citation to repair.
+2. §2 says "40 rows differ by abbreviation only"; `REPORT.md`'s REV-A-009 says "the other
+   39 name differences are pure abbreviation". The surrogate's own mechanical comparison of
+   report 19's 58 `CAP-NNN` headings against doc 06's 58 row names finds **14 byte-identical
+   and 44 differing**, of which one (CAP-061) is the semantic rename — i.e. 43 by a
+   mechanical count, matching neither 39 nor 40. **Deliberately not corrected**: "differs by
+   abbreviation only" is a judgement REV-A made row by row (several rows elide a qualifier
+   rather than abbreviate a word), the surrogate cannot reconstruct where REV-A drew that
+   line, no filed finding names this figure, and the conclusion it supports — one semantic
+   divergence, CAP-061 — is unaffected either way. Recorded so the next reader is not
+   surprised by it.

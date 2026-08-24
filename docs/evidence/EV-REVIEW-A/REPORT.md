@@ -93,6 +93,20 @@ at `332603e` per arm class, five in-scope arms re-executed and proven), the
 battery-figure-vs-claim table, and the twelve-point could-not-falsify list are in
 [INDEX.md](INDEX.md) §§13–16, committed by the reviewer with the underlying transcripts.
 
+[**corrected 2026-08-24 (FAD-53 repair R-10, finding REV-C-003): "The full per-scope-area
+coverage table … [is] in INDEX.md §§13–16" → there is NO per-scope-area coverage table in
+INDEX.md §§13–16, or anywhere else in EV-REVIEW-A. INDEX.md §13 is the M4-exit-limitations
+table, §14 the battery table, §15 the five red-case arms REV-A executed, §16 probe hygiene
+— reason: the citation names a deliverable the bundle does not contain, so a reader
+following it finds four other tables and no way to tell which claim failed.**] The
+declarations this sentence summarises are real and are in the bundle — `fixture-regression`
+and the real-stack e2e declared not-executed with their reasons, and 60 of 65 red-case arms
+accepted on the CI evidence at `332603e` with five re-executed, are INDEX.md §14 and §15 —
+but they are **not** a per-scope-area table, and doc 38 §3's fifteen owner-enumerated REV-A
+scope areas are nowhere enumerated in this bundle. Per REV-C-003, "authorization and
+entitlements" and "M1–M4 cross-module composition" have no dedicated declared coverage
+beyond the gate lines in INDEX.md §1. See the CORRIGENDUM below.
+
 # The single question
 
 **Does the evidence at the baseline support the claims the exit reports make — no more,
@@ -108,3 +122,50 @@ recorded limitation less limited than recorded), REV-A-004 (an honesty guarantee
 on application discipline where the codebase's own standard is database enforcement).
 Declared, not papered over: `fixture-regression` was not executed and has no CI
 evidence; REV-A makes no statement about its current state.
+
+---
+
+# CORRIGENDUM — 2026-08-24 (FAD-53 repair packet R-10)
+
+**Nothing above has been deleted or rewritten.** This register is a filed record; the one
+correction below was made in place and visibly marked with a bracketed `[**corrected …**]`
+note at the point of correction. Executed by a recorded surrogate for the REV-A reviewer,
+which is non-continuable (doc 38 §4 fallback).
+
+**No finding has been renumbered.** The IDs `REV-A-001`…`REV-A-010` above are the
+authoritative ones — FAD-53, the repair commits and every delta verification cite them, and
+REV-C's consolidated register uses them throughout. Where `INDEX.md` used four of those IDs
+for different findings (REV-C-010), the repair was made **there**, to the citations, and is
+recorded in `INDEX.md`'s own CORRIGENDUM. CLAUDE.md non-bypass rule 13 is why the repair
+runs in that direction and not the other.
+
+### C-003 — a citation to a table that does not exist
+
+REV-C-003, verbatim: *"REV-A's report cites a 'full per-scope-area coverage table … in
+INDEX.md §§13–16'. No such table exists anywhere in EV-REVIEW-A; §§13–16 are the
+M4-limitations table, the battery table, the five red-case arms and probe hygiene. doc 38
+§3's REV-A completion criterion requires every scope area covered or declared, and the
+fifteen enumerated areas are never enumerated."*
+
+Re-derived here before correcting, at `6cac92f`:
+
+| Claim | Checked | Result |
+| --- | --- | --- |
+| §§13–16 hold a per-scope-area coverage table | headings of `INDEX.md` | **false** — §13 M4-exit limitations, §14 batteries, §15 the five red-case arms, §16 probe hygiene |
+| such a table exists elsewhere in the bundle | `grep -rniE "scope.area" docs/evidence/EV-REVIEW-A/` | **no** — the only three hits are this report's own citation |
+| doc 38 §3 enumerates fifteen REV-A scope areas | doc 38 §3, REV-A packet, "Scope (owner-enumerated, binding)" | **yes, fifteen**, none of them enumerated in this bundle |
+
+**Correction: the citation, not the evidence.** Every battery figure, transcript and
+declaration this report rests on is present and unchanged; what is absent is the
+per-scope-area coverage table doc 38 §3's completion criterion asks for, and R-10 cannot
+manufacture one on the reviewer's behalf. The gap stands as REV-C filed it.
+
+### Observed during R-10, NOT corrected
+
+The same sentence also cites "the twelve-point could-not-falsify list" as being in
+`INDEX.md` §§13–16. A `grep` for `could.not.falsify` across `docs/evidence/EV-REVIEW-A/`
+returns only this report's own two lines: that list is likewise not in the bundle, and doc
+38 §3 requires it too ("a could-not-falsify list naming what was attacked and how it
+held"). **No finding in the FAD-53 docket names it**, so R-10 records it and leaves it —
+the surrogate corrects what was filed against this bundle and does not adjudicate beyond
+it.
