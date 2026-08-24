@@ -266,9 +266,18 @@ describe('the objective is TIERED and every component weight is recorded', () =>
     /* **The explicit timeout, and it bounds nothing but the clock.**
      *
      * This arm drives TWO full solves of `B-fairness-shaped` — the base snapshot
-     * and the weight-edited one — and how much SEARCH each does is fixed by the
-     * pinned deterministic budget, not by the machine. What the machine decides
-     * is only how many wall-seconds those 100 deterministic units cost. Where
+     * and the weight-edited one — and the pinned deterministic budget is what
+     * BOUNDS the search each one does. It is not a portable measure of it: the
+     * unit count is same-machine-stable, NOT cross-machine-portable (FAD-52, and
+     * the `DETERMINISTIC_PARAMETERS` docblock — 76.702882 units where this was
+     * authored against 83.130356 on this container class, under the identical
+     * pin). This block used to say the search was "fixed by the pinned
+     * deterministic budget, not by the machine", which is the imprecision R-2
+     * corrected in the two arms it ceilinged and which is corrected here for the
+     * same reason (FAD-53 R-7; comment only, the ceiling and every assertion are
+     * byte-identical).
+     *
+     * What the machine decides is how many wall-seconds those units cost. Where
      * this was authored that was ~33 s a solve (the `DETERMINISTIC_PARAMETERS`
      * docblock's 32.61863 s / 76.702882 units, and its ~43 s figure for the full
      * budget), so the pair sat inside `apps/api/vitest.config.ts`'s 120 s global
@@ -355,10 +364,21 @@ describe('S-08t under E2 objectives — bit-identical on a soft-rule-bearing cla
     );
     /* **The explicit timeout, for the same reason as the weight-change arm and
      * with the same discipline.** Two solves of the identical snapshot are what
-     * bit-identity MEANS here, so the cost is two full deterministic budgets:
-     * ~66 s where this was authored (~33 s a solve), **174.3 s and 177.2 s
-     * across the two runs it was measured in** on the container this was
-     * measured in, against a 120 s global `testTimeout`.
+     * bit-identity MEANS here, so the cost is two searches each BOUNDED by the
+     * same pinned deterministic budget — which is not the same claim as two
+     * equal amounts of work on any machine: the unit count is
+     * same-machine-stable, NOT cross-machine-portable (FAD-52 — 76.702882 units
+     * where this was authored against 83.130356 on this container class under
+     * the identical pin), and it is exactly the two-solve identity of that
+     * number, asserted above, that makes this arm's claim mean something. This
+     * block used to call the cost "two full deterministic budgets", which reads
+     * as a portable quantity; the same R-2 correction is applied here (FAD-53
+     * R-7; comment only, the ceiling and every assertion are byte-identical).
+     *
+     * In wall-seconds, which is what a timeout is about: ~66 s where this was
+     * authored (~33 s a solve), **174.3 s and 177.2 s across the two runs it was
+     * measured in** on the container this was measured in, against a 120 s
+     * global `testTimeout`.
      *
      * 540 s is the larger of those measurements times three. The reproducibility
      * claim itself is untouched — the deterministic set, the wall-clock

@@ -3,6 +3,7 @@ import type {
   BuildRunStateWire,
   ConflictClassWire,
   ExplanationStateWire,
+  ResultReproducibilityVerdictWire,
 } from '@schedulepoint/contracts';
 import type { JSX, ReactNode } from 'react';
 
@@ -282,8 +283,23 @@ export const REPRODUCIBILITY_DETAIL: Readonly<Record<string, string>> = {
  * Only the LABEL lives here. The reason is carried per-build on the wire, since
  * it quotes that run's own measured search time, and a reason invented on the
  * client would be a second source for a fact the server already knows.
+ *
+ * ## Why this record is keyed by the WIRE type (GH-008)
+ *
+ * It was `Record<string, string>`, which is total over nothing: any six labels
+ * satisfied it, including five. FAD-52 added `stopped-early` to the wire enum
+ * and the label was added by hand, in the same change — nothing structural
+ * required it, and the failure mode if it had been forgotten is silent, because
+ * `BuildDetailPage.tsx` falls back to the raw verdict and a raw enum name
+ * reaching a reader is a defect that looks like a label.
+ *
+ * Keyed by {@link ResultReproducibilityVerdictWire}, a seventh verdict added to
+ * the contract **does not compile here until it has a label**. The type is the
+ * one the page parses through, so the two cannot drift apart.
  */
-export const RESULT_REPRODUCIBILITY_LABELS: Readonly<Record<string, string>> = {
+export const RESULT_REPRODUCIBILITY_LABELS: Readonly<
+  Record<ResultReproducibilityVerdictWire, string>
+> = {
   reproducible: 'Reproducible',
   'wall-clock-truncated': 'Not reproducible — the wall clock ended the search',
   /* FAD-52. The label says the search stopped early and stops there. The

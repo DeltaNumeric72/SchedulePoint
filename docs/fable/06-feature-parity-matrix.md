@@ -79,8 +79,22 @@
 
 ## 2. Tallies
 
-- EXACT or EXACT-leaning: 5 · HIGH: 30 · EQUIV: 1 · REDESIGN: 18 · DEFERRED: 4 (connector items only, per report 19's own dispositions) · EXCLUDED capabilities: **0**
+- EXACT or EXACT-leaning: 4 · HIGH: 31 · EQUIV: 1 · REDESIGN: 18 · DEFERRED: 4 (connector items only, per report 19's own dispositions) · EXCLUDED capabilities: **0**‡
 - **EXCLUDED content: exactly one** — patient-identifying information, excluded by boundary (I-07/I-17), with the user outcome preserved (CAP-030/033/060).
+
+‡**The first two figures were corrected 2026-08-23** (FAD-53 repair packet R-7, finding N-5 of the R-3 review) **from "EXACT or EXACT-leaning: 5 · HIGH: 30".** The old pair summed to 58 and was therefore self-consistent, which is why it survived: one row was attributed to the wrong bucket, not lost. Re-derived mechanically from §1's own table rather than re-counted by eye — parse every row whose first cell is a three-digit capability id, read the disposition cell, strip `**` emphasis, and tally the exact strings:
+
+  | disposition cell, verbatim | rows |
+  | --- | --- |
+  | `EXACT` | 2 — CAP-011, CAP-012 |
+  | `EXACT-leaning HIGH` | 2 — CAP-020, CAP-022 |
+  | `HIGH` | 31 |
+  | `REDESIGN` | 18 |
+  | `EQUIV` | 1 |
+  | `DEFERRED (…)` | 4 — CAP-061, 063, 064, 065 |
+  | **total** | **58** |
+
+  So EXACT (2) + EXACT-leaning (2) = **4**, and the plain-`HIGH` rows are **31**. The two `EXACT-leaning HIGH` rows are counted once, in the EXACT-leaning bucket, exactly as the old figure counted them — the tally moves by one row, the row set does not, and **no capability is added, dropped or re-dispositioned** (rule 11, rule 13). The 58-row total, the zero EXCLUDED capabilities and every other figure on this page are unchanged.
 
 ## 3. Why every REDESIGN exists
 

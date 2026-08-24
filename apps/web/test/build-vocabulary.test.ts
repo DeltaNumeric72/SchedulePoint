@@ -1,3 +1,4 @@
+import { resultReproducibilityVerdictSchema } from '@schedulepoint/contracts';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -60,6 +61,20 @@ describe('the RESULT reproducibility labels say which way the verdict went', () 
       'unrecorded',
       'wall-clock-truncated',
     ]);
+  });
+
+  it('GH-008: the table is total over the WIRE vocabulary, member for member', () => {
+    /* The arm above pins the six by name, which is what a reader wants; this
+       pins them against the thing the page actually parses through, which is
+       what stops the two drifting. `RESULT_REPRODUCIBILITY_LABELS` is now typed
+       `Record<ResultReproducibilityVerdictWire, string>`, so a seventh verdict
+       added to the contract fails `tsc` here before it can reach a screen as a
+       raw enum name — and this assertion is the runtime half of the same claim,
+       for the direction the type cannot see: a label for a verdict the contract
+       does NOT have. */
+    expect(Object.keys(RESULT_REPRODUCIBILITY_LABELS).sort()).toEqual(
+      [...resultReproducibilityVerdictSchema.options].sort(),
+    );
   });
 
   it('every refusing verdict reads as a refusal at a glance', () => {

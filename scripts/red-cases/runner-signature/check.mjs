@@ -33,6 +33,19 @@ const MUST_BE_ERRORED = [
      gate's reach undiminished. */
   'RED-CASE RUNNER: the command could not be spawned (spawnSync pnpm ENOENT).\n' +
     '  command: pnpm exec vitest run apps/api/test/db/queue-pool-release.test.ts\n',
+  /* REV-B-006 / GH-008. The zero-match guard's own diagnostic, in the shape
+     `scripts/gates/vitest-must-run.mjs` writes it. An arm whose command selected
+     no test did not run, whichever direction it was pointed in, and the runner
+     has to say so rather than scoring the gate. */
+  '\nTHIS TEST INVOCATION EXECUTED NOTHING.\n' +
+    '  executed: 0   skipped: 45\n',
+  /* The same wrapper's OTHER "did not run" exit (FAD-53 R-7 C-2, the FAD-51 D-1
+     class one layer down): `spawnSync` reports a failure to START vitest in
+     `result.error` with `status: null`, and the wrapper's exit code alone would
+     read as a gate failure. Pinned in the runner's own vocabulary, so the
+     wrapper cannot be reworded out of the classification. */
+  '\nVITEST-MUST-RUN: the vitest process could not be spawned (spawnSync EACCES).\n' +
+    '  arguments: (none)\n',
 ];
 
 const MUST_NOT_BE_ERRORED = [

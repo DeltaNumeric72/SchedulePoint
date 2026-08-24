@@ -513,7 +513,14 @@ export function runResultReproducibility(
   /* Parsed against the closed vocabularies rather than cast. An unrecognised
    * termination reads as ABSENT, which the verdict treats as "cannot establish
    * that it completed" — the fail-closed direction. A cast would let a value
-   * outside the set walk straight past the `!== 'completed'` test. */
+   * outside the set walk straight past the `!== 'completed'` test.
+   *
+   * The same parse applies to the status, and **since REV-A-006 / GH-008 M-2
+   * the verdict treats that absence the same way.** It did not: this
+   * fail-closed parse fed a branch that fell through to `reproducible` with the
+   * promise sentence, so an unreadable `solver_status` became a claim. The
+   * repair is in `resultReproducibility` itself, where the other three nullable
+   * facts are already closed; nothing about the parse changed. */
   const terminationReason = TERMINATION_REASONS.find((r) => r === run.termination_reason) ?? null;
   const status = SOLVER_STATUSES.find((s) => s === run.solver_status) ?? null;
 

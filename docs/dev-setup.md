@@ -77,7 +77,7 @@ written to `scripts/check-output.txt` — or, on a plain run, to an untracked sc
 |---|---|---|
 | 1 | `lint` | ESLint, including the ban on every `SET` form of a tenant setting |
 | 2 | `typecheck` | `tsc -b` across every project, tests included |
-| 3 | `unit` | Vitest across all five projects, against a real PostgreSQL cluster (§10) |
+| 3 | `unit` | Vitest across all five projects, against a real PostgreSQL cluster (§10) — through `scripts/gates/vitest-must-run.mjs`, which fails a run that executed **no** test |
 | 4 | `import-boundary` | dependency-cruiser: `packages/domain` imports nothing |
 | 5 | `route-policy` | Every registered Fastify route declares a policy (I-02) |
 | 6 | `migration-rls` | No `CREATE TABLE` without RLS in the same migration (I-15) |
@@ -106,6 +106,18 @@ allowlist is checked against **magic bytes**, so a text file renamed `.png` is s
 rather than skipped.
 
 Individual gates: `corepack pnpm run gate:<id>`.
+
+**The unit gate cannot pass by selecting nothing** (FAD-53 R-7, finding REV-B-006).
+Vitest exits **0** when a `-t` / `--testNamePattern` filter matches no test: the files are
+found, collected, and then every test in them is reported as skipped —
+`--passWithNoTests=false` is about missing FILES and does not see this. `gate:unit` and
+`gate:unit:builds` therefore run through `scripts/gates/vitest-must-run.mjs`, which reads
+the executed count from Vitest's own JSON reporter and exits non-zero when it is zero. It
+never softens a real failure: a non-zero child status is passed straight through. Direct
+`corepack pnpm exec vitest run …` invocations (including the red-case arms that spawn one)
+are **not** wrapped — they carry path filters only, and a wrong path already exits
+non-zero with `No test files found`. Add the wrapper to any invocation that grows a name
+filter.
 
 ### Proving the gates still work
 
@@ -712,7 +724,7 @@ explicitly, serially, one at a time on a quiet machine:
 
 ```bash
 corepack pnpm check               # the seventeen gates
-corepack pnpm red-cases           # 66 cases, both directions
+corepack pnpm red-cases           # 67 cases, both directions
 corepack pnpm fixture-regression  # FAD-15: 13 fixed seeds + a rotating one + every file alone
 corepack pnpm sbx                 # the SPEC-16 sandbox scenarios under their contracts
 ```

@@ -223,7 +223,29 @@ afterAll(async () => {
     const finalized = await finalizeAuditJobs();
     expect(
       (await auditJobs()).length,
-      'this file must leave NO audit.* job behind — no other drain in the suite can execute one',
+      /* Was "no other drain in the suite can execute one", which stopped being
+         true at FAD-53 R-6: `outbox-dispatch.test.ts`'s `afterAll` drain now
+         carries a `LocalCheckpointSigner`, so that ONE hook in ONE other file
+         can execute an `audit.*` job.
+
+         The scope word is "other", and it is load-bearing. THIS file's own two
+         drains are signer-bearing and always were — `finalizeAuditJobs()` above
+         (`startOutboxRunner({… signer …, label: 'periodic-finalize' })`, the very
+         drain this assertion checks, which is why the `log()` two lines down says
+         "executed through a signer-bearing runner") and the R-10 drain at the end
+         of the file (`drainQueue({… signer: new LocalCheckpointSigner(), label:
+         'periodic-r10-drain' })`). The full suite inventory, verified rather than
+         assumed: global-setup drain — no signer; crash-restart's local drain — no
+         signer; outbox-dispatch's `afterAll` — signer, since R-6;
+         `periodic-r10-drain` — signer; `periodic-finalize` — signer.
+
+         The obligation is unchanged either way, for the reason FAD-15 Layer 3
+         gives: the queue is shared, so a job this file leaves is every later
+         file's problem, and "some other file's teardown might get it" is not a
+         cleanup. Message only; the assertion is byte-identical. */
+      'this file must leave NO audit.* job behind — the queue is shared (FAD-15 Layer 3), ' +
+        'and every drain in any OTHER file except outbox-dispatch’s (R-6) is signer-less ' +
+        'and cannot execute one',
     ).toBe(0);
     log(
       `finalize: ${String(finalized)} periodic job(s) executed through a signer-bearing ` +

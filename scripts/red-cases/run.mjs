@@ -19,6 +19,12 @@ import {
   resolveEvidencePath,
 } from '../evidence-target.mjs';
 import { erroredReason } from './errored-signatures.mjs';
+import {
+  MIGRATION_PREFIX,
+  describeSupersessions,
+  findSupersededAnchors,
+  readMigrationSet,
+} from './migration-anchor-supersession.mjs';
 import { resolveTestPgPort } from '../sbx/test-port.mjs';
 
 /** NR-14: a plain run writes to scratch; `--refresh` updates the tracked file. */
@@ -1468,10 +1474,49 @@ const CASES = [
      * can NEVER reach approved, even claimed usable" must go red. Its own
      * MUTATION CONTROL (the identical flow with the finding removed, which must
      * stay green) is what proves the arm is not passing for some other reason;
-     * this proves the arm is not passing because nothing was ever checked. */
+     * this proves the arm is not passing because nothing was ever checked.
+     *
+     * ## Why the anchor is in 0020 and not in 0018 (R-8)
+     *
+     * The rule is WRITTEN in 0018, and this arm patched it there until R-5.
+     * Migration 0020 then did `CREATE OR REPLACE FUNCTION
+     * app_guard_build_run_transition()`, and `CREATE OR REPLACE` replaces a body
+     * WHOLE — so 0020 restates 0018's body in full, this validation gate
+     * included, and 0018's copy became dead text the moment 0020 was applied.
+     * `globalSetup` applies 0001..0020 before every run, so the live function is
+     * 0020's. The arm went on patching 0018, the anchor was still found there,
+     * nothing errored, and the arm reported PROVEN while its violation never
+     * reached the database: GREEN pass, RED pass, decorative. Bisected to 2ccf0db
+     * (CI run 32670293452, shard 10/13); PROVEN at c5ac1b3 immediately before.
+     *
+     * So the anchor moves to the LIVE definition. This is a re-founding, not a
+     * weakening — the gate, the assertion and the mutation control are untouched,
+     * and the arm is red again for exactly the one test it names.
+     *
+     * Re-anchoring onto the newest migration is the established discipline here,
+     * not a new invention: `work-profile-delete-capability` anchors in 0013 for
+     * functions first written in 0004 and replaced again in 0012, and
+     * `requires-expiry-flip-serialization` anchors in 0017 for functions first
+     * written in 0012. R-5 is the first time the step was missed, which is why
+     * `assertMigrationAnchorsAreLive()` now makes it impossible to miss quietly.
+     *
+     * TWO entries, same file and same anchor, deliberately. 0020's up body and
+     * its down body are byte-identical from the early return onward — the down
+     * body restores 0018 verbatim — so the anchor occurs twice and NO locally
+     * unique spelling of it exists. One entry would rely on `String.replace`
+     * taking the first occurrence, which is the up body today and is true only
+     * by the order the file happens to be written in. Two entries neuter both
+     * bodies, which makes the arm independent of that ordering; the cycle's
+     * midway leg is unaffected either way (verified: exactly one test fails,
+     * 145 pass, in both the one-entry and the two-entry spelling). */
     patch: [
       {
-        file: 'apps/api/migrations/0018_build_lifecycle.sql',
+        file: 'apps/api/migrations/0020_build_termination_facts_frozen.sql',
+        find: "        IF v_blocking > 0 THEN",
+        replace: "        IF false THEN -- red case: the validation gate is neutered",
+      },
+      {
+        file: 'apps/api/migrations/0020_build_termination_facts_frozen.sql',
         find: "        IF v_blocking > 0 THEN",
         replace: "        IF false THEN -- red case: the validation gate is neutered",
       },
@@ -2051,6 +2096,45 @@ const CASES = [
     greenCommand: ['run', 'gate:unit:builds'],
     redCommand: ['run', 'gate:unit:builds'],
   },
+  {
+    id: 'red-case-migration-anchor-supersession',
+    gate: 'a migration arm anchors its violation in the LIVE function body (R-8)',
+    violation: 'the supersession preflight reports nothing, whatever it is given',
+    /* The second of the runner's own controls, and it exists because the first
+     * one's reasoning applies here word for word: every migration arm's
+     * falsifiability now rests on this preflight, and a preflight that silently
+     * stopped detecting anything would restore the exact defect it was written
+     * for.
+     *
+     * R-5's migration 0020 replaced `app_guard_build_run_transition` whole.
+     * `builds-validation-gate` went on patching 0018's copy of the same body,
+     * the anchor was still found, nothing errored, and the arm printed PROVEN
+     * for two commits with its violation never reaching the database. Bisected
+     * to 2ccf0db; PROVEN at c5ac1b3 immediately before.
+     *
+     * `assertMigrationAnchorsAreLive()` refuses the battery when that shape
+     * recurs. On a well-formed registry it is silent forever — so its positive
+     * direction is exercised only by `migration-anchor/check.mjs`, against
+     * fixtures, and only this arm proves that checker is not itself decorative.
+     *
+     * The violation makes `findSupersededAnchors` return nothing on every input.
+     * It is spelled compile-clean and still READS `problems`, so neither tsc nor
+     * the unused-variable rule blinds the arm — the FAD-52 lesson, and the same
+     * spelling discipline as `red-case-runner-errored-signatures` above.
+     *
+     * FAD-33(1) is satisfied structurally: the patched file is imported from
+     * SOURCE by the command below (a sibling `.mjs`, no build step, no `dist/`
+     * anywhere in the path). */
+    patch: [
+      {
+        file: 'scripts/red-cases/migration-anchor-supersession.mjs',
+        find: '\n  return problems;\n}',
+        replace: '\n  return problems.length === 0 ? problems : [];\n}',
+      },
+    ],
+    greenCommand: ['exec', 'node', 'scripts/red-cases/migration-anchor/check.mjs'],
+    redCommand: ['exec', 'node', 'scripts/red-cases/migration-anchor/check.mjs'],
+  },
 ];
 
 /* ── SP_RED_SHARD — the battery, split across CI runners ────────────────────
@@ -2179,6 +2263,32 @@ function selectShard(cases) {
 
   return selected;
 }
+
+/**
+ * Refuses the run when any arm's migration anchor sits in a superseded body.
+ *
+ * Checked across the WHOLE registry, never merely the selected shard: a
+ * decorative arm is a defect in the battery, so every shard must report it
+ * rather than only the one shard that happens to own the arm. Twelve red shards
+ * saying the same true sentence is the correct outcome; one shard silently
+ * carrying it is not.
+ *
+ * This runs at module scope, beside `selectShard`, so it lands before `main`
+ * and therefore before the build preflight and before any arm's GREEN leg — the
+ * same refuse-to-start posture as a shard spelling that selects nothing, and for
+ * the same reason. Exit code 2 marks a battery that was never run, distinct
+ * from the 1 that means an arm failed.
+ *
+ * @returns {void}
+ */
+function assertMigrationAnchorsAreLive() {
+  const problems = findSupersededAnchors(CASES, readMigrationSet(resolve(REPO_ROOT, MIGRATION_PREFIX)));
+  if (problems.length === 0) return;
+  writeFileSync(1, `\n${describeSupersessions(problems)}`);
+  process.exit(2);
+}
+
+assertMigrationAnchorsAreLive();
 
 /** The arms this process runs: all of them, unless `SP_RED_SHARD` narrows it. */
 const SELECTED_CASES = selectShard(CASES);
