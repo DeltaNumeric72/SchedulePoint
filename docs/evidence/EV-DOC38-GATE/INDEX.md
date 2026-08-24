@@ -36,6 +36,7 @@ halves. It does **not** cover the remaining §7 items (red-case battery,
 | 4a | `corepack pnpm --filter @schedulepoint/api migrate:cycle:embedded` | 11:56:26 | 11:56:31 | 0 | **0001–0020 applied BY NAME on an empty database**; `MIGRATION CYCLE CLEAN — up -> down -> up -> down -> up, 2838ms` | PASS | [`leg4a-schema-cycle.txt`](leg4a-schema-cycle.txt) |
 | 4b | `node scripts/gates/vitest-must-run.mjs` over the six named populated-cycle test files | 11:56:59 | 11:57:10 | 0 | **6 test files passed (6), 9 tests passed (9)** — migrations 0014, 0016, 0017, 0018, 0019, 0020 | PASS | [`leg4b-populated-cycles.txt`](leg4b-populated-cycles.txt) |
 | 5 | red-case battery, 67 arms both directions — **adjudicated in §7's PRIMARY form: sharded CI + union guard** (FAD-54; two serial local attempts terminated by a session-environment cap with ZERO arm failures, 15 arms proven both directions) | 12:01:19 | 12:59:19 (CI run 32724748023) | all jobs success | CI runs 32716033514 (`85efa2b`) and 32724748023 (`007dfef`): 13 shards + `red-case shard completeness`, every job success, attempt 1 | PASS (FAD-54) | [`leg5-red-cases.txt`](leg5-red-cases.txt) · [`leg5-adjudication.txt`](leg5-adjudication.txt) |
+| 6 | fixture-regression per-seed (13 fixed + rotating; nightly argv + `--no-cache` per R-9) — **STOPPED AT A DEFECT after 8 of 14 runs** (FAD-15 ruling 3): seeds 1/7/42/424242/20260803/31337/99991 PASS (141 files / 1460 tests each, 14 known env skips), seed **123456 FAIL** — `test/tenancy/unit-of-work.test.ts` T-15 storm timed out at 120 000 ms at position 111/142; cost linear in inherited partitions (R²=0.9892), 0 wrong-tenant rows everywhere; routed as **R-13**; the item re-runs in full on the repaired tip | 13:44:10 | 16:31:01 | mixed (7×0, 1×1) | see the RISK-REGISTER group-C entry | STOPPED — defect routed | `leg6-seed-*.txt` (8 files, uncut) |
 
 **Group A verdict: 4 of 4 legs PASS. No failure, no defect, no deviation from the
 shipped commands.**
@@ -171,3 +172,4 @@ cluster.
 | `leg4b-populated-cycles.txt` | 5 423 | the six named populated-cycle tests |
 | `leg5-red-cases.txt` | 5 235 | the two terminated serial red-case attempts, kept unedited (15 arms proven both directions, zero failures) |
 | `leg5-adjudication.txt` | — | the FAD-54 adjudication with full job-level CI citations for runs 32716033514 and 32724748023 |
+| `leg6-seed-1.txt` … `leg6-seed-123456.txt` | 4.1 MB total (8 files) | fixture-regression per-seed runs, full uncut output; seed 123456 carries the T-15 storm timeout that routed R-13 |
