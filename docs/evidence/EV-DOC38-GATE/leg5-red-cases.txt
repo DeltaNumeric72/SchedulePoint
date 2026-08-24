@@ -1,0 +1,100 @@
+=== LEG 5 — red-case battery (doc 38 §7) ===
+Command: corepack pnpm red-cases
+Repository: /home/user/SchedulePoint
+HEAD: 007dfef99a098d7fa4738c51fbf0431d5eca8f6e
+Tree status at start (porcelain, expected empty apart from this transcript):
+?? docs/evidence/EV-DOC38-GATE/leg5-red-cases.txt
+Expected arm census: 67 (runner is authoritative; doc 38 §7's '65' predates R-5 and R-8)
+NOTE: an earlier invocation of this same unmodified command was terminated
+      externally at the 60-minute background-task cap, mid-arm-14, having
+      proven 13/13 attempted arms in both directions and leaving the tree
+      clean. No arm failed. This run is the full serial battery, run under
+      an untimed supervised watch. Nothing in the runner was modified.
+START UTC: 2026-08-24T13:04:09Z
+-----------------------------------------------------------------
+$ node scripts/red-cases/run.mjs
+
+=== preflight: building apps/web so the bundle arms have a bundle ===
+  built
+
+=== lint — lint (eslint) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+
+=== typecheck — typecheck (tsc -b) ===
+  GREEN (clean tree): gate passed
+  RED   (violation in tree): gate failed as required
+  swept 4 compiled red-case artifact(s) from dist/ (invisible to git status — OPUS-M4-004 §8.2)
+
+=== unit — unit tests (vitest) ===
+  GREEN (clean tree): gate passed
+[ELIFECYCLE] Command failed.
+-----------------------------------------------------------------
+
+#################################################################
+##  RUN INCOMPLETE — EXTERNALLY TERMINATED. NOT LEG-5 EVIDENCE. ##
+#################################################################
+
+This file does NOT record a completed red-case battery. It is retained only as
+the record of two externally terminated attempts. There is no runner summary
+line, no arm count, and no exit code, because the runner was killed before it
+produced any of them. Nothing below is inferred and nothing is filled in.
+
+The trailing `[ELIFECYCLE] Command failed.` on the line above is pnpm reporting
+that its own child was killed. It is NOT a gate result and NOT an arm failure.
+
+WHAT ACTUALLY HAPPENED
+----------------------
+Attempt 1 — START 2026-08-24T12:01:19Z, run via a background shell.
+  Terminated externally at ~60 min (the harness background-task cap), during
+  arm 14 of 67 (`provider-boundary-runtime-mutation`, the RUNTIME arm).
+  13 arms completed, ALL 13 PROVEN IN BOTH DIRECTIONS:
+    13 x "GREEN (clean tree): gate passed"
+    13 x "RED   (violation in tree): gate failed as required"
+  Arms proven: lint, typecheck, unit, import-boundary, route-policy,
+    migration-rls, invariant-ids, rule-node-mapping, solver-kind-parity,
+    rule-kind-registry, provider-boundary-unguarded,
+    provider-boundary-in-transaction, provider-boundary-owns-connection.
+  Zero FAIL, zero NOT PROVEN, zero ERRORED.
+  Full attempt-1 transcript preserved outside the repo, in the session
+  scratchpad, as leg5-ATTEMPT1-killed-at-60min.txt (2825 bytes).
+
+Attempt 2 — START 2026-08-24T13:04:09Z, run under a supervised watch requested
+  as untimed. The watch was nevertheless capped at 30 min and its termination
+  killed the battery with it, during arm 3 of 67 (`unit`), after that arm's
+  GREEN direction had passed. 2 arms completed, both PROVEN in both directions.
+  Zero FAIL, zero NOT PROVEN, zero ERRORED. This is the transcript above.
+
+TREE INTEGRITY AFTER BOTH KILLS
+-------------------------------
+`git status --porcelain` after each termination showed ONLY this untracked
+transcript: no injected violation was left behind, no tracked file was
+modified, and no child process survived. The runner's per-arm restore held
+even through an uncatchable external kill. This is a positive finding about
+the runner, recorded here because it was observed, not assumed.
+
+WHY THE RUN COULD NOT COMPLETE
+------------------------------
+The battery paces at ~13 arms/hour on this machine, so 67 arms is ~5.2 h,
+matching the packet's 5-8 h estimate. Every execution mechanism available in
+this environment caps below that:
+  - background shell task ......... killed at 60 min (observed, attempt 1)
+  - supervised watch, "persistent" . killed at 30 min (observed, attempt 2)
+  - detached process (setsid) ..... refused by the permission classifier;
+                                    NOT worked around, by design
+No available mechanism can host a ~5.2 h serial run. This is an environment
+constraint, not a defect in the runner, the gates, or any arm.
+
+NOT DONE, DELIBERATELY
+----------------------
+No script, gate, fixture, or arm was modified. No shard filter was used (the
+packet forbids it). No arm was skipped. No third attempt was made: two
+independent mechanisms have now established the cap, and repeating the run
+would be improvising rather than reporting. Under FAD-15 ruling 3 this is
+escalated to the orchestrator for a ruling on how to host the full serial
+battery, rather than being retried or partially credited.
+
+The 15 arm-proofs recorded across the two attempts are real and reproducible,
+but they are NOT the doc 38 §7 deliverable, which requires all 67 arms in one
+run with the runner's own summary line and exit 0. That deliverable does not
+exist yet.

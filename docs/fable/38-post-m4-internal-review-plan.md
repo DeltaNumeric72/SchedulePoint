@@ -299,6 +299,16 @@ shards + shard completeness).
 > (doc 36, EV-M4-005) are **not** retro-edited — FAD-53 rules them record-only and
 > carries the correction, and this amendment is the plan-side half of that ruling.
 
+> **AMENDMENT 2026-08-24 (FAD-54; census only).** The red-case battery item's
+> "65/65 arms" was the census when this plan was committed. Repair packet R-5
+> added a 66th arm (the migration-0020 freeze) and R-8 a 67th (the
+> migration-anchor supersession proof), so the item now demands **67/67 arms** —
+> the runner (`scripts/red-cases/run.mjs`) is authoritative for the census, and
+> the CI shard-completeness guard derives its union from the runner, so the
+> figure cannot silently drift again. Nothing else in the item changes: both
+> directions, sharded in CI with the union guard green, a serial local run
+> equivalent evidence. The requirement grows by two arms; nothing is relaxed.
+
 ## §8 GitHub branch, pull-request and evidence strategy
 
 - Plan, reports, evidence indexes, adjudications, and control-doc updates land through

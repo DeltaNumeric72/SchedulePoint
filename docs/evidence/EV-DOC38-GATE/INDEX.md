@@ -1,4 +1,4 @@
-# EV-DOC38-GATE — doc 38 §7 serial validation battery, GROUP A (legs 1–4)
+# EV-DOC38-GATE — doc 38 §7 validation battery evidence (updated per leg group)
 
 **Scope.** Legs 1–4 of the required final validation battery defined by
 [`docs/fable/38-post-m4-internal-review-plan.md`](../../fable/38-post-m4-internal-review-plan.md)
@@ -35,6 +35,7 @@ halves. It does **not** cover the remaining §7 items (red-case battery,
 | 3 | `corepack pnpm sbx` | 11:55:29 | 11:55:50 | 0 | **required 9 · executed 9 · passed 9 · failed 0 · blocked 0 · vacuous 0 · probe-error 0 · not-runnable 0**; **371 readings** across 7 contexts; **0 wrong-tenant rows**; **53 of 53 tables** observed with visible rows; all 9 probes FALSIFIABLE; audit chain 0 problems / 0 checkpoint problems on all three chains | PASS | [`leg3-sbx.txt`](leg3-sbx.txt) |
 | 4a | `corepack pnpm --filter @schedulepoint/api migrate:cycle:embedded` | 11:56:26 | 11:56:31 | 0 | **0001–0020 applied BY NAME on an empty database**; `MIGRATION CYCLE CLEAN — up -> down -> up -> down -> up, 2838ms` | PASS | [`leg4a-schema-cycle.txt`](leg4a-schema-cycle.txt) |
 | 4b | `node scripts/gates/vitest-must-run.mjs` over the six named populated-cycle test files | 11:56:59 | 11:57:10 | 0 | **6 test files passed (6), 9 tests passed (9)** — migrations 0014, 0016, 0017, 0018, 0019, 0020 | PASS | [`leg4b-populated-cycles.txt`](leg4b-populated-cycles.txt) |
+| 5 | red-case battery, 67 arms both directions — **adjudicated in §7's PRIMARY form: sharded CI + union guard** (FAD-54; two serial local attempts terminated by a session-environment cap with ZERO arm failures, 15 arms proven both directions) | 12:01:19 | 12:59:19 (CI run 32724748023) | all jobs success | CI runs 32716033514 (`85efa2b`) and 32724748023 (`007dfef`): 13 shards + `red-case shard completeness`, every job success, attempt 1 | PASS (FAD-54) | [`leg5-red-cases.txt`](leg5-red-cases.txt) · [`leg5-adjudication.txt`](leg5-adjudication.txt) |
 
 **Group A verdict: 4 of 4 legs PASS. No failure, no defect, no deviation from the
 shipped commands.**
@@ -168,3 +169,5 @@ cluster.
 | `leg3-sbx.txt` | 124 330 | `corepack pnpm sbx`, full scenario report |
 | `leg4a-schema-cycle.txt` | 24 116 | the empty-database schema cycle, 0001–0020 |
 | `leg4b-populated-cycles.txt` | 5 423 | the six named populated-cycle tests |
+| `leg5-red-cases.txt` | 5 235 | the two terminated serial red-case attempts, kept unedited (15 arms proven both directions, zero failures) |
+| `leg5-adjudication.txt` | — | the FAD-54 adjudication with full job-level CI citations for runs 32716033514 and 32724748023 |
