@@ -9,8 +9,38 @@
  * every test file alone.
  *
  * FAD-15 ruling 3, binding: **a rotating-seed failure is a defect to fix, never a
- * flake to retry.** The failing seed is printed so it is reproducible, and once a
- * seed exposes a defect it joins the fixed set below.
+ * flake to retry.** The failing seed is printed, and once a seed exposes a defect
+ * it joins the fixed set below.
+ *
+ * ## What the printed seed pins, and what it does not (NR-22)
+ *
+ * This used to say the failing seed "is printed so it is reproducible". That is
+ * false as worded, and NR-22 carries the measured basis: a seed pins the shuffle
+ * only **up to collection order**. `RandomSequencer.sort` is `shuffle(files,
+ * seed)` over whatever array collection hands it, with no canonical pre-sort, and
+ * the glob walk that builds that array is not stably ordered — the same seed in
+ * one checkout returned the same file SET in different orders on successive
+ * collections: five runs of this exact command over an identical 142-file set
+ * returned three distinct orders, differing in 15, 54 and 69 of 142 positions.
+ * The instability is LOCALISED — a given file may not move at all, and in those
+ * five collections `periodic.test.ts` held position 13 every time, which is why
+ * this bites intermittently rather than always. Across whole suite runs it moves
+ * much further: the two full seed-1 suite runs of R-11 and R-12 differed in 40 of
+ * 142 positions, moving `periodic.test.ts` from 132nd to 87th and so leaving it
+ * behind inherited backlogs of 893 and 232 jobs respectively — the same seed, a
+ * different order. Test order WITHIN a file is stable, and the results cache is
+ * excluded as a cause (shuffle replaces the cache-consulting sort outright).
+ *
+ * So a printed seed is a **lead, not a reproduction**: re-running it may not
+ * re-run the order that failed.
+ *
+ * **Reproduce by pinning the PRECONDITION the failure observed**, not the seed
+ * alone. For a queue-timing defect that precondition is the inherited backlog
+ * depth — FAD-53 R-12's seed-1 R-03 failure was reproduced at a fixed depth of
+ * 3011 jobs, deterministically and in about a minute, after the seed order itself
+ * proved unreproducible — and in general it is whatever measured state the
+ * failing assertion depended on. A reproduction that pins the state is also
+ * cheaper than one that re-runs 142 files hoping for the same draw.
  *
  * Not wired into `pnpm check`: that would mean editing the gate runner, which is
  * an escalation under this task's packet. Run it explicitly:
@@ -118,8 +148,20 @@ for (const seed of FIXED_SEEDS) {
 }
 
 // The rotating seed is what keeps the gate finding NEW couplings rather than only
-// re-proving the ones already fixed. It is printed before the run so a failure is
-// reproducible from the log alone.
+// re-proving the ones already fixed. It is printed before the run so the log names
+// the order that was ATTEMPTED — which is a lead, not a reproduction. This comment
+// used to claim a failure here was "reproducible from the log alone"; per NR-22 it
+// is not, because the seed pins the permutation only up to collection order and the
+// glob walk feeding it is not stably ordered (see the header). Reproducing a failure
+// from this log means pinning the precondition the failing assertion observed — for
+// a queue-timing defect, the inherited backlog depth — rather than re-running the
+// seed and expecting the same file order.
+//
+// The operator line printed below still says "Reproduce with --sequence.seed=N".
+// That is left exactly as it is because this correction is comment-only by
+// construction (the executable text of this file is unchanged, and that is proved
+// rather than asserted); the same over-claim in printed output is recorded as
+// residue rather than repaired here.
 const rotating = Math.floor(Math.random() * 1_000_000);
 process.stdout.write(`\n2. ROTATING SEED — this run drew ${String(rotating)}\n`);
 process.stdout.write(
