@@ -135,6 +135,64 @@ suite composition, M5-000b first among them):
 - Closures recorded at this landing: **FU-01 CLOSED (first exit; NR-22 RETIRED)** ·
   **FU-03 CLOSED (arm 68 standing)** · the citation-sweep collision class generalized
   in the RISK-REGISTER (third instance: fixture data read as citations).
+### 5b. M5-000b — FINALIZED 2026-08-25 (issues against the PR #8 branch at `500e777`)
+
+**Scope: the SPEC-08 schema foundation and nothing that moves it.** Every table,
+constraint, and trigger the request/vacation lifecycles stand on — landed and proven
+BEFORE any lifecycle transaction exists, so M5-001/002/003 build on a schema whose
+invariants are already enforced and tested. **NO routes** (the route-policy gate's
+registry is untouched), no approval/commit transactions (§5.4's `APPROVE-VACATION` is
+M5-002's), no deadline machinery (§3 is M5-001's, `group_holidays` lands there), no
+solver projection (M5-004).
+
+**Part A — migrations (0021+; every `CREATE TABLE` with ENABLE + FORCE RLS + tenant
+policy in the same migration, per non-bypass rule 3 and the house pattern of
+0001–0020).** From SPEC-08 as amended 2026-08-01:
+
+- **`requests` aggregate root** (§1.1): the exact field list, `subtype` discriminator,
+  **D-7** `UNIQUE (membership_id, idempotency_key)`, **no nullable subtype columns**.
+- **The six subtype tables** (§1/§1.2): `request_availability`, `request_time_off`,
+  `request_no_call`, `request_shift_preference`, `request_shift_group_off`,
+  `vacation_selections` — each with **D-18** (`UNIQUE (request_id)` + composite FK
+  carrying `subtype` + `CHECK` discriminator match), **D-19** (required non-null /
+  prohibited null per §1.2, including time-off's exactly-one-of
+  `target_date`/`(range_start, range_end)`), and **D-20** (per-subtype status domain
+  on the root, §2's columns — `reversed` legal for the vacation column only,
+  `unsatisfied` for shift-preference only).
+- **The §2 transition matrices as a trigger** on `requests.status`: per-subtype legal
+  transitions exactly as tabulated, `expired` reachable from its three enumerated
+  source states only (V-31 — never a wildcard), `accepted_as_input → withdrawn` for
+  the two subtypes that carry it.
+- **Vacation carrier tables** (§5.2): `vacation_periods` (mode ∈ {quota, open},
+  state), `vacation_grants` with **D-21's two unconditional CHECKs**
+  (`units_consumed >= 0`; `units_consumed <= units_total + override_units`) and
+  `override_units` default 0 with `CHECK (override_units >= 0)` (V-28), **D-22**
+  `UNIQUE` one selection per (membership, period, week), **D-23**
+  `UNIQUE (selection_id, committed_to_version_id)`, `vacation_approval_commands`
+  with **D-26** `UNIQUE (selection_id, approval_idempotency_key)` (V-29).
+- **The §5.3 mapping groundwork — D-27 as a trigger**: on every
+  `subtype = 'vacation-selection'` root row, `requests.status` must equal the §5.3
+  mapping of `vacation_selections.status`; a mismatch raises. (The synchronized
+  writers arrive in M5-002/003; the enforcement exists first.)
+
+**Part B — domain ports + zod contracts, populated cycles.** Domain types and port
+signatures for the request aggregate and subtype records (`packages/domain` — imports
+NOTHING, per the layering); zod contracts for the same shapes (`packages/contracts`);
+no HTTP surface. Schema cycle 0001→(final) clean by name; **a populated cycle per new
+migration** (house pattern: rows written through production paths under real tenant
+context before the down/up), including negative proofs that D-18 (two subtype rows),
+D-19 (§1.2 violations, R-16's rejection half), D-20/transition-trigger (R-23's two
+named illegal expiries), D-27 (a deliberately desynchronised write), and **R-20/R-21's
+direct-UPDATE quota violations** are all REJECTED by the database — the unconditional
+CHECKs proven unconditional, on every path.
+
+**Acceptance battery (doc 42 §6):** validators · `corepack pnpm check` 17/17 ·
+red-cases at census 68 · migration schema cycle + the populated cycles above · one
+composed seeded `api` run green under the M5-000a sequencer (suite composition
+changes; the seed and counts reported, not assumed) · CI green on PR #8 before merge
+consideration. Delivery: worktree + patch from `500e777`; fresh Opus implementer;
+fresh Opus reviewer; delta by the reviewer; orchestrator lands and commits.
+
 | 1 | **M5-001 — request lifecycle core** | Subtype transition matrices (§2) domain+DB double enforcement; deadlines/expiry (§3, R-09, R-23); idempotent submission (R-11); withdrawal incl. accepted_as_input/consumed_by_build boundaries (R-22) and post-reflection revision requests (R-10); routes + policies (I-02, four-layer) | M5-000 |
 | 2 | **M5-002 — approvals** | Individual + batch approval/denial/comments (§4); over-quota advisory + audited override (R-06/R-07); D-21 last-unit race (R-05); reversal floor (R-08); quota CHECK integrity (R-20/R-21); approval idempotency (R-17/R-18/R-19) | M5-001 |
 | H | **M5-H — hygiene batch** | FU-06/07/08/13 (+FU-04 if not yet touched) | after M5-002, issues alone |
