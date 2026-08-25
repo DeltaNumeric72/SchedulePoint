@@ -1,5 +1,7 @@
 # PROJECT-STATUS
 
+**As of 2026-08-25 (later) — M5 ENTERED under the prototype-enablement checkpoint ([41](../41-prototype-enablement-checkpoint.md) · [42](../42-m5-entry-and-prerequisite-register.md)); PR #7 MERGED at `548aa24` with all 15 checks green; the binding M5 exit contract is SPEC-08 R-01..R-23 (the roadmap's R-01..14 predates the 2026-08-01 amendments); FU-01 is scheduled in M5-000.**
+
 **As of 2026-08-25 — THE REPLACEMENT-REVIEW GATE PASSES ([39](../39-replacement-gate-decision.md)); M3R CLOSED by substitution; the prototype-enablement checkpoint and M5 are next.**
 
 - **The doc 38 internal review is complete end to end.** Three fresh-Opus reviewers (REV-A · REV-B blind · REV-C consolidation) filed; all 28 consolidated findings ACCEPTED at filed severity (FAD-53); thirteen serial repair packets R-1..R-13 landed, each with a fresh implementer, an independent fresh reviewer, and delta verification by the finding's original reviewer or a recorded surrogate. Codex review: NOT PERFORMED · Codex-specific requirement: SUPERSEDED BY OWNER DECISION · replacement gate: FABLE-PLANNED, MULTI-OPUS-EXECUTED INTERNAL REVIEW. This was an internal review, not an external one.
