@@ -193,6 +193,96 @@ changes; the seed and counts reported, not assumed) · CI green on PR #8 before 
 consideration. Delivery: worktree + patch from `500e777`; fresh Opus implementer;
 fresh Opus reviewer; delta by the reviewer; orchestrator lands and commits.
 
+**ACCEPTED 2026-08-25** (fresh Opus implementer; independent fresh Opus review —
+ACCEPT WITH CONDITIONS, one condition C-1; condition round; delta CONFIRM by the
+same reviewer upgrading to ACCEPT). Migrations 0021 + 0022; 17 files, +5 892/−6.
+Dated facts of record:
+
+- **Battery:** validators 36/36 · 95/95 · research PASS · `pnpm check` 17/17 exit 0
+  (`route-policy` 113 UNCHANGED — no routes shipped; `migration-rls` 22 files) ·
+  citation gate green · populated cycles **35/35** (0021: 18; 0022: 17 after C-1's
+  added leg) · **red-cases census 68, all 68 arms proven both directions as a
+  COMPOSED record**: 67 in the serial full run plus `stale-edit-cas` proven in an
+  isolated `SP_RED_SHARD="23/68"` re-run after ERRORing in the full run to the
+  serial harness's shared-port cluster race (FU-21) — never to be described as a
+  single clean 68/68 run · composed seeded run at seed 20260826: 144 passed |
+  1 skipped files, 1 505 passed | 14 skipped tests, 1 258 s, exit 0 (pre-C-1
+  composition). **Collected count at landing: 1 520 — MEASURED twice at the delta**
+  (1 506 via `vitest list` with log-noise excluded + the 14 unlisted env-skips;
+  vitest's own filtered-run total `(1520)`); the GREEN claim at the new composition
+  is round 1's composed green plus the one added test proven in its own cycle run —
+  labelled derived, the sharded CI battery on this commit is its primary proof.
+- **Review evidence stronger than supplied:** the reviewer proved by MUTATION that
+  V-31's enumerated-expiry trigger is load-bearing (wildcarding it fails only
+  R-23), that the X-11 existence oracle was genuinely reachable pre-closure
+  (PK reduced to `(request_id)` reproduces foreign 23505 vs nonexistent 23503) and
+  the closure falsifier catches it, and — C-1 — that the D-27 both-legs proof
+  discriminated only the requests side. C-1's fix: one added leg driving the
+  selection twice in one transaction; the reviewer's exact mutation now fails that
+  test with the D-27 error raised at COMMIT, and reverts green (35/35).
+- **Three SPEC-08 findings, proven by test and independently confirmed at review**
+  (register: the M5-002/M5-004 finalizations carry them as BINDING notes):
+  (1) **§5.4's printed single-statement root update is not legal under §2** — no
+  `submitted → approved` vacation edge; the implementable writer is the two-step
+  through `under_review` inside one transaction, invisible to deferred D-27 at
+  commit. Deferred D-27 is LOAD-BEARING for §5.4's implementability. M5-002 MUST
+  write the two-step (approval and denial both). (2) **D-23 is vacuous as
+  spelled** (`selection_id` is the PK); declared with an in-migration statement
+  that it enforces nothing; an enforcing shape needs a commit-command ledger
+  SPEC-08 does not specify — M5-004's finalization carries the question.
+  (3) **§2's vacation domain admits `draft`/`under_review`/`superseded_by_revision`
+  which §5.3 never produces** — both layers implemented literally; the effective
+  set is the intersection; a SPEC-08 clarification amendment is a candidate for
+  the M5 exit sweep.
+- **Declared latitude decisions** (all orchestrator-ratified in-round, recorded in
+  the migration headers): D-19's prohibited half as column ABSENCE with an
+  enumerated schema test (strictly stronger than an always-NULL column);
+  `vacation_selections.request_id` NULLABLE with
+  `CHECK ((status='available') = (request_id IS NULL))` (the only reading that
+  keeps §5.3's `available` row live); D-18's zero-row half and D-27 as DEFERRED
+  constraint triggers reading CURRENT rows; `REQUEST_PREFERENCE_STRENGTHS =
+  low|medium|high` (renamed for a real TS2308 collision with the rules AST's
+  four-value SIGNED vocabulary — the M5-004 projection mapping is a real decision,
+  not an identity); **X-11 hardening: `organization_id` appended to nine keys**
+  including composite PKs `(request_id, organization_id)` on the five subtype
+  tables, closing a cross-tenant existence oracle (23505-vs-23503) proven closed
+  by an indistinguishability falsifier. The X-11 CONTROL's blindness to
+  caller-named PKs is FU-19.
+- **Obligations routed forward:** M5-001 — the SENSITIVE-PII narrowing on
+  `requests` + the six subtype tables (capability keys do not exist yet; inventing
+  one is rule 11 — recorded in 0021's header §5), the initial-INSERT status
+  decision (the matrix bounds UPDATE edges only; header §4), FU-20's
+  `allow_request`-flip half. M5-002 — the two-step writer (BINDING) and keeping
+  `override_reason` (new bounded free text, scheduler-authored) out of audit
+  payloads and notifications per I-07/ADR-0019. M5-003 — the
+  `vacation_selections.status` ordering matrix (only D-27 couples it to the root
+  today) and FU-20's period-shrink half. M5-004 — the D-23 commit-ledger question
+  and the preference-strength→weight mapping. §5b's own text: "group_holidays
+  lands there" was imprecise — the TABLE exists since 0005; M5-001 lands the roll
+  POLICY.
+- **Honesty corrections carried at landing:** the implementer's round-1 "prettier
+  clean on touched files" claim was inaccurate (5 new files flagged;
+  consequence-free — `format:check` is not a gate and the `d0063a7` baseline
+  already fails repo-wide) — withdrawn by the implementer, verified by the
+  reviewer. The PACKET TEXT's claim that solver tests self-skip without
+  `solver/.venv` was FALSE (orchestrator's error): they run and fail — 47
+  failures, all environmental; only the 14 `deterministic-cost` tests env-skip.
+- **Environment record (binding on every future packet's setup text):** three
+  environmental kills during this packet, none packet-caused — two container
+  pauses (~12:43Z, ~21:02Z) and one foreground-cap SIGTERM at the review (the
+  Bash tool hard-caps foreground calls at 10 minutes; a longer request is
+  silently truncated). A pause or kill leaves up to THREE kinds of debris, each
+  observed: (1) the scratchpad ancestor's `o+x` bit reverts to 700 — a property
+  of the pause itself, four sightings — so modes are RE-VERIFIED before every
+  db-backed leg, never set once; (2) an ownerless `.pgdata-test-55898` (no
+  postmaster.pid) that blocks the next cluster start; (3) SOURCE debris — a
+  SIGTERMed red-case arm leaves its violation mutation APPLIED with no restore
+  (`tsc -b`'s unused-symbol residue is the cheap detector). Mitigations: clock
+  interims as keep-awake, sub-hour invocations, the three-debris preflight.
+- Evidence: `m5000b.patch` md5 `9905a55464551cef9312497e77e97387` (this commit);
+  transcripts + INDEX (12 + 5 files, all four failed/killed attempts retained
+  with causes) in the session workspace; both agents' final reports.
+
 | 1 | **M5-001 — request lifecycle core** | Subtype transition matrices (§2) domain+DB double enforcement; deadlines/expiry (§3, R-09, R-23); idempotent submission (R-11); withdrawal incl. accepted_as_input/consumed_by_build boundaries (R-22) and post-reflection revision requests (R-10); routes + policies (I-02, four-layer) | M5-000 |
 | 2 | **M5-002 — approvals** | Individual + batch approval/denial/comments (§4); over-quota advisory + audited override (R-06/R-07); D-21 last-unit race (R-05); reversal floor (R-08); quota CHECK integrity (R-20/R-21); approval idempotency (R-17/R-18/R-19) | M5-001 |
 | H | **M5-H — hygiene batch** | FU-06/07/08/13 (+FU-04 if not yet touched) | after M5-002, issues alone |
