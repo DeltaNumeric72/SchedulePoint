@@ -1,0 +1,92 @@
+HEAD=fa9a4b71f94b795d6301f547fbd55d908ea6e017
+CMD=SP_SOLVER_WORKER_COMMAND=/home/user/SchedulePoint/solver/.venv/bin/python3 node scripts/run-in-workspace.mjs apps/web playwright test --config e2e/real-stack.config.ts
+NOTE=SP_REAL_STACK is set by globalSetup, not by the caller (FAD-50 C-3). SP_SOLVER_WORKER_COMMAND exported per the config docblock's documented invocation; scoped to this command only.
+START UTC: 2026-08-25T00:36:13Z
+-----------------------------------------------------------------------
+[real-stack] cluster started
+[real-stack] schema migrated: 20 migration(s)
+[real-stack] queue schema installed
+[real-stack] fixture provisioned
+[real-stack] actor activated and enrolled
+[api] pooler-mode assertion passed: one backend (24384) for the whole transaction, transaction-local setting survived within it and expired after it
+[api] graphile-worker: schema migrated
+[api] graphile-worker: 4 RLS table(s) policed for app_worker; app_enqueue_job installed (app_runtime holds no direct grant)
+[api] queue schema ready: 19 graphile-worker migration(s), 4 RLS table(s) policed for app_worker
+[api] AUDIT SIGNING KEY IS NOT ISOLATED: checkpoints are signed by a key held in this process (local stub, FAD-7). SPEC-11 §6 requires a separate trust domain; a checkpoint proves the signing path works and nothing about who produced it.
+[api] [core] INFO: Worker connected and looking for jobs... (task names: 'audit.checkpoint', 'audit.verify', 'outbox.dispatch')
+[api] outbox runner started: pool pool-980b23e7953267bf38, reclaimed 0 stale pool(s); periodic checkpoint and chain-verification jobs scheduled (SPEC-11 §2)
+[api] [core] INFO: Failed to read crontab file '/home/user/SchedulePoint/apps/api/crontab'; cron is disabled
+[api] [core] INFO: Worker connected and looking for jobs... (task names: 'build.solve')
+[api] build solve runner started: pool pool-4d61a3f43bfcc83ee1, reclaimed 0 stale pool(s); D-4b cap 2 concurrent solve(s) per organization
+[api] MFA SECRET KEY IS NOT ISOLATED: TOTP secrets are encrypted with a key held in this process. A database reader without the key recovers nothing; an actor with the process's environment recovers everything.
+[api] [worker(worker-8fca5020d59fd58579)] INFO: Completed task 1 (outbox.dispatch, 82.31ms) with success
+[api] [worker(worker-8fca5020d59fd58579)] INFO: Completed task 2 (outbox.dispatch, 31.92ms) with success
+[api] [worker(worker-8fca5020d59fd58579)] INFO: Completed task 3 (outbox.dispatch, 19.22ms) with success
+[api] [worker(worker-8fca5020d59fd58579)] INFO: Completed task 4 (outbox.dispatch, 26.25ms) with success
+[api] {"level":30,"time":1787618178208,"pid":24182,"hostname":"vm","msg":"Server listening at http://127.0.0.1:42277"}
+[api] [worker(worker-8fca5020d59fd58579)] INFO: Completed task 5 (outbox.dispatch, 34.13ms) with success
+[api] [worker(worker-8fca5020d59fd58579)] INFO: Completed task 6 (outbox.dispatch, 8.62ms) with success
+[api] [worker(worker-8fca5020d59fd58579)] INFO: Completed task 7 (outbox.dispatch, 8.33ms) with success
+[api] [worker(worker-8fca5020d59fd58579)] INFO: Completed task 8 (outbox.dispatch, 10.44ms) with success
+[api] [worker(worker-8fca5020d59fd58579)] INFO: Completed task 9 (outbox.dispatch, 13.59ms) with success
+[api] [worker(worker-8fca5020d59fd58579)] INFO: Completed task 10 (outbox.dispatch, 9.11ms) with success
+[real-stack] API healthy on 42277
+[api] [worker(worker-8fca5020d59fd58579)] INFO: Completed task 11 (outbox.dispatch, 16.60ms) with success
+real stack ready: origin http://127.0.0.1:42807 -> api 127.0.0.1:42277 -> postgres 127.0.0.1:55949
+[api] [worker(worker-8fca5020d59fd58579)] INFO: Completed task 12 (outbox.dispatch, 8.66ms) with success
+[api] [worker(worker-8fca5020d59fd58579)] INFO: Completed task 13 (outbox.dispatch, 12.95ms) with success
+[api] [worker(worker-8fca5020d59fd58579)] INFO: Completed task 14 (outbox.dispatch, 10.35ms) with success
+[api] [worker(worker-8fca5020d59fd58579)] INFO: Completed task 15 (outbox.dispatch, 8.25ms) with success
+[api] [worker(worker-8fca5020d59fd58579)] INFO: Completed task 16 (outbox.dispatch, 14.99ms) with success
+
+Running 2 tests using 1 worker
+
+[critical-path/desktop] STEP 0 join: GET http://127.0.0.1:42807/api/organizations/79da8b34-b543-429e-972f-65d0f03b0b48/groups/b85730ec-a51e-4239-b62f-933ed48d02aa/schedule/periods -> 200 with declaration {"contextVersion":{"organizationVersion":4,"groupVersion":4,"membershipSetVersion":8},"sessionEpoch":2}
+[critical-path/desktop] STEP 1 created period fe992292-9b9b-45ac-be49-55134a950ae2 in PostgreSQL
+[critical-path/desktop] STEP 5 created draft version d6e7bd48-3eb9-4552-a61a-5a3b62157c3b
+[critical-path/desktop] STEP 7 launched build run d20abb08-37e6-4fce-8b14-1a5552c6cc7d — real worker, real CP-SAT (/home/user/SchedulePoint/solver/.venv/bin/python3)
+[api] [worker(worker-5e52db78d5fafec769)] INFO: Completed task 17 (build.solve, 593.31ms) with success
+[critical-path/desktop] STEP 7 scheduler actions: build-submit
+[critical-path/desktop] STEP 7 states observed: build-state-draft_configuration, build-state-validating, build-state-completed
+[critical-path/desktop] STEP 7 terminal state: build-state-completed
+[critical-path/desktop] STEPS 8-9 validation/quality surfaces: usability="The independent check accepted this candidate. Zero hard violations." | quality panel rendered
+[critical-path/desktop] STEPS 10-11 review transitions: build-submit -> build-review -> build-approve
+[critical-path/desktop] STEPS 10-11 selection APPLIED: source d6e7bd48-3eb9-4552-a61a-5a3b62157c3b -> new draft aeff33ee-b943-410f-8734-554c28ef8542
+[critical-path/desktop] open new period: 0 request(s)
+[critical-path/desktop] save period: 2 request(s)
+[critical-path/desktop] save requirement: 2 request(s)
+[critical-path/desktop] qualifications (API, no browser surface): 1 request(s)
+[critical-path/desktop] create draft version: 2 request(s)
+[critical-path/desktop] open new configuration: 0 request(s)
+[critical-path/desktop] save configuration: 2 request(s)
+[critical-path/desktop] launch build: 2 request(s)
+[critical-path/desktop] select candidate into a new draft: 2 request(s)
+  ✓  1 [desktop] › e2e/critical-path.spec.ts:297:3 › the critical path, end to end, against the real stack › STEP 0 the join, then the workflow: period -> demand -> rules -> build (18.0s)
+[critical-path/mobile] STEP 0 join: GET http://127.0.0.1:42807/api/organizations/79da8b34-b543-429e-972f-65d0f03b0b48/groups/b85730ec-a51e-4239-b62f-933ed48d02aa/schedule/periods -> 200 with declaration {"contextVersion":{"organizationVersion":4,"groupVersion":4,"membershipSetVersion":8},"sessionEpoch":3}
+[critical-path/mobile] STEP 1 created period f10d503a-eaf4-4c8a-b5ab-36c6d074d92f in PostgreSQL
+[critical-path/mobile] STEP 5 created draft version b34ac548-0958-43de-8973-7f510f50640a
+[critical-path/mobile] STEP 7 launched build run d5f6475d-cbf1-4ccb-a595-f8b3393bf39a — real worker, real CP-SAT (/home/user/SchedulePoint/solver/.venv/bin/python3)
+[api] [worker(worker-5e52db78d5fafec769)] INFO: Completed task 18 (build.solve, 451.85ms) with success
+[critical-path/mobile] STEP 7 scheduler actions: build-submit -> build-run
+[critical-path/mobile] STEP 7 states observed: build-state-draft_configuration, build-state-queued, build-state-completed
+[critical-path/mobile] STEP 7 terminal state: build-state-completed
+[critical-path/mobile] STEPS 8-9 validation/quality surfaces: usability="The independent check accepted this candidate. Zero hard violations." | quality panel rendered
+[critical-path/mobile] STEPS 10-11 review transitions: build-submit -> build-run -> build-review -> build-approve
+[critical-path/mobile] STEPS 10-11 selection APPLIED: source b34ac548-0958-43de-8973-7f510f50640a -> new draft 0b85716e-7c18-460c-b1bb-5605091363fb
+[critical-path/mobile] open new period: 0 request(s)
+[critical-path/mobile] save period: 2 request(s)
+[critical-path/mobile] save requirement: 2 request(s)
+[critical-path/mobile] qualifications (API, no browser surface): 1 request(s)
+[critical-path/mobile] create draft version: 2 request(s)
+[critical-path/mobile] open new configuration: 0 request(s)
+[critical-path/mobile] save configuration: 2 request(s)
+[critical-path/mobile] launch build: 2 request(s)
+[critical-path/mobile] select candidate into a new draft: 2 request(s)
+  ✓  2 [mobile] › e2e/critical-path.spec.ts:297:3 › the critical path, end to end, against the real stack › STEP 0 the join, then the workflow: period -> demand -> rules -> build (13.7s)
+[real-stack] the API process exited with null
+
+  2 passed (48.4s)
+-----------------------------------------------------------------------
+END UTC: 2026-08-25T00:37:02Z
+EXIT=0
+WALL=49s

@@ -59,6 +59,42 @@ export const explanationStateSchema = z.enum([
 ]);
 export type ExplanationStateWire = z.infer<typeof explanationStateSchema>;
 
+/**
+ * **The RESULT-side reproducibility verdict, as a NAMED wire vocabulary**
+ * (FAD-49; FAD-52; GH-008's typed-label-record follow-up).
+ *
+ * The same six members, in the same order, as the inline enum this replaces —
+ * the parsed shape does not move. What moves is that the set now has a NAME, so
+ * a surface can be typed against it instead of against `string`.
+ *
+ * That is not cosmetic. `apps/web`'s label table was
+ * `Readonly<Record<string, string>>`, which is total over nothing: FAD-52 added
+ * `stopped-early` to this enum, and the only thing that stopped the page falling
+ * back to rendering a raw enum name was a person remembering to add a label. A
+ * `Record<ResultReproducibilityVerdictWire, string>` cannot compile without one.
+ * The convention is the same as `buildRunStateSchema` and
+ * `explanationStateSchema` above.
+ */
+export const resultReproducibilityVerdictSchema = z.enum([
+  'reproducible',
+  'wall-clock-truncated',
+  /* FAD-52. The run FINISHED, the wall clock is not established as the stop,
+     and the deterministic budget went demonstrably unspent — so something else
+     stopped it and the record does not say what. Never conflated with
+     `wall-clock-truncated`: that verdict names a cause this one deliberately
+     does not. */
+  'stopped-early',
+  /* FAD-50 B-1. A run something ENDED — cancelled, deadlined, killed, crashed,
+     or refused before it began. Distinct from `unrecorded`, where the facts are
+     missing rather than damning. */
+  'interrupted',
+  'best-effort',
+  'unrecorded',
+]);
+export type ResultReproducibilityVerdictWire = z.infer<
+  typeof resultReproducibilityVerdictSchema
+>;
+
 /* ────────────────────────────────────────────────────────────────────────────
  * Configurations
  * ──────────────────────────────────────────────────────────────────────────── */
@@ -469,22 +505,7 @@ export const buildRunDetailSchema = z
      */
     resultReproducibility: z
       .object({
-        verdict: z.enum([
-          'reproducible',
-          'wall-clock-truncated',
-          /* FAD-52. The run FINISHED, the wall clock is not established as the
-             stop, and the deterministic budget went demonstrably unspent — so
-             something else stopped it and the record does not say what. Never
-             conflated with `wall-clock-truncated`: that verdict names a cause
-             this one deliberately does not. */
-          'stopped-early',
-          /* FAD-50 B-1. A run something ENDED — cancelled, deadlined, killed,
-             crashed, or refused before it began. Distinct from `unrecorded`,
-             where the facts are missing rather than damning. */
-          'interrupted',
-          'best-effort',
-          'unrecorded',
-        ]),
+        verdict: resultReproducibilityVerdictSchema,
         reproducible: z.boolean(),
         detail: z.string().min(1),
       })

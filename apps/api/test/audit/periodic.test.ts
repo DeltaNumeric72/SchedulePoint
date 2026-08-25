@@ -14,7 +14,7 @@ import { adminClient } from '../support/admin-client.js';
 import { groupContext, organizationContext } from '../support/fixtures.js';
 import { createRuntime, log, type Runtime } from '../support/harness.js';
 import { ownedMulti } from '../support/owned-multi.js';
-import { drainQueue } from '../support/queue.js';
+import { drainableJobCount, drainQueue } from '../support/queue.js';
 
 /**
  * FAD-15 Layer 2 — this file owns its tenant.
@@ -223,7 +223,29 @@ afterAll(async () => {
     const finalized = await finalizeAuditJobs();
     expect(
       (await auditJobs()).length,
-      'this file must leave NO audit.* job behind — no other drain in the suite can execute one',
+      /* Was "no other drain in the suite can execute one", which stopped being
+         true at FAD-53 R-6: `outbox-dispatch.test.ts`'s `afterAll` drain now
+         carries a `LocalCheckpointSigner`, so that ONE hook in ONE other file
+         can execute an `audit.*` job.
+
+         The scope word is "other", and it is load-bearing. THIS file's own two
+         drains are signer-bearing and always were — `finalizeAuditJobs()` above
+         (`startOutboxRunner({… signer …, label: 'periodic-finalize' })`, the very
+         drain this assertion checks, which is why the `log()` two lines down says
+         "executed through a signer-bearing runner") and the R-10 drain at the end
+         of the file (`drainQueue({… signer: new LocalCheckpointSigner(), label:
+         'periodic-r10-drain' })`). The full suite inventory, verified rather than
+         assumed: global-setup drain — no signer; crash-restart's local drain — no
+         signer; outbox-dispatch's `afterAll` — signer, since R-6;
+         `periodic-r10-drain` — signer; `periodic-finalize` — signer.
+
+         The obligation is unchanged either way, for the reason FAD-15 Layer 3
+         gives: the queue is shared, so a job this file leaves is every later
+         file's problem, and "some other file's teardown might get it" is not a
+         cleanup. Message only; the assertion is byte-identical. */
+      'this file must leave NO audit.* job behind — the queue is shared (FAD-15 Layer 3), ' +
+        'and every drain in any OTHER file except outbox-dispatch’s (R-6) is signer-less ' +
+        'and cannot execute one',
     ).toBe(0);
     log(
       `finalize: ${String(finalized)} periodic job(s) executed through a signer-bearing ` +
@@ -418,7 +440,100 @@ describe('SPEC-11 §2 — the verification sweep ALERTS', () => {
 });
 
 describe('R-03 — the jobs are REGISTERED, not merely written', () => {
+  /**
+   * **FAD-53 R-12 — this test ESTABLISHES its queue precondition rather than
+   * assuming it.**
+   *
+   * ## The defect, measured rather than reasoned about
+   *
+   * At shuffle seed 1 this test failed with `expected 2 to be 3` after 30 139 ms,
+   * and the count was right: the sweep had simply not run yet. The mechanism is
+   * arithmetic, not a race.
+   *
+   * graphile-worker claims jobs FIFO by `(priority, run_at, id)`, and
+   * `app_enqueue_job` exposes **no priority** — deliberately, for the reason
+   * `db/queue-schema.ts` gives ("each of those is a behaviour the outbox would
+   * then have to reason about"). So the job this test enqueues is always LAST in
+   * the queue, and the runner it starts at concurrency 1 must finish every job
+   * an earlier file left behind before it can reach the one it is measuring.
+   *
+   * Seed 1's numbers, read off the job ids in the transcript:
+   *
+   * | | |
+   * |---|---|
+   * | drainable backlog inherited when the file started | **893** `outbox.dispatch` jobs (ids 601–1493) |
+   * | this test's own `audit.checkpoint` | id **1494** — last |
+   * | reached by this runner inside the 30 s budget | ids 601 → **1448** (≈35.5 ms/job) |
+   * | shortfall | **46 jobs, ~1.7 s** |
+   *
+   * `893 × 35.5 ms = 31.7 s` against a `30.0 s` budget — 6 % over. The job was
+   * never stuck: the very next runner in this file executed it in 11 ms.
+   *
+   * ## Why the repair is here and not in the producers
+   *
+   * `support/queue.ts` states the rule this implements, FAD-15 Layer 3: *"a file
+   * that starts a worker must **establish and assert** its precondition rather
+   * than assume it"*. This test starts a worker; the backlog is not a defect in
+   * whichever files published it (the queue is shared and is not a tenant table),
+   * and `crash-restart.test.ts`'s block B already establishes the same
+   * precondition the same way. The drain is the PRODUCTION path — a real
+   * `startOutboxRunner` with the real `DatabaseOutboxSink` — never a `DELETE`.
+   *
+   * ## The drain's own budget, and the multiplier
+   *
+   * `drainQueue`'s default cap is a fixed 45 s, which would itself be a bet once
+   * the backlog is deep enough, so the cap is scaled off the depth measured one
+   * line above it: **150 ms per inherited job**, floored at the helper's 45 s.
+   * 150 ms is **4.2×** the 35.5 ms/job the seed-1 run actually cost on a loaded
+   * runner (an idle one measured 11–16 ms/job), so the cap binds only if a
+   * machine is more than four times slower than the one that produced the
+   * finding — and when it does bind it fails loudly, naming the precondition,
+   * instead of expiring into a false claim about checkpoints. The floor keeps
+   * the helper's existing behaviour for any backlog under 300 jobs.
+   *
+   * ## Provenance
+   *
+   * Latent since the file was created (`946fc72`): the polling loop and the 30 s
+   * deadline are unchanged since then, the block differing only by FAD-15's
+   * `ALPHA` → `ALPHA()` accessor. It became reachable once the suite's outbox
+   * production exceeded ~30 s of drain time, and seed 1 is the first fixed seed
+   * to place this file late enough to inherit that much. It was **not**
+   * introduced by any FAD-53 repair packet — reproduced with the same assertion
+   * text at `d28f669`, the commit before R-6 gave `outbox-dispatch.test.ts`'s
+   * drain its signer.
+   *
+   * ## What this does NOT do
+   *
+   * It does not relax anything. The 30 s budget, the end-to-end path through
+   * `app_enqueue_job`, and the absolute `toBe(before + 1)` assertion below are
+   * byte-identical to the version that failed. With the precondition established
+   * the same assertion passes in ~400 ms.
+   */
   it('enqueuing audit.checkpoint by name makes the real runner write a checkpoint', async () => {
+    /* ── the precondition: no drainable job ahead of this test's own ──────── */
+    const inherited = await drainableJobCount(admin);
+    const drained = await drainQueue({
+      worker: worker.runner,
+      admin,
+      label: 'periodic-r03-precondition',
+      // With a signer, so an `audit.*` job in the backlog is executed rather
+      // than waited on — R-10's reason, unchanged.
+      signer,
+      timeoutMs: Math.max(45_000, inherited * 150),
+    });
+    expect(
+      await drainableJobCount(admin),
+      'R-03 PRECONDITION: the shared queue must hold no drainable job before this test ' +
+        'enqueues its own. graphile-worker is FIFO and `app_enqueue_job` exposes no priority, ' +
+        "so a backlog left by an earlier file is work THIS test's runner must finish before " +
+        'it can reach the job it measures — 893 inherited jobs at 35.5 ms each is 31.7 s ' +
+        'against a 30 s budget (FAD-15 Layer 3, FAD-53 R-12)',
+    ).toBe(0);
+    log(
+      `R-03 precondition: inherited ${String(inherited)} drainable job(s), ` +
+        `${String(drained)} executed through the production drain; the queue is now empty`,
+    );
+
     // The end-to-end proof. Calling `runCheckpointSweep` directly would show
     // that it works and say nothing about whether anything ever calls it; this
     // goes through `app_enqueue_job`, the queue, and the task list the runner

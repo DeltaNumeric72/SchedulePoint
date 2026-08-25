@@ -1,0 +1,86 @@
+=== LEG 5 — ADJUDICATION (orchestrator ruling FAD-54) ===
+Adjudicated: 2026-08-24T13:45:00Z, on the executor's escalation in
+leg5-red-cases.txt (two externally terminated serial attempts, ZERO arm
+failures, escalation per FAD-15 ruling 3 — escalation is success behaviour).
+
+RULING. Doc 38 §7 names the red-case battery's evidence form itself:
+"the complete red-case battery (... arms, both directions — SHARDED IN CI,
+with the union guard green; a serial local run is equivalent evidence)".
+The sharded-CI form is the item's primary form; the serial local run is the
+permitted equivalent, and it is the form this battery attempted first. The
+serial local run is blocked by a session-environment execution cap, not by
+any defect: the runner was killed externally at ~60 min (background task cap)
+and at ~30 min (monitor cap), 15 arms proven both directions across the two
+attempts, no FAIL / NOT PROVEN / ERRORED, per-arm restore held through both
+uncatchable kills, tree clean after each. Leg 5 is therefore ADJUDICATED
+SATISFIED IN ITS PRIMARY FORM by the GitHub CI evidence below, which executed
+the complete 67-arm battery on this exact tree content, in shards, with the
+union completeness guard deriving its census from the runner itself.
+
+Nothing is weakened by this ruling: the same runner, the same 67 arms, both
+directions, plus the completeness guard, executed twice on the final
+candidate's tree. The serial local attempt and its termination are recorded
+beside this ruling rather than erased.
+
+CI CITATIONS (repository DeltaNumeric72/SchedulePoint, workflow CI, both
+runs attempt 1, conclusion success on every job, verified via the GitHub API
+on 2026-08-24):
+
+Run 32716033514 — head 85efa2b2ffb8dc2b53c2a47d2a8ac7bbd73678af
+  (the docket-close commit; identical gate/arm content to 007dfef, which
+  added only docs/evidence files), created 2026-08-24T10:17:29Z:
+  97397345706 gate battery                      success 10:17:33..10:41:17
+  97397346262 red-case proofs (shard 0)         success 10:17:34..10:57:13
+  97397346313 red-case proofs (shard 1)         success 10:17:33..10:36:51
+  97397345991 red-case proofs (shard 2)         success 10:17:33..11:18:02
+  97397346162 red-case proofs (shard 3)         success 10:17:33..10:40:04
+  97397346338 red-case proofs (shard 4)         success 10:17:32..10:22:47
+  97397346166 red-case proofs (shard 5)         success 10:17:32..10:19:29
+  97397346472 red-case proofs (shard 6)         success 10:17:32..10:22:40
+  97397346282 red-case proofs (shard 7)         success 10:17:32..10:49:21
+  97397346351 red-case proofs (shard 8)         success 10:17:32..10:47:25
+  97397346276 red-case proofs (shard 9)         success 10:17:32..10:38:28
+  97397346245 red-case proofs (shard 10)        success 10:17:32..10:54:50
+  97397346212 red-case proofs (shard 11)        success 10:17:33..10:54:22
+  97397346399 red-case proofs (shard 12)        success 10:17:34..10:19:42
+  97412656172 red-case shard completeness       success 11:18:04..11:18:13
+
+Run 32724748023 — head 007dfef99a098d7fa4738c51fbf0431d5eca8f6e
+  (the group-A evidence commit; the leg-5 baseline HEAD), created
+  2026-08-24T12:00:05Z:
+  97423421563 gate battery                      success 12:00:08..12:28:55
+  97423421801 red-case proofs (shard 0)         success 12:00:09..12:39:14
+  97423421838 red-case proofs (shard 1)         success 12:00:09..12:14:42
+  97423421776 red-case proofs (shard 2)         success 12:00:08..12:59:04
+  97423421693 red-case proofs (shard 3)         success 12:00:08..12:22:19
+  97423421628 red-case proofs (shard 4)         success 12:00:08..12:06:12
+  97423422029 red-case proofs (shard 5)         success 12:00:08..12:02:00
+  97423421935 red-case proofs (shard 6)         success 12:00:08..12:05:22
+  97423421919 red-case proofs (shard 7)         success 12:00:09..12:31:55
+  97423421843 red-case proofs (shard 8)         success 12:00:08..12:29:23
+  97423422014 red-case proofs (shard 9)         success 12:00:09..12:30:31
+  97423421861 red-case proofs (shard 10)        success 12:00:08..12:29:15
+  97423421834 red-case proofs (shard 11)        success 12:00:09..12:37:00
+  97423421912 red-case proofs (shard 12)        success 12:00:09..12:02:06
+  97439974534 red-case shard completeness       success 12:59:07..12:59:19
+
+The census: `grep -c "^    id: " scripts/red-cases/run.mjs` = 67 on this
+tree; the shard-completeness job derives the shard union from the runner
+itself (the OPUS-GH-010 design), so a dropped arm fails that job — the
+union guard IS the completeness proof for the sharded form. Doc 38 §7's
+"65/65" figure predates repair packets R-5 (arm 66) and R-8 (arm 67); the
+plan carries a dated census amendment landed with this record.
+
+RECORDED FACTS RIDING THIS ADJUDICATION:
+1. Session-environment cap, for future battery planning in this environment:
+   a background shell task is killed at ~60 min; a monitor-supervised task at
+   ~30 min, with the kill propagating to the supervised child; detached
+   process creation is refused by the permission layer. Long serial runs must
+   be decomposed into sub-hour invocations (the group-C fixture-regression
+   legs are planned per-seed for exactly this reason).
+2. The token "OPUS-M4-004 §8.2" in leg5-red-cases.txt line 27 is a task-packet
+   stable ID quoted verbatim from runner output (the same ID family as
+   OPUS-M0-002 in CLAUDE.md), not a model identifier; the capture is kept
+   unedited rather than falsified.
+3. The 15 serial arm-proofs (13 + 2, both directions each) are supplementary
+   corroboration only; they are not counted as the leg deliverable.

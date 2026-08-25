@@ -1,0 +1,180 @@
+=== LEG 1 — validators (doc 38 §7) ===
+Repository: /home/user/SchedulePoint
+HEAD: 85efa2b2ffb8dc2b53c2a47d2a8ac7bbd73678af
+Tree status (porcelain, expected empty):
+?? docs/evidence/EV-DOC38-GATE/
+LEG START UTC: 2026-08-24T11:21:48Z
+
+--- 1a: python3 docs/fable/validate.py ---
+START UTC: 2026-08-24T11:21:48Z
+1a. All 25 numbered deliverables (00-24) exist                                               PASS
+1b. All 13 control documents exist                                                           PASS
+2a. Baseline defines 58 capabilities                                                         PASS
+2b. Every capability has a parity-matrix row                                                 PASS
+2c. Every parity row maps to a milestone                                                     PASS
+3a. Parity tallies sum to 58                                                                 PASS
+4a. Roadmap defines M0..M12                                                                  PASS
+4b. Every milestone has an Exit criterion                                                    PASS
+4c. Compact sequence table present (§6a)                                                     PASS
+5a. Exactly three task packets defined                                                       PASS
+5b. Packets carry field: Escalation conditions (x3)                                          PASS
+5b. Packets carry field: Fable review checklist (x3)                                         PASS
+5b. Packets carry field: Required evidence (x3)                                              PASS
+5b. Packets carry field: Prohibited files (x3)                                               PASS
+5b. Packets carry field: Acceptance criteria (x3)                                            PASS
+5b. Packets carry field: Tenant-isolation requirements (x3)                                  PASS
+5c. Packets are marked not-executed                                                          PASS
+5d. Three finalized M1 packets exist and are marked NOT ISSUED                               PASS
+5e. M1 packets carry field: Escalation conditions (x3)                                       PASS
+5e. M1 packets carry field: Fable acceptance checklist (x3)                                  PASS
+5e. M1 packets carry field: Tenant-isolation requirements (x3)                               PASS
+5e. M1 packets carry field: Acceptance criteria (x3)                                         PASS
+5e. M1 packets carry field: Prohibited files (x3)                                            PASS
+5e. M1 packets carry field: Required evidence (x3)                                           PASS
+6a. All 20 product decisions appear in the resolution record                                 PASS
+6b. All 15 technology gates resolved                                                         PASS
+6c. OI-1..7 addressed                                                                        PASS
+6c. EV-1..8 addressed                                                                        PASS
+6d. FD-1..FD-4 present                                                                       PASS
+7a. No stale blocking language in live control docs                                          PASS
+7b. PROJECT-STATUS names the milestone authorization boundary                                PASS
+8a. All relative markdown links resolve                                                      PASS
+9a. Referenced file exists: internal-verification-2026-08-01.md                              PASS
+9a. Referenced file exists: SPEC-01-request-context-and-tenant-isolation.md                  PASS
+9a. Referenced file exists: SPEC-02-picklist-turn-transaction.md                             PASS
+10a. Docs tree contains no application code                                                  PASS
+
+36 assertions, 36 passed, 0 failed.
+EXIT=0
+END UTC: 2026-08-24T11:21:48Z
+
+--- 1b: python3 docs/architecture/validate.py ---
+START UTC: 2026-08-24T11:21:48Z
+1. README.md present                                                                                    PASS
+2. architecture-manifest.json present                                                                   PASS
+3. All 19 numbered documents present                                                                    PASS
+4. At least 15 ADRs present (23 after remediation)                                                      PASS
+5. ADR filenames match those referenced by the documents                                                PASS
+6. Mermaid diagram sources present                                                                      PASS
+7. Verified-source reference file present                                                               PASS
+8. Draft agent-guidance files present                                                                   PASS
+9. Every ADR has all nine required sections                                                             PASS
+10. Every ADR is marked PROPOSED                                                                        PASS
+11. No ADR is marked accepted                                                                           PASS
+12. Capability ids read from the baseline report                                                        PASS
+13. All 58 capabilities appear in the traceability document                                             PASS
+14. Every capability entry carries all 17 mapping fields                                                PASS
+15. No capability is mapped only to future work                                                         PASS
+16. No capability carries a prohibited disposition                                                      PASS
+17. Every capability has a production gate                                                              PASS
+18. All five approved decisions are recorded                                                            PASS
+19. All eighteen pending decisions are retained                                                         PASS
+20. The pending count is stated (18 tabled + restored PO-DEC-10 = 19)                                   PASS
+21. No pending decision is marked approved                                                              PASS
+22. PO-DEC-10 is restored to the register as pending, ID preserved                                      PASS
+23. No gate is declared passed                                                                          PASS
+24. Package states explicitly that no test has been executed                                            PASS
+25. No compliance certification is claimed                                                              PASS
+26. Security document explicitly disclaims compliance                                                   PASS
+27. Every document is marked PROPOSED                                                                   PASS
+28. No tenant or customer identifier appears in the architecture package                                PASS
+29. Clean-room boundary stated in the README                                                            PASS
+30. Synthetic-data-only constraint stated in the testing document                                       PASS
+31. No application source, migration, or infrastructure file in the package                             PASS
+32. Root CLAUDE.md/AGENTS.md are installed, generated (not raw drafts), and carry the non-bypass rules  PASS
+33. Every relative link resolves                                                                        PASS
+34. Manifest is valid JSON and marked PROPOSED                                                          PASS
+35. Manifest capability totals match the baseline                                                       PASS
+36. Manifest records no gate as passed                                                                  PASS
+37. Manifest records 19 pending decisions, none approved                                                PASS
+38. Manifest records drafts as not installed                                                            PASS
+39. Manifest records that nothing is implemented or approved                                            PASS
+40. Every referenced data structure exists in the catalogue                                             PASS
+41a. Invariant IDs are unique in the registry                                                           PASS
+41b. I-05 means exactly one thing (automated scheduling)                                                PASS
+41c. The Add/New/Create save contract is I-13, not I-05                                                 PASS
+41d. All seven report-19 architecture blockers are represented                                          PASS
+41e. Manifest lists all seven architecture blockers                                                     PASS
+42a. Every referenced decision ID is present in the canonical register                                  PASS
+42b. PO-DEC-10 is restored to the canonical register                                                    PASS
+42c. No decision ID is reused for two subjects in the register                                          PASS
+43a. Every referenced ADR exists on disk                                                                PASS
+43b. Every referenced capability exists in the baseline                                                 PASS
+43c. Every referenced gate is a known gate                                                              PASS
+43d. Every referenced invariant ID is defined in the registry                                           PASS
+44a. Tenant context is transaction-local (SET LOCAL / set_config(...,true))                             PASS
+44b. Connection-checkout tenant context is explicitly withdrawn                                         PASS
+44c. FORCE ROW LEVEL SECURITY and non-owner roles are required                                          PASS
+44d. Fail-closed outside the unit of work is stated                                                     PASS
+45a. Published-version immutability is database-enforced (trigger, not prose)                           PASS
+45b. Version-scoped overlap constraint (D-1a) exists                                                    PASS
+45c. Exactly one current version per period (D-16)                                                      PASS
+46a. One accepted selection per turn (D-3a) is defined                                                  PASS
+46b. One claimant per work item (D-3b) is defined                                                       PASS
+46c. One open turn per picklist (D-3c) is defined                                                       PASS
+46d. Aggregate version / event sequence invariants exist                                                PASS
+46e. Coordinator fencing token is defined                                                               PASS
+47a. picklist_work_items carries no free-text description field                                         PASS
+47b. Work-item labels resolve to a controlled vocabulary                                                PASS
+47c. Rejection-not-sanitization is stated                                                               PASS
+47d. Quarantine stores no values and no hashes                                                          PASS
+48a. The solver runtime is an officially supported OR-Tools language                                    PASS
+48b. No document claims Node.js hosts the solver                                                        PASS
+48c. No live document states the one-image claim (negative assertion)                                   PASS
+49a. push_registrations retains retrievable delivery material                                           PASS
+49b. Delivery material is encrypted and role-restricted                                                 PASS
+49c. A separate hash is retained for lookup only                                                        PASS
+49d. S-05 (Push API) is recorded as a verified source                                                   PASS
+50a. Pending decisions outnumber approved and total 19                                                  PASS
+50b. No pending decision is described as approved                                                       PASS
+50c. PO-DEC-01's non-default branch creates no tables                                                   PASS
+50d. PO-DEC-03 resolution is recorded in SPEC-08 (no live pending claim)                                PASS
+51a. No unqualified claim of exactly-once external delivery                                             PASS
+51b. Ambiguous and unresolved delivery outcomes exist                                                   PASS
+52a. Documentation and research trees contain no application code                                       PASS
+52b. Implementation exists only in authorized locations                                                 PASS
+53a. Report 18 defines 39 unique SBX tests                                                              PASS
+53b. CAR-026 disposition matches reality (prose count [39] vs 39 headings; recorded OPEN=False)         PASS
+53c. Manifest SBX total matches the headings                                                            PASS
+54a. Remediation record exists                                                                          PASS
+54b. All 27 findings are dispositioned                                                                  PASS
+54c. Every finding carries all required fields                                                          PASS
+54d. The independent review is unmodified in this package                                               PASS
+55a. No live document states connect-time-only context/capability resolution                            PASS
+55b. Deleted table `assignment_versions` is never referenced as live                                    PASS
+55c. Every decision described as resolved appears in the resolution record                              PASS
+55d. Document 04 module count is self-consistent (stated == defined; no live 25-to-19 claim)            PASS
+55e. Every internal-verification finding is dispositioned in the corrections record                     PASS
+
+95 assertions, 95 passed, 0 failed.
+EXIT=0
+END UTC: 2026-08-24T11:21:48Z
+
+--- 1c: bash schedulepoint-research/validate.sh (from repository root) ---
+START UTC: 2026-08-24T11:21:48Z
+== Directories ==
+OK dir      : reports
+OK dir      : reports/inbox
+OK dir      : screenshots/navigation
+OK dir      : screenshots/schedule
+OK dir      : screenshots/requests
+OK dir      : screenshots/vacation
+OK dir      : screenshots/picklist
+OK dir      : screenshots/admin
+OK dir      : screenshots/errors
+
+== Required files ==
+OK file     : reports/manifest.json
+OK file     : reports/source-page-index.md
+OK file     : reports/evidence-register.md
+OK file     : reports/unresolved-questions.md
+OK file     : MASTER-CHECKLIST.md
+
+== manifest.json JSON validity ==
+OK json     : reports/manifest.json parses
+
+PASS: all required files and directories are present and non-empty.
+EXIT=0
+END UTC: 2026-08-24T11:21:48Z
+
+LEG END UTC: 2026-08-24T11:21:48Z

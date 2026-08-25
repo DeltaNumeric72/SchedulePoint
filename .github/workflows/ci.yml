@@ -11,6 +11,35 @@ name: CI
 # The second one matters more than it looks. A gate with a broken regex, a wrong
 # path, or an empty scan target reports PASS forever, and nobody finds out until
 # the thing it was supposed to prevent ships.
+#
+# ── The third surface, and why it is NOT in this file (FAD-53 repair R-11) ─────
+#
+# `.github/workflows/nightly.yml` runs the FAD-15 fixture-isolation battery on a
+# schedule — the 13 fixed seeds and a rotating one, sharded across a matrix
+# because the serial form measures ≈ 5.9 h against GitHub's 6 h per-job CAP. It
+# is a separate workflow deliberately: a `schedule:` trigger fires
+# EVERY job in the workflow it is added to, so putting one here would run the
+# 13-shard red-case matrix — issue #4 §1 estimates 8–9 BILLED HOURS per run —
+# every night, and the only way to stop that from inside this file is an
+# `if: github.event_name != 'schedule'` on the shard matrix and on the
+# completeness guard. Those two are exactly where such a guard must never go:
+# `red-cases-union`'s own comment says what a wrongly-skipped required job looks
+# like — "'not run yet' rather than as red", a failure reported as an absence.
+#
+# ADDED COST, stated here because billing is owner-reserved (issue #4 §1) and
+# nobody should have to derive it from a cron expression: the nightly adds an
+# estimated **420–450 billed runner-minutes PER DAY** (~7 h; roughly 13 000 per
+# month) — 14 parallel jobs, each ≈ 25 min of MEASURED suite time plus ≈ 5–7 min
+# of provisioning, times an unmeasured hosted-runner factor. Its wall clock is
+# ~35 minutes and its BILL is the serial sum; the two are easy to confuse. That
+# is an overage against the 2 000-minute allowance issue #4 describes, on its
+# own, before any push is counted. The levers — weekly instead of nightly (a
+# one-line cron edit), issue #4 §1's own lever 1 (deduplicated provisioning), or
+# a self-hosted runner — are named in that file's header. Disabling the battery
+# is not among them.
+#
+# Nothing about the two jobs below changes. No `if:` was added to any of them, no
+# check name moved, and the shard matrix and its union guard are byte-unchanged.
 
 on:
   push:
@@ -204,6 +233,95 @@ jobs:
           path: .evidence-scratch/scripts/check-output.txt
           if-no-files-found: warn
 
+      # ── The SBX battery ─────────────────────────────────────────────────────
+      #
+      # REV-C-004 (post-M4 internal review; FAD-53 repair packet R-11): doc 38 §7
+      # requires `sbx` at 9/9 in the final validation battery, and CI never ran
+      # it — "its only evidence is whoever last ran it locally". This step is the
+      # home that finding says it does not have.
+      #
+      # WHAT IT ACTUALLY BUYS, stated narrowly, because the honest answer is
+      # smaller than "SBX had no CI at all":
+      #
+      #   - the SCENARIOS already ran here. `gate:unit` is the whole-workspace
+      #     vitest run, the `api` project collects `test/**/*.test.ts`, and
+      #     `apps/api/test/sbx/sbx.test.ts` is inside it — which is exactly why
+      #     the solver-interpreter block above names `apps/api/test/sbx` as one
+      #     of the two directories that would fail without OR-Tools;
+      #   - what has NEVER run is `pnpm sbx` — `scripts/sbx/run-sbx.mjs`. That
+      #     entry point is what reads the scenario report back afterwards and
+      #     fails on "SBX run finished but wrote no scenario report — that is a
+      #     defect", and it is what emits the 9/9 scenario table doc 38 §7 asks
+      #     to see. An entry point nothing exercises is an entry point that stops
+      #     working without anybody finding out; that is the `red-cases` job's
+      #     own argument, pointed at the harness instead of at a gate.
+      #
+      # So: this step buys the harness and a citable artifact, not the coverage.
+      # Saying otherwise would be the "designed behaviour described as verified
+      # behaviour" this repository's reporting rule forbids.
+      #
+      # PLACEMENT — a step in THIS job rather than a job of its own. Three
+      # reasons, in order of weight:
+      #
+      #   1. **Required-check names.** Owner issue #4 §2 tells the owner which
+      #      checks to require on `main`: `red-case shard completeness` and
+      #      `gate battery`. A new job would add a check name that issue does not
+      #      list — so until the owner amended branch protection, a failing SBX
+      #      battery would not block a merge. As a step it fails `gate battery`,
+      #      which is already on that list, and NO existing check name moves.
+      #   2. **Provisioning.** The battery needs Node, the workspace install and
+      #      the solver interpreter — SBX-015 and SBX-017 run four REAL CP-SAT
+      #      solves through the venv worker — and this job has already paid for
+      #      every one of them. It needs no Playwright and no build. A separate
+      #      job would repeat the whole provisioning block a THIRD time,
+      #      including the ~100 MB OR-Tools fetch whenever the pip cache is cold,
+      #      to buy a battery measured at 30 seconds.
+      #   3. **Billed minutes are owner-reserved** (issue #4 §1). Point 2 is
+      #      therefore not merely inelegant: it is spending the owner's money on
+      #      provisioning rather than on evidence.
+      #
+      # COST — MEASURED LOCALLY, PROVISIONAL ON THE RUNNER, in the GH-002 voice.
+      # `corepack pnpm sbx` at b9909eb on a 4 vCPU / 15 GiB Linux box:
+      # **30 s wall, exit 0**, "scenarios required 9 · executed 9 · passed 9 ·
+      # failed 0 · blocked 0 · vacuous 0 · probe-error 0 · not-runnable 0",
+      # 371 (role, context, table) readings, 0 wrong-tenant rows, 53 of 53 tables
+      # observed with visible rows. NOTHING here has been measured on a hosted
+      # runner. At this repository's usual runner factor that is single-digit
+      # minutes inside a 45-minute ceiling whose measured content is ~11.4 min
+      # plus the solver suites, so the ceiling is left alone. THE FIRST REAL RUN
+      # MUST RECORD THE STEP'S ACTUAL DURATION; if it lands anywhere near the
+      # ceiling the answer is to revisit the ceiling with a number in hand, never
+      # to drop the step.
+      #
+      # NO `if:`, and the alternative was written out before it was rejected.
+      # Running this after a FAILED `pnpm check` (`if: !cancelled()`) was the
+      # first shape — the argument being that a lint failure should not erase the
+      # tenancy evidence. Two facts killed it. (1) `@schedulepoint/domain` and
+      # `@schedulepoint/contracts` export from `dist/`, and `dist/` is emitted by
+      # the TYPECHECK gate, which `scripts/check.mjs` runs SECOND. A failure at
+      # the lint gate therefore leaves no `dist/`, and the SBX step would report
+      # an unresolvable import — a wrong diagnosis stacked on a real one, which
+      # is the misattribution the solver-interpreter block above exists to have
+      # removed once already. (2) It would buy little: the SBX SCENARIOS are
+      # already inside the unit gate, so on a red tree their verdict is in the
+      # `pnpm check` output regardless. It is NOT `continue-on-error` either way
+      # — a failing SBX battery fails this job, as every gate here does.
+      - name: pnpm sbx (SBX 9/9 — doc 38 §7)
+        run: corepack pnpm sbx
+
+      # Same NR-14 reason as the gate transcript above: a plain `pnpm sbx` writes
+      # its scenario report and every retained artifact under the git-ignored
+      # scratch root at the same relative path, and only `--refresh` touches the
+      # tracked bundle. Pointing at `docs/evidence/EV-M2-SBX/` would upload
+      # whatever was last committed — the transcript of a run nobody made.
+      - name: Upload the SBX scenario report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbx-scenario-report
+          path: .evidence-scratch/docs/evidence/EV-M2-SBX/
+          if-no-files-found: warn
+
   # ── The red-case battery, sharded ─────────────────────────────────────────
   #
   # This job had never once completed on a hosted runner. Run 32601281611 is the
@@ -217,7 +335,7 @@ jobs:
   # position, so which shard a heavy arm lands in is NOT a choice — it is a
   # consequence of N, and the only lever is N itself.
   #
-  # ── The heavy-arm census, counted from the registry (65 arms) ──────────────
+  # ── The heavy-arm census, counted from the registry (67 arms) ──────────────
   #
   # Every arm runs its command TWICE, GREEN then RED, so each line below costs
   # twice what its suites cost once.
@@ -244,6 +362,22 @@ jobs:
   #     index 59  solver-demand-not-independently-checked  → shard 7
   #   builds subset (`gate:unit:builds`, a narrow vitest run)
   #     indices 48, 49, 50, 52                             → shards 9, 10, 11, 0
+  #     index 65  builds-termination-facts-unfrozen        → shard 0
+  #
+  # R-5 added index 65 and R-8 added index 66, both at the END of the registry,
+  # which is why every index above still reads as it did: appending changes no
+  # other arm's position, and therefore no other arm's shard. Shard 0 now carries
+  # two builds-subset arms (52 and 65) beside the full-unit arm at index 13. The
+  # builds subset is the cheapest of the four heavy classes and 67 is not 13 x 5,
+  # so shards 0 and 1 carry six arms where the rest carry five — arithmetic, not
+  # a choice, and the union guard below re-derives the registry either way.
+  #
+  # R-8's arm (66 -> shard 1) is NOT heavy and is deliberately absent from the
+  # census above: it runs `node scripts/red-cases/migration-anchor/check.mjs`
+  # twice, a static parse of two fixture files, in milliseconds. It joins shard 1
+  # beside `solver-objective-scale-drift` (index 53) without moving that arm's
+  # cost. R-8 also re-anchored index 49 onto migration 0020 — its command and its
+  # class are unchanged, so its line in the builds-subset census still holds.
   #
   # At N = 13 no shard carries two full-unit arms, no shard carries two axe arms,
   # and no shard carries both a full-unit and an axe arm. What it does NOT avoid,

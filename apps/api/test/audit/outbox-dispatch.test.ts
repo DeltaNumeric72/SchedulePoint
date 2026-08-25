@@ -6,6 +6,7 @@ import { sql } from 'kysely';
 import type pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { LocalCheckpointSigner } from '../../src/audit/checkpoint-signer.js';
 import { recordAuditEvent } from '../../src/audit/recorder.js';
 import { dispatchOutboxEvent } from '../../src/outbox/dispatcher.js';
 import { publishOutboxEvent } from '../../src/outbox/publisher.js';
@@ -98,6 +99,12 @@ beforeAll(async () => {
  * not in its task list) nor reclaim (`staleAfterMs` is an hour). See
  * EV-M4-002 §21. This hook is worth doing on its own terms; it is not that cure.
  *
+ * **What it DOES fix since FAD-53 R-6:** the first of those two reasons, for
+ * THIS hook's own drain. It now carries a signer, so an unlocked `audit.*` job
+ * in the shared backlog is executed rather than waited on for 45 seconds
+ * (REV-B-002). The second reason — a job locked by a dead pool — is untouched
+ * here and still belongs to `queue-pools.ts`'s release path (NR-19).
+ *
  * ## Why a drain rather than a DELETE
  *
  * `global-setup.ts` already does exactly this for the baseline fixture, for
@@ -120,10 +127,71 @@ beforeAll(async () => {
 afterAll(async () => {
   let failure: unknown;
   try {
+    /* FAD-53 R-6 (REV-B-002). This hook establishes its own precondition: it
+     * plants one `audit.checkpoint` job through the PRODUCTION producer and
+     * then requires itself to drain it.
+     *
+     * ## Why the hook plants rather than a test
+     *
+     * Without an `audit.*` job in the backlog the drain below is never asked the
+     * question REV-B-002 found it answering wrongly — a run whose queue happens
+     * to hold only `outbox.*` jobs drains fine on either form of the call, which
+     * is exactly why the seam appeared in ONE of the reviewers' five valid
+     * composed runs and hid in the other four (REV-C t12's tabulation).
+     *
+     * The first shape of this repair had the last test in the file do the
+     * planting. **The R-6 review reproduced what was wrong with that:** a
+     * name-filtered run (`vitest run … -t "COMMIT"`) skips the planting test,
+     * so the pre-assert failed, the drain never ran, and ~20 `outbox.*` jobs
+     * leaked to the next file — a teardown failure that reads exactly like an
+     * NR-15 regression and was caused by the regression itself. A teardown must
+     * not depend on which tests a run selected. It plants for itself now, so
+     * every run of this file — filtered, shuffled or whole — exercises the
+     * drain against the shape the SHARED queue can present (FAD-15 Layer 3).
+     *
+     * Never an INSERT into graphile-worker's tables: `app_enqueue_job` under
+     * real tenant context is the only producer this system has, and a fixture
+     * the system could not have created is a fixture that proves nothing. */
+    await runtime.runner.run(context('nr15-finalize-plant'), async ({ query }) => {
+      await sql`select app_enqueue_job('audit.checkpoint', '{}'::json)`.execute(query);
+    });
+    const auditBacklog = await auditJobCount();
+    expect(
+      auditBacklog,
+      'this hook must plant its own audit.* job — otherwise the drain below is never ' +
+        'asked the question REV-B-002 found it answering wrongly',
+    ).toBeGreaterThan(0);
+
     const drained = await drainQueue({
       worker: worker.runner,
       admin,
       label: 'outbox-dispatch-finalize',
+      /* FAD-53 R-6 (REV-B-002) — the repair, taken from `DrainOptions.signer`'s
+       * own R-10 docblock: "A signer, when the backlog may contain `audit.*`
+       * jobs. … a signer-less drainer has no handler for an `audit.checkpoint`
+       * job and therefore cannot empty a queue holding one."
+       *
+       * This drain waits on `drainableJobCount`, which counts `outbox.%` AND
+       * `audit.%`, so its backlog MAY contain `audit.*` jobs — the queue is not
+       * a tenant table (FAD-15 Layer 3) and any file's leftovers are in it. The
+       * signer-less form was therefore asking for a state it had disabled its
+       * own ability to reach, and the 45-second timeout was the only possible
+       * outcome for a backlog holding one such job.
+       *
+       * Its own key id, not the default: `LocalCheckpointSigner` mints ephemeral
+       * key material per instance, and two instances sharing the id
+       * `local-dev-stub` would produce checkpoints that LOOK verifiable by each
+       * other's key and are not. A distinct id makes a later verification sweep
+       * decline on the honest ground (`chain.test.ts` measures that difference
+       * deliberately).
+       *
+       * The sweep this enables runs on the DEFAULT thresholds — 100 entries,
+       * 24 hours — because `drainQueue` passes no overrides. Those are the
+       * production thresholds, so the executed job checkpoints only what is
+       * genuinely due and stays a no-op for every other file's tenant, which is
+       * the same argument `periodic.test.ts`'s finalization hook makes. Cron is
+       * OFF inside `drainQueue`, so nothing new is scheduled. */
+      signer: new LocalCheckpointSigner({ keyId: 'outbox-dispatch-finalize-key' }),
     });
     expect(
       await queuedJobs(),
@@ -227,6 +295,24 @@ async function outboxRow(id: string) {
  */
 async function queuedJobs(): Promise<number> {
   return drainableJobCount(admin);
+}
+
+/**
+ * The `audit.*` half of that same predicate, counted on its own.
+ *
+ * `drainableJobCount` counts `outbox.%` OR `audit.%` in one number, and one
+ * number cannot say which half is present. REV-B-002 is a defect about the
+ * `audit.%` half specifically, so the regression below and the `afterAll`
+ * precondition both need to see it separately.
+ */
+async function auditJobCount(): Promise<number> {
+  const { rows } = await admin.query<{ n: string }>(
+    `select count(*)::text as n
+       from graphile_worker._private_jobs j
+       join graphile_worker._private_tasks t on t.id = j.task_id
+      where t.identifier like 'audit.%'`,
+  );
+  return Number(rows[0]?.n ?? '-1');
 }
 
 describe('the outbox write is atomic with the domain change', () => {
@@ -642,5 +728,106 @@ describe('R-02 — the two windows in which the same event was delivered twice',
       admin.query('delete from outbox_effects where idempotency_key = $1', [key]),
     ).rejects.toMatchObject({ code: '23001' });
     log('outbox_effects: UPDATE and DELETE both refused (23001)');
+  });
+});
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * REV-B-002 / FAD-53 R-6 — the finalization hook must drain the whole predicate
+ * it asserts against, `audit.%` included.
+ *
+ * ## The defect, as measured rather than reasoned about
+ *
+ * The 2026-08-23 internal review ran `corepack pnpm check` on the baseline tree
+ * and this file's `afterAll` failed with the NR-15 message verbatim:
+ *
+ * ```
+ * Error: outbox-dispatch-finalize: the queue still holds 336 drainable job(s)
+ *        after 45000 ms — the precondition could not be established
+ * ```
+ *
+ * All twelve tests passed; the hook is what failed. The seam ITSELF is neither
+ * timing nor machine speed. `drainableJobCount` counts `outbox.%` **and** `audit.%`,
+ * and `startOutboxRunner` registers the `audit.*` tasks **only when it is given
+ * a signer** — `support/queue.ts`'s R-10 docblock states it and states why: "a
+ * signer-less drainer has no handler for an `audit.checkpoint` job and therefore
+ * cannot empty a queue holding one". The call in the hook above passed no
+ * signer, so ONE `audit.*` job anywhere in the shared backlog made that loop
+ * unsatisfiable for its full 45 seconds, whatever the hardware.
+ *
+ * **What is NOT settled, so nobody reads more into this than it proves:** that
+ * the missing handler is what ended REV-B's particular run. The mechanism above
+ * predicts a remainder equal to the number of UNHANDLEABLE jobs — this repair's
+ * own reproduction left exactly 1 — and REV-B's remainder was 336. Nor does
+ * throughput fit: the two measurements are 629 jobs in 23.5 s (R-6's composed
+ * run, ~27/s) and 257 jobs inside a file whose whole duration was 5,675 ms
+ * (the R-6 review's, ≥45/s), and at EITHER rate 45 s clears far more than 336,
+ * so a 336 remainder would need a starting backlog of roughly 1,550–2,700 —
+ * several times the largest backlog anyone has measured. A third shape fits the
+ * arithmetic better and is not repaired here: jobs LOCKED by dead worker pools.
+ * `drainableJobCount` counts locked rows, and `drainQueue` sets `staleAfterMs`
+ * to an hour precisely so it never reclaims them — the EV-M4-002 §21 / NR-19
+ * shape named further up this file. The missing handler is proven to be *a*
+ * cause, on demand, and is repaired; the cause of REV-B's 336 is UNESTABLISHED,
+ * and the candidates are carried in RISK-REGISTER's NR-15 re-opening. Whatever
+ * settles it, the answer is never a longer cap.
+ *
+ * ## Where the regression lives, and the division of labour with the hook
+ *
+ * The queue is not a tenant table (FAD-15 Layer 3), so whether the backlog holds
+ * an `audit.*` job at this file's teardown is decided by the file order — which
+ * is why the failure showed up once in the reviewers' five valid composed runs
+ * and why runs on the same tree disagreed. A regression that waits for that
+ * coincidence is a regression that measures the shuffle.
+ *
+ * So the coincidence is removed, and it is removed **in the `afterAll` hook
+ * itself** rather than here (R-6 review condition C-4). The hook plants its own
+ * `audit.checkpoint` job through the production producer immediately before it
+ * drains, so it is self-sufficient: a run that selects no test in this file —
+ * `vitest run … -t "COMMIT"` is the case the reviewer reproduced — still
+ * exercises the drain against an `audit.*` backlog, still finalizes the
+ * `outbox.*` jobs its selected tests published, and still leaves the queue
+ * empty. Deleting this test therefore cannot make the hook's proof vacuous; it
+ * cannot even make the hook quiet.
+ *
+ * What THIS test is for is the other half — that the producer path used by the
+ * hook is real: `app_enqueue_job`, under real tenant context, never a
+ * hand-written INSERT into graphile-worker's tables, and that the job it creates
+ * joins BOTH `auditJobCount` and `drainableJobCount`. If that stopped being
+ * true the hook would be planting nothing and asserting against a number that
+ * never moved. It plants its own job for that measurement, which the hook then
+ * finalizes along with its own.
+ *
+ * On the signer-less form of the drain either plant is enough to time the hook
+ * out and fail this FILE; with the signer both are executed.
+ *
+ * **It weakens nothing.** No timeout is raised, no predicate narrowed, no
+ * assertion softened, and the jobs are EXECUTED by a real runner rather than
+ * deleted — the drain stays the production path (§20b's standing rule). It is
+ * strictly more for the hook to finalize and one more thing it is required to
+ * prove it can do.
+ * ──────────────────────────────────────────────────────────────────────────── */
+describe('REV-B-002 — the finalization hook can drain an audit.* job, not only outbox.*', () => {
+  it('an audit.checkpoint job enqueued through app_enqueue_job joins the DRAINABLE count', async () => {
+    const auditBefore = await auditJobCount();
+    const drainableBefore = await queuedJobs();
+
+    await runtime.runner.run(context('nr15-audit-backlog'), async ({ query }) => {
+      await sql`select app_enqueue_job('audit.checkpoint', '{}'::json)`.execute(query);
+    });
+
+    expect(
+      await auditJobCount(),
+      'the production producer enqueued exactly one audit.checkpoint job',
+    ).toBe(auditBefore + 1);
+    expect(
+      await queuedJobs(),
+      "and `drainableJobCount` counts it — the drain's postcondition includes audit.%, " +
+        'so the drain itself must be able to execute it',
+    ).toBe(drainableBefore + 1);
+
+    log(
+      'REV-B-002: the production producer enqueues an audit.checkpoint job that joins both ' +
+        'counts — the shape the finalization hook plants for itself and must execute',
+    );
   });
 });

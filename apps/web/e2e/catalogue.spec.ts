@@ -285,7 +285,8 @@ test.describe('catalogue — shift types', () => {
     // record on click, so the assertion is on the REQUEST COUNT rather than on
     // anything the interface says about itself.
     const requests: string[] = [];
-    page.on('request', (request) => requests.push(`${request.method()} ${request.url()}`));
+    const listener = (request: { url: () => string; method: () => string }): void =>
+      void requests.push(`${request.method()} ${request.url()}`);
 
     /* The same interaction is also RECORDED for the request-budget ledger
      * (OPUS-M2-004 deliverable 5). The recorder and the listener above observe
@@ -293,11 +294,22 @@ test.describe('catalogue — shift types', () => {
      * fails this test. The recording is what lets the gate enforce the same
      * number in CI without re-running the browser. */
     await recordRequests(page, 'catalogue-open-new-shift-type', info.project.name, async () => {
+      /* Attached INSIDE the action, and that placement is the assertion's
+       * (R-1/F-3). This listener used to be attached out here, before
+       * `recordRequests` — which meant it was open across the recorder's own
+       * settle-the-page-first wait and could be handed a page-load straggler
+       * the CLICK did not cause. That is the very confusion R-1 removed from
+       * the recorder; leaving it in the spec would have kept one copy of it
+       * alive. Inside the action it observes exactly the recorder's window.
+       * The assertion below is unchanged; what changed is that it now fails
+       * only for the reason it exists for — a request the CLICK caused. */
+      page.on('request', listener);
       await page.getByTestId('new-shift-type').click();
       await expect(page.getByTestId('shift-type-form')).toBeVisible();
       // Long enough for a stray optimistic write to appear if one existed.
       await page.waitForTimeout(500);
     });
+    page.off('request', listener);
 
     expect(requests, `opening the form issued: ${requests.join(' | ')}`).toEqual([]);
   });

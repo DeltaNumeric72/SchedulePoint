@@ -297,8 +297,20 @@ export interface HardRuleFinding {
  *
  * Each one is here because SPEC-04 §3.1 (or the AST's own field documentation,
  * which is the same authority under FAD-21) pins its semantics without a choice
- * being made here. The other twenty-four kinds are listed with their reasons in
+ * being made here. The other **eight** kinds are listed with their reasons in
  * {@link NOT_EVALUABLE_REASONS}, reported per rule, and carried to M4.
+ *
+ * **The count was "twenty-four" until 2026-08-23 (REV-A-007), and had been since
+ * M3 — when this list held six.** OPUS-M4-002's eleven RK-RULINGs took it to 22
+ * (the module docblock above says so, in the same file) and the residue was
+ * never re-counted, so the header of the checker told a reader that **three
+ * times as many** node kinds went unenforced as actually do. Corrected against
+ * the executed numbers rather than by arithmetic on the prose: `RULE_NODE_KINDS`
+ * = 30, this list = 22, `NOT_EVALUABLE_REASONS` = 8, and
+ * `corepack pnpm gate:rule-kind-registry` prints "30 unique kind(s), 22
+ * evaluated / 8 not-evaluable" from those same three constants — which is why a
+ * stale number here could never fail a build, and why the correction is a
+ * documented derivation rather than a new gate.
  */
 export const EVALUATED_HARD_RULE_KINDS = [
   /* ── M3-008: decidable from the version's own rows ─────────────────────────*/

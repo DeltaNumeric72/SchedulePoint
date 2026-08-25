@@ -126,6 +126,40 @@ describe('the verdict is derived from the RUN’s own recorded parameters', () =
     expect(verdict?.reproducible).toBe(false);
   });
 
+  it('REV-A-006: an unrecognised solver status reads as ABSENT and fails CLOSED', () => {
+    /* The wider half of REV-A-006 / GH-008 M-2, at the layer where it happens.
+     * The parse below already read a value outside `SOLVER_STATUSES` as `null`
+     * — deliberately, "the fail-closed direction" — and then handed that `null`
+     * to a branch that fell through to `reproducible` WITH the promise sentence.
+     * A fail-closed parse feeding a fail-open branch is not a fail-closed
+     * derivation, and this is the row that says so: everything else about it
+     * earns the claim. */
+    const verdict = runResultReproducibility(
+      { ...deterministicRun, solver_status: 'OPTIMALish' },
+      { wallTimeSeconds: 32.618628, deterministicTimeUnits: 76.702882 },
+    );
+    expect(verdict?.verdict).toBe('unrecorded');
+    expect(verdict?.reproducible).toBe(false);
+    expect(verdict?.detail).not.toContain('produces the same schedule');
+
+    /* The same row with NO status at all — the reviewer's first M-2 row. */
+    expect(
+      runResultReproducibility(
+        { ...deterministicRun, solver_status: null },
+        { wallTimeSeconds: 32.618628, deterministicTimeUnits: 76.702882 },
+      )?.verdict,
+    ).toBe('unrecorded');
+
+    /* and the control: the identical row with a RECORDED status is unchanged,
+       so this is a fix scoped to absence rather than a new blanket refusal */
+    expect(
+      runResultReproducibility(deterministicRun, {
+        wallTimeSeconds: 32.618628,
+        deterministicTimeUnits: 76.702882,
+      })?.verdict,
+    ).toBe('reproducible');
+  });
+
   it('a best-effort run is reported as best-effort, never as truncated', () => {
     const bestEffort = {
       ...deterministicRun,

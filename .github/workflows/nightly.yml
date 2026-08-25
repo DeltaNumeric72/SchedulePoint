@@ -1,0 +1,493 @@
+name: Nightly
+
+# The FAD-15 fixture-isolation regression battery, on a schedule.
+#
+# It exists because of REV-C-004 (post-M4 internal review; FAD-53 repair packet
+# R-11): `fixture-regression` "is never run in CI ... its sole evidence is the
+# frozen EV-M4-005 transcript". Three consecutive reviewers declined to run it
+# and none of them was wrong to — the arithmetic below is why.
+#
+# ── WHY A SECOND WORKFLOW FILE AND NOT A `schedule:` ON `ci.yml` ───────────────
+#
+# Because a `schedule:` trigger fires EVERY job in the workflow it is added to.
+# On `ci.yml` that is the 13-shard red-case matrix — issue #4 §1 puts one full
+# run of it at an estimated 8–9 BILLED HOURS — plus the completeness guard, every
+# night, for ever. The only way to stop that from inside `ci.yml` is an
+# `if: github.event_name != 'schedule'` on `check`, on the shard matrix and on
+# `red-cases-union`, and the last two are exactly where such a guard must never
+# go: a mis-typed condition there does not fail loudly, it SKIPS a required
+# check, and `red-cases-union`'s own comment says what that looks like — "a
+# skipped required job reads as 'not run yet' rather than as red". A separate
+# file cannot make that mistake, because it contains none of those jobs.
+#
+# Consequently this workflow has NO `push` and NO `pull_request` trigger. It
+# cannot run on a pull request or on a push by construction rather than by
+# convention. `schedule:` fires only on the default branch, so "nightly on main"
+# is what the trigger already means; `workflow_dispatch` is here so a person can
+# reproduce a nightly failure without waiting for tomorrow.
+#
+# ── WHY A MATRIX, AND NOT `corepack pnpm fixture-regression --quick` ──────────
+#
+# This is the part that was MEASURED before it was decided, because the obvious
+# shape does not work and the reason is a hard platform limit.
+#
+# `pnpm fixture-regression --quick` runs the 13 fixed seeds plus one rotating
+# seed as 14 consecutive full `api` suites in ONE process. R-11 measured one of
+# them — seed 1, the exact command the script issues — at **1 513.91 s (25.2
+# min)** on a 4 vCPU / 15 GiB Linux box at `b9909eb` (142 test files). That
+# independently corroborates REV-B's **1 489.8 s** on the same machine class, to
+# within 1.6 %. Fourteen of those is **≈ 5.9 h**.
+#
+# **GitHub's per-job limit is 6 HOURS, and it is a CAP, not a ceiling: a job that
+# reaches it is CANCELLED.** A 5.9 h serial battery therefore has a ~2 % margin
+# on a box that is FASTER than a hosted runner, and a cancelled run proves
+# nothing about the seeds it never reached — the same argument `ci.yml`'s shard
+# matrix makes for `fail-fast: false`. Shipping that job would be shipping a job
+# built to die, so it is not shipped.
+#
+# A matrix costs the same suite-seconds, runs them in parallel, and gives every
+# seed its own log, its own ceiling and its own verdict. **Nothing is dropped:**
+# all 13 fixed seeds run, and the rotating seed runs beside them.
+#
+# ── THE ONE THING A MATRIX COSTS, AND THE GUARD THAT PAYS FOR IT ──────────────
+#
+# The seed list now exists in TWO places — `FIXED_SEEDS` in
+# `scripts/sbx/fixture-regression.mjs` and the `seed:` list below — and a
+# hand-copied list that drifts is this repository's most-repeated defect (the
+# hand-counted table floor, twice; the census that goes stale). So it is not
+# trusted: `seed-set-completeness` below PARSES `FIXED_SEEDS` out of the script
+# and fails unless the matrix matches it exactly, in both directions. That is
+# `red-cases-union`'s pattern, applied to the same hazard for the same reason —
+# a battery can be INCOMPLETE while every job that ran was green.
+#
+# ── WHAT IT STILL DOES NOT RUN, said plainly rather than quietly dropped ──────
+#
+# The STANDALONE SWEEP — `pnpm fixture-regression` with no flag also runs every
+# `apps/api/test/**/*.test.ts` file ALONE, 142 more suite runs today — has no
+# home here. Running it needs either the unflagged script (5.9 h of seeds FIRST,
+# then the sweep: over the cap before the sweep begins) or a sweep-only
+# selector the script does not have. Adding one is a change to an acceptance-gate
+# script and is outside R-11's scope, so it is ROUTED as a follow-up rather than
+# improvised. Until then the sweep keeps exactly the home it had: the serial
+# local battery of doc 38 §7, which R-11 leaves UNCHANGED. This paragraph is the
+# record that it is a shortfall and not an oversight.
+#
+# ── COST — BILLED MINUTES ARE OWNER-RESERVED (issue #4 §1) ────────────────────
+#
+# Estimated **420–450 billed runner-minutes PER DAY** (~7 h): 14 jobs × (≈ 25 min
+# of measured suite time + ≈ 5–7 min of provisioning), times an unmeasured
+# hosted-runner factor. That is roughly **13 000 minutes per month**, against the
+# 2 000-minute allowance issue #4 describes — an overage on its own, before a
+# single push is counted. Wall-clock is ~35 minutes because the jobs run in
+# parallel; the BILLING is the serial sum, and the two are easy to confuse.
+#
+# The provisioning share (~90 min/day) is issue #4 §1's lever 1 —
+# "deduplicate provisioning ... one prepare job (or prebuilt image)" — unspent
+# here for the same reason it is unspent there: it is a real change to how every
+# job in this repository starts, and it is the owner's call. The other levers,
+# none taken without direction: run WEEKLY instead of nightly (change the cron to
+# `17 4 * * 0`, a one-line edit that divides the bill by seven); or a self-hosted
+# runner, which removes billed minutes entirely. **Disabling the battery is not
+# on that list** — FAD-15 makes it a standing acceptance-time requirement, and
+# REV-C-004 is a finding about it having too FEW homes.
+#
+# ── FAILURE VISIBILITY ────────────────────────────────────────────────────────
+#
+# The run failing IS the signal. No notification plumbing, no third-party action,
+# no secret: a red nightly is visible on the Actions tab, and a bespoke alerting
+# path would be one more thing to keep working and one more place for a failure
+# to be swallowed. Nothing here is `continue-on-error`.
+#
+# ── AND WHAT A RED MEANS ──────────────────────────────────────────────────────
+#
+# Not a flake. NR-13 measured that a SINGLE shuffled run is a weak detector —
+# four of ten seeds found nothing against the pre-refactor suite — so a seed that
+# does find something has found a real order dependence. **FAD-15 ruling 3 is
+# binding: a rotating-seed failure is a DEFECT TO FIX, never a flake to retry**,
+# and the exposing seed joins `FIXED_SEEDS` (and therefore the matrix below).
+
+on:
+  schedule:
+    # 04:17 UTC. Quiet, and deliberately NOT on the hour: GitHub queues scheduled
+    # workflows, the top of the hour is where everybody else's cron is, and an
+    # on-the-hour schedule buys a start delay for nothing. Cron is UTC here and
+    # always UTC — this repository has no local-time schedule to reconcile.
+    - cron: '17 4 * * *'
+  workflow_dispatch:
+
+concurrency:
+  # NOT `cancel-in-progress`. A battery cancelled by the next night's trigger is
+  # runner time spent to learn nothing, and a cancelled run is not a red run — it
+  # is an absence that reads like one.
+  group: nightly-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
+
+jobs:
+  # ── The 13 fixed seeds ────────────────────────────────────────────────────
+  #
+  # Every seed that has ever exposed an order dependence in this suite, plus the
+  # four kept as controls. The list is `FIXED_SEEDS` in
+  # `scripts/sbx/fixture-regression.mjs`; `seed-set-completeness` below is what
+  # keeps these two copies honest.
+  fixed-seeds:
+    name: fixture regression (seed ${{ matrix.seed }})
+    runs-on: ubuntu-latest
+    # PROVISIONAL, sized from the first real measurement rather than from taste,
+    # in the GH-002 voice. One seed measured 25.2 min locally; 90 gives room for
+    # a slower runner and for provisioning, and head room costs nothing while a
+    # false cancellation costs the whole seed's evidence (the same rationale as
+    # `ci.yml`'s two ceilings). NOTHING here has been measured on a hosted
+    # runner. Tighten it once a complete green run records what a seed costs.
+    timeout-minutes: 90
+    strategy:
+      # One failing seed must not cancel the other twelve. A cancelled seed
+      # proves nothing about the ordering it was given, and NR-13's whole point
+      # is that seeds are not interchangeable — four of ten found nothing.
+      fail-fast: false
+      matrix:
+        seed:
+          [
+            1,
+            7,
+            42,
+            424242,
+            20260803,
+            31337,
+            99991,
+            123456,
+            20250101,
+            8675309,
+            65339,
+            531651,
+            740673,
+          ]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Resolve the pnpm store path
+        id: pnpm-store
+        run: echo "path=$(corepack pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: corepack pnpm install --frozen-lockfile
+
+      # NO Playwright, and that is not an omission. Every run this battery
+      # performs is `vitest run --project api`; the browser gates (`gate:axe`,
+      # `gate:request-budget`) belong to `ci.yml` and are not in the `api`
+      # project. Installing Chromium would be minutes of the owner's money spent
+      # on something nothing in this job can invoke.
+
+      # ── The solver interpreter ──────────────────────────────────────────────
+      #
+      # The same block as `ci.yml`'s two jobs, for the reasons written out in
+      # full there: 3.12 PINNED rather than inherited (FAD-10, and
+      # docs/dev-setup.md §8's standing CI condition), pip DOWNLOADS cached
+      # rather than the venv (an editable venv bakes in absolute paths and an
+      # interpreter that a patch bump moves), the package installed rather than
+      # OR-Tools named directly (the exact pin lives in `solver/pyproject.toml`
+      # and SPEC-04 §4 depends on it), and `SP_SOLVER_WORKER_COMMAND` set
+      # explicitly because it is rung 1 of the resolution order in
+      # `apps/api/test/support/solver.ts`.
+      #
+      # This job needs it for the same reason the gate battery does: the `api`
+      # project it shuffles CONTAINS the solver suites, and a run whose CP-SAT
+      # child dies reports a solver defect instead of the order dependence this
+      # battery exists to hunt.
+      - name: Provision the solver interpreter
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Resolve the pip cache path
+        id: pip-cache
+        run: echo "path=$(python -m pip cache dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pip downloads
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pip-cache.outputs.path }}
+          key: pip-${{ runner.os }}-${{ hashFiles('solver/pyproject.toml') }}
+          restore-keys: pip-${{ runner.os }}-
+
+      - name: Create the solver venv
+        run: |
+          python -m venv solver/.venv
+          solver/.venv/bin/pip install --disable-pip-version-check -e './solver[dev]'
+
+      - name: Prove the interpreter carries OR-Tools
+        run: |
+          solver/.venv/bin/python -c "from ortools.sat.python import cp_model; import ortools; print(ortools.__version__)"
+
+      - name: Remove the setuptools build artifact
+        run: rm -rf solver/*.egg-info
+
+      - name: Point the solver client at the venv interpreter
+        run: echo "SP_SOLVER_WORKER_COMMAND=$GITHUB_WORKSPACE/solver/.venv/bin/python" >> "$GITHUB_ENV"
+
+      # Typecheck FIRST, for the reason `ci.yml`'s red-case job spells out: both
+      # workspace packages export from `dist/`, `dist/` is what `tsc -b` emits,
+      # and a fresh checkout has none. `pnpm check` never trips over this because
+      # `scripts/check.mjs` orders typecheck ahead of everything that needs it;
+      # this job runs vitest on its own and has to reproduce that ordering
+      # itself. Without it every seed fails identically on "Cannot find package
+      # '@schedulepoint/domain'" — a real failure about nothing this battery
+      # measures.
+      - name: Build the workspace packages
+        run: corepack pnpm run gate:typecheck
+
+      # The command is `scripts/sbx/fixture-regression.mjs`'s own, argument for
+      # argument — `node node_modules/vitest/vitest.mjs run --project api
+      # --sequence.shuffle.files --sequence.shuffle.tests --sequence.seed=N`.
+      # BOTH shuffles, because FAD-15's detector is file order AND test order;
+      # dropping either would be a weaker battery wearing the same name.
+      #
+      # The full vitest output goes to the job log UNCUT, which is what NR-15's
+      # capture widening is for: "the truncation is what kept NR-15 unexplained
+      # across five packets". The script's own `.evidence-scratch` capture exists
+      # because it PIPES stdout; a job log does not.
+      - name: 'vitest --project api, shuffled, seed ${{ matrix.seed }}'
+        run: |
+          node node_modules/vitest/vitest.mjs run \
+            --project api \
+            --sequence.shuffle.files \
+            --sequence.shuffle.tests \
+            --sequence.seed=${{ matrix.seed }}
+
+  # ── The rotating seed ─────────────────────────────────────────────────────
+  #
+  # Its own job rather than a matrix entry, because a matrix entry cannot draw a
+  # number. This is the half that keeps the battery finding NEW couplings rather
+  # than only re-proving the ones already fixed — seed 65339 found coupling
+  # number seven, and 531651 found a bigint-sorted-as-text trap with a PRODUCTION
+  # site in it. Neither was in any fixed set until it fired.
+  rotating-seed:
+    name: fixture regression (rotating seed)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Resolve the pnpm store path
+        id: pnpm-store
+        run: echo "path=$(corepack pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: corepack pnpm install --frozen-lockfile
+
+      - name: Provision the solver interpreter
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Resolve the pip cache path
+        id: pip-cache
+        run: echo "path=$(python -m pip cache dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pip downloads
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pip-cache.outputs.path }}
+          key: pip-${{ runner.os }}-${{ hashFiles('solver/pyproject.toml') }}
+          restore-keys: pip-${{ runner.os }}-
+
+      - name: Create the solver venv
+        run: |
+          python -m venv solver/.venv
+          solver/.venv/bin/pip install --disable-pip-version-check -e './solver[dev]'
+
+      - name: Prove the interpreter carries OR-Tools
+        run: |
+          solver/.venv/bin/python -c "from ortools.sat.python import cp_model; import ortools; print(ortools.__version__)"
+
+      - name: Remove the setuptools build artifact
+        run: rm -rf solver/*.egg-info
+
+      - name: Point the solver client at the venv interpreter
+        run: echo "SP_SOLVER_WORKER_COMMAND=$GITHUB_WORKSPACE/solver/.venv/bin/python" >> "$GITHUB_ENV"
+
+      - name: Build the workspace packages
+        run: corepack pnpm run gate:typecheck
+
+      # The seed is drawn from the SAME range the script draws from
+      # (`Math.floor(Math.random() * 1_000_000)`) and it is PRINTED BEFORE THE
+      # RUN — that is not decoration, it is FAD-15's reproducibility clause: "a
+      # failure is reproducible from the log alone". `$RANDOM` is 0..32767, so
+      # two draws are combined before the modulus; one draw alone could never
+      # reach six figures and the range would be a lie.
+      - name: Draw and announce the rotating seed
+        id: seed
+        run: |
+          SEED=$(( (RANDOM * 32768 + RANDOM) % 1000000 ))
+          echo "seed=$SEED" >> "$GITHUB_OUTPUT"
+          echo "ROTATING SEED: $SEED"
+          echo "FAD-15 ruling 3: a failure here is a DEFECT TO FIX, never a flake to retry."
+          echo "Reproduce with --sequence.seed=$SEED, fix it, then add the seed to FIXED_SEEDS"
+          echo "in scripts/sbx/fixture-regression.mjs — and to the matrix in this workflow."
+
+      - name: 'vitest --project api, shuffled, rotating seed'
+        run: |
+          node node_modules/vitest/vitest.mjs run \
+            --project api \
+            --sequence.shuffle.files \
+            --sequence.shuffle.tests \
+            --sequence.seed=${{ steps.seed.outputs.seed }}
+
+  # ── The completeness guard ────────────────────────────────────────────────
+  #
+  # `red-cases-union`'s pattern, and it is here for the identical failure mode:
+  # a matrix can be INCOMPLETE while every job that ran was green. A seed dropped
+  # from the list, a seed added to `FIXED_SEEDS` and forgotten here, a job
+  # cancelled by its ceiling — each leaves an ordering nobody exercised, and a
+  # row of green ticks that says otherwise.
+  #
+  # `if: always()` is load-bearing for the same reason it is there: with a plain
+  # `needs:` a failed seed SKIPS this job, and a skipped job reads as "not run
+  # yet" rather than as red — the failure reported as an absence.
+  seed-set-completeness:
+    name: fixture regression seed-set completeness
+    runs-on: ubuntu-latest
+    needs: [fixed-seeds, rotating-seed]
+    if: always()
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      # `needs.<matrix job>.result` is the AGGREGATE: `success` only when every
+      # seed succeeded. Anything else — one failing seed, one cancelled job, a
+      # matrix that never started — is reported here rather than inferred from a
+      # job that quietly did not run.
+      - name: Fail unless every seed and the rotating run succeeded
+        env:
+          FIXED_RESULT: ${{ needs['fixed-seeds'].result }}
+          ROTATING_RESULT: ${{ needs['rotating-seed'].result }}
+        run: |
+          echo "fixed-seeds matrix result: $FIXED_RESULT"
+          echo "rotating-seed result:      $ROTATING_RESULT"
+          FAILED=0
+          if [ "$FIXED_RESULT" != "success" ]; then
+            echo "::error::The fixed-seed matrix did not succeed (result: $FIXED_RESULT). The battery is not proven."
+            FAILED=1
+          fi
+          if [ "$ROTATING_RESULT" != "success" ]; then
+            echo "::error::The rotating-seed run did not succeed (result: $ROTATING_RESULT). FAD-15 ruling 3: that is a defect to fix, never a flake to retry."
+            FAILED=1
+          fi
+          exit "$FAILED"
+
+      # The seed list is DERIVED from the script, never trusted from this file:
+      # a list typed here would go stale the first time a seed joins
+      # `FIXED_SEEDS`, and it would go stale in the direction that passes.
+      #
+      # `if: always()` for the same reason the job carries it. Without it a single
+      # failing seed short-circuits the step above and this drift check never
+      # runs — so the night a seed goes red is also the night nobody finds out
+      # that a seed is MISSING, and the two are independent questions ("did every
+      # ordering pass?" and "was every ordering run?"). Masking the second behind
+      # the first is precisely the failure `red-cases-union` was written to stop.
+      # It is not a softening: the step still fails the job on drift.
+      - name: Assert the matrix carries exactly the script's FIXED_SEEDS
+        if: always()
+        run: |
+          cat > "$RUNNER_TEMP/seed-check.cjs" <<'NODE'
+          const { readFileSync } = require('node:fs');
+
+          /* ── the seeds the gate script declares ─────────────────────────── */
+          const script = readFileSync('scripts/sbx/fixture-regression.mjs', 'utf8');
+          const open = script.indexOf('\nconst FIXED_SEEDS = [\n');
+          const close = script.indexOf('\n];\n', open);
+          if (open < 0 || close < 0) {
+            console.error('::error::Could not locate FIXED_SEEDS in scripts/sbx/fixture-regression.mjs.');
+            console.error('The scan is wrong, not the battery. Fix the scan before trusting a green here.');
+            process.exit(1);
+          }
+          /* Comment lines inside the array carry seed numbers in prose (740673's
+           * provenance note does), so comments are stripped before the digits
+           * are read. A scan that counted those would report seeds nobody runs. */
+          const body = script
+            .slice(open, close)
+            .split('\n')
+            .filter((line) => !line.trimStart().startsWith('//'))
+            .join('\n');
+          const declared = [...body.matchAll(/\b(\d{1,9})\b/g)].map((m) => Number(m[1]));
+          if (declared.length === 0) {
+            console.error('::error::Parsed FIXED_SEEDS and found no seeds. The scan is wrong, not the battery.');
+            process.exit(1);
+          }
+
+          /* ── the seeds this workflow's matrix runs ──────────────────────────
+           *
+           * Both spellings, deliberately. Prettier reformats a `seed: [...]`
+           * longer than its print width into a bracket block one entry per line,
+           * and a scan that understood only the inline form would start
+           * reporting "could not locate the matrix row" the first time the list
+           * grew — a broken scan wearing the face of a broken battery. */
+          const workflow = readFileSync('.github/workflows/nightly.yml', 'utf8');
+          const row = /^\s*seed:\s*(?:\r?\n\s*)?\[([\s\S]*?)\]/m.exec(workflow);
+          if (row === null) {
+            console.error('::error::Could not locate the `seed:` matrix list in .github/workflows/nightly.yml.');
+            process.exit(1);
+          }
+          const matrix = row[1]
+            .split(',')
+            .map((entry) => entry.trim())
+            .filter((entry) => entry !== '')
+            .map(Number);
+
+          const problems = [];
+          for (const seed of declared) {
+            if (!matrix.includes(seed)) problems.push(`seed ${seed} is in FIXED_SEEDS but NO matrix job runs it`);
+          }
+          for (const seed of matrix) {
+            if (!declared.includes(seed)) problems.push(`seed ${seed} is run by the matrix but is not in FIXED_SEEDS`);
+          }
+          if (new Set(matrix).size !== matrix.length) problems.push('the matrix lists a seed twice');
+          if (new Set(declared).size !== declared.length) problems.push('FIXED_SEEDS lists a seed twice');
+
+          console.log(`FIXED_SEEDS declares ${declared.length} seed(s): ${declared.join(' ')}`);
+          console.log(`the matrix runs      ${matrix.length} seed(s): ${matrix.join(' ')}`);
+
+          if (problems.length > 0) {
+            for (const problem of problems) console.error(`::error::seed-set coverage: ${problem}`);
+            console.error(`\nThe fixed-seed battery is INCOMPLETE: ${problems.length} problem(s) above.`);
+            process.exit(1);
+          }
+          console.log(`\nEvery one of the ${declared.length} declared fixed seeds was run by exactly one matrix job.`);
+          NODE
+          node "$RUNNER_TEMP/seed-check.cjs"

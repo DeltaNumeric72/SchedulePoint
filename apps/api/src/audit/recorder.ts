@@ -162,3 +162,50 @@ export function recordAuditEvent(
 ): Promise<RecordedAuditEvent> {
   return auditRecorder.record(uow, draft);
 }
+
+/**
+ * **Enter this organization's audit ordering domain, for the rest of the
+ * transaction.**
+ *
+ * Migration 0003's chain trigger takes
+ * `pg_advisory_xact_lock(hashtext('schedulepoint.audit'), hashtext(<org>))`
+ * before it allocates a chain head, so **every** transaction that writes an
+ * audit event holds this lock from its first audit write until it commits. That
+ * is a total order over the audited transactions of one organization, and it is
+ * already the order the chain's sequence numbers are in.
+ *
+ * This function takes the same lock EARLY, and it is spelled with the trigger's
+ * own key so the two cannot mean different locks. Its purpose is to let a
+ * read-then-write sequence be evaluated inside that order rather than beside it:
+ * a caller that reads a precondition after this call, and writes after reading
+ * it, cannot have a concurrent audited transaction of the same organization
+ * commit in between — such a transaction either committed before the lock was
+ * granted (so the read sees it) or cannot commit until this one has.
+ *
+ * **The re-read has to be a NEW snapshot, so the caller must be READ COMMITTED.**
+ * `PgUnitOfWorkRunner` issues a plain `BEGIN`, so every unit of work is READ
+ * COMMITTED and each statement after this call sees what committed while the
+ * transaction waited. Under REPEATABLE READ the post-lock read would return the
+ * pre-lock snapshot and this function would order the write without ordering the
+ * decision — it would silently stop working rather than fail.
+ *
+ * **Ordering, and it is a RULE, not a courtesy.** Migration 0017 §3 records it:
+ * a row lock is acquired BEFORE the per-organization audit advisory lock, in
+ * every shipped writer. So call this AFTER taking every row lock the caller's
+ * own writes will take before their first audit write — including the ones an FK
+ * takes on its behalf. Calling it earlier than that inverts the order for those
+ * rows and is a genuine deadlock, not a theoretical one: a period writer holding
+ * `schedule_periods … FOR UPDATE` and waiting on this lock, against a caller
+ * holding this lock and waiting on that period row, was reproduced as `40P01`.
+ * Taking either lock again later in the same transaction is a no-op.
+ *
+ * `uow.context.organizationId` is the server-verified tenant of the unit of
+ * work; the `::uuid::text` cast makes the hashed text identical to the trigger's
+ * `NEW.organization_id::text`, whatever spelling the context carries.
+ */
+export async function lockAuditOrdering(uow: UnitOfWork<Kysely<Database>>): Promise<void> {
+  await sql`
+    select pg_advisory_xact_lock(hashtext('schedulepoint.audit'),
+                                 hashtext(${uow.context.organizationId}::uuid::text))
+  `.execute(uow.query);
+}

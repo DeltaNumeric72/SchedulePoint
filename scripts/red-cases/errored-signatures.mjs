@@ -43,6 +43,18 @@ export const ERRORED_SIGNATURES = [
     pattern: /could not be spawned/,
     reason: 'the command could not be spawned (a binary is missing from PATH)',
   },
+  /* REV-B-006 / GH-008's zero-match guard. `scripts/gates/vitest-must-run.mjs`
+   * turns "vitest selected no test and exited 0" into a non-zero exit — and the
+   * exit code alone would reach this runner as an ordinary GATE FAILED. It is
+   * not one: nothing ran, which is the same class as `No test files found` one
+   * step later in the pipeline (the files were found, the NAME filter emptied
+   * them). Quoted from the wrapper's own diagnostic, and pinned in
+   * `runner-signature/check.mjs` so a reworded message fails there rather than
+   * silently downgrading. */
+  {
+    pattern: /THIS TEST INVOCATION EXECUTED NOTHING/,
+    reason: 'vitest selected no test to execute (a name filter matched nothing)',
+  },
 ];
 
 /**

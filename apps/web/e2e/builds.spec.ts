@@ -1272,7 +1272,15 @@ test.describe('E2 quality, conflicts, explanations and reproducibility', () => {
         detail(
           withVerdict(
             'reproducible',
-            'The deterministic budget or a completed proof ended the search after 32.618628s, well inside the 900s wall-clock limit, so the same problem run again on the same worker build produces the same schedule.',
+            /* The server's own wording, verbatim (REV-A-005 / GH-008 M-1 replaced
+               the "well inside" phrasing: it was false at the top of this
+               branch's band, 8.999999s of a 10s limit). The page renders `detail`
+               as it arrives, so this fixture is the server sentence or it is
+               proving nothing — `packages/domain/src/ports/solver-port.ts` is
+               where it is authored and
+               `packages/domain/test/ports/result-reproducibility.test.ts`'s
+               enumerated sweep is where every verdict's sentence is pinned. */
+            'This build ran to completion under the pinned deterministic parameter set. Its search took 32.618628s of the 900s wall-clock limit — below the point at which that clock is taken to have ended the search rather than merely bounded it — and nothing in the recorded facts shows the search stopping before it was done. So the same problem run again on the same worker build produces the same schedule.',
           ),
         ),
       ),

@@ -422,9 +422,13 @@ export interface ResultReproducibilityVerdict {
  * derived on read for the same reason. No schema change, no worker change
  * (FAD-49(1), FAD-50 B-1).
  *
- * **It fails CLOSED.** An absent wall time is `'unrecorded'`, not `'reproducible'`:
- * a run that crashed, was killed, or predates the statistics being recorded has
- * not earned the claim, and silence is not evidence.
+ * **It fails CLOSED, on all four of the facts it reads.** An absent wall time is
+ * `'unrecorded'`, not `'reproducible'`: a run that crashed, was killed, or
+ * predates the statistics being recorded has not earned the claim, and silence
+ * is not evidence. The same holds for an absent termination, absent deterministic
+ * units on the branch that needs them, and — since REV-A-006 / GH-008 M-2 — an
+ * absent or unrecognised solver status, which was the one nullable fact this
+ * rule had been stated about and not applied to.
  *
  * ## The termination fact, and the defect that put it here (FAD-50 B-1)
  *
@@ -481,6 +485,10 @@ export function resultReproducibility(input: {
    * belt: `isTerminalOutcomeHonest` already refuses a `CANCELLED` reported as
    * `completed`, and a verdict that trusted one field alone would depend on that
    * refusal never being bypassed.
+   *
+   * `null` means the status was not recorded, or was recorded as something
+   * outside {@link SOLVER_STATUSES} and parsed to absence rather than cast. Both
+   * are gaps and both fail closed (REV-A-006 / GH-008 M-2).
    */
   readonly status: SolverStatus | null;
   /**
@@ -537,6 +545,32 @@ export function resultReproducibility(input: {
       detail:
         `This build recorded a '${status}' status against a 'completed' termination. ` +
         'Those two cannot both be true, so no reproduction claim is made for it.',
+    };
+  }
+
+  if (status === null) {
+    /* REV-A-006 / GH-008 M-2. The FOURTH nullable fact, closed the same way as
+     * the other three. An absent status used to fall straight through to
+     * `reproducible` **with the promise sentence**, and it arrives here by two
+     * routes that both mean "not recorded": a genuinely NULL `solver_status`
+     * column, and — the wider half the reviewer found — a value outside
+     * `SOLVER_STATUSES`, which `runResultReproducibility` deliberately parses to
+     * `null` rather than casting. That parse is fail-closed; the branch it fed
+     * was fail-open, so the two together turned an unreadable status into a
+     * promise.
+     *
+     * Placed AFTER the termination rules on purpose, exactly as the wall-time
+     * guard is: where a fact is PRESENT and says the run was interrupted, that
+     * finding is the better sentence and it is unchanged. This is only the case
+     * where nothing is known. Every RECORDED status decides exactly what it
+     * decided before. */
+    return {
+      verdict: 'unrecorded',
+      reproducible: false,
+      detail:
+        'The deterministic parameter set was in force, but this build recorded no ' +
+        'solver status, or one outside the set this platform understands, so what the ' +
+        'search actually returned cannot be established.',
     };
   }
 
@@ -622,14 +656,37 @@ export function resultReproducibility(input: {
     }
   }
 
+  /* ── REV-A-005 / GH-008 M-1: the sentence says what the rules ESTABLISHED.
+   *
+   * It used to open "The deterministic budget or a completed proof ended the
+   * search" and to place the wall time "well inside" its limit. Neither survives
+   * the truth table:
+   *
+   *   * in the mid-band — FEASIBLE, completed, units between
+   *     `DETERMINISTIC_BUDGET_UNSPENT_FRACTION` × budget and the budget — nothing
+   *     above decided WHAT ended the search. FAD-52 made that fall-through
+   *     deliberate ("between 0.5× and the budget NO new claim is made"), and the
+   *     sentence was making one anyway;
+   *   * "well inside" is false at the top of the band this branch owns. The wall
+   *     rule fires at 0.9 × the limit, so a run at 8.999999s of 10s reaches here
+   *     — 90.0% of its limit, and the reviewer's own example.
+   *
+   * What IS established for every run that gets here: the run completed, its
+   * status is recorded and does not contradict that, its wall time is recorded
+   * and below the point at which the clock is taken to have ended the search,
+   * and no recorded fact shows the search stopping before it was done. The
+   * claim itself — the promise — is unchanged, because the verdict is. */
   return {
     verdict: 'reproducible',
     reproducible: true,
     detail:
-      `The deterministic budget or a completed proof ended the search after ` +
-      `${String(wallTimeSeconds)}s, well inside the ` +
-      `${String(parameters.maxTimeInSeconds)}s wall-clock limit, so the same problem ` +
-      'run again on the same worker build produces the same schedule.',
+      `This build ran to completion under the pinned deterministic parameter set. Its ` +
+      `search took ${String(wallTimeSeconds)}s of the ` +
+      `${String(parameters.maxTimeInSeconds)}s wall-clock limit — below the point at ` +
+      'which that clock is taken to have ended the search rather than merely bounded ' +
+      'it — and nothing in the recorded facts shows the search stopping before it was ' +
+      'done. So the same problem run again on the same worker build produces the same ' +
+      'schedule.',
   };
 }
 

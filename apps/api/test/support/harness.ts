@@ -226,6 +226,155 @@ export function wrongTenantProbe(
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
+ * The T-15 storm's ceiling (FAD-53 R-13)
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * How many full 54-table probe passes the T-15 storm performs.
+ *
+ * 900 iterations x (one group-scoped probe pass + one organization-scoped probe
+ * pass) = 1 800. The figure is a CONSTANT of the storm's design, asserted by the
+ * storm's own `probePasses` counter, and it is the multiplier that turns "what
+ * does one probe pass cost right now" into "what should the whole storm cost".
+ */
+export const STORM_PROBE_PASSES = 1_800;
+
+/**
+ * The floor the ceiling can never go below.
+ *
+ * This is the Vitest `testTimeout` the storm was judged against before R-13, so
+ * a ceiling that never goes below it **cannot turn a previously-green run red**:
+ * any run that used to pass finished inside 120 000 ms, and 120 000 ms is still
+ * allowed. That is the whole no-regression argument, and it is the reason the
+ * floor is written as a floor rather than as a starting point.
+ */
+export const STORM_CEILING_FLOOR_MS = 120_000;
+
+/**
+ * How much slower than its own measured unit cost the storm may run before the
+ * ceiling binds.
+ *
+ * Four, following R-12's precedent (`Math.max(45_000, inherited x 150)` against
+ * a measured 35.5 ms per job — a 4.2x envelope). The margin absorbs the
+ * contention the calibration cannot see: the calibration passes run alone, the
+ * storm's run alongside four concurrent units of work and an outside-wrapper
+ * probe.
+ *
+ * **How much of the margin that contention actually eats, measured.** In a
+ * composed run the storm's observed cost per probe pass comes in ABOVE the
+ * calibrated figure, and the worst case observed so far is **30.0%** — 78.08 ms
+ * observed against 60.08 ms calibrated, in R-13's review reproduction; R-13's
+ * own composed run saw 10.3% (75.64 against 68.58). Four still holds with room:
+ * the worst case leaves an effective margin of 3.08x rather than 4x. If a future
+ * run is ever seen consuming more than about half its budget, this constant is
+ * the thing to revisit — not the floor.
+ */
+export const STORM_CEILING_SAFETY = 4;
+
+/**
+ * The Vitest `testTimeout` for the storm's suite: the backstop for a HANG, and
+ * nothing else.
+ *
+ * It is **not** the ceiling and it is not the largest ceiling either. A wedged
+ * `await` is a different failure from a slow storm, and it must not be allowed
+ * to run for hours; this is the only thing that stops it. The storm's actual
+ * deadline is `stormCeilingMs`, measured and enforced at the iteration boundary,
+ * and it is held `STORM_CEILING_HEADROOM_MS` below this value so that the
+ * measured, named failure always fires before this generic one.
+ */
+export const STORM_HARD_CAP_MS = 900_000;
+
+/**
+ * The gap kept between the largest ceiling `stormCeilingMs` may return and the
+ * Vitest backstop above it.
+ *
+ * Without a gap the two would be reachable at the same instant and which one
+ * reported the failure would be a race — the generic "Test timed out" being the
+ * outcome that says least. With it, the largest ceiling the model can produce is
+ * `STORM_HARD_CAP_MS - STORM_CEILING_HEADROOM_MS` = 840 000 ms, and that cap
+ * binds only above ~117 ms per probe pass: roughly nine times the ~13 ms measured
+ * on an otherwise-idle cluster, and well beyond anything the battery's seven
+ * completed composed runs imply (see `stormCeilingMs`).
+ */
+export const STORM_CEILING_HEADROOM_MS = 60_000;
+
+/**
+ * **The T-15 storm's deadline, measured rather than assumed (FAD-53 R-13).**
+ *
+ * ## Why the storm needs one at all
+ *
+ * The storm's workload is FIXED — 900 iterations, 3 600 units of work, 1 800
+ * probe passes over all 54 tenant tables. Its wall-clock cost is not: across the
+ * SEVEN completed runs of the doc 38 §7 battery's eight composed 142-file runs it
+ * ran from 23.1 s to 85.6 s, and in the eighth it ran past the fixed 120 000 ms
+ * `testTimeout` at file position 111 of 142 — that run is CENSORED at the
+ * ceiling, not measured, so it contributes no upper figure to the range.
+ * `WRONG-TENANT ROWS: 0` in every completed run. The proof held everywhere; only
+ * the clock ran out.
+ *
+ * ## What the cost actually tracks, measured
+ *
+ * The storm's time is very nearly `STORM_PROBE_PASSES x (cost of one probe
+ * pass)`: 54 `count(*)` round trips per pass, and the probe passes are the
+ * critical path the concurrent workload hides behind. R-13 measured one pass at
+ * 12.7-14.2 ms on an idle cluster, which projects 22.9-25.6 s against a measured
+ * 22.8 s — and the battery's shallowest composed run (position 3) took 23.1 s.
+ *
+ * That per-pass cost is what varies, and R-13 measured that it is **not** a
+ * function of how much inherited data is in the database: synthesizing 200 extra
+ * MULTI fixtures through the production write paths took the live census from 12
+ * to 2 412 partitions and the 54 tenant tables from 198 to 34 998 rows, and the
+ * probe pass stayed flat at 12.7-18.6 ms across the whole sweep — with the
+ * MAXIMUM of that range at the sweep's MINIMUM depth (18.6 ms at 12 partitions,
+ * the first and coldest measurement), which is the opposite of what a depth
+ * effect looks like. Retaining 1.5 GB of ballast in the worker moved it by 8%.
+ * What the battery's transcripts DO show is run-wide: of the 141 files common to
+ * all eight runs the median correlation between a file's duration and its
+ * POSITION in the run is +0.95, and the files that do not correlate are
+ * predominantly the ones that are not round-trip-dominated — solver and
+ * subprocess work, plus a few that do touch the database but are too short for
+ * the drift to register. The storm issues by far the most round trips, so it
+ * feels it first.
+ *
+ * So the ceiling is not modelled from partition counts or row counts — R-13
+ * measured both and neither predicts. It is derived from the storm's own unit
+ * cost, sampled in the same process, on the same cluster, seconds before the
+ * storm starts. Whatever makes a round trip cost more late in a composed run,
+ * the calibration sees it.
+ *
+ * **One known bias, stated rather than left for a reader to find.** The
+ * calibration times only the GROUP-scoped probe pass, while `STORM_PROBE_PASSES`
+ * counts 900 group-scoped and 900 organization-scoped passes, and an
+ * organization-scoped pass is plausibly the dearer of the two — so the calibrated
+ * figure is a systematic UNDER-estimate of the storm's average pass, and part of
+ * why observed/calibrated comes in above 1 in every composed run. The direction
+ * is the safe one only because `STORM_CEILING_SAFETY` absorbs it; the bias is
+ * real and it is not corrected here.
+ *
+ * ## What it still catches
+ *
+ * Everything the fixed deadline caught except "the machine is busier than it was
+ * in 2026": a storm that costs materially more than its own measured unit cost x
+ * its own fixed workload is contending, retrying, leaking or deadlocking, and
+ * that is a defect. The floor keeps the pre-R-13 budget available unconditionally.
+ *
+ * **Every figure above is machine-specific** (4 vCPU, PostgreSQL 17.10, embedded
+ * cluster on the same host). They are recorded as the measurements that chose
+ * these constants, not as a contract about any other machine — which is exactly
+ * why the ceiling measures instead of hard-coding.
+ */
+export function stormCeilingMs(probePassMs: number): number {
+  if (!Number.isFinite(probePassMs) || probePassMs <= 0) return STORM_CEILING_FLOOR_MS;
+  return Math.min(
+    STORM_HARD_CAP_MS - STORM_CEILING_HEADROOM_MS,
+    Math.max(
+      STORM_CEILING_FLOOR_MS,
+      Math.round(probePassMs * STORM_PROBE_PASSES * STORM_CEILING_SAFETY),
+    ),
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
  * Ground truth
  * ──────────────────────────────────────────────────────────────────────────── */
 

@@ -28,6 +28,11 @@ import {
   impossibleCensusRows,
   log,
   outsideUnitOfWork,
+  stormCeilingMs,
+  STORM_CEILING_FLOOR_MS,
+  STORM_CEILING_SAFETY,
+  STORM_HARD_CAP_MS,
+  STORM_PROBE_PASSES,
   tenantRowCensus,
   wrongTenantProbe,
   type ProbeResult,
@@ -894,15 +899,40 @@ interface StormStats {
   tenantTableStatements: number;
 }
 
-describe('SPEC-01 §7.2 T-15 — two-organization concurrency storm', () => {
+/**
+ * The Vitest timeout for this suite is the HANG backstop, deliberately NOT the
+ * storm's deadline (FAD-53 R-13). The deadline is measured inside the test, from
+ * the storm's own unit cost, and enforced at the iteration boundary; this only
+ * stops a wedged await running for hours. It sits on the `describe` because the
+ * `it` below already fills a line with its name.
+ */
+const stormTimeout = { timeout: STORM_HARD_CAP_MS };
+
+describe('SPEC-01 §7.2 T-15 — two-organization concurrency storm', stormTimeout, () => {
   it('runs both roles against every tenant table under injected faults with zero wrong-tenant rows', async () => {
     // SPEC-01 T-15 says **10 000 interleaved operations**. The spike's packet
     // relaxed that to ">=50 iterations"; this one does not, and it does not need
     // to — at four contexts per iteration and three tenant-table statements per
-    // unit of work, 900 iterations clears the stated bar with room to spare and
-    // still runs in about a second. Protocol overhead (BEGIN, 4x set_config, the
-    // read-back, COMMIT/ROLLBACK) is counted separately so it cannot inflate the
-    // figure.
+    // unit of work, 900 iterations clears the stated bar with room to spare.
+    // Protocol overhead (BEGIN, 4x set_config, the read-back, COMMIT/ROLLBACK) is
+    // counted separately so it cannot inflate the figure.
+    //
+    // **What it costs, measured (FAD-53 R-13).** This comment used to add that
+    // 900 iterations "still runs in about a second". That was never true, and it
+    // is wrong by more than an order of magnitude even at the cheapest case
+    // anyone has measured. The storm makes 1 800 probe passes of 54 `count(*)`
+    // round trips each, 900 outside-wrapper passes and 3 600 units of work:
+    // 22.8 s measured alone on a freshly seeded cluster, and 23.1 s to 85.6 s
+    // across the SEVEN completed runs of the doc 38 §7 battery's eight composed
+    // 142-file runs. In the eighth — the one that placed this file 111th of 142 —
+    // it exceeded the old fixed 120 000 ms `testTimeout` outright and was
+    // censored there rather than measured, which is what routed R-13.
+    // Correctness held in every completed run (`WRONG-TENANT ROWS: 0`); only the
+    // clock ran out.
+    // Every figure here is machine-specific (4 vCPU, PostgreSQL 17.10, embedded
+    // cluster on the same host) — which is exactly why the deadline below is
+    // MEASURED at run time instead of being written down. `stormCeilingMs` in
+    // `harness.ts` carries the measurements and the reasoning.
     const iterations = Number.parseInt(process.env['SP_STORM_ITERATIONS'] ?? '900', 10);
 
     const stormRuntime = createRuntime('app_runtime', { max: 3 });
@@ -1010,6 +1040,52 @@ describe('SPEC-01 §7.2 T-15 — two-organization concurrency storm', () => {
       }
     }
 
+    /* ── the precondition: what ONE probe pass costs, here, now ─────────────
+     *
+     * FAD-53 R-13 — this test ESTABLISHES its cost precondition rather than
+     * assuming one, in the shape R-2 and R-12 set: measure first, then scale the
+     * deadline by the measurement.
+     *
+     * What is measured is the storm's own unit of work — one pass of the same
+     * `wrongTenantProbe` SQL over all 54 tenant tables, under a real context, on
+     * a runtime of its own so the storm's asserted counters stay untouched. Four
+     * passes to warm the pool and the plans, twelve timed: 0.9% of the 1 800 the
+     * storm goes on to make.
+     *
+     * Why a measurement rather than a model: R-13 measured the two obvious
+     * models — inherited partitions and inherited rows — and neither predicts.
+     * `stormCeilingMs` carries that evidence.
+     */
+    const calibration = createRuntime('app_runtime', { max: 2 });
+    let probePassMs: number;
+    try {
+      const context = alphaGroupOne();
+      const expected =
+        expectedUsers.get(`${context.organizationId}|${String(context.groupId)}`) ?? [];
+      const onePass = async (): Promise<void> => {
+        await calibration.runner.run(context, async ({ query }) => {
+          for (const table of TENANT_TABLES) {
+            const probe = wrongTenantProbe(table, context, expected);
+            await query.executeQuery(CompiledQuery.raw(probe.text, probe.values));
+          }
+        });
+      };
+      for (let warm = 0; warm < 4; warm += 1) await onePass();
+      const from = Date.now();
+      for (let pass = 0; pass < 12; pass += 1) await onePass();
+      probePassMs = (Date.now() - from) / 12;
+    } finally {
+      await calibration.destroy();
+    }
+    const ceilingMs = stormCeilingMs(probePassMs);
+    log(
+      `R-13 precondition: one ${String(TENANT_TABLES.length)}-table probe pass costs ` +
+        `${probePassMs.toFixed(2)} ms in this process right now; the storm makes ` +
+        `${String(STORM_PROBE_PASSES)} of them, so its ceiling is ${String(ceilingMs)} ms ` +
+        `(floor ${String(STORM_CEILING_FLOOR_MS)} ms, safety ×${String(STORM_CEILING_SAFETY)})`,
+    );
+
+    const stormStartedAt = Date.now();
     try {
       for (let iteration = 0; iteration < iterations; iteration += 1) {
         const batch: Promise<unknown>[] = [];
@@ -1086,7 +1162,25 @@ describe('SPEC-01 §7.2 T-15 — two-organization concurrency storm', () => {
         batch.push(probeOutside(probeRuntime));
 
         await Promise.all(batch);
+
+        // The measured ceiling, enforced at the iteration boundary instead of by
+        // a fixed `testTimeout`. A storm that blows it names what it measured,
+        // what it was judged against and how far it got — none of which
+        // "Test timed out in 120000ms" ever said.
+        const elapsedMs = Date.now() - stormStartedAt;
+        if (elapsedMs > ceilingMs) {
+          throw new Error(
+            `R-13 storm ceiling exceeded: ${String(elapsedMs)} ms after ` +
+              `${String(iteration + 1)} of ${String(iterations)} iterations, against a ceiling ` +
+              `of ${String(ceilingMs)} ms scaled from this run's OWN probe-pass cost ` +
+              `(${probePassMs.toFixed(2)} ms/pass × ${String(STORM_PROBE_PASSES)} passes × ` +
+              `${String(STORM_CEILING_SAFETY)}). The workload is fixed, so a storm this far ` +
+              'above its own unit cost is contending, retrying or leaking — a defect, not a ' +
+              'deeper database (FAD-53 R-13).',
+          );
+        }
       }
+      const stormMs = Date.now() - stormStartedAt;
 
       stats.tenantTableStatements =
         stormRuntime.runner.stats.tenantTableStatements +
@@ -1131,11 +1225,60 @@ describe('SPEC-01 §7.2 T-15 — two-organization concurrency storm', () => {
         `census: ${String(census.length)} partitions, ${String(impossible.length)} impossible · ` +
           `WRONG-TENANT ROWS: ${String(stats.wrongTenantRows)}`,
       );
+      log(
+        `storm ${String(stormMs)} ms against a measured ceiling of ${String(ceilingMs)} ms ` +
+          `(${(stormMs / ceilingMs).toFixed(2)} of budget; ` +
+          `${(stormMs / STORM_PROBE_PASSES).toFixed(2)} ms per probe pass observed against ` +
+          `${probePassMs.toFixed(2)} ms calibrated)`,
+      );
     } finally {
       await stormRuntime.destroy();
       await stormWorker.destroy();
       await probeRuntime.destroy();
     }
+  });
+
+  /**
+   * The no-regression theorem of R-13's repair, executable.
+   *
+   * The storm's deadline stopped being a constant and became a measurement. The
+   * property that makes that safe is that the measurement can only ever ADD
+   * budget: for every input the ceiling is at least the 120 000 ms the storm was
+   * judged against before, so a run that used to finish in time still does. This
+   * asserts exactly that, plus the two directions the model has to have — a more
+   * expensive round trip buys more budget, and the hard cap that stops a HANG
+   * running for hours stays above every ceiling the model can produce.
+   *
+   * A pure function over one number, so it costs nothing and it still runs when
+   * the storm above cannot.
+   */
+  it('R-13 — the measured ceiling can only ever ADD budget to the old fixed deadline', () => {
+    const inputs = [0, 0.5, 1, 5, 12.7, 16, 16.67, 22, 47.6, 70, 116, 117, 500, 10_000];
+    for (const probePassMs of inputs) {
+      expect(
+        stormCeilingMs(probePassMs),
+        `a ceiling below the pre-R-13 deadline at ${String(probePassMs)} ms/pass could turn a green run red`,
+      ).toBeGreaterThanOrEqual(STORM_CEILING_FLOOR_MS);
+      expect(
+        stormCeilingMs(probePassMs),
+        `a ceiling at or above the hard cap at ${String(probePassMs)} ms/pass would be judged by the Vitest timeout instead`,
+      ).toBeLessThan(STORM_HARD_CAP_MS);
+    }
+    // Monotonic: a slower machine — or a slower late-in-the-run process — is
+    // never given LESS budget than a faster one.
+    for (let i = 1; i < inputs.length; i += 1) {
+      expect(stormCeilingMs(inputs[i]!)).toBeGreaterThanOrEqual(stormCeilingMs(inputs[i - 1]!));
+    }
+    // A nonsense measurement falls back to the floor rather than to zero.
+    expect(stormCeilingMs(Number.NaN)).toBe(STORM_CEILING_FLOOR_MS);
+    expect(stormCeilingMs(-1)).toBe(STORM_CEILING_FLOOR_MS);
+    // And the model is the one the docblock describes: passes × safety.
+    expect(stormCeilingMs(47.6)).toBe(Math.round(47.6 * STORM_PROBE_PASSES * STORM_CEILING_SAFETY));
+    log(
+      `ceiling floor ${String(STORM_CEILING_FLOOR_MS)} ms; the scaled term takes over at ` +
+        `${(STORM_CEILING_FLOOR_MS / (STORM_PROBE_PASSES * STORM_CEILING_SAFETY)).toFixed(2)} ms/pass; ` +
+        `hard cap ${String(STORM_HARD_CAP_MS)} ms`,
+    );
   });
 });
 

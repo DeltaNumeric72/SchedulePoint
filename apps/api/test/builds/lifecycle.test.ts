@@ -854,6 +854,353 @@ describe('the database controls, driven directly', () => {
 });
 
 /* ────────────────────────────────────────────────────────────────────────────
+ * 3b. The termination facts are FROZEN (R-5; review finding REV-A-004)
+ *
+ * The finding, restated: `app_guard_build_run_transition` returns early on
+ * `NEW.state IS NOT DISTINCT FROM OLD.state`, so every state-conditioned guard
+ * below that line was skipped for a same-state UPDATE — and the columns frozen
+ * ABOVE it were identity, snapshot, applied version and epoch, never the
+ * termination facts. `UPDATE build_runs SET termination_reason = 'completed',
+ * solver_status = 'OPTIMAL'` on a SETTLED run was therefore ACCEPTED and
+ * committed, while the append-only `build_run_results` row went on holding the
+ * facts the run was actually given. `runResultReproducibility` reads the
+ * mutable copy, so the recorded verdict flipped from "interrupted, not
+ * reproducible" to "reproducible" with the promise sentence attached, and the
+ * two records disagreed.
+ *
+ * Migration 0020 adds ONE unconditional write-once freeze in the first half of
+ * the guard, beside its four siblings. The arms below are the finding as a
+ * permanent test, and — equally the point — the proof that the freeze costs the
+ * legitimate writers nothing.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+describe('the termination facts, frozen once stated', () => {
+  /** A run parked in `running` at a known epoch. */
+  async function runningBuild(label: string): Promise<{
+    seeded: BuildFixture;
+    buildRunId: string;
+    epoch: number;
+  }> {
+    const seeded = await fixture(label);
+    const created = await run(seeded.context, async (uow) =>
+      createRun(uow, scheduleActor(schedulerUserId), {
+        configurationId: seeded.configurationId,
+        sourceVersionId: seeded.versionId,
+        candidateLabel: label,
+        idempotencyKey: `${label}.${randomUUID().slice(0, 12)}`,
+      }),
+    );
+    await toQueued(seeded, created.buildRunId);
+    const claim = await run(seeded.context, async (uow) =>
+      claimQueuedBuild(uow, created.buildRunId, `frozen.worker.${label.slice(0, 10)}`),
+    );
+    return { seeded, buildRunId: created.buildRunId, epoch: claim?.claimEpoch ?? 0 };
+  }
+
+  /**
+   * A run settled into `failed` through `persistOutcome`, exactly as REV-A found
+   * it: `termination_reason = 'rejected'`, `solver_status = 'FEASIBLE'`, and a
+   * `build_run_results` row carrying the SAME two facts append-only. The second
+   * copy is the point — the finding is that the two could be made to disagree,
+   * so a fixture without it could not express the property.
+   */
+  async function settledBuild(label: string): Promise<{
+    seeded: BuildFixture;
+    buildRunId: string;
+  }> {
+    const seeded = await fixture(label);
+    const created = await run(seeded.context, async (uow) =>
+      createRun(uow, scheduleActor(schedulerUserId), {
+        configurationId: seeded.configurationId,
+        sourceVersionId: seeded.versionId,
+        candidateLabel: label,
+        idempotencyKey: `${label}.${randomUUID().slice(0, 12)}`,
+      }),
+    );
+    await toQueued(seeded, created.buildRunId);
+    const document = await documentOf(seeded);
+    const state = await claimAndRecord(seeded, created.buildRunId, document, {
+      usable: false,
+      findings: [BREACH],
+      date: document.startDate,
+    });
+    expect(state, 'the REV-A fixture must settle in `failed`').toBe('failed');
+    return { seeded, buildRunId: created.buildRunId };
+  }
+
+  it('R-5a: the same-state rewrite REV-A committed is refused, as `app_runtime`', async () => {
+    const { seeded, buildRunId } = await settledBuild('facts-frozen');
+
+    /* The exact statement of arm REV-A/H, through a unit of work, as the role
+     * the application uses — no service code in the path at all. */
+    await expect(
+      run(seeded.context, async ({ query }) => {
+        await sql`UPDATE build_runs
+                     SET termination_reason = 'completed', solver_status = 'OPTIMAL'
+                   WHERE id = ${buildRunId}::uuid`.execute(query);
+      }),
+    ).rejects.toMatchObject({
+      message: expect.stringContaining('BUILD_TERMINATION_FACTS_FROZEN'),
+    });
+
+    /* GREEN control on the same statement shape and the same connection: a
+     * column the guard does NOT freeze updates fine, so the refusal above is the
+     * freeze rather than a missing grant or a broken session. */
+    await run(seeded.context, async ({ query }) => {
+      await sql`UPDATE build_runs SET candidate_label = 'renamed, not rewritten'
+                 WHERE id = ${buildRunId}::uuid`.execute(query);
+    });
+
+    /* Nothing moved, and the two records still agree — which is the property, not
+     * the error message. */
+    const after = await run(seeded.context, async (uow) => {
+      const row = await loadRun(uow, buildRunId);
+      const result = await uow.query
+        .selectFrom('build_run_results')
+        .select(['termination_reason', 'solver_status'])
+        .where('build_run_id', '=', buildRunId)
+        .executeTakeFirst();
+      return { row, result };
+    });
+    expect(after.row?.state).toBe('failed');
+    expect(after.row?.candidate_label).toBe('renamed, not rewritten');
+    expect(after.row?.termination_reason).toBe('rejected');
+    expect(after.row?.solver_status).toBe('FEASIBLE');
+    expect(after.result?.termination_reason).toBe(after.row?.termination_reason);
+    expect(after.result?.solver_status).toBe(after.row?.solver_status);
+  }, 240_000);
+
+  it('R-5b: …and refused as the OWNER, past the grants', async () => {
+    /* `app_runtime` holds a column-level UPDATE grant that INCLUDES both columns
+     * (migration 0018), so the arm above really does reach the trigger. This one
+     * proves the trigger is what binds everybody else too: the table owner, a
+     * repair script, a psql session. `FORCE ROW LEVEL SECURITY` binds the owner
+     * and a BEFORE trigger binds it as well — asserted, not assumed. */
+    const { seeded, buildRunId } = await settledBuild('facts-frozen-owner');
+
+    await expect(
+      admin.query(`UPDATE build_runs SET termination_reason = $1 WHERE id = $2`, [
+        'completed',
+        buildRunId,
+      ]),
+    ).rejects.toMatchObject({
+      message: expect.stringContaining('BUILD_TERMINATION_FACTS_FROZEN'),
+    });
+    await expect(
+      admin.query(`UPDATE build_runs SET solver_status = $1 WHERE id = $2`, [
+        'OPTIMAL',
+        buildRunId,
+      ]),
+    ).rejects.toMatchObject({
+      message: expect.stringContaining('BUILD_TERMINATION_FACTS_FROZEN'),
+    });
+
+    /* Nor may a recorded fact be ERASED. A freeze that admitted NULL would let a
+     * settled run go back to saying nothing about why it ended, which is the
+     * same loss of the record by a quieter route. */
+    await expect(
+      admin.query(`UPDATE build_runs SET termination_reason = NULL WHERE id = $1`, [buildRunId]),
+    ).rejects.toMatchObject({
+      message: expect.stringContaining('BUILD_TERMINATION_FACTS_FROZEN'),
+    });
+
+    const after = await run(seeded.context, async (uow) => loadRun(uow, buildRunId));
+    expect(after?.termination_reason).toBe('rejected');
+    expect(after?.solver_status).toBe('FEASIBLE');
+  }, 240_000);
+
+  it('R-5c: the three legitimate writers still state the facts, out of NULL', async () => {
+    /* The freeze is write-ONCE, not write-never, and this is what says so.
+     * `termination_reason` and `solver_status` are written from exactly one
+     * function — `transitionRun` — reached from exactly three call sites, and
+     * all three are exercised here through production code. */
+
+    /* (1) `persistOutcome`: `running` → a terminal state with the classified
+     *     reason and the solver's own status. */
+    const seededOne = await fixture('writer-persist-outcome');
+    const createdOne = await run(seededOne.context, async (uow) =>
+      createRun(uow, scheduleActor(schedulerUserId), {
+        configurationId: seededOne.configurationId,
+        sourceVersionId: seededOne.versionId,
+        candidateLabel: 'writer-persist-outcome',
+        idempotencyKey: `wpo.${randomUUID().slice(0, 12)}`,
+      }),
+    );
+    await toQueued(seededOne, createdOne.buildRunId);
+    const document = await documentOf(seededOne);
+    const state = await claimAndRecord(seededOne, createdOne.buildRunId, document, {
+      usable: true,
+      date: document.startDate,
+    });
+    expect(state).toBe('completed');
+    const persisted = await run(seededOne.context, async (uow) =>
+      loadRun(uow, createdOne.buildRunId),
+    );
+    expect(persisted?.termination_reason).toBe('completed');
+    expect(persisted?.solver_status).toBe('FEASIBLE');
+
+    /* (2) `reapStaleBuilds`: `running` → `failed`, `crashed` / `FAILED`. This is
+     *     crash recovery itself — a freeze that broke it would be worse than the
+     *     hole it closes. */
+    const { seeded: seededTwo, buildRunId: reapedId } = await runningBuild('writer-reaper');
+    await run(seededTwo.context, async ({ query }) => {
+      await sql`UPDATE build_runs SET heartbeat_at = now() - interval '1 hour'
+                 WHERE id = ${reapedId}::uuid`.execute(query);
+    });
+    const reaped = await run(seededTwo.context, async (uow) => reapStaleBuilds(uow));
+    expect(reaped.map((r) => r.buildRunId)).toContain(reapedId);
+    const crashed = await run(seededTwo.context, async (uow) => loadRun(uow, reapedId));
+    expect(crashed?.state).toBe('failed');
+    expect(crashed?.termination_reason).toBe('crashed');
+    expect(crashed?.solver_status).toBe('FAILED');
+
+    /* (3) `requestCancellation` on a QUEUED build: `user_cancelled` / `CANCELLED`
+     *     in the same statement that moves the state. */
+    const seededThree = await fixture('writer-cancel');
+    const createdThree = await run(seededThree.context, async (uow) =>
+      createRun(uow, scheduleActor(schedulerUserId), {
+        configurationId: seededThree.configurationId,
+        sourceVersionId: seededThree.versionId,
+        candidateLabel: 'writer-cancel',
+        idempotencyKey: `wc.${randomUUID().slice(0, 12)}`,
+      }),
+    );
+    await toQueued(seededThree, createdThree.buildRunId);
+    const cancelled = await run(seededThree.context, async (uow) =>
+      requestCancellation(uow, scheduleActor(schedulerUserId), createdThree.buildRunId, 'queued'),
+    );
+    expect(cancelled.immediate).toBe(true);
+    const cancelledRow = await run(seededThree.context, async (uow) =>
+      loadRun(uow, createdThree.buildRunId),
+    );
+    expect(cancelledRow?.termination_reason).toBe('user_cancelled');
+    expect(cancelledRow?.solver_status).toBe('CANCELLED');
+  }, 600_000);
+
+  it('R-5d: re-stating the SAME facts is not a rewrite, and `archived` keeps them', async () => {
+    /* `IS DISTINCT FROM` and not "was already written": an idempotent replay that
+     * writes the identical two values changes nothing and is admitted, and the
+     * settled → `archived` edge — which passes neither option, so the columns
+     * ride along unchanged in the UPDATE — still works. Without this arm the
+     * freeze could be over-tight in a way no other test would notice until a
+     * period was closed. */
+    const { seeded, buildRunId } = await settledBuild('facts-restated');
+
+    await run(seeded.context, async ({ query }) => {
+      await sql`UPDATE build_runs
+                   SET termination_reason = 'rejected', solver_status = 'FEASIBLE'
+                 WHERE id = ${buildRunId}::uuid`.execute(query);
+    });
+
+    await run(seeded.context, async (uow) => {
+      const row = await loadRun(uow, buildRunId);
+      if (row === null) throw new Error('vanished');
+      await transitionRun(uow, row, 'archived', { reason: 'period_closed' });
+    });
+
+    const after = await run(seeded.context, async (uow) => loadRun(uow, buildRunId));
+    expect(after?.state).toBe('archived');
+    expect(after?.termination_reason).toBe('rejected');
+    expect(after?.solver_status).toBe('FEASIBLE');
+  }, 240_000);
+
+  it('R-5e: every legitimate SAME-STATE update of a running build still lands', async () => {
+    /* The early return exists because `app_build_run_transition_is_legal` has no
+     * self-edges: without it EVERY same-state UPDATE would be refused as
+     * `BUILD_TRANSITION_ILLEGAL`. The freeze had to be placed above that line to
+     * bite at all — so this arm enumerates every same-state UPDATE the shipped
+     * code performs and proves each one still lands. If the freeze had been
+     * spelled as "no UPDATE touches a settled run", or placed anywhere that made
+     * the heartbeat or the reaper's fence fail, this is the arm that would say
+     * so.
+     *
+     * Stated exactly, because it is the difference between what this arm proves
+     * and what it would be nice to claim: (1) calls the production function.
+     * (2)–(5) are the production STATEMENT SHAPES, driven here so that all five
+     * meet the guard in one place and a reader can see the enumeration is
+     * complete. The production PATHS are covered elsewhere in this file and each
+     * one is a live proof, not an assumption: `toQueued` performs (4) for every
+     * fixture; `claimAndRecord` → `persistOutcome` performs (3) and R-5c asserts
+     * its result; and R-5c drives the real `reapStaleBuilds`, which performs (5)
+     * and then the terminating transition. */
+    const { seeded, buildRunId, epoch } = await runningBuild('same-state-updates');
+
+    /* (1) `heartbeat()` — the poll a worker makes for the length of a solve. */
+    expect(await run(seeded.context, async (uow) => heartbeat(uow, buildRunId, epoch))).toBe(true);
+
+    /* (2) `runQueuedBuild()` — the dispatched parameter set and the seed,
+     *     recorded on the run at claim time so a build that then crashes still
+     *     says what it was run with. */
+    await run(seeded.context, async (uow) => {
+      await uow.query
+        .updateTable('build_runs')
+        .set({
+          solver_parameters: JSON.stringify({ randomSeed: 7, interleaveSearch: true }),
+          random_seed: 7,
+          deterministic_worker_count: 1,
+        })
+        .where('id', '=', buildRunId)
+        .execute();
+    });
+
+    /* (3) `persistOutcome()` — SPEC-04 §4's provenance, written on the run while
+     *     it is still `running`, BEFORE the terminating transition. */
+    await run(seeded.context, async (uow) => {
+      await uow.query
+        .updateTable('build_runs')
+        .set({
+          solver_version: 'fixture-local-stub',
+          solver_image_digest: 'fixture-local-none',
+          compiler_version: 'fixture-local-stub',
+          platform_arch: process.arch,
+          reproducibility_mode: 'best-effort',
+        })
+        .where('id', '=', buildRunId)
+        .execute();
+    });
+
+    /* (4) `submitBuild()` — the pinned problem, bound while `validating`. Driven
+     *     here on a `running` row because the statement shape, not the state, is
+     *     what the guard sees; re-stating the SAME snapshot is what the sibling
+     *     `BUILD_SNAPSHOT_FROZEN` admits. */
+    const bound = await run(seeded.context, async (uow) => loadRun(uow, buildRunId));
+    await run(seeded.context, async (uow) => {
+      await uow.query
+        .updateTable('build_runs')
+        .set({
+          snapshot_id: bound?.snapshot_id ?? null,
+          canonical_input_hash: bound?.canonical_input_hash ?? null,
+        })
+        .where('id', '=', buildRunId)
+        .execute();
+    });
+
+    /* (5) `reapStaleBuilds()` — the FENCE, which is a same-state UPDATE of its
+     *     own: the epoch advances and the claim is released in one statement,
+     *     while the run is still `running`. */
+    await run(seeded.context, async (uow) => {
+      await uow.query
+        .updateTable('build_runs')
+        .set({ claim_epoch: epoch + 1, claimed_by: null, claimed_at: null, heartbeat_at: null })
+        .where('id', '=', buildRunId)
+        .where('state', '=', 'running')
+        .execute();
+    });
+
+    const after = await run(seeded.context, async (uow) => loadRun(uow, buildRunId));
+    expect(after?.state, 'not one of the five may have moved the state').toBe('running');
+    expect(after?.claim_epoch).toBe(epoch + 1);
+    expect(after?.claimed_by).toBeNull();
+    expect(after?.random_seed).toBe(7);
+    expect(after?.solver_version).toBe('fixture-local-stub');
+    /* And the run never terminated, so the frozen columns are still NULL — which
+     * is why none of the five met the freeze at all. */
+    expect(after?.termination_reason).toBeNull();
+    expect(after?.solver_status).toBeNull();
+  }, 600_000);
+});
+
+/* ────────────────────────────────────────────────────────────────────────────
  * 4. The reaper
  * ──────────────────────────────────────────────────────────────────────────── */
 

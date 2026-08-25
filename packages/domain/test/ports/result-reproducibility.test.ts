@@ -2,8 +2,11 @@ import {
   DETERMINISTIC_BUDGET_UNSPENT_FRACTION,
   reproducibilityMode,
   resultReproducibility,
+  SOLVER_STATUSES,
   WALL_CLOCK_BINDING_FRACTION,
+  type ResultReproducibility,
   type SolverParameters,
+  type SolverStatus,
 } from '@schedulepoint/domain';
 import { describe, expect, it } from 'vitest';
 
@@ -505,6 +508,134 @@ describe('FAD-52: a completed FEASIBLE run with its budget unspent claims nothin
   });
 });
 
+/**
+ * **REV-A-006 / GH-008 M-2 — an ABSENT solver status is never evidence for the
+ * claim either.**
+ *
+ * The finding, verbatim (REV-A `docs/evidence/EV-REVIEW-A/REPORT.md`):
+ *
+ * > `solver_status` NULL → `reproducible` with the promise. Also an
+ * > **unrecognised** status (`'UNKNOWN'`): `runResultReproducibility` parses it
+ * > to `null` deliberately ("an unrecognised termination reads as ABSENT… the
+ * > fail-closed direction") and that fail-closed *parse* then feeds a
+ * > fail-**open** branch. The derivation applies "an absent fact is never
+ * > evidence for the claim" to three of its four nullable facts (units, wall
+ * > time, termination) and not to the fourth.
+ *
+ * The reviewer's truth table (`transcripts/04-repro-truth-table.txt`) shows both
+ * rows, marked `<< GH-008 M-2`, arriving at `reproducible` **with the promise
+ * sentence**. The parse above it is the one the api layer already does right —
+ * a status outside `SOLVER_STATUSES` becomes `null` rather than being cast — so
+ * the whole fail-closed intention was being handed to a branch that read silence
+ * as consent.
+ *
+ * Nothing about a RECORDED status moves: the eight members of the closed set are
+ * pinned by the arms elsewhere in this file and by the truth table, and the
+ * reviewer's `solver_status UNKNOWN` row is deliberately NOT part of this
+ * finding — `UNKNOWN` is a status the platform recorded, not a status it failed
+ * to record, and the two are different facts.
+ */
+describe('REV-A-006: an absent solver status fails CLOSED, like the other three facts', () => {
+  /** The reviewer's first M-2 row: comfortable wall, spent budget, no status. */
+  const withoutStatus = {
+    parameters: DETERMINISTIC,
+    wallTimeSeconds: 1,
+    deterministicTimeUnits: 76.702882,
+    terminationReason: 'completed',
+    status: null,
+  } as const;
+
+  it('THE FINDING: a completed run that recorded NO status claims nothing', () => {
+    const verdict = resultReproducibility(withoutStatus);
+    expect(verdict.verdict).toBe('unrecorded');
+    expect(verdict.reproducible).toBe(false);
+    expect(verdict.detail).toContain('cannot be established');
+    /* the half that made it a finding rather than a wording nit */
+    expect(verdict.detail).not.toContain('produces the same schedule');
+  });
+
+  it('the reviewer’s second row — no status AND no units — is `unrecorded` too', () => {
+    const verdict = resultReproducibility({ ...withoutStatus, deterministicTimeUnits: null });
+    expect(verdict.verdict).toBe('unrecorded');
+    expect(verdict.reproducible).toBe(false);
+  });
+
+  it('an UNRECOGNISED status is absent, because the api layer parses it to null', () => {
+    /* The wider half of REV-A-006, at the layer that decides. The parse lives in
+     * `runResultReproducibility` (`apps/api/src/builds/service.ts`), where a
+     * value outside the closed set becomes `null` rather than being cast — and
+     * this is the branch that value then reaches. Proven end-to-end from a raw
+     * row in `apps/api/test/builds/result-reproducibility-wiring.test.ts`. */
+    const recordedText: string = 'DEFINITELY-NOT-A-STATUS';
+    const parsed: SolverStatus | null = SOLVER_STATUSES.find((s) => s === recordedText) ?? null;
+    expect(parsed).toBeNull();
+    expect(resultReproducibility({ ...withoutStatus, status: parsed }).verdict).toBe('unrecorded');
+  });
+
+  it('the CONTROL: the identical run with its status recorded still earns the claim', () => {
+    /* Without this the arms above would pass against a predicate that refused
+     * every run, which is a different way of being wrong. One field moves. */
+    const verdict = resultReproducibility({ ...withoutStatus, status: 'OPTIMAL' });
+    expect(verdict.verdict).toBe('reproducible');
+    expect(verdict.reproducible).toBe(true);
+  });
+
+  it('every RECORDED status is unchanged — the eight-member closed set, swept', () => {
+    /* The fix is scoped to ABSENCE. A status the platform actually recorded
+     * decides exactly what it decided before, and this arm is what would catch a
+     * "fail closed" that quietly widened into "refuse anything unfamiliar". */
+    const expected: Readonly<Record<SolverStatus, string>> = {
+      OPTIMAL: 'reproducible',
+      FEASIBLE: 'reproducible',
+      INFEASIBLE: 'reproducible',
+      MODEL_INVALID: 'reproducible',
+      UNKNOWN: 'reproducible',
+      /* the three that contradict a `completed` termination */
+      CANCELLED: 'interrupted',
+      TIMEOUT: 'interrupted',
+      FAILED: 'interrupted',
+    };
+    for (const status of SOLVER_STATUSES) {
+      expect(resultReproducibility({ ...withoutStatus, status }).verdict, status).toBe(
+        expected[status],
+      );
+    }
+  });
+
+  it('a fact that is PRESENT still wins: no status but an interrupted run is `interrupted`', () => {
+    /* FAD-50's distinction, preserved. `unrecorded` is a gap; `interrupted` is a
+     * finding; a run whose termination says a person stopped it has the finding
+     * whether or not a status was recorded beside it. */
+    const verdict = resultReproducibility({
+      ...withoutStatus,
+      terminationReason: 'user_cancelled',
+    });
+    expect(verdict.verdict).toBe('interrupted');
+    expect(verdict.detail).toContain('cancelled');
+  });
+
+  it('all FOUR nullable facts now fail closed — the symmetry the finding named', () => {
+    /* The finding's own sentence as an executable sweep: units, wall time,
+     * termination and status. Each absence, alone, on an otherwise
+     * claim-earning run. */
+    const feasible = { ...withoutStatus, status: 'FEASIBLE', deterministicTimeUnits: 99 } as const;
+    const absences = [
+      { fact: 'deterministic units', input: { ...feasible, deterministicTimeUnits: null } },
+      { fact: 'wall time', input: { ...feasible, wallTimeSeconds: null } },
+      { fact: 'termination reason', input: { ...feasible, terminationReason: null } },
+      { fact: 'solver status', input: { ...feasible, status: null } },
+    ];
+    for (const { fact, input } of absences) {
+      const verdict = resultReproducibility(input);
+      expect(verdict.verdict, fact).toBe('unrecorded');
+      expect(verdict.reproducible, fact).toBe(false);
+      expect(verdict.detail, fact).not.toContain('produces the same schedule');
+    }
+    /* and the control, so the sweep cannot pass by refusing everything */
+    expect(resultReproducibility(feasible).verdict).toBe('reproducible');
+  });
+});
+
 describe('FAD-52: the unspent threshold claims less between itself and the budget', () => {
   /* The constant is COARSE on purpose, and the arms below are the boundary
    * itself so a change to it cannot pass unnoticed — the same discipline as the
@@ -545,6 +676,95 @@ describe('FAD-52: the unspent threshold claims less between itself and the budge
     }
     for (const units of [76.702882, 83.130356]) {
       expect(feasibleAt(units), `${String(units)} of ${String(budget)} units`).toBe('reproducible');
+    }
+  });
+});
+
+/**
+ * **REV-A-005 / GH-008 M-1 — the reproducible sentence says only what the truth
+ * table established.**
+ *
+ * The finding, verbatim (REV-A `docs/evidence/EV-REVIEW-A/REPORT.md`):
+ *
+ * > Driving `resultReproducibility` over its whole input space
+ * > (`transcripts/04-repro-truth-table.txt`, 26 cases): FEASIBLE + `completed` +
+ * > **50.000001 of 100** units → `reproducible`, **with the promise sentence**.
+ * > Registered and honestly sized as GH-008 M-1. **Added:** at wall
+ * > `8.999999 s` of a 10 s limit the same branch renders "…after 8.999999s,
+ * > **well inside** the 10s wall-clock limit" — false at 90.0% of the limit.
+ *
+ * ## What moved and what did not
+ *
+ * The VERDICT is untouched. FAD-52 ruled deliberately that between
+ * `DETERMINISTIC_BUDGET_UNSPENT_FRACTION` and the budget **no new claim is
+ * made** — a refusal invented in that band would be the same confident-past-the-
+ * evidence error pointing the other way — and the boundary arms above pin it.
+ *
+ * What moved is the SENTENCE, which was asserting two things the derivation had
+ * not established: that the deterministic budget *or a completed proof* ended the
+ * search (in the mid-band neither is established — the run simply fell through
+ * every refusal), and that the wall time sat "well inside" its limit (false at
+ * 8.999999 of 10, which is 90.0% of it and one millionth of a second from the
+ * verdict flipping). It now states exactly the two facts the rules above it
+ * checked: the clock did not reach the point at which it is taken to have ended
+ * the search, and nothing recorded shows the search stopping before it was done.
+ */
+describe('REV-A-005: the reproducible sentence claims no more than the rules checked', () => {
+  it('THE FINDING: at 8.999999s of a 10s limit the sentence never says “well inside”', () => {
+    /* The reviewer's exact case, and 8.999999 is not a round number chosen for
+     * effect: the wall rule fires at 9.0, so this is the single largest wall
+     * time that still reaches this branch. Any intensifier that is false here is
+     * false, full stop — the branch renders the same words for every run in it. */
+    const verdict = resultReproducibility({
+      parameters: RACED,
+      wallTimeSeconds: 8.999999,
+      deterministicTimeUnits: 75,
+      terminationReason: 'completed',
+      status: 'FEASIBLE',
+    });
+    expect(verdict.verdict).toBe('reproducible');
+    expect(verdict.detail).not.toContain('well inside');
+    /* the numbers a reader needs to check it are still there */
+    expect(verdict.detail).toContain('8.999999');
+    expect(verdict.detail).toContain('10');
+  });
+
+  it('THE MID-BAND: it never names an ender the derivation did not establish', () => {
+    /* The reviewer's `units 50.000001 of 100` row. Nothing in the rules above
+     * decided that the deterministic budget ended this search or that a proof
+     * did — the run fell through every refusal, which is a weaker fact and is
+     * the only one the sentence may state. */
+    for (const units of [50.000001, 75, 99.9]) {
+      const detail = resultReproducibility({
+        parameters: DETERMINISTIC,
+        wallTimeSeconds: 1,
+        deterministicTimeUnits: units,
+        terminationReason: 'completed',
+        status: 'FEASIBLE',
+      }).detail;
+      expect(detail, `${String(units)} units`).not.toContain(
+        'The deterministic budget or a completed proof ended the search',
+      );
+      expect(detail, `${String(units)} units`).not.toContain('well inside');
+    }
+  });
+
+  it('the promise is NOT withdrawn — the verdict and its claim are unchanged', () => {
+    /* The control that keeps this a wording repair rather than a silent verdict
+     * change. FAD-52 ruled the mid-band falls through verbatim; if a future edit
+     * turned "the sentence overclaims" into "so refuse the claim", that would be
+     * implementing a non-default branch of a settled decision, and this fails. */
+    for (const units of [DETERMINISTIC_BUDGET_UNSPENT_FRACTION * 100 + 0.000001, 75, 99.9]) {
+      const verdict = resultReproducibility({
+        parameters: DETERMINISTIC,
+        wallTimeSeconds: 1,
+        deterministicTimeUnits: units,
+        terminationReason: 'completed',
+        status: 'FEASIBLE',
+      });
+      expect(verdict.verdict, `${String(units)} units`).toBe('reproducible');
+      expect(verdict.reproducible, `${String(units)} units`).toBe(true);
+      expect(verdict.detail, `${String(units)} units`).toContain('produces the same schedule');
     }
   });
 });
@@ -600,6 +820,141 @@ describe('the SENTENCE handed to the screen is honest on its own', () => {
       }).detail,
     ];
     expect(new Set(details).size).toBe(3);
+  });
+});
+
+/**
+ * **GH-008 — the SENTENCE SWEEP, enumerated over the verdict set.**
+ *
+ * The registered follow-up asks for "an enumerated sweep of every user-facing
+ * reproducibility sentence asserted in tests", and the reason is a specific
+ * failure mode rather than tidiness: the arms above assert sentences through
+ * ad-hoc lists — three refusals here, one promise there — so a verdict whose
+ * wording changed, or a verdict ADDED to
+ * {@link ResultReproducibility the union}, could quietly end up with no sentence
+ * assertion at all and every test would still pass. `stopped-early` was added by
+ * FAD-52 and reached the screen; nothing structural made that happen.
+ *
+ * The table below is typed `Record<ResultReproducibility, …>`, so **a new verdict
+ * does not compile until it has an entry here** — the same discipline
+ * `INTERRUPTION_DETAIL` uses in the source to stay total over
+ * `TerminationReason`. Each entry states the input that reaches its verdict, the
+ * fragments the sentence owes, and the words it may not say.
+ *
+ * The forbidden list is where REV-A-005 becomes permanent: an intensifier is a
+ * claim about a MEASUREMENT the sentence renders for every run in its branch, so
+ * "well inside" was false at the top of the reproducible band. None of the six
+ * sentences may carry one.
+ */
+describe('GH-008: every verdict’s sentence is asserted, by enumeration over the set', () => {
+  /** Words that assert comfort the derivation never measured (REV-A-005). */
+  const UNEARNED_INTENSIFIERS = ['well inside', 'comfortably', 'far below', 'plenty of'];
+
+  const SENTENCE_SWEEP: Readonly<
+    Record<
+      ResultReproducibility,
+      {
+        readonly input: Parameters<typeof resultReproducibility>[0];
+        readonly reproducible: boolean;
+        readonly says: readonly string[];
+        readonly neverSays: readonly string[];
+      }
+    >
+  > = {
+    reproducible: {
+      input: { parameters: DETERMINISTIC, wallTimeSeconds: 32.618628, ...COMPLETED },
+      reproducible: true,
+      /* the promise, the run's own measured time, and its own limit */
+      says: ['produces the same schedule', '32.618628', '900'],
+      neverSays: ['may produce a different schedule', 'cannot be established'],
+    },
+    'wall-clock-truncated': {
+      input: { parameters: RACED, wallTimeSeconds: 9.497948, ...COMPLETED },
+      reproducible: false,
+      /* names the cause, because this is the case where it is established */
+      says: ['WALL CLOCK', '9.497948', '10', 'may produce a different schedule'],
+      neverSays: ['produces the same schedule'],
+    },
+    'stopped-early': {
+      input: {
+        parameters: RACED,
+        wallTimeSeconds: 8.725341,
+        deterministicTimeUnits: 8.076904,
+        terminationReason: 'completed',
+        status: 'FEASIBLE',
+      },
+      reproducible: false,
+      /* FAD-52: the units it did spend and the budget it had, and NO cause */
+      says: ['8.076904', 'deterministic units', 'may produce a different schedule'],
+      neverSays: ['produces the same schedule', 'WALL CLOCK', 'deadline'],
+    },
+    interrupted: {
+      input: {
+        parameters: DETERMINISTIC,
+        wallTimeSeconds: 2.35,
+        deterministicTimeUnits: 5.6,
+        terminationReason: 'user_cancelled',
+        status: 'CANCELLED',
+      },
+      reproducible: false,
+      /* FAD-50 B-1: which stop it was, in the product's own words */
+      says: ['cancelled', 'ran to its own end'],
+      neverSays: ['produces the same schedule', 'cannot be established'],
+    },
+    'best-effort': {
+      input: {
+        parameters: { ...DETERMINISTIC, interleaveSearch: false },
+        wallTimeSeconds: 1,
+        ...COMPLETED,
+      },
+      reproducible: false,
+      /* nobody promised anything, so nothing is reported as broken */
+      says: ['no reproduction claim was ever made'],
+      neverSays: ['produces the same schedule', 'WALL CLOCK'],
+    },
+    unrecorded: {
+      input: { parameters: DETERMINISTIC, wallTimeSeconds: null, ...COMPLETED },
+      reproducible: false,
+      /* a gap, said as a gap — never as a finding */
+      says: ['cannot be established'],
+      neverSays: ['produces the same schedule', 'may produce a different schedule'],
+    },
+  };
+
+  it('reaches all six verdicts — the table is not describing an unreachable set', () => {
+    const reached = Object.entries(SENTENCE_SWEEP).map(
+      ([verdict, arm]) => [verdict, resultReproducibility(arm.input).verdict] as const,
+    );
+    for (const [declared, actual] of reached) expect(actual, declared).toBe(declared);
+    expect(new Set(reached.map(([, actual]) => actual)).size).toBe(6);
+  });
+
+  it('every sentence says what it owes and refuses what it must', () => {
+    for (const [verdict, arm] of Object.entries(SENTENCE_SWEEP)) {
+      const { detail, reproducible } = resultReproducibility(arm.input);
+      expect(reproducible, verdict).toBe(arm.reproducible);
+      expect(detail.length, verdict).toBeGreaterThan(20);
+      for (const fragment of arm.says) expect(detail, `${verdict} must say`).toContain(fragment);
+      for (const fragment of arm.neverSays) {
+        expect(detail, `${verdict} must not say`).not.toContain(fragment);
+      }
+    }
+  });
+
+  it('no sentence carries an unearned intensifier — REV-A-005 made permanent', () => {
+    for (const [verdict, arm] of Object.entries(SENTENCE_SWEEP)) {
+      const { detail } = resultReproducibility(arm.input);
+      for (const word of UNEARNED_INTENSIFIERS) {
+        expect(detail.toLowerCase(), `${verdict}: "${word}"`).not.toContain(word);
+      }
+    }
+  });
+
+  it('six verdicts, six DIFFERENT sentences — none collapses into another', () => {
+    const details = Object.values(SENTENCE_SWEEP).map((arm) => resultReproducibility(arm.input).detail);
+    expect(new Set(details).size).toBe(6);
+    /* and exactly one of the six makes the promise */
+    expect(details.filter((detail) => detail.includes('produces the same schedule'))).toHaveLength(1);
   });
 });
 

@@ -1,0 +1,68 @@
+=== LEG 4b — the SIX migration POPULATED-cycle tests, by name (doc 38 §7, as amended by FAD-53) ===
+Migrations demanded by name: 0014, 0016, 0017, 0018, 0019, 0020
+Command: corepack pnpm exec node scripts/gates/vitest-must-run.mjs <six paths>
+  (run through the SHIPPED zero-match guard scripts/gates/vitest-must-run.mjs — the same wrapper
+   gate:unit uses — so an invocation that selected nothing FAILS instead of exiting 0)
+Files:
+  apps/api/test/schedule/migration-0014-populated-cycle.test.ts
+  apps/api/test/solver/migration-0016-populated-cycle.test.ts
+  apps/api/test/profiles/migration-0017-populated-cycle.test.ts
+  apps/api/test/builds/migration-0018-populated-cycle.test.ts
+  apps/api/test/builds/migration-0019-populated-cycle.test.ts
+  apps/api/test/builds/migration-0020-populated-cycle.test.ts
+HEAD: 85efa2b2ffb8dc2b53c2a47d2a8ac7bbd73678af
+START UTC: 2026-08-24T11:56:59Z
+-----------------------------------------------------------------
+
+ RUN  v3.2.4 /home/user/SchedulePoint
+
+[core] INFO: Failed to read crontab file '/home/user/SchedulePoint/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-ffbb9cec12533edeb0)] INFO: Completed task 1 (outbox.dispatch, 20.91ms) with success
+[worker(worker-ffbb9cec12533edeb0)] INFO: Completed task 2 (outbox.dispatch, 8.72ms) with success
+[worker(worker-ffbb9cec12533edeb0)] INFO: Completed task 3 (outbox.dispatch, 7.74ms) with success
+[worker(worker-ffbb9cec12533edeb0)] INFO: Completed task 4 (outbox.dispatch, 8.58ms) with success
+[worker(worker-ffbb9cec12533edeb0)] INFO: Completed task 5 (outbox.dispatch, 8.79ms) with success
+[worker(worker-ffbb9cec12533edeb0)] INFO: Completed task 6 (outbox.dispatch, 8.48ms) with success
+[worker(worker-ffbb9cec12533edeb0)] INFO: Completed task 7 (outbox.dispatch, 8.07ms) with success
+[worker(worker-ffbb9cec12533edeb0)] INFO: Completed task 8 (outbox.dispatch, 12.46ms) with success
+[worker(worker-ffbb9cec12533edeb0)] INFO: Completed task 9 (outbox.dispatch, 9.67ms) with success
+[worker(worker-ffbb9cec12533edeb0)] INFO: Completed task 10 (outbox.dispatch, 8.58ms) with success
+[worker(worker-ffbb9cec12533edeb0)] INFO: Completed task 11 (outbox.dispatch, 8.65ms) with success
+stdout | test/profiles/migration-0017-populated-cycle.test.ts > migration 0017 over a populated database > up → down → up, resolved BY NAME, with the interleaving measured at the midpoint
+      · midway (0017 down): flip=NO ERROR → requires_expiry=true with 1 open-ended live holding — the D3 admission
+
+stdout | test/profiles/migration-0017-populated-cycle.test.ts > migration 0017 over a populated database > up → down → up, resolved BY NAME, with the interleaving measured at the midpoint
+      · after re-up: concurrent flip refused 23001, sequential flip refused 23001
+
+ ✓ |api| test/profiles/migration-0017-populated-cycle.test.ts (1 test) 742ms
+   ✓ migration 0017 over a populated database > up → down → up, resolved BY NAME, with the interleaving measured at the midpoint  344ms
+ ✓ |api| test/builds/migration-0018-populated-cycle.test.ts (2 tests) 715ms
+stdout | test/schedule/migration-0014-populated-cycle.test.ts > migration 0014 over a populated database > up → down → up preserves every row 0014 touches
+      · populated: schedule_periods=1 schedule_versions=2 schedule_requirements=1 shifts=2 assignment_identities=2 assignment_snapshots=2 credits=1 current_published_assignments=1 publication_records=2 version_supersessions=1 locations=1
+
+stdout | test/schedule/migration-0014-populated-cycle.test.ts > migration 0014 over a populated database > up → down → up preserves every row 0014 touches
+      · cycle: 7 migration(s) down to 0014 (0020_build_termination_facts_frozen, 0019_build_concurrency_capacity, 0018_build_lifecycle, 0017_requires_expiry_flip_serialization, 0016_solver_input_snapshots, 0015_rule_revisions_and_period_lifecycle, 0014_schedule_graph_locations_time) and back up; every census digest identical
+
+ ✓ |api| test/schedule/migration-0014-populated-cycle.test.ts (1 test) 990ms
+   ✓ migration 0014 over a populated database > up → down → up preserves every row 0014 touches  585ms
+stdout | test/solver/migration-0016-populated-cycle.test.ts > migration 0016 over a populated database > up → down → up, resolved and asserted BY NAME
+      ·       · snapshots do not survive the drop, and that is what dropping a table means
+
+stdout | test/solver/migration-0016-populated-cycle.test.ts > migration 0016 over a populated database > up → down → up, resolved and asserted BY NAME
+      ·       · MUTATION CONTROL: hash CHECK and append-only guard both enforcing after the cycle
+
+ ✓ |api| test/solver/migration-0016-populated-cycle.test.ts (1 test) 748ms
+   ✓ migration 0016 over a populated database > up → down → up, resolved and asserted BY NAME  308ms
+ ✓ |api| test/builds/migration-0019-populated-cycle.test.ts (2 tests) 544ms
+ ✓ |api| test/builds/migration-0020-populated-cycle.test.ts (2 tests) 634ms
+
+ Test Files  6 passed (6)
+      Tests  9 passed (9)
+   Start at  11:57:00
+   Duration  9.85s (transform 938ms, setup 896ms, collect 307ms, tests 4.37s, environment 0ms, prepare 64ms)
+
+JSON report written to /tmp/sp-vitest-must-run-zfHBvJ/run.json
+-----------------------------------------------------------------
+EXIT=0
+END UTC: 2026-08-24T11:57:10Z

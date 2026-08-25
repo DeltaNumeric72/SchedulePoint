@@ -10,8 +10,8 @@
   "scripts": {
     "gate:lint": "eslint .",
     "gate:typecheck": "tsc -b --force",
-    "gate:unit": "vitest run",
-    "gate:unit:builds": "vitest run apps/api/test/builds",
+    "gate:unit": "node scripts/gates/vitest-must-run.mjs",
+    "gate:unit:builds": "node scripts/gates/vitest-must-run.mjs apps/api/test/builds",
     "gate:import-boundary": "depcruise --config .dependency-cruiser.cjs packages apps",
     "gate:network-guard": "node scripts/gates/network-assertion-guard.mjs",
     "gate:route-policy": "node scripts/gates/route-policy-check.mjs",

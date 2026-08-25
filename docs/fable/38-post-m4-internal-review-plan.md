@@ -141,6 +141,98 @@ high-effort Opus agent receiving only its packet text.
   probe branch `review/rev-c`; implements nothing; does not adjudicate (that is
   Fable's) and does not decide the gate.
 
+> **AMENDMENT 2026-08-24 (FAD-53, repair packet R-9; findings REV-B-005 and REV-C-011,
+> plus the results-cache confound routed here at the R-6 acceptance).** As committed,
+> this section told every reviewer to "execute batteries and author probes in the
+> worktree", to make "local probe commits" on a branch that is "never merged", and to
+> write evidence "ONLY under `docs/evidence/EV-REVIEW-{A,B,C}/`" — and said nothing
+> about what a probe file may be **named**, or about where it may be left **while
+> something else is running**, or about the cache state a composed run inherits. Three
+> rules are added. **Nothing above is retracted and nothing is relaxed:** the packet
+> texts are the texts the three executed reviews actually received, and they stand as
+> that record. These rules bind the probes that come **next** — any remaining review
+> round, every delta verification, and the evidence discipline behind §7's battery.
+>
+> **R-9.1 — a probe source committed under `docs/` carries a `.txt` suffix.** Both
+> documentation validators forbid application-code extensions anywhere under `docs/`,
+> and §7 then requires both of them green; so a probe source filed into its own evidence
+> directory under a code extension makes the review's own final battery fail. REV-B-005
+> established this by execution, not by reading: "The two validators forbid
+> application-code extensions anywhere under `docs/`. `docs/fable/validate.py:166`
+> rejects `.ts .tsx .js .sql .tf .dockerfile` and `.py`; `docs/architecture/validate.py`
+> assertion 52a rejects the same class and `.sh`. A reviewer who writes a probe source
+> into its own evidence directory — which is where §3 says probe sources go — turns §7's
+> own battery red." What it measured, and what it did about it:
+>
+> ```
+> 52a. Documentation and research trees contain no application code  FAIL
+>      <- ['docs/evidence/EV-REVIEW-B/probes/red-case-arms.sh',
+>           'docs/evidence/EV-REVIEW-B/probes/privacy-log-leak.probe.test.ts']
+> 10a. Docs tree contains no application code                        FAIL   (fable 35/36)
+> ```
+>
+> — "probe sources carry a non-code suffix … After the rename: architecture **95/95**,
+> fable **36/36**." REV-C then adopted it as a stated convention: "REV-B-005 established
+> that `.ts`/`.sh` under `docs/` turns the architecture and fable validators red. REV-C's
+> probe sources therefore carry `.txt` suffixes", re-verified green both from a fresh
+> clone with the bundle absent and on its own branch with it present. **The rule is the
+> suffix, not a gap to aim at.** `.mjs` happens to sit in neither validator's list today,
+> and `ALLOWED_IMPL_ROOTS` in `docs/architecture/validate.py` names `docs/evidence` while
+> assertion 52a never consults it (REV-C-008, filed attached to REV-B-005) — a convention
+> resting on either of those would be resting on a hole. R-9 re-ran both validators over
+> all three probe branches' trees to size what the missing rule cost: `review/rev-a`,
+> filed before the finding existed, is **architecture 94/95 · fable 35/36** — its two failures
+> being 52a, on three `.ts` probe sources plus one `.sh` driver inside its own evidence
+> bundle, and 10a, on the same three `.ts` sources (the fable list does not carry `.sh`);
+> `review/rev-b` and `review/rev-c` are **95/95 · 36/36**. No probe branch is ever merged,
+> which is the only reason this never reached `main`.
+>
+> **R-9.2 — a probe is composed-run-safe, or it is not left in the tree.** Three parts,
+> each binding: (a) **a probe file never lands where a runner collects it** — anything
+> authored inside a collected test root participates in every composed run from the
+> moment it exists, tracked or not; (b) **a temporary in-repo probe is removed before any
+> composed validation starts**, with the tree verified clean beforehand rather than
+> inspected afterwards; (c) **a code-modifying probe is applied, measured, and
+> byte-restored, with the applied diff recorded** in the reviewer's bundle. REV-C-011:
+> "REV-A's `p2-audit-and-termination` probe is **not composed-run-safe**: it tampers with
+> the audit chain as superuser with triggers disabled, so leaving it in the tree reddens
+> `test/audit/chain.test.ts`. REV-C proved this the hard way by contaminating its own
+> composed run #2 … and re-running it clean as #2R." And why it is a rule rather than a
+> note: "the NR-14 clean-tree discipline covers **tracked** files, and an **untracked**
+> probe under `apps/api/test/` is invisible to it while participating in every run." The
+> practice already existed on both sides — REV-A's "Every probe this reviewer authored
+> under `apps/api/test/rev-a/` was **removed** after the final run" and REV-C's "Every
+> code-modifying probe was applied, measured, and restored, with the restore verified" —
+> and it is REV-C's own declared hygiene failure that turns it from an assumption into a
+> written requirement. **A composed run that collected a probe is invalidated, not
+> interpreted:** it is re-run on a verified-clean tree, and both runs are reported.
+>
+> **R-9.3 — composed validation runs with the vitest results cache disabled, and evidence
+> citing a composed green states that it did.** vitest's results cache schedules
+> previously-**failed** files first, so the file ordering of a composed run is
+> path-dependent on what happened to fail earlier on that particular machine — and
+> therefore so is any green obtained on an order-dependent defect. Discovered in the
+> **R-6 review (2026-08-23)** and routed here at R-6's acceptance: "the reviewer's
+> discovery that vitest's results cache schedules previously-failed files first
+> (composed-run greens are path-dependent; use `--no-cache`)". The cache is per-machine
+> and concrete — `node_modules/.vite/vitest/<hash>/results.json`, carrying one `failed`
+> flag per test file — so the requirement is satisfiable two ways: pass `--no-cache`, or
+> begin from a verifiably clean cache state with that file absent. A composed green whose
+> cache state is unrecorded is an unqualified claim and is to be reported as one, not
+> read as a reproduction.
+>
+> **Checked against the packet texts above, sentence by sentence: none of them is
+> falsified by these rules, and none is rewritten.** §3 never named a file extension and
+> never named a directory called `probe-sources/` — that is REV-A's own bundle
+> convention, not an instruction of this plan — so R-9.1 corrects no wording; it supplies
+> the constraint that the composition of "author probes" with "evidence … ONLY under
+> `docs/evidence/…`" always needed and never carried. "Local probe commits … pushed for
+> durability, never merged" is unchanged, and its never-merged half is precisely why the
+> omission cost `main` nothing. R-9.2 and R-9.3 likewise add to "execute batteries and
+> author probes in the worktree" rather than replace it. The three reviews above were
+> executed under the text as it stands; this amendment governs what is required of every
+> probe after it.
+
 ## §4 Reviewer-independence rules
 
 1. Each reviewer is a fresh high-effort Opus agent with no shared conversational
@@ -185,9 +277,37 @@ Fable docs validators (plan 36/36 · architecture 95/95 · research PASS) · `co
 pnpm check` (17/17 gates) · the complete red-case battery (65/65 arms, both
 directions — sharded in CI, with the union guard green; a serial local run is
 equivalent evidence) · `fixture-regression` (fixed seeds + rotating) · `sbx` (9/9,
-371 readings, 0 wrong-tenant, 53/53 tables) · migration populated cycle 0001–0019 ·
-real-stack e2e at both viewports · **fresh-clone validation against `origin/main`** ·
-**GitHub CI fully green on `main`** (gate battery + all shards + shard completeness).
+371 readings, 0 wrong-tenant, 53/53 tables) · **migration schema cycle on an empty
+database, 0001–0020** · **the migration populated-cycle tests (six: 0014, 0016, 0017,
+0018, 0019, 0020)** · real-stack e2e at both viewports · **fresh-clone validation
+against `origin/main`** · **GitHub CI fully green on `main`** (gate battery + all
+shards + shard completeness).
+
+> **AMENDMENT 2026-08-23 (FAD-53, repair packet R-3; finding REV-A-002).** As
+> committed, this section's sixth battery item read "migration populated cycle
+> 0001–0019". That wording was inherited verbatim from doc 36 §6 row 5 / EV-M4-005 §24
+> row 5, and REV-A falsified it: the transcript behind it executes
+> `test/support/migrate-cycle-cli.ts`, which "destroys and re-initialises the data
+> directory and seeds nothing — its own docblock says 'the up migration applies to an
+> **empty** database'". One item has therefore become two, naming what is actually
+> executed: (a) the **schema** cycle on an empty database, and (b) the
+> **populated**-cycle tests, which exist for six migrations only — 0014, 0016, 0017,
+> 0018 and 0019 at the M4 baseline, plus 0020 added by repair packet R-5. The range is
+> also updated from 0001–0019 to **0001–0020**, migration 0020 having been added by
+> R-5. Nothing is relaxed: the schema cycle's scope is unchanged and the populated
+> cycles are now demanded by name rather than implied. The frozen milestone records
+> (doc 36, EV-M4-005) are **not** retro-edited — FAD-53 rules them record-only and
+> carries the correction, and this amendment is the plan-side half of that ruling.
+
+> **AMENDMENT 2026-08-24 (FAD-54; census only).** The red-case battery item's
+> "65/65 arms" was the census when this plan was committed. Repair packet R-5
+> added a 66th arm (the migration-0020 freeze) and R-8 a 67th (the
+> migration-anchor supersession proof), so the item now demands **67/67 arms** —
+> the runner (`scripts/red-cases/run.mjs`) is authoritative for the census, and
+> the CI shard-completeness guard derives its union from the runner, so the
+> figure cannot silently drift again. Nothing else in the item changes: both
+> directions, sharded in CI with the union guard green, a serial local run
+> equivalent evidence. The requirement grows by two arms; nothing is relaxed.
 
 ## §8 GitHub branch, pull-request and evidence strategy
 
