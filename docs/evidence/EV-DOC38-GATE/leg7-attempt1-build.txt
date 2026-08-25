@@ -1,0 +1,23 @@
+HEAD=fa9a4b71f94b795d6301f547fbd55d908ea6e017
+CMD=corepack pnpm gate:build
+START UTC: 2026-08-25T00:30:36Z
+-----------------------------------------------------------------------
+$ node scripts/run-in-workspace.mjs apps/web vite build
+vite v7.1.7 building for production...
+transforming...
+✓ 249 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.40 kB │ gzip:   0.27 kB
+dist/assets/index-DPQYaXgE.css   14.52 kB │ gzip:   3.91 kB
+dist/assets/index-PvQ25CZT.js   619.78 kB │ gzip: 163.52 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 2.73s
+-----------------------------------------------------------------------
+END UTC: 2026-08-25T00:30:39Z
+EXIT=0
+WALL=3s

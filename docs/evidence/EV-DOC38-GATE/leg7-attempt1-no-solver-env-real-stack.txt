@@ -1,0 +1,129 @@
+HEAD=fa9a4b71f94b795d6301f547fbd55d908ea6e017
+CMD=node scripts/run-in-workspace.mjs apps/web playwright test --config e2e/real-stack.config.ts
+NOTE=SP_REAL_STACK is set by globalSetup, not by the caller (FAD-50 C-3). No SP_SOLVER_WORKER_COMMAND exported.
+START UTC: 2026-08-25T00:30:57Z
+-----------------------------------------------------------------------
+[real-stack] cluster started
+[real-stack] schema migrated: 20 migration(s)
+[real-stack] queue schema installed
+[real-stack] fixture provisioned
+[real-stack] actor activated and enrolled
+[api] pooler-mode assertion passed: one backend (9847) for the whole transaction, transaction-local setting survived within it and expired after it
+[api] graphile-worker: schema migrated
+[api] graphile-worker: 4 RLS table(s) policed for app_worker; app_enqueue_job installed (app_runtime holds no direct grant)
+[api] queue schema ready: 19 graphile-worker migration(s), 4 RLS table(s) policed for app_worker
+[api] AUDIT SIGNING KEY IS NOT ISOLATED: checkpoints are signed by a key held in this process (local stub, FAD-7). SPEC-11 §6 requires a separate trust domain; a checkpoint proves the signing path works and nothing about who produced it.
+[api] [core] INFO: Worker connected and looking for jobs... (task names: 'audit.checkpoint', 'audit.verify', 'outbox.dispatch')
+[api] outbox runner started: pool pool-62899c7dc18a4d0eaa, reclaimed 0 stale pool(s); periodic checkpoint and chain-verification jobs scheduled (SPEC-11 §2)
+[api] [core] INFO: Failed to read crontab file '/home/user/SchedulePoint/apps/api/crontab'; cron is disabled
+[api] [core] INFO: Worker connected and looking for jobs... (task names: 'build.solve')
+[api] build solve runner started: pool pool-1f90adcf7243d94e9e, reclaimed 0 stale pool(s); D-4b cap 2 concurrent solve(s) per organization
+[api] MFA SECRET KEY IS NOT ISOLATED: TOTP secrets are encrypted with a key held in this process. A database reader without the key recovers nothing; an actor with the process's environment recovers everything.
+[api] [worker(worker-d8546f10d78bb2dfb6)] INFO: Completed task 1 (outbox.dispatch, 60.38ms) with success
+[api] [worker(worker-d8546f10d78bb2dfb6)] INFO: Completed task 2 (outbox.dispatch, 25.47ms) with success
+[api] [worker(worker-d8546f10d78bb2dfb6)] INFO: Completed task 3 (outbox.dispatch, 25.23ms) with success
+[api] [worker(worker-d8546f10d78bb2dfb6)] INFO: Completed task 4 (outbox.dispatch, 20.38ms) with success
+[api] [worker(worker-d8546f10d78bb2dfb6)] INFO: Completed task 5 (outbox.dispatch, 33.29ms) with success
+[api] {"level":30,"time":1787617862948,"pid":9828,"hostname":"vm","msg":"Server listening at http://127.0.0.1:42277"}
+[api] [worker(worker-d8546f10d78bb2dfb6)] INFO: Completed task 6 (outbox.dispatch, 32.69ms) with success
+[api] [worker(worker-d8546f10d78bb2dfb6)] INFO: Completed task 7 (outbox.dispatch, 8.31ms) with success
+[api] [worker(worker-d8546f10d78bb2dfb6)] INFO: Completed task 8 (outbox.dispatch, 9.66ms) with success
+[api] [worker(worker-d8546f10d78bb2dfb6)] INFO: Completed task 9 (outbox.dispatch, 18.49ms) with success
+[api] [worker(worker-d8546f10d78bb2dfb6)] INFO: Completed task 10 (outbox.dispatch, 7.91ms) with success
+[api] [worker(worker-d8546f10d78bb2dfb6)] INFO: Completed task 11 (outbox.dispatch, 8.05ms) with success
+[api] [worker(worker-d8546f10d78bb2dfb6)] INFO: Completed task 12 (outbox.dispatch, 8.46ms) with success
+[api] [worker(worker-d8546f10d78bb2dfb6)] INFO: Completed task 13 (outbox.dispatch, 7.50ms) with success
+[api] [worker(worker-d8546f10d78bb2dfb6)] INFO: Completed task 14 (outbox.dispatch, 8.17ms) with success
+[api] [worker(worker-d8546f10d78bb2dfb6)] INFO: Completed task 15 (outbox.dispatch, 7.51ms) with success
+[api] [worker(worker-d8546f10d78bb2dfb6)] INFO: Completed task 16 (outbox.dispatch, 8.15ms) with success
+[real-stack] API healthy on 42277
+real stack ready: origin http://127.0.0.1:42807 -> api 127.0.0.1:42277 -> postgres 127.0.0.1:55949
+
+Running 2 tests using 1 worker
+
+[critical-path/desktop] STEP 0 join: GET http://127.0.0.1:42807/api/organizations/79da8b34-b543-429e-972f-65d0f03b0b48/groups/b85730ec-a51e-4239-b62f-933ed48d02aa/schedule/periods -> 200 with declaration {"contextVersion":{"organizationVersion":4,"groupVersion":4,"membershipSetVersion":8},"sessionEpoch":2}
+[critical-path/desktop] STEP 1 created period c5631f9e-2e9f-4592-92d1-1bbf5b3893f7 in PostgreSQL
+[critical-path/desktop] STEP 5 created draft version 169ac334-30b0-4b6f-bf19-ebe5ccfa0d98
+[critical-path/desktop] STEP 7 launched build run 34630616-861d-4e67-8d4f-96cd51708c22 — real worker, real CP-SAT (NO SOLVER COMMAND SET)
+[api] [worker(worker-80e2188a9bbb660902)] INFO: Completed task 17 (build.solve, 136.59ms) with success
+[critical-path/desktop] STEP 7 scheduler actions: build-submit
+[critical-path/desktop] STEP 7 states observed: build-state-draft_configuration, build-state-validating, build-state-failed
+[critical-path/desktop] STEP 7 terminal state: build-state-failed
+[critical-path/desktop] STEPS 8-9 validation/quality surfaces: usability="The independent check REFUSED this candidate. It can never become a schedule." | quality panel rendered | conflicts caveat rendered
+[critical-path/desktop] STEPS 10-11 review transitions: build-submit
+  ✘  1 [desktop] › e2e/critical-path.spec.ts:297:3 › the critical path, end to end, against the real stack › STEP 0 the join, then the workflow: period -> demand -> rules -> build (43.0s)
+[critical-path/mobile] STEP 0 join: GET http://127.0.0.1:42807/api/organizations/79da8b34-b543-429e-972f-65d0f03b0b48/groups/b85730ec-a51e-4239-b62f-933ed48d02aa/schedule/periods -> 200 with declaration {"contextVersion":{"organizationVersion":4,"groupVersion":4,"membershipSetVersion":8},"sessionEpoch":3}
+[critical-path/mobile] STEP 1 created period df9442dc-d08c-41e7-9627-05f89c4b908c in PostgreSQL
+[critical-path/mobile] STEP 5 created draft version 0be6f9f6-5019-4d58-8eb6-e517456ca692
+[critical-path/mobile] STEP 7 launched build run de8e0a17-6f8d-4753-9c89-bf4f138255b2 — real worker, real CP-SAT (NO SOLVER COMMAND SET)
+[api] [worker(worker-80e2188a9bbb660902)] INFO: Completed task 18 (build.solve, 101.71ms) with success
+[critical-path/mobile] STEP 7 scheduler actions: build-submit -> build-run
+[critical-path/mobile] STEP 7 states observed: build-state-draft_configuration, build-state-queued, build-state-failed
+[critical-path/mobile] STEP 7 terminal state: build-state-failed
+[critical-path/mobile] STEPS 8-9 validation/quality surfaces: usability="The independent check REFUSED this candidate. It can never become a schedule." | quality panel rendered | conflicts caveat rendered
+[critical-path/mobile] STEPS 10-11 review transitions: build-submit -> build-run
+  ✘  2 [mobile] › e2e/critical-path.spec.ts:297:3 › the critical path, end to end, against the real stack › STEP 0 the join, then the workflow: period -> demand -> rules -> build (38.7s)
+[real-stack] the API process exited with 0
+
+
+  1) [desktop] › e2e/critical-path.spec.ts:297:3 › the critical path, end to end, against the real stack › STEP 0 the join, then the workflow: period -> demand -> rules -> build 
+
+    Error: STEP 10: the completed run offered no selection control — the critical path stops here
+
+    [2mexpect([22m[31mlocator[39m[2m).[22mtoBeEnabled[2m([22m[2m)[22m failed
+
+    Locator: getByTestId('build-apply-open').first()
+    Expected: enabled
+    Timeout: 30000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - STEP 10: the completed run offered no selection control — the critical path stops here with timeout 30000ms[22m
+    [2m  - waiting for getByTestId('build-apply-open').first()[22m
+
+
+      686 |       applyOpen.first(),
+      687 |       'STEP 10: the completed run offered no selection control — the critical path stops here',
+    > 688 |     ).toBeEnabled({ timeout: 30_000 });
+          |       ^
+      689 |
+      690 |     await applyOpen.first().click();
+      691 |     await expect(page.getByTestId('build-apply-confirm')).toBeVisible({ timeout: 30_000 });
+        at /home/user/SchedulePoint/apps/web/e2e/critical-path.spec.ts:688:7
+
+    Error Context: test-results/critical-path-the-critical-c112b-od---demand---rules---build-desktop/error-context.md
+
+  2) [mobile] › e2e/critical-path.spec.ts:297:3 › the critical path, end to end, against the real stack › STEP 0 the join, then the workflow: period -> demand -> rules -> build 
+
+    Error: STEP 10: the completed run offered no selection control — the critical path stops here
+
+    [2mexpect([22m[31mlocator[39m[2m).[22mtoBeEnabled[2m([22m[2m)[22m failed
+
+    Locator: getByTestId('build-apply-open').first()
+    Expected: enabled
+    Timeout: 30000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - STEP 10: the completed run offered no selection control — the critical path stops here with timeout 30000ms[22m
+    [2m  - waiting for getByTestId('build-apply-open').first()[22m
+
+
+      686 |       applyOpen.first(),
+      687 |       'STEP 10: the completed run offered no selection control — the critical path stops here',
+    > 688 |     ).toBeEnabled({ timeout: 30_000 });
+          |       ^
+      689 |
+      690 |     await applyOpen.first().click();
+      691 |     await expect(page.getByTestId('build-apply-confirm')).toBeVisible({ timeout: 30_000 });
+        at /home/user/SchedulePoint/apps/web/e2e/critical-path.spec.ts:688:7
+
+    Error Context: test-results/critical-path-the-critical-c112b-od---demand---rules---build-mobile/error-context.md
+
+  2 failed
+    [desktop] › e2e/critical-path.spec.ts:297:3 › the critical path, end to end, against the real stack › STEP 0 the join, then the workflow: period -> demand -> rules -> build 
+    [mobile] › e2e/critical-path.spec.ts:297:3 › the critical path, end to end, against the real stack › STEP 0 the join, then the workflow: period -> demand -> rules -> build 
+-----------------------------------------------------------------------
+END UTC: 2026-08-25T00:32:27Z
+EXIT=1
+WALL=90s
