@@ -177,4 +177,6 @@ cluster.
 | `leg6-seed-1.txt` … `leg6-seed-123456.txt` | 4.1 MB total (8 files) | the STOPPED attempt's per-seed runs (pre-R-13 tip); seed 123456 carries the T-15 storm timeout that routed R-13 |
 | `leg6b-seed-*.txt` · `leg6b-rotating-seed-467407.txt` | 7.68 MB total (14 files) | the FULL re-run on the repaired tip: 13 fixed + rotating, all green, full uncut output with the R-13 calibration/ceiling/storm lines per run |
 | `leg7-build.txt` · `leg7-real-stack.txt` | 1 016 · 8 686 | the passing real-stack e2e under the documented invocation: 14 steps, both viewports, 12 axe sites, budget ledgers |
-| `leg7-attempt1-build.txt` · `leg7-attempt1-no-solver-env-real-stack.txt` | 1 016 · 10 056 | the invocation-gap attempt (no solver env): build FAILED fail-closed, candidate REFUSED — probative of the production-default residue, kept unedited |
+| `leg7-attempt1-build.txt` · `leg7-attempt1-no-solver-env-real-stack.txt` | 1 016 · 10 056 | the invocation-gap attempt (no solver env): build FAILED fail-closed, candidate REFUSED — probative of the production-default residue (FU-04), kept unedited |
+| `fc-install.txt` · `fc-validators.txt` · `fc-check.txt` | 1 703 · 15 248 · 524 773 | fresh-clone validation of `origin/main` at `be7399b` (§9.10): HTTPS clone tree-verified, install exit 0, validators 36/36 · 95/95 · PASS, `pnpm check` 17/17 in 31m02s |
+| `rev-c-final-recommendation.txt` | 28 846 | the REV-C continuation surrogate's final recommendation (§9.3), verbatim: ACCEPT, nine in-tree spot-checks, conditions C1–C6 (discharged by doc 39's commit) |

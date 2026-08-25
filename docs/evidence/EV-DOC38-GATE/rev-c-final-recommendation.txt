@@ -1,0 +1,213 @@
+=== REV-C FINAL RECOMMENDATION (continuation surrogate, doc 38 §4.5 fallback) ===
+Filed 2026-08-25T02:0xZ by a fresh reviewer given REV-C's report (review/rev-c @ c52c2ab),
+per the recorded R-10 precedent. Object under review: the tree at be7399b. Landed verbatim
+by the orchestrator; no edits.
+
+I have completed the review. Here is my report.
+
+---
+
+# REV-C FINAL RECOMMENDATION — doc 38 replacement-review gate
+
+**Filed by: a REV-C continuation surrogate.** The original REV-C session could not be continued, so under doc 38 §4.5's fallback I am a fresh reviewer given REV-C's filed report (`review/rev-c` @ `c52c2ab`, `docs/evidence/EV-REVIEW-C/INDEX.md`, 696 lines, plus its 17 transcripts) and asked to carry its mandate. This is the same form recorded for R-10 (the REV-A corrigendum surrogate) and for the R-2/R-4/R-5 delta verifications, and it is stated here rather than left to be inferred. **Which form was used: fresh agent given the original report** — doc 38 §4.5's second branch.
+
+**Object under review:** the tree at `be7399b` (tree `448ed695…`). I was read-only on it.
+
+# **REV-C FINAL RECOMMENDATION: ACCEPT — subject to the six conditions in §5, two of which are the orchestrator's parallel verifications.**
+
+REV-C's REVISE rested on eight things: two BLOCKING entries, six MAJOR, a red §9.7, a red §9.8, and a §9.11 record that did not match what was executed. Every one of those is now closed by a repair I could read in the tree, or is closed by a ruling whose posture the plan itself already establishes. I looked hardest at the places where a paper resolution would have been easiest, and did not find one. The conditions are record-completion and the two pending inputs, not repairs.
+
+---
+
+## 1. What I verified by execution
+
+Everything else below is reading. These are the only commands I ran:
+
+```
+$ python3 docs/fable/validate.py        → 36 assertions, 36 passed, 0 failed.   exit 0
+$ python3 docs/architecture/validate.py → 95 assertions, 95 passed, 0 failed.   exit 0
+$ bash schedulepoint-research/validate.sh → PASS: all required files ... present exit 0
+$ git status --porcelain                → (empty)
+```
+
+I ran these because I found that §7 leg 1 was executed at `85efa2b`, and the doc tree changed after it (§4 below). They re-establish leg 1 on the tip.
+
+Also mechanically derived, not taken from the record:
+
+```
+$ grep -cE "^ {4}id: '" scripts/red-cases/run.mjs        → 67      (FAD-54's amended census, confirmed)
+$ python3 … scripts/gates/request-budget/budgets.json    → 44 interactions, 18 with maxRequests 0
+                                                            schedule-open-new-period = 0   (unchanged)
+$ git diff --stat 64ddfd1 be7399b -- …/budgets.json      → (empty — no budget moved in the whole repair phase)
+$ python3 … docs/fable/06-feature-parity-matrix.md       → 58 rows, 0 missing a trailing pipe
+$ git rev-parse 7be44db^{tree} be7399b^{tree}            → 448ed695…  ==  448ed695…
+$ for f in leg6b-*.txt: grep EXIT=                       → 14 files, EXIT=0 on all 14
+```
+
+**One incident, declared.** While trying to count red-case arms I ran `node -e "import('./scripts/red-cases/run.mjs')"`, which *executes* the runner rather than importing a manifest. It ran ~2 minutes, was killed, and I immediately verified `git status --porcelain` empty — the per-arm restore held. No tracked file was modified. I mention it because a reviewer who dirties the tree and does not say so is the REV-C-011 failure mode.
+
+---
+
+## 2. Spot-checks performed (nine, across all four severities)
+
+**BLOCKING — REV-B-001 / REV-C-001, resolved by R-1.** Real, and stronger than the finding required. `apps/web/e2e/support/request-budget.ts` no longer opens the window on a DOM signal: a recorder-local `waitForQuiet` primitive (own `request`/`requestfinished`/`requestfailed` listeners, a `Set<Request>` for in-flight *identity* so an untracked settle is a no-op that still re-arms, 500 ms quiet timer, 10 ms-loud 10 s cap that throws naming the in-flight count) runs on **both** sides of every recording (`:286`, `:300`). The docblock does not claim more than the primitive delivers — it states the bound ("quiet among the requests this call has observed since it began"), states that a >500 ms-outliving entry request is invisible at this layer, and states that GH-006's spec-local wait is *still inert* rather than pretending it was revived. The close side can only ever add requests, never remove one, so it cannot be a route to passing a budget. Regression proof: `budgets.json` is byte-unchanged across the entire repair phase, R-1's diff contains no `maxRequests` or assertion line, and 18/18 zero-budget recordings stayed empty. The residual R-1 declared (critical-path's private `recordStep`, whose hard `toEqual([])` I-13 assertions were unreachable in CI) is now discharged empirically by leg 7: `open new period: 0 request(s)` at both viewports against the real stack.
+
+**MAJOR — REV-A-004, resolved by R-5.** The finding said an honesty guarantee rested on application discipline where this codebase's standard is database enforcement. The repair is database enforcement: migration `0020` places a `BUILD_TERMINATION_FACTS_FROZEN` check **above** the `NEW.state IS NOT DISTINCT FROM OLD.state` early return, so a same-state rewrite of `termination_reason`/`solver_status` raises `restrict_violation`. It is `CREATE OR REPLACE` on one guard function; the early return is untouched and the migration's own comment explains why it must be. Regression proof is both-direction by construction: red-case arm `builds-termination-facts-unfrozen` neuters exactly the freeze, requires two arms (`app_runtime` through a unit of work, and OWNER past the grants) to go red, and requires three arms that prove the freeze costs legitimate writers nothing to stay **green** — which is what says the red pair is not passing because everything is refused. Plus `migration-0020-populated-cycle.test.ts`, whose midway leg is what proves the down migration is not a no-op.
+
+**MAJOR — REV-A-003, resolved by R-4 + R-4b.** `selection.ts` now takes the period row lock and then `lockAuditOrdering(uow)` **before** `buildStaleness`, putting the verdict and the write in one order. The lock-ordering hazard this created (a `40P01` cycle) was *reproduced* before the period-lock line was added, not theorised. `selection-window-ordering.test.ts` (827 lines across the two packets) carries a CONTROL arm, the window arm, the source-window arm, and a deadlock arm, with explicit non-vacuity assertions (`'the construction moved no constituent — the arm would be vacuous'`). Cost is recorded as NR-20 with "realistic size UNMEASURED" rather than smoothed over.
+
+**MAJOR — REV-B-002, resolved by R-6.** This is the one I expected to find papered, because REV-C's own rule was "NR-15's retirement should not be restored by clean runs." It is not papered. The signer is at the call site (`outbox-dispatch.test.ts:194`), and the regression is *deterministic*: the `afterAll` hook plants its own `audit.checkpoint` job through the production producer immediately before it drains, so the proof no longer waits for a file-order coincidence. And the docblock explicitly refuses the win it could have claimed: "**What is NOT settled** … that the missing handler is what ended REV-B's particular run" — with the arithmetic (336 remainder vs a 1 remainder predicted, vs 27–45 jobs/s measured) showing it does not fit, and NR-15 left **RE-OPENED with cause UNESTABLISHED**. That is the correct disposition and it is the one taken.
+
+**MAJOR — REV-A-002 / REV-C-002, resolved by R-3.** doc 38 §7's sixth item is amended in place, dated, into two items naming what actually executes: the schema cycle on an empty database (0001–0020) and six populated-cycle tests by number. Leg 4a and leg 4b execute exactly those, leg 4b through `vitest-must-run.mjs` so a selection matching nothing fails instead of exiting 0. The frozen records (doc 36, EV-M4-005) are **byte-identical to `milestone/M4`** — I diffed them — so the record-only ruling was actually honoured rather than announced.
+
+**MAJOR — REV-A-001 = REV-B-003, resolved by R-2.** Two 400 s ceilings (3× the largest measurement) on the two single-solve arms; the reviewer proved by parser normalization that the entire code delta is the two timeout tokens. Corroborated by leg 2: `pnpm check` 17/17 with `e2-objective` executing 28 real CP-SAT tests in 719 s.
+
+**MINOR — REV-C-010 / REV-C-003, resolved by R-10.** This was my "most at risk of a paper resolution" pick, because REV-A's report lives on a branch that is never merged, so nothing forces the fix. The corrigendum is real and committed (`review/rev-a` @ `13a086f`): four INDEX citations corrected in place with visible `[corrected 2026-08-24 …]` markers, **no finding renumbered** (rule 13), REPORT.md pure insertions. And it does the harder thing: it declares what it *cannot* fix — "the gap doc 38 §3's completion criterion names stands as REV-C filed it — R-10 cannot manufacture the missing table on the reviewer's behalf" — and goes further, listing three additional inaccuracies it found and deliberately did **not** correct because no filed finding names them. It also records the validator state on that branch honestly (architecture 94/95 · fable 35/36, both failures being REV-A's own `.ts`/`.sh` probe sources under `docs/`).
+
+**MINOR — REV-C-004, resolved by R-11.** `pnpm sbx` is now a step in the per-push gate battery (`ci.yml:309`) with report upload; `.github/workflows/nightly.yml` is new and gives `fixture-regression` a home; doc 38 §7 was **not** relaxed in exchange. M3R ruled resolved-by-substitution on REV-C's own t01 evidence that no enumerable register exists anywhere.
+
+**NOTE — REV-A-007, resolved by R-7.** `hard-rule-check.ts` now says "the other **eight** kinds", with the correction's provenance, the reason a stale number there could never fail a build, and the three constants the gate derives from. A cosmetic finding fixed non-cosmetically.
+
+---
+
+## 3. The two post-review functional defects (§9.5 leans on these)
+
+**R-12 — `periodic.test.ts` R-03, seed 1.** The repair is a named-precondition drain (`drainQueue` with a signer, `timeoutMs: Math.max(45_000, inherited * 150)`) *before* the measured work, followed by an assertion that the queue is empty with a message naming the mechanism. **The 30 s budget, the `app_enqueue_job` path and the absolute `toBe(before + 1)` assertion are byte-identical to the version that failed** — I read them. The no-regression argument is structural: establishing a precondition can only remove inherited work from the measured window. The record also states the provenance honestly — latent since `946fc72`, proven failing at `d28f669`, R-6 explicitly exonerated.
+
+**R-13 — the T-15 two-organization storm.** This is the one that most deserves suspicion, because relaxing a deadline is what a weakening looks like. It is not one:
+
+- All five assertions survive byte-for-byte — `failures` empty, `wrongTenantRows` 0, non-vacuity over every tenant table by name, no impossible census rows, and `tenantTableStatements >= 10_000` ("the storm did not reach SPEC-01 T-15's 10 000 interleaved operations"). The diff across the whole repair phase adds lines and removes no assertion.
+- The ceiling is `min(840_000, max(120_000, probePassMs × 1800 × 4))`. **The floor is the old fixed timeout**, so no previously-green run can turn red — that is a real no-regression argument, not a rhetorical one.
+- Enforcement moved *inward*: it now fires at the iteration boundary with a named error stating what was measured and how far the run got, and the vitest timeout was demoted to a 900 s hang-only backstop held 60 s above the largest reachable ceiling so the named failure always wins the race.
+- It still detects. The 14 re-run transcripts show budget fractions 0.17–0.35; the worst run sat at 3× margin.
+- Verified against the transcripts myself: seed 123456 `storm 132961 ms … 0.35 of budget`, seed 740673 `storm 128256 ms … 0.32 of budget` — both **above the old 120 000 ms deadline**, confirming the register's claim that the pre-R-13 tip carried a *second* latent failure never previously observed. The claim in the risk register matches the evidence to the millisecond.
+
+**What R-13 costs, stated plainly:** the old fixed deadline was, accidentally, a detector for a real unexplained phenomenon. Replacing it with a self-scaling ceiling makes that phenomenon invisible to *that* gate. The project did the right thing with it — opened **NR-23**, cause `UNRESOLVED`, three hypotheses excluded *by measurement* (partition sweep to 2 412 partitions flat, with its maximum at minimum depth; +1.5 GB heap ballast → +8%), with an explicit instruction that it "must NOT be written up as a mechanism until a measurement identifies one." The register even **falsified R-13's own first mechanism claim** (partition-linearity, R²=0.9892) at review grade and corrected it in place with provenance. Correctness held everywhere: `WRONG-TENANT ROWS: 0` in every completed run. **No confirmed functional product defect remains; one unexplained performance phenomenon remains, carried as an open risk rather than as a passing test.**
+
+---
+
+## 4. A §7 freshness point I found, and how it closes
+
+Legs 1–5 were executed on trees *preceding* R-13. The complete non-doc delta from `85efa2b` to `be7399b` is exactly two files — `apps/api/test/support/harness.ts` and `apps/api/test/tenancy/unit-of-work.test.ts` — with migrations and the six populated-cycle tests **byte-unchanged** (so legs 4a/4b remain valid for the final tree by input identity). The gap closes three ways, and the gate record should say so rather than leave the leg table reading as if one run covered everything:
+
+- **Leg 1** — I re-ran all three validators on the tip myself: 36/36 · 95/95 · PASS.
+- **Legs 2, 3, 5** — `be7399b`'s tree is **byte-identical to `7be44db`'s** (`448ed695…`; the merge's first parent `64ddfd1` never moved), and the ledger records all 15 checks green on `7be44db` — gate battery (`pnpm check` + `pnpm sbx`) + 13 red-case shards + the completeness guard. That is a complete execution of legs 2, 3 and 5 on the exact final tree.
+- **Legs 6b, 7** — ran on `149edee`, whose delta to `be7399b` is docs and control files only. Leg 6b's 14 runs also re-execute the whole `apps/api` suite (141 files / 1461 tests each) on the final code, fourteen times.
+
+**A precision note on FAD-54.** Its sentence "green twice on the final candidate's tree" was true when written (007dfef), but R-13 landed afterwards, so as it now stands it reads as current and is not. The substance is unharmed — the `7be44db` run is a *third* complete sharded execution and it is the one on the actual final tree. The gate record should date FAD-54's sentence and cite that third run. Condition C4.
+
+**On REV-C's §8.2 demand** that criterion 8 not be closed by a single green run: it has not been. Post-R-1 the record carries green CI on `9385632` (run 32645176400, attempt 1), `85efa2b` (32716033514), `007dfef` (32724748023), `c73f9ff` (32751982655), and `7be44db` — five, with all-jobs-success at attempt 1 where cited, plus leg 7's real-stack `0 request(s)` at both viewports. The one non-green event in that window is a transient `abandoned` cancellation on `603be0c`, recorded as such and cleared by the next push. That satisfies the "stated number of consecutive green runs" REV-C asked the adjudicator to set.
+
+---
+
+## 5. Conditions
+
+None of these is a repair, and none may be discharged by weakening anything. If any cannot be met, the correct action is escalation, not recording it as met.
+
+- **C1 — the two pending inputs must land green:** fresh-clone validation against `origin/main`, and the merge-push CI run on `be7399b`. I did not verify these; they are the orchestrator's parallel work. **This ACCEPT does not carry if either fails.**
+- **C2 — `EVIDENCE-INDEX.md` gets rows for `EV-DOC38-GATE`, `EV-REVIEW-A`, `EV-REVIEW-B`, `EV-REVIEW-C`.** It has a row for every other bundle and its own header says new artifacts are "listed here." At `be7399b` it has none of these four. This is a live §9.11 gap I verified.
+- **C3 — `AUTO-RUN-STATE.md` is synced with its `.json` twin.** The `.json` reads "REPAIR PHASE CLOSED 2026-08-24" and carries R-13 and the leg-7 follow-up; the `.md` still reads "REPAIR PHASE — … Remaining: R-9, R-10, R-11, the §7 serial battery", mentions R-13 only inside the PR row, and mentions NR-23 nowhere. The twins have drifted before (`f855340`).
+- **C4 — the gate record states the §7 leg-to-commit map explicitly** (§4 above), and dates FAD-54's "green twice on the final candidate's tree", citing the `7be44db` run as the execution on the final tree.
+- **C5 — the post-gate residues move out of the run-state blob into a durable numbered register.** This is REV-C-005's own rule applied to the review's own output: a follow-up that exists only in a commit message is not registered, and an `openFindings` string inside a rolling operational pointer is barely better. Specifically: the **leg-7 solver-invocation gap** (a from-checkout real-stack run without `SP_SOLVER_WORKER_COMMAND` yields a silent `solver status FAILED` rather than a named `NO_SOLVER_COMMAND` refusal — fail-closed held, "candidate REFUSED", transcript retained unedited); the **REV-B-008 residue** (`errors.ts` logs `{ err: error }` whole on the 5xx path — the generic-message half holds, but this sits adjacent to non-bypass rule 9 and should not live in an overwritable field); the **REV-C-011 residue** (NR-14's clean-tree discipline has no automated backstop for an untracked probe under a collected root); and the **C-007 root-file gate** (nothing catches a stray file at the repository root, because architecture assertion 52b sees directories only — REV-C-008's dead allowlist).
+- **C6 — `PROJECT-STATUS.md` records the review and its outcome.** It currently mentions neither.
+
+---
+
+## 6. §9 criteria — my read
+
+| § 9 | Criterion | REV-C at `c52c2ab` | Now |
+| --- | --- | --- | --- |
+| 1 | Plan committed, §10 ratified | yes | **holds** — §3 and §7 amended in place, dated, each amendment stating what it adds and that nothing is relaxed |
+| 2 | Three reports complete | **no** | **holds, with a declared residue.** R-10 corrected the mis-citation and honestly refused to manufacture the missing table; REV-A's bundle still has no per-scope-area table. But the two areas REV-C named are covered with executed evidence in REV-B's lane (§D: route-policy 113/113 routes policy-declared; SBX-001 role×route over 112/113 with a falsifiability probe), and §2.7's M3R item is ruled resolved-by-substitution on REV-C's own t01. The gap is in one never-merged bundle's presentation, not in the review's coverage |
+| 3 | REV-C recommends ACCEPT | REVISE | **holds** — this document, subject to C1 |
+| 4 | Every valid finding resolved through §6 | **no — not begun** | **holds.** 28/28 accepted at filed severity; none rejected, downgraded, omitted or combined away; 13 repair packets, each with a fresh implementer and a fresh reviewer |
+| 5 | No confirmed functional defect remains | qualified yes | **holds.** Two defects the battery itself found (R-12, R-13) are repaired without weakening; verified in §3. NR-23 is an unexplained performance phenomenon with correctness intact, not a functional defect |
+| 6 | Original reviewers delta-verified | **no — not begun** | **holds**, with §4.5's fallback recorded each time it was used (R-1 by REV-B itself; R-2/R-4/R-5/R-10 by recorded surrogates; this document is the same fallback for REV-C) |
+| 7 | Complete serial §7 battery passes | **no** | **holds** — legs 1–7 all PASS, with the leg-to-commit map of §4 and leg 5 in §7's own named primary form (FAD-54). Fresh-clone item → C1 |
+| 8 | GitHub CI passes on `main` | **no — three consecutive failures** | **substantively established, formally pending.** All 15 checks green on `7be44db`, whose tree is byte-identical to `be7399b`; five green runs post-R-1. The merge-push run on the merge commit → C1 |
+| 9 | All required PRs merged | n/a | **holds for PR #6**; the gate-record PR is outstanding by construction |
+| 10 | Fresh-clone validation | partial | **pending** → C1 |
+| 11 | Control and evidence documents accurate | **no** | **not yet** → C2, C3, C4, C5, C6. This is the one criterion that is genuinely open, and it is open because the gate-closure commit that would satisfy it has not been written |
+
+---
+
+## 7. Finding-by-finding disposition
+
+`✔` = I read the repair and its proof in the tree at `be7399b` and the record matches. `—` = accepted on the record, not independently spot-checked by me.
+
+### BLOCKING
+
+| ID | Resolved by | Verdict |
+| --- | --- | --- |
+| REV-B-001 | R-1 — recorder window bounded by measured quiescence both sides | ✔ real; no budget, assertion or expected count moved anywhere in the phase |
+| REV-C-001 | R-1 (one repair, both entries; class-wide across all 18 zero-budget interactions) | ✔ real; `i13-schedule-authoring` green in every cited CI run since |
+
+### MAJOR
+
+| ID | Resolved by | Verdict |
+| --- | --- | --- |
+| REV-A-001 = REV-B-003 | R-2 — measured 400 s ceilings on the two single-solve arms | ✔ real; corroborated by leg 2 `pnpm check` 17/17 |
+| REV-A-002 | R-3 — §7 row split into schema cycle + six named populated cycles, range → 0020 | ✔ real; frozen records verified byte-identical to `milestone/M4` |
+| REV-A-003 | R-4 + R-4b — staleness re-evaluated inside the audit-lock ordering domain | ✔ real; 827-line regression with control + non-vacuity + deadlock arms; NR-20 opened |
+| REV-A-004 | R-5 — migration 0020 freezes the termination facts | ✔ real; DB-enforced, red-case arm with three must-stay-green controls, populated cycle |
+| REV-B-002 | R-6 — signer at the finalize drain; NR-15 re-opened, cause UNESTABLISHED | ✔ real, and honestly under-claimed |
+| REV-C-002 | R-3 — REV-B's §C row 5 withdrawn, REV-A-002's reading adopted | ✔ real |
+
+### MINOR
+
+| ID | Resolved by | Verdict |
+| --- | --- | --- |
+| REV-A-005 | R-7 — sentence accuracy; forbidden-intensifier sweep enumerated over the verdict set | ✔ real, made permanent as a test |
+| REV-A-006 | R-7 — absent/unrecognised `solver_status` fails closed | ✔ real behavioural change + regression describe-block |
+| REV-A-007 | R-7 — docblock count 24 → 8 with derivation | ✔ real |
+| REV-B-004 | Record-only (rule-13 posture, as FAD-52); FAD-53 carries all three pointers | ✔ posture verified — doc 36 and EV-M4-005 byte-frozen; consistent with doc 38 §1's own frozen-record rule |
+| REV-B-005 | R-9.1 — probe sources under `docs/` carry `.txt` | ✔ in the plan; REV-A's `.ts`/`.sh` demonstration left on its never-merged branch at 94/95 · 35/36, recorded, not hidden |
+| REV-B-006 | R-7 — `vitest-must-run.mjs` is `gate:unit`; residue registered | ✔ real (also the wrapper leg 4b ran through) |
+| REV-C-003 | R-10 — citation corrected; the coverage-table gap declared, not manufactured | ✔ honest partial; residue stands in REV-A's own REPORT.md |
+| REV-C-004 | R-11 — `sbx` per-push, `nightly.yml` for fixture-regression; M3R by substitution | ✔ real; §7 not relaxed in exchange |
+| REV-C-005 | FAD-53 — GH-011 recorded in ARCHITECTURE-DECISIONS, absorbed by R-1 | ✔ now in a control register — and the reason for C5 |
+| REV-C-007 | R-3 — the tracked `=` removed | ✔ gone; no root-file hygiene gate → C5 |
+| REV-C-009 | Record-only; transcript ruled the better-evidenced figure | ✔ and independently corroborated — leg 7 records `select candidate into a new draft: 2 request(s)` |
+| REV-C-010 | R-10 — four INDEX citations repaired, no renumbering | ✔ real, on `review/rev-a` @ `13a086f` |
+
+### NOTE
+
+| ID | Resolved by | Verdict |
+| --- | --- | --- |
+| REV-A-008 | Recorded (two accuracy notes) | — |
+| REV-A-009 | R-3 — CAP-061 rename annotated in doc 06 §78, clean-room reason stated | ✔ present |
+| REV-A-010 | R-3 — the four rows repaired | ✔ 58 rows, 0 missing a trailing pipe |
+| REV-B-007 | Recorded (same-caller 4xx echo; not a log path) | — |
+| REV-B-008 | R-7 — `disableRequestLogging: true` pinned by test; `{err}` residue registered | ✔ pin present; residue → C5 |
+| REV-C-006 | R-10 — prose corrected to the method actually used | ✔ |
+| REV-C-008 | Recorded (dead `ALLOWED_IMPL_ROOTS`) | ✔ read; root-file consequence → C5 |
+| REV-C-011 | R-9.2 — composed-run-safe probes; residue registered | ✔ in the plan; no automated backstop → C5 |
+
+**28 entries, 29 original IDs. Every severity preserved. Nine spot-checked in the tree; nine held.**
+
+---
+
+## 8. The honestly-recorded exceptions
+
+I was asked to verify these as exceptions, not to treat them as blemishes. All four are recorded accurately and none is being used to buy something:
+
+- **FAD-54** — leg 5 satisfied in §7's *own* named primary form. §7's text is "sharded in CI, with the union guard green; a serial local run is equivalent evidence" — the sharded form was the primary all along. The serial attempt was made **first**, terminated externally twice (a ~60 min background cap, a ~30 min monitor cap), with **zero arm failures**, 15 arms proven both directions, per-arm restore holding through both uncatchable kills, and the executor escalating rather than improvising. `leg5-red-cases.txt` is kept unedited; `leg5-adjudication.txt` carries job-level IDs and timestamps for every one of the 15 jobs in each of two runs. I independently counted 67 arms in the runner, and the completeness guard derives its census from that same runner.
+- **The leg-7 attempt-1 invocation gap** — an erroneous orchestrator packet omitted `SP_SOLVER_WORKER_COMMAND`; the production default is `?? 'python3'` with no venv discovery, bare python3 lacks OR-Tools, the solve died post-auth, the build FAILED **fail-closed** ("candidate REFUSED"), and step 10 correctly found no selection control. The failing transcript is retained unedited beside the passing one. This is an invocation gap plus a diagnosability observation (silent `FAILED` where a named refusal would be better), not a tree defect — and its registration currently lives only in a run-state field, which is C5.
+- **The container-pause casualty** — leg 6b seed-1 attempt 1 was killed by a container idle-pause and is recorded as **no verdict**, moved aside, re-run clean. A killed run declared as no-verdict rather than counted or quietly re-labelled is the correct handling.
+- **The REV-A probe-suffix demonstration** — `review/rev-a` still carries `.ts`/`.sh` probe sources under `docs/evidence/`, validators at 94/95 · 35/36. The branch is never merged, which is the only reason it cost `main` nothing, and R-9 says exactly that rather than trimming the branch to make the number look better. FAD-53 also **corrected its own R-9 clause in place** at acceptance, retracting an "all three reviewers converged" overstatement and adding the third rule it had omitted.
+
+---
+
+## 9. What I could not falsify
+
+I attacked five things expecting to find a gap. None gave:
+
+1. That R-13 was a ceiling raise dressed up as a repair. Every assertion survives byte-for-byte, the floor is the old timeout, enforcement moved inward, and the ceiling still binds at 3× on the worst observed run.
+2. That R-6 quietly restored NR-15 with clean runs. It does the opposite — the risk stays open with the cause `UNESTABLISHED` and the arithmetic showing why the repaired mechanism does not account for REV-B's figure.
+3. That R-1 bought its green by moving a budget. `budgets.json` is byte-unchanged across the entire phase, `schedule-open-new-period` is still 0, and 18 zero-budget interactions are still 18.
+4. That R-10 was a paper corrigendum on an unmerged branch. It is committed, marked in place, renumbers nothing, and declares three further inaccuracies it deliberately left alone.
+5. That the §7 leg figures were copied rather than measured. I pulled the storm lines out of two leg-6b transcripts by hand and they match the risk register to the millisecond, including the second latent failure the register says was "never before observed."
+
+---
+
+**REV-C's charter ends here. This surrogate implemented nothing, adjudicated nothing, and does not decide the gate — it recommends. The recommendation is ACCEPT, conditional on C1, and with C2–C6 to be discharged by the gate-decision record itself. If the fresh-clone validation or the merge-push CI run comes back anything other than green, this recommendation does not carry and the correct action is to re-open, not to re-run until green.**
