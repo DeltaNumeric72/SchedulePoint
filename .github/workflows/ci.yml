@@ -335,7 +335,7 @@ jobs:
   # position, so which shard a heavy arm lands in is NOT a choice — it is a
   # consequence of N, and the only lever is N itself.
   #
-  # ── The heavy-arm census, counted from the registry (67 arms) ──────────────
+  # ── The heavy-arm census, counted from the registry (68 arms) ──────────────
   #
   # Every arm runs its command TWICE, GREEN then RED, so each line below costs
   # twice what its suites cost once.
@@ -363,14 +363,45 @@ jobs:
   #   builds subset (`gate:unit:builds`, a narrow vitest run)
   #     indices 48, 49, 50, 52                             → shards 9, 10, 11, 0
   #     index 65  builds-termination-facts-unfrozen        → shard 0
+  #   one api test FILE, twice, with a real embedded cluster behind it — a fifth
+  #   cost class, added 2026-08-25 by M5-000a (FU-03):
+  #     index 67  storm-ceiling-enforcement                → shard 2
   #
-  # R-5 added index 65 and R-8 added index 66, both at the END of the registry,
-  # which is why every index above still reads as it did: appending changes no
-  # other arm's position, and therefore no other arm's shard. Shard 0 now carries
-  # two builds-subset arms (52 and 65) beside the full-unit arm at index 13. The
-  # builds subset is the cheapest of the four heavy classes and 67 is not 13 x 5,
-  # so shards 0 and 1 carry six arms where the rest carry five — arithmetic, not
-  # a choice, and the union guard below re-derives the registry either way.
+  # R-5 added index 65, R-8 added index 66 and M5-000a added index 67, every one
+  # at the END of the registry, which is why every index above still reads as it
+  # did: appending changes no other arm's position, and therefore no other arm's
+  # shard. Shard 0 now carries two builds-subset arms (52 and 65) beside the
+  # full-unit arm at index 13. The builds subset is the cheapest of the five
+  # heavy classes and 68 is not 13 x 5, so shards 0, 1 and 2 carry six arms where
+  # the rest carry five — arithmetic, not a choice, and the union guard below
+  # re-derives the registry either way.
+  #
+  # M5-000a's arm (67 -> shard 2) is the one cost line here that is MEASURED
+  # rather than estimated, and it is measured on a 4-vCPU development box rather
+  # than on a hosted runner, so it is a floor and not a forecast. Both legs run
+  # ONE api test file — `test/tenancy/unit-of-work.test.ts`, 18 tests — with the
+  # embedded cluster behind it. GREEN: 33.3 s of test time. RED: the storm is
+  # driven to 12 000 iterations and stopped by its own measured ceiling, so the
+  # leg costs whatever that ceiling is — 177 008 ms against a 177 000 ms ceiling
+  # in the measured run, which stopped it at iteration 6 216 of 12 000. Whole arm
+  # through the runner, preflight build included: 233 s. The iteration count does
+  # NOT set the cost: raising it buys margin against the calibration's own spread
+  # (check.mjs derives the threshold) and changes the wall clock by nothing,
+  # because the enforcement throws at the ceiling either way.
+  #
+  # WORST CASE, since the RED leg costs the ceiling and the ceiling is measured:
+  # `stormCeilingMs` is capped at `STORM_HARD_CAP_MS - STORM_CEILING_HEADROOM_MS`
+  # = 840 000 ms, so on a machine slow enough to reach that cap the RED leg costs
+  # ~14 min and the GREEN leg — the same file at 900 iterations, ~1/13 of the
+  # storm — ~3.5 min, i.e. ~18 min for the arm. That is the arithmetic ceiling on
+  # this arm's contribution, and it fits inside this job's `timeout-minutes: 120`
+  # with the rest of shard 2's arms. A machine slower still does not cost more:
+  # the cap is absolute.
+  # That is small beside the full unit gate this shard already runs twice,
+  # and it is bounded from above by the ceiling rather than by the iteration
+  # count: a machine slow enough to make the storm expensive is a machine whose
+  # ceiling scales with it. The RED leg is a run that FAILS by design, which is
+  # what every other arm's red leg also is.
   #
   # R-8's arm (66 -> shard 1) is NOT heavy and is deliberately absent from the
   # census above: it runs `node scripts/red-cases/migration-anchor/check.mjs`
@@ -384,9 +415,13 @@ jobs:
   # because index-modulo assignment is not a choice:
   #
   #   shard 2 — the full unit gate AND solver-t2-false-minimality (e2-objective
-  #             plus corpus-agreement, both directions). On the estimates
-  #             available this is plausibly the heaviest shard, and it is the one
-  #             to watch on the first complete run.
+  #             plus corpus-agreement, both directions), and since 2026-08-25 the
+  #             storm-ceiling arm as well. On the estimates available this is
+  #             plausibly the heaviest shard, and it is the one to watch on the
+  #             first complete run. The new arm's own cost is MEASURED rather
+  #             than estimated — see the note beneath this census — and it is
+  #             small beside the two it joins; where it lands was not a choice,
+  #             because appending is what keeps every other arm's shard fixed.
   #   shard 7 — the axe arm AND solver-demand-not-independently-checked.
   #   shard 4 — two of the direct CP-SAT arms (43 and 56).
   #

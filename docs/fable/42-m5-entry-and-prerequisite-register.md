@@ -101,6 +101,40 @@ census 68 (the new arm proven both directions) · fixture-regression seeds 1 and
 no migration in this packet (schema cycle unchanged) · CI green on PR #8 before merge
 consideration. Delivery: worktree + patch from `e574961`; fresh Opus implementer;
 fresh Opus reviewer; delta by the reviewer; orchestrator lands and commits.
+
+**ACCEPTED 2026-08-25** (implementer + independent review, seven conditions C-1..C-7
+all discharged at the condition round, delta CONFIRM by the original reviewer).
+Dated facts of record, in the FAD-54 amendment style — provenance, not standing
+expectation (§6 deliberately derives its counts from the runner and the suite; these
+figures are true as at THIS landing and are superseded by any packet that changes
+suite composition, M5-000b first among them):
+
+- **Proof (1) as written above was unsatisfiable and was discharged by substitution,
+  recorded here against §5a rather than silently:** `vitest list --filesOnly` never
+  applies the sequencer (it prints raw collection order), so no sequencer fix can make
+  its output byte-identical per seed — the review measured it still-unstable on the
+  retired tree, which is not a regression. The proof actually executed, stronger than
+  the one asked for: **executed-order identity** — full `--project api` runs whose
+  executed file order is byte-identical to the order predicted OFFLINE from the
+  shipped helpers before the run started (review's seed 20260825 twice under
+  different load; offline predictions reproducing the implementer's executed orders
+  at seeds 1 and 123456), plus distinct orders across distinct seeds (detection
+  power). The RISK-REGISTER retirement note carries the full measurement record.
+- **Suite counts at this landing:** the `api` project collects **143 files / 1 485
+  tests** (the new `test/architecture/file-sequencer.test.ts` added to 142/1 475);
+  the composed seed-20260825 run on the final artifact: 142 passed | 1 skipped
+  (143 files), 1 471 passed | 14 skipped (1 485 tests), 1 387 s, exit 0, with the
+  new file at position 125 exactly as predicted offline.
+- **Red-case census 68**; `storm-ceiling-enforcement` at index 67 (shard 2). The
+  arm's `SP_STORM_ITERATIONS=12000` supersedes the pre-declared 6000: the observed
+  sustained/calibrated ratios (0.4971 · 0.5793 · 0.6635 · 0.84 — the third from a
+  proving run whose transcript was not retained, marked so in the docblock) put two
+  of four BELOW N=6000's 0.60 crossing threshold; at N=12000 the threshold halves
+  to 0.30, a 1.66×–2.8× margin. Residue registered as FU-18 (derive N from the
+  run's own calibration).
+- Closures recorded at this landing: **FU-01 CLOSED (first exit; NR-22 RETIRED)** ·
+  **FU-03 CLOSED (arm 68 standing)** · the citation-sweep collision class generalized
+  in the RISK-REGISTER (third instance: fixture data read as citations).
 | 1 | **M5-001 — request lifecycle core** | Subtype transition matrices (§2) domain+DB double enforcement; deadlines/expiry (§3, R-09, R-23); idempotent submission (R-11); withdrawal incl. accepted_as_input/consumed_by_build boundaries (R-22) and post-reflection revision requests (R-10); routes + policies (I-02, four-layer) | M5-000 |
 | 2 | **M5-002 — approvals** | Individual + batch approval/denial/comments (§4); over-quota advisory + audited override (R-06/R-07); D-21 last-unit race (R-05); reversal floor (R-08); quota CHECK integrity (R-20/R-21); approval idempotency (R-17/R-18/R-19) | M5-001 |
 | H | **M5-H — hygiene batch** | FU-06/07/08/13 (+FU-04 if not yet touched) | after M5-002, issues alone |

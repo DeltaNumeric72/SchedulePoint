@@ -42,6 +42,33 @@
  * failing assertion depended on. A reproduction that pins the state is also
  * cheaper than one that re-runs 142 files hoping for the same draw.
  *
+ * ## RETIRED 2026-08-25 (M5-000a, FU-01): the seed IS a replay key again
+ *
+ * Everything above is kept as the record of what was true until this date, and
+ * half of it still is. **Collection order is still not stable** — `vitest list
+ * --project api --filesOnly` returns a different order on successive runs of one
+ * unchanged checkout, with or without any shuffle flag, because the instability
+ * is in the glob walk and not in the shuffle. What changed is that collection
+ * order no longer REACHES the run. `apps/api/vitest.config.ts` now carries a
+ * `sequence.sequencer` (installed by the root `vitest.config.ts`, on the
+ * file-shuffle path only) that sorts the collected files canonically before
+ * applying the seeded Fisher–Yates, so the landed order is a function of **the
+ * SET of files and the seed alone**.
+ *
+ * `--sequence.seed=N` therefore pins the file order again, and the operator line
+ * this script prints below — `Reproduce with --sequence.seed=N` — is TRUE as
+ * written. It is deliberately unchanged: NR-22's rider (c) gave that follow-up
+ * two exits, "fix the sequencer (at which point the line becomes true again), or
+ * reword the line", and this is the first of them.
+ *
+ * Two bounds, so it is not over-read. The permutation is a function of the file
+ * SET as well as of the seed, so adding or removing a test file re-draws every
+ * seed's order — a seed replays an order only against the tree it was drawn on.
+ * And pinning the observed PRECONDITION is still the stronger reproduction for a
+ * state-dependent defect: a seed replays 142 files to reach the state, while
+ * R-12's queue-timing failure reproduces at a fixed backlog depth of 3011 in
+ * about a minute.
+ *
  * Not wired into `pnpm check`: that would mean editing the gate runner, which is
  * an escalation under this task's packet. Run it explicitly:
  *
@@ -162,6 +189,15 @@ for (const seed of FIXED_SEEDS) {
 // construction (the executable text of this file is unchanged, and that is proved
 // rather than asserted); the same over-claim in printed output is recorded as
 // residue rather than repaired here.
+//
+// 2026-08-25 (M5-000a, FU-01): that residue is DISCHARGED, and the line is still
+// byte-identical — because the sequencer changed underneath it rather than the
+// wording changing. The canonical-sort sequencer in `apps/api/vitest.config.ts`
+// makes the file permutation a function of the file set and the seed alone, so
+// "Reproduce with --sequence.seed=N" now says something true. The paragraph
+// above is kept as the record of what it meant before that; see the header for
+// the two bounds (the file SET is part of the key, and pinning the observed
+// precondition remains the stronger reproduction for a state-dependent defect).
 const rotating = Math.floor(Math.random() * 1_000_000);
 process.stdout.write(`\n2. ROTATING SEED — this run drew ${String(rotating)}\n`);
 process.stdout.write(
