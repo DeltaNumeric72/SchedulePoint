@@ -60,7 +60,47 @@ QA-REQ battery passing. Capabilities: CAP-021, CAP-022, CAP-023, CAP-042.
 
 | # | Packet | Scope sketch | Depends on |
 | --- | --- | --- | --- |
-| 0 | **M5-000 — entry prerequisites** | FU-01 sequencer retirement + FU-03 enforcement arm (census 68) + the SPEC-08 schema foundation: `requests` aggregate + the six subtype tables + status/history model (migrations, RLS + FORCE + policies in the same migration, D-18/D-19/D-20 constraints), domain ports, no routes yet | checkpoint (41) |
+| 0a | **M5-000a — test-infrastructure prerequisites** | FU-01 sequencer retirement + FU-03 enforcement arm (census 68). *(Split from the pre-declared M5-000, dated note 2026-08-25: the sequencer reorders every composed run — it lands and re-proves the suite green alone, BEFORE the schema packet adds tables, so a failure attributes to one cause. Nothing is dropped; the schema half is M5-000b.)* | checkpoint (41) |
+| 0b | **M5-000b — SPEC-08 schema foundation** | `requests` aggregate + the six subtype tables + status/history model (migrations with RLS + FORCE + policies in the same migration, D-18/D-19/D-20 constraints, the R-20/R-21 unconditional quota CHECKs, the §5.3 mapping groundwork), domain ports + zod contracts, populated-cycle tests per new migration, NO routes | M5-000a |
+
+### 5a. M5-000a — FINALIZED 2026-08-25 (issues against the PR #8 branch at `e574961`)
+
+**Part A — FU-01, the NR-22 retirement (sequencer exit).** A custom `sequence.sequencer`
+in `apps/api/vitest.config.ts` that canonically sorts the collected file list (stable,
+path-based) BEFORE applying the seeded Fisher–Yates, so the permutation becomes a
+function of the seed alone and `--sequence.seed=N` becomes a true replay key. Bound:
+`--sequence.shuffle.tests` (within-file) untouched; detection power preserved
+(different seeds still yield different orders); the R-9 `--no-cache` rule unchanged.
+Proofs, both directions: (1) the NR-22 falsifier now passes — the `vitest list`-style
+collection probe run ≥ 5 times in one checkout yields byte-identical orders per seed;
+(2) two different seeds yield different orders; (3) a seeded full `api` run is green
+under the new (sorted-shuffle) order for at least seeds 1 and 123456 — the two
+historically loaded orderings. Truth restoration in the same change:
+`scripts/sbx/fixture-regression.mjs`'s NR-22 header gains a dated note (provenance
+kept, nothing deleted) recording that the sequencer landed and the printed
+`Reproduce with --sequence.seed=` operator line is TRUE again (C-1c's first exit —
+the line itself stays byte-identical); any `nightly.yml` comment asserting the
+pre-retirement semantics gains the same dated note. The RISK-REGISTER NR-22
+retirement note is drafted by the implementer, verified by the reviewer, and landed
+by the orchestrator at acceptance.
+
+**Part B — FU-03, the R-13 enforcement red-case arm (census 67 → 68).** A new arm
+proving the storm-ceiling throw branch fires and the gate goes red: the violation leg
+drives the storm past its measured ceiling using the test's own `SP_STORM_ITERATIONS`
+knob (the reviewer's proven route: 6000 iterations → the named
+`R-13 storm ceiling exceeded` error, ~2 min), asserting the NAMED error (not vitest's
+generic timeout) and a red gate; the restore leg re-proves green. House pattern:
+registered in `scripts/red-cases/run.mjs` (union guard derives the census
+automatically), shard assignment balanced, non-vacuity asserted, no shipped constant
+weakened, `vitest-must-run.mjs` wrapping. Doc 38 §7's census note gains the dated
+67 → 68 amendment in the FAD-54 style (requirement grows; nothing relaxed).
+
+**Acceptance battery (doc 42 §6):** validators · `pnpm check` 17/17 · red-cases at
+census 68 (the new arm proven both directions) · fixture-regression seeds 1 and
+123456 green under sorted-shuffle plus the five-collection reproducibility probe ·
+no migration in this packet (schema cycle unchanged) · CI green on PR #8 before merge
+consideration. Delivery: worktree + patch from `e574961`; fresh Opus implementer;
+fresh Opus reviewer; delta by the reviewer; orchestrator lands and commits.
 | 1 | **M5-001 — request lifecycle core** | Subtype transition matrices (§2) domain+DB double enforcement; deadlines/expiry (§3, R-09, R-23); idempotent submission (R-11); withdrawal incl. accepted_as_input/consumed_by_build boundaries (R-22) and post-reflection revision requests (R-10); routes + policies (I-02, four-layer) | M5-000 |
 | 2 | **M5-002 — approvals** | Individual + batch approval/denial/comments (§4); over-quota advisory + audited override (R-06/R-07); D-21 last-unit race (R-05); reversal floor (R-08); quota CHECK integrity (R-20/R-21); approval idempotency (R-17/R-18/R-19) | M5-001 |
 | H | **M5-H — hygiene batch** | FU-06/07/08/13 (+FU-04 if not yet touched) | after M5-002, issues alone |
