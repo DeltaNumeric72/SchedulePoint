@@ -194,6 +194,52 @@ export const SYSTEM_ROLE_CAPABILITIES: Readonly<Record<string, readonly string[]
     'schedule.version.edit',
     'schedule.own_published.read',
     'schedule.published.read',
+    /* ── OPUS-M5-002: the four DECISION keys, from doc 08 §6's "Approve
+     * requests/vacation" row — Member —, Viewer —, Telecom —, **Scheduler ✓
+     * (batch: G)**, Group Admin —, Org Admin —.
+     *
+     * A `✓` cell, so role-implied rather than grant-only, exactly as
+     * OPUS-M3-006's and OPUS-M3-008's additions were. The `(batch: G)` half is
+     * honoured by its ABSENCE: `requests.batch_approve` appears in no role's set
+     * here and is listed in that document's §4 grant enumeration, so batching
+     * stays a named grant on top of a role-implied decision.
+     * `vacation.override_quota` is likewise absent, from the same §4 list and
+     * from §6's "Vacation commit / quota override — G" row.
+     *
+     * **Four keys and not two.** Deciding requires `requests.approve` /
+     * `requests.deny` (the OPERATION, SPEC-06 L4) *and* `requests.read_any` /
+     * `requests.administer` (the ROWS, migration 0023's narrowing). A scheduler
+     * holding only the first pair would be authorized to decide and would see
+     * zero rows to decide on; holding only the second would see a queue and be
+     * refused at every button. The row says a scheduler approves requests, and
+     * approving requests takes all four.
+     *
+     * **A consequence worth stating rather than leaving to be discovered:**
+     * `requests.administer` is also the key the §3 EXPIRY SWEEPER runs under
+     * (`apps/api/src/requests/sweeper.ts`, migration 0023 §4), so making it
+     * role-implied for `scheduler` means a scheduler membership now satisfies the
+     * sweeper's key as well. That is consistent rather than accidental — doc 08's
+     * row gives the scheduler the decision surface, and expiring an undecided
+     * request past its deadline is part of that surface — and the sweeper's own
+     * safety does not rest on the key being rare: its job context must name a real
+     * acting membership, its authorization is re-evaluated at execution (I-19),
+     * and no system arm or bypass exists in 0023 for it to fall through.
+     *
+     * **Not given to `group_admin`.** That role's cell in this row is `—`, and
+     * this map follows the document rather than intuition about who "ought" to be
+     * able to. A group administrator who must decide requests takes a grant.
+     *
+     * *(An observation this packet does NOT act on: doc 08 §6's "Submit
+     * requests/vacation" row is `✓` for Member and Scheduler, and M5-001's
+     * `requests.own.submit` / `.own.withdraw` / `.own.read` appear in no role's
+     * set — so submitting currently needs a grant where the document marks it
+     * role-implied. That is M5-001's surface, not this packet's, and changing
+     * another packet's authorization posture uninvited is the thing the register
+     * exists to prevent. Recorded for the M5 hygiene batch.)* */
+    'requests.approve',
+    'requests.deny',
+    'requests.read_any',
+    'requests.administer',
   ],
   group_admin: [
     'membership.touch_self',

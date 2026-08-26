@@ -347,6 +347,15 @@ beforeAll(async () => {
    * never seen with a visible row — a probe over an empty table reports 0 wrong
    * for the most boring possible reason.
    *
+   * OPUS-M5-002 makes it ELEVEN: migration 0024 adds `approvals` (SPEC-08 §4's
+   * decision record), and the same helper keeps it non-vacuous by walking a fifth
+   * request through the binding two-step and recording the decision. The
+   * approvals INSERT meets `approvals_group_administration`, which requires
+   * `requests.administer` — role-implied for `scheduler` from doc 08 §6's
+   * "Approve requests/vacation ✓" — and every target below is a scheduler
+   * membership, so the row is written through the production RLS path with no
+   * fixture privilege invented.
+   *
    * `seedRequestsForSweep` writes through the unit of work rather than a
    * production service, because doc 42 §5b ships none: the packet exists to land
    * the schema and its enforcement BEFORE any lifecycle transaction. It still

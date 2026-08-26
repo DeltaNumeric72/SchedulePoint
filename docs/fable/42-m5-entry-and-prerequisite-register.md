@@ -498,6 +498,19 @@ canonical-sequencer/replay-key properties rest on M5-000a's direct proofs, which
 unaffected. Found at M5-001 (the invocation-form finding); the correct spelling is
 recorded above.
 
+**Dated note (2026-08-26, at M5-002's acceptance):** two M5-001-era findings were
+found and cured in M5-002, both of one coverage class ("explicit-grant /
+below-the-layer fixtures satisfy any posture"): the `requestView` projection defect
+(the domain record's `requestId` passed onto the wire, where the `.strict()` subtype
+schemas reject it — `POST …/requests` and `GET …/requests/mine` answered 500 on
+every SUCCESSFUL response; it survived because no M5-001 test drove a request route
+over HTTP) and the fixture entitlement gap (`requests_vacation` entitled in no
+fixture organization, so every request route denied at L1.1 before any assertion's
+subject was reached). Neither weakens §5c's record — the layer proofs it made were
+true; the class that let both ship is registered as FU-29. A third M5-001
+observation is HELD for M5-H: doc 08 §6 marks "Submit requests/vacation" `✓` for
+Member, yet `requests.own.*` appears in no role's implication set (FU-28).
+
 ### 5d. M5-002 — FINALIZED 2026-08-26 (issues against `origin/main` at `8f762a1`, the PR #9 merge)
 
 **Scope: SPEC-08 §4 decisions for the FIVE non-vacation subtypes, plus §5.4/§5.5's
@@ -574,8 +587,126 @@ orchestrator lands and commits. The §5c environment discipline binds (four-leve
 chain, three-debris preflight, post-kill diff re-count, clock interims, no
 turn-ending during db legs).
 
+**ACCEPTED 2026-08-26.** Fresh implementer; fresh reviewer; verdict **ACCEPT WITH
+CONDITIONS** (C-1 MEDIUM · C-2 LOW · C-3 LOW), all three discharged in one condition
+round; delta **CONFIRM — unconditional ACCEPT** by the original reviewer. Patch of
+record: 30 files, +7 875/−62, md5 `d6b6a2b0c4656892fdbc614f4e372247` (an interim md5
+`d12bfe51…` was SUPERSEDED by the condition round — correct for its tree, three-times
+independently verified; a separate contaminated-generation md5 remains WITHDRAWN and
+is never re-quoted). Deliverable integrity proven the strong way: the reviewer
+regenerated `git diff 8f762a1`-equivalent diffs from its own patched tree twice and
+obtained byte-identical md5s.
+
+- **Built:** migration `0024_request_decisions_and_approvals.sql` (`approvals`:
+  composite PK `(id, organization_id)`; ENABLE+FORCE RLS + three policies in the
+  same migration; `GRANT SELECT, INSERT` only — "never overwritten" is a PRIVILEGE,
+  UPDATE/DELETE proven to `42501`); domain `approve`/`deny`/`reverse_decision`
+  (R-01 cross-product 3→6 operations); individual + batch decisions with per-item
+  outcomes and in-transaction per-item re-evaluation; the BINDING two-step proven by
+  version trace (+2 from `submitted`, +1 from `under_review`); `APPROVE-VACATION`
+  with D-26 at step 0 (all non-approved outcomes roll back — the key stays
+  retryable; consequence owned: three of five outcome values unreachable through
+  this writer), V-30's mode branch, R-05's race proven with two genuinely concurrent
+  transactions (loser `QUOTA_EXHAUSTED`; exhaustion beats version), R-06/R-07/V-28
+  audited override via in-transaction `evaluateAction` (I-19), R-08/R-20 reversal
+  write path (0022's unconditional CHECK is the floor; `releaseGrantUnits` has no
+  production caller until M5-004 — recorded); the scheduler queue (route-policy
+  117→125; `requests.approve`/`requests.deny` land WITH evaluators; four decision
+  keys role-implied for `scheduler` per doc 08 §6, batch and override grant-only).
+  SBX sweep floor 54→65.
+- **Declared decisions, ratified:** the §5c binding note discharged at SPEC-06's
+  LAYERS, not a DB trigger (0024's header owns the psql residue); two keys, not
+  one; denial reason on the decision record only — proven at both layers to never
+  enter audit/outbox/notification payloads, with the refusal-for-refusal agreement
+  case; comments ESCALATED to their own packet **M5-00C** (requester-authored text
+  about the requester's own circumstances on a SENSITIVE-PII aggregate is not the
+  scheduler-authored `change_summary` precedent; the working default and question
+  list are recorded in `requests.route.ts`'s header — no column exists before it is
+  ruled on).
+- **Two M5-001-era defects found and cured here** (both of one coverage class,
+  "explicit-grant / below-the-layer fixtures satisfy any posture"): the
+  `requestView` 500-on-success projection defect (domain `requestId` passed to
+  `.strict()` wire schemas — POST and GET answered 500 on every success; cured by
+  projection, regression now HTTP-driven) and the fixture entitlement gap
+  (`requests_vacation` entitled in no fixture org → every route denied at L1.1;
+  cured contained in `test/support/requests.ts`). See the §5c dated note.
+- **Census stays 69.** The arm-addition bar was supplied on a durable artifact
+  mid-review (the reviewer had found it asserted but written nowhere): doc 42 §5d
+  delegates to doc 38 §7's M5-001 amendment, whose four conjuncts are cross-layer /
+  single named standing guarantee / that guarantee's falsifier never run / cheap to
+  arm. Five candidates assessed; the closest (`§5c decision-key requirement`) fails
+  only because `decision-authority.test.ts` (eight `NO_CAPABILITY` assertions, one
+  pinning `L4.2`) is a live behavioural falsifier already running. The reviewer
+  verified every load-bearing claim, including the doc 38 quotes verbatim.
+- **Catalogue corrections (implementer's survey conceded defective):** 47 keys
+  post-patch (45 at base); TWO orphans remain, `picklist.intervene` AND
+  `audit.export` (four before the packet; this packet cured `requests.batch_approve`
+  and `vacation.override_quota` by giving them evaluators). Detection rule for the
+  register: prose ≠ reader (FU-24).
+- **Conditions:** C-1 the packet-named cross-group queue-scoping test (written with
+  a positive control isolating the group variable, both directions, whole-result
+  group-homogeneity; mutation-proven non-vacuous by the reviewer — and the mutation
+  probe found the property defended in depth: the subtype tables' own group-scoped
+  policies alone suffice via `listPendingReview`'s subtype-visibility drop, so
+  killing the test requires removing BOTH predicates; recorded as an observation,
+  the docblock's conditional has a false antecedent and reality is better than it
+  describes). C-2 the `approvals_pk` constraint NAME recorded as load-bearing in
+  0024 §6 (it deliberately misses the X-11 `/_pkey$/` exemption, so the control
+  genuinely evaluates `approvals`; a rename to `…_pkey` would silently delete the
+  coverage — FU-19's shape). C-3 a docblock crediting the wrong assertion corrected
+  (M5-001 C-2 class).
+- **Acceptance evidence (implementer's, independently reproduced by the reviewer on
+  its own worktree, single clean runs):** `pnpm check` 17/17 (unit 189 files/2 426
+  collected · route-policy 125 · migration-rls 24 · invariant-ids 22) · validators
+  95/95 · 36/36 · research PASS · requests suite 12 files/154 tests (the +1 over
+  the pre-condition 153 is exactly C-1's case) · full `api` project 154+1
+  files/1 624+14 tests · composed seeded runs: attempt 1 seed 20260902 completed
+  with ONE failure (`S-05t`, a pre-existing solver wall-clock test, no solver file
+  in the diff, same file passed 3× on the same tree — class (b), FU-26); attempt 2
+  seed 20260903 CLEAN with the sequencer's engagement line. Two attempts were the
+  ruled cap; both recorded.
+- **Red cases: NOT a battery — a composed, honest record.** Census 69: **22 arms
+  proven both directions serially; 3 UNPROVEN** (`provider-boundary-runtime-mutation`,
+  `stale-edit-cas`, `draft-invisibility` — all `gate:unit` arms whose GREEN legs
+  were killed); **44 not reached**; the serial run deliberately stopped by the
+  implementer (orchestrator-ratified on the measured signature), then a kill event.
+  The 24 serial RED passes carry FU-25's caveat (a kill during a RED leg is
+  indistinguishable from proof in the serial form). **The sharded-CI form on the
+  landed commit is the PRIMARY proof (FAD-54)** — GitHub runners are outside the
+  container's kill mechanism — and the three unproven arms are named so shards
+  13/23/24 are READ, not assumed, at the merge checkpoint. The isolated arm-13
+  re-run reproduced the kill and produced the decisive evidence (an empty
+  `sp-vitest-must-run-*` report dir = a killed wrapper); a standalone `gate:unit`
+  on the verified-clean tree passed 2 412/2 426, exonerating the packet's content
+  by measurement. Environment verdict, evidenced: class (c) — **userspace-delivered
+  SIGKILLs of long vitest legs, kernel OOM excluded (`oom_kill 0`), pre-existing
+  the packet by at least three days (eight empty wrapper dirs, 08-23→08-26, five
+  predating the worktree)**; a tool-call-boundary correlation recorded as a lead
+  WITH its counter-example. The forfeited datum is on the record: the failing-test
+  identity inside the three in-battery GREEN runs was lost with the deliberate stop
+  and cannot be recovered.
+- **Environment/process residue, registered:** FU-25 (runner signal-death: a killed
+  gate scores as a verdict — on RED, as PROOF; fix ratified and DEFERRED, the
+  battery harness is not a packet's surface to edit while reporting through it) ·
+  FU-26 (S-05t measured-margin) · FU-27 (the post-kill diff re-count is
+  structurally blind to ADDED gitignored red-case artifacts — proven by the
+  reviewer against itself; `find`-based companion check adopted) · three disarmed
+  controls caught in-tree by the file-count assertion and reverted to zero-line
+  diffs (`provider-boundary.ts` twice; `schedule-views.route.ts`'s published-only
+  predicate — draft visibility to staff); the contaminated-patch incident (a patch
+  generated mid-battery captured a live mutation; caught by 31≠30; rule adopted:
+  **the working tree is not a source of truth while the battery runs**, superseding
+  the §5c post-kill-recount spelling); the pkill/pgrep self-match trap now at four
+  instances across BOTH agents (it describes the environment, not a habit); the
+  INDEX's "26 arms announced" counts the preflight header — 25 arms is the count.
+- **Record honesty verified end-to-end by the reviewer** (tallies recounted from
+  raw logs and reconciled exactly; "no place where designed behaviour is described
+  as verified behaviour"; the single instance of reasoning-without-artifact —
+  census-69 — was raised, supplied, and verified).
+
 | 2 | **M5-002 — approvals** | Individual + batch approval/denial/comments (§4); over-quota advisory + audited override (R-06/R-07); D-21 last-unit race (R-05); reversal floor (R-08); quota CHECK integrity (R-20/R-21); approval idempotency (R-17/R-18/R-19) | M5-001 |
-| H | **M5-H — hygiene batch** | FU-06/07/08/13 (+FU-04 if not yet touched) | after M5-002, issues alone |
+| H | **M5-H — hygiene batch** | FU-06/07/08/13 (+FU-04 if not yet touched) + FU-24/25/28 and the FU-29 sweep as capacity allows | after M5-002, issues alone |
+| C | **M5-00C — request comments** | The §4 comments surface, ESCALATED out of M5-002 (2026-08-26, ratified): requester-authored text about the requester's own circumstances on a SENSITIVE-PII aggregate is not covered by the scheduler-authored `change_summary` precedent, and I-07 forbids clinical free text, not merely patient identifiers. The question list and the controlled-vocabulary working default are recorded verbatim in `apps/api/src/http/routes/requests.route.ts`'s header — **no column, table, or route exists before the FAD that rules on them**. Scope: the FAD, then (if text is admitted in any form) the ingestion boundary, bounds, visibility-per-capability, and append-only store | in the M5-003→M5-005 window, before M5-005's UI needs the affordance |
 | 3 | **M5-003 — vacation** | Grants/selections + quota vs open modes (§5, R-13, R-16); §5.3 status-mapping invariant (R-15); variance display; selection UX | M5-001 |
 | 4 | **M5-004 — commit/reverse + solver projection** | Vacation commit to a NEW schedule version, idempotent (R-12) and reversible with graduated confirmation; request-until gating; the §6 solver projection incl. the rebuild HardOff invariant (R-14); integration with the M4 build pipeline | M5-002 + M5-003 |
 | 5 | **M5-005 — request/vacation UX + contacts** | Staff request UIs + status history; scheduler approval surfaces; contacts directory (CAP-042, minimised PII — I-07 posture, no clinical free text); axe + request-budget coverage for every new surface (I-12, I-13, I-10) | M5-004 |

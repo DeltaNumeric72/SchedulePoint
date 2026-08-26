@@ -280,7 +280,15 @@ export const CAPABILITIES: readonly CapabilityDefinition[] = [
     key: 'requests.batch_approve',
     scope: 'group',
     module: 'requests_vacation',
-    description: 'Approve requests in bulk (doc 08 §6: Scheduler, batch requires a grant).',
+    description:
+      'Approve or deny requests in BULK (doc 08 §6: Scheduler, batch requires a grant). ' +
+      'An ADDITIONAL grant on top of `requests.approve` / `requests.deny`, never a substitute: ' +
+      'the batch route declares this key and re-evaluates the per-item decision key inside the ' +
+      'same transaction, so a holder of this alone decides nothing. Batching is a separate ' +
+      'grant because the blast radius of one mistaken click is the whole selection. ' +
+      '*(OPUS-M5-002: this key existed from M1 with no reader anywhere in the codebase — a ' +
+      'grant of it was inert, not dangerous, because nothing consulted it. It gains its ' +
+      'evaluator here.)*',
   },
 
   /* ── OPUS-M5-001: the request lifecycle's action keys (CAP-021) ─────────────
@@ -314,6 +322,11 @@ export const CAPABILITIES: readonly CapabilityDefinition[] = [
    * are M5-002's, and a key with no evaluator behind it is a key somebody grants
    * believing it does something. They land with their implementation, exactly as
    * the request store's transition verbs did.
+   *
+   * *(OPUS-M5-002: they have landed — `requests.approve` and `requests.deny`,
+   * below, with their routes, their evaluators and their transaction. The
+   * paragraph above is kept because it is the RULE that governed the wait, and
+   * it is the rule the two keys now satisfy.)*
    */
   {
     key: 'requests.own.submit',
@@ -365,6 +378,59 @@ export const CAPABILITIES: readonly CapabilityDefinition[] = [
       'decision paths. Distinct from `requests.read_any` so that reading the queue and acting on ' +
       'it are separately grantable.',
   },
+
+  /* ── OPUS-M5-002: §4's decision keys (CAP-021) ──────────────────────────────
+   *
+   * **Two keys, not one, and the split is narrower rather than wider.** SPEC-08
+   * §4 states one row — "Approve / deny — Requires the approval capability" — and
+   * a single `requests.decide` would have been a faithful reading of it. Two keys
+   * are the reading this catalogue's own M5-001 comment anticipated ("**`deny` is
+   * deliberately absent**, and so is `approve`"), and they permit a grant that
+   * carries the power to refuse without the power to commit the group to
+   * anything, which is a real distinction in a scheduling group and is strictly
+   * a NARROWING of what one key would have granted. Nothing anywhere requires a
+   * holder of one to hold the other, so no capability is expanded (rule 11).
+   *
+   * Both are under baseline **CAP-021**, whose traceability row states exactly
+   * this split: *"Submitting is self-scoped; deciding requires an approval
+   * capability."* Group-scoped by SPEC-06 §1.1's exclusion rule.
+   *
+   * **They are the evaluator half of the §5c binding note.** 0023's
+   * `requests_own` is `FOR ALL` with `status` in the column grant, so at the SQL
+   * layer a member's own row can walk every §2 edge; what makes `approved`
+   * unreachable except through a decision path is that every route which can
+   * write it declares one of these two keys, evaluated against current state
+   * inside the same transaction as the write (I-19). RLS decides which ROWS;
+   * PO-DEC-02's layers decide which OPERATIONS.
+   *
+   * **`requests.administer` is still required as well**, for another member's
+   * row: it is the RLS write predicate (migration 0023), and these are the
+   * operation keys. A scheduler deciding a colleague's request holds both, and
+   * neither substitutes for the other.
+   */
+  {
+    key: 'requests.approve',
+    scope: 'group',
+    module: 'requests_vacation',
+    description:
+      "CAP-021: APPROVE another membership's request, and reverse an approval one has made " +
+      '(SPEC-08 §4). Also the key the vacation approval transaction requires (§5.4) — exceeding ' +
+      'a quota additionally requires `vacation.override_quota`, checked inside the same ' +
+      'transaction. Never held implicitly: a shift preference is never approved at all (§2.1), ' +
+      'and a vacation selection is decided only through §5.4\'s writer.',
+  },
+  {
+    key: 'requests.deny',
+    scope: 'group',
+    module: 'requests_vacation',
+    description:
+      "CAP-021: DENY another membership's request, with the MANDATORY reason SPEC-08 §4 " +
+      'requires. This is the operation an administrator performs when ending somebody else\'s ' +
+      'request — §4: an administrator "withdrawing" for someone is a denial with a reason, ' +
+      'recorded as such — which is why `requests.own.withdraw` carries no ownership override. ' +
+      'Separately grantable from `requests.approve` so the power to refuse and the power to ' +
+      'commit the group can be held apart.',
+  },
   {
     key: 'vacation.commit',
     scope: 'group',
@@ -375,7 +441,17 @@ export const CAPABILITIES: readonly CapabilityDefinition[] = [
     key: 'vacation.override_quota',
     scope: 'group',
     module: 'requests_vacation',
-    description: 'Exceed a configured vacation quota (doc 08 §4).',
+    description:
+      'CAP-021 / doc 08 §4: approve a vacation selection BEYOND the grant\'s `units_total` ' +
+      '(SPEC-08 §5.5). Checked as a second evaluation inside the approval transaction rather ' +
+      'than as a route action key, because the route\'s action IS the approval and the override ' +
+      'is a condition the transaction discovers; the re-evaluation reads the same snapshot as ' +
+      'the write (I-19). Holding it never relaxes D-21 — the audited path raises ' +
+      '`override_units`, so the unconditional CHECK holds throughout and every relaxation is a ' +
+      'visible row on the grant. A mandatory reason travels with it. ' +
+      '*(OPUS-M5-002: this key existed from M1 with no reader anywhere in the codebase — a ' +
+      'grant of it was inert, not dangerous, because nothing consulted it. It gains its ' +
+      'evaluator here.)*',
   },
   {
     key: 'picklist.administer',

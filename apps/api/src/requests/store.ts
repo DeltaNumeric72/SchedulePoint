@@ -1,8 +1,12 @@
 import type {
+  Approval,
+  NewApproval,
   NewRequest,
   Request,
   RequestAggregate,
+  RequestStatus,
   RequestStore,
+  RequestSubtype,
   NewRequestSubtypeRecord,
   RequestSubtypeRecord,
   UnitOfWork,
@@ -434,6 +438,243 @@ export class PgRequestStore implements RequestStore {
        for update skip locked
     `.execute(uow.query);
     return rows.rows.map(toAggregate);
+  }
+
+  /* ──────────────────────────────────────────────────────────────────────────
+   * OPUS-M5-002 — §4's decisions (doc 42 §5d Parts A and C)
+   * ────────────────────────────────────────────────────────────────────────── */
+
+  /**
+   * **§4's decision, walked one EDGE at a time (M5-000b finding #1).**
+   *
+   * `path` comes from `decisionStatusPath` in the domain — this store does not
+   * compute it, for the reason the header gives about the matrix. Each element
+   * is a separate statement because each is a separate edge and
+   * `app_guard_request_transition` evaluates one edge at a time; a single
+   * statement spelling `submitted → approved` is refused by §2's own matrix,
+   * which is the finding this loop exists to honour.
+   *
+   * The FIRST statement carries `expectedVersion` — §4's "first decision wins,
+   * the second gets an explicit conflict". The ones after it carry the version
+   * the previous statement returned, which is not a weaker check: nothing can
+   * interleave inside this transaction's own row lock, and a mismatch there
+   * would mean the row moved under a lock we hold, which is not a thing that
+   * happens.
+   *
+   * `decided_at`/`decided_by` are stamped on the LAST statement only, so the row
+   * is never momentarily "decided by somebody, status `under_review`" — a state
+   * `requests_decision_coherent` permits and no reader could explain.
+   */
+  async decide(
+    uow: Uow,
+    command: {
+      readonly requestId: string;
+      readonly expectedVersion: number;
+      readonly path: readonly RequestStatus[];
+      readonly decidedBy: string;
+      readonly decidedAt: Date;
+    },
+  ): Promise<number | null> {
+    if (command.path.length === 0) {
+      throw new Error('DECISION_PATH_EMPTY: a decision walks at least one edge');
+    }
+
+    let version = command.expectedVersion;
+    for (const [index, status] of command.path.entries()) {
+      const last = index === command.path.length - 1;
+      const row = await uow.query
+        .updateTable('requests')
+        .set({
+          status,
+          version: sql<number>`version + 1`,
+          updated_at: command.decidedAt,
+          ...(last ? { decided_at: command.decidedAt, decided_by: command.decidedBy } : {}),
+        })
+        .where('id', '=', command.requestId)
+        .where('version', '=', version)
+        .returning('version')
+        .executeTakeFirst();
+      if (row === undefined) return null;
+      version = row.version;
+    }
+    return version;
+  }
+
+  /**
+   * **§4's reversal — `approved → superseded_by_revision`.**
+   *
+   * The source status IS named in the predicate, unlike `withdraw`: a reversal is
+   * legal from exactly one status for every subtype it applies to, so naming it
+   * costs nothing and makes a legal-but-different edge a conflict rather than a
+   * surprise. `decided_at`/`decided_by` are re-stamped, because the reversal is
+   * itself a decision and the root's decision columns name the LATEST one; the
+   * full history is in `approvals`, which nothing can overwrite.
+   */
+  async reverseDecision(
+    uow: Uow,
+    command: {
+      readonly requestId: string;
+      readonly expectedVersion: number;
+      readonly reversedAt: Date;
+      readonly reversedBy: string;
+    },
+  ): Promise<number | null> {
+    const row = await uow.query
+      .updateTable('requests')
+      .set({
+        status: 'superseded_by_revision',
+        decided_at: command.reversedAt,
+        decided_by: command.reversedBy,
+        updated_at: command.reversedAt,
+        version: sql<number>`version + 1`,
+      })
+      .where('id', '=', command.requestId)
+      .where('version', '=', command.expectedVersion)
+      .where('status', '=', 'approved')
+      .returning('version')
+      .executeTakeFirst();
+    return row?.version ?? null;
+  }
+
+  /**
+   * Append one decision to `approvals`.
+   *
+   * There is no update counterpart in this class and there cannot be one:
+   * migration 0024 grants no runtime role UPDATE or DELETE on the table, so a
+   * method that tried would raise `42501` rather than silently succeed. "The
+   * prior decision is never overwritten" is a privilege, not a promise.
+   */
+  async recordApproval(uow: Uow, approval: NewApproval): Promise<string> {
+    const { organizationId, groupId } = uow.context;
+    const row = await uow.query
+      .insertInto('approvals')
+      .values({
+        organization_id: organizationId,
+        group_id: groupId as string,
+        request_id: approval.requestId,
+        decision: approval.decision,
+        decided_by: approval.decidedBy,
+        decided_at: approval.decidedAt,
+        reason: approval.reason,
+        is_override: approval.isOverride,
+        vacation_selection_id: approval.vacationSelectionId,
+        supersedes_approval_id: approval.supersedesApprovalId,
+      })
+      .returning('id')
+      .executeTakeFirst();
+
+    if (row === undefined) {
+      /* Unreachable through RLS — a `WITH CHECK` failure raises rather than
+       * returning nothing. Kept for the reason the audit recorder keeps its
+       * twin: "the insert silently produced no row" must never become "the
+       * decision was recorded". */
+      throw new Error('APPROVAL_INSERT_PRODUCED_NO_ROW: the decision insert returned nothing.');
+    }
+    return row.id;
+  }
+
+  /** §4's decision history for one request, newest first. */
+  async listApprovals(uow: Uow, requestId: string): Promise<readonly Approval[]> {
+    const rows = await uow.query
+      .selectFrom('approvals')
+      .select([
+        'id',
+        'request_id',
+        'decision',
+        'decided_by',
+        'decided_at',
+        'reason',
+        'is_override',
+        'vacation_selection_id',
+        'supersedes_approval_id',
+      ])
+      .where('request_id', '=', requestId)
+      .orderBy('decided_at', 'desc')
+      .orderBy('id')
+      .execute();
+
+    return rows.map((row) => ({
+      id: row.id,
+      requestId: row.request_id,
+      decision: row.decision,
+      decidedBy: row.decided_by,
+      decidedAt: row.decided_at,
+      reason: row.reason,
+      isOverride: row.is_override,
+      vacationSelectionId: row.vacation_selection_id,
+      supersedesApprovalId: row.supersedes_approval_id,
+    }));
+  }
+
+  /**
+   * **The pending-review queue** (doc 42 §5d Part C).
+   *
+   * Oldest first: a queue is worked from the front, and a scheduler who sorts
+   * newest-first is a scheduler whose oldest request ages forever. `expires_at`
+   * leads the ordering rather than `created_at`, because what makes a request
+   * urgent is its DEADLINE — the same ordering `claimExpirable` uses, for the
+   * same reason, and it means the queue and the sweeper agree about which
+   * request is most at risk of being decided by nobody.
+   *
+   * **No group predicate and no membership predicate.** The group is the unit of
+   * work's own context and migration 0023's policies scope the rows to it; a
+   * filter here would be a second, weaker copy of a control that already holds,
+   * and it is the copy that would be forgotten on the next reader. Whether this
+   * caller may see a colleague's row at all is `requests.read_any`'s question.
+   */
+  async listPendingReview(
+    uow: Uow,
+    filter: {
+      readonly subtypes?: readonly RequestSubtype[];
+      readonly statuses?: readonly RequestStatus[];
+      readonly limit: number;
+    },
+  ): Promise<readonly Request[]> {
+    let query = uow.query
+      .selectFrom('requests')
+      .select([
+        'id',
+        'organization_id',
+        'group_id',
+        'membership_id',
+        'subtype',
+        'status',
+        'submitted_at',
+        'decided_at',
+        'decided_by',
+        'withdrawn_at',
+        'expires_at',
+        'idempotency_key',
+        'version',
+        'is_late',
+        'revision_requested',
+      ])
+      /* The DEFAULT is the undecided set — §2's three states a decision can act
+       * from plus the one a shift preference sits in. A queue that defaulted to
+       * every status would open on a list nobody can act on. */
+      .where('status', 'in', filter.statuses ?? ['submitted', 'under_review']);
+
+    if (filter.subtypes !== undefined && filter.subtypes.length > 0) {
+      query = query.where('subtype', 'in', filter.subtypes);
+    }
+
+    const roots = await query
+      .orderBy('expires_at')
+      .orderBy('id')
+      .limit(filter.limit)
+      .execute();
+
+    const out: Request[] = [];
+    for (const root of roots) {
+      const record = await loadRecord(uow, root as RootRow);
+      /* A vacation root reads back with a null record here — `loadRecord` does
+       * not read `vacation_selections`, because §5.3 gives that lifecycle one
+       * reader and it is not the request store. The queue therefore shows the
+       * five non-vacation subtypes, which is exactly the set §4's decision verbs
+       * act on; the vacation round has its own surface (M5-003). */
+      if (record !== null) out.push({ root: toAggregate(root as RootRow), record });
+    }
+    return out;
   }
 }
 

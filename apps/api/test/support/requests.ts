@@ -346,9 +346,62 @@ export async function seedRequestsForSweep(
                   ${pendingSelectionId}::uuid, ${`${keyPrefix}.approve`}, null)
         `.execute(db);
 
+        /* ── OPUS-M5-002: `approvals`, the eleventh table (migration 0024) ────
+         *
+         * The sweep floor moves 64 → 65 and the non-vacuity check fails a
+         * REGISTERED table never seen with a visible row, so this row exists for
+         * the same reason the ten above do.
+         *
+         * **It is a DECIDED request, walked there, not an approval bolted onto
+         * an undecided one.** A fifth availability request is created and walked
+         * `draft → submitted → under_review → approved` — the binding two-step
+         * that SPEC-08 §2 forces, since there is no `submitted → approved` cell —
+         * and only then does the decision row appear. A fixture row that recorded
+         * an approval for a request still standing at `submitted` would be data no
+         * production path can produce, which is the thing this helper's header
+         * says a fixture is not for.
+         *
+         * **The tenant context is what authorises it, and nothing else.**
+         * `approvals_own` is `FOR SELECT`, so the own-arm cannot write here; the
+         * INSERT meets `approvals_group_administration`, which requires
+         * `requests.administer`. Every target of this helper is a SCHEDULER
+         * membership, and doc 08 §6's "Approve requests/vacation ✓" makes that
+         * key role-implied for the scheduler role (OPUS-M5-002). No fixture
+         * privilege is invented, nothing is granted here, and no bypass is used —
+         * if the role map ever stopped carrying the key this INSERT would fail
+         * rather than quietly writing an unauthorised row.
+         *
+         * The decider is the target membership itself. A scheduler deciding a
+         * request they submitted is a real situation in a small group and nothing
+         * in SPEC-08 forbids it; using a second membership here would mean this
+         * helper needed one, and it does not. */
+        const decidedId = await writeRoot('availability', 'submitted', 'decided');
+        await sql`
+          insert into request_availability (request_id, organization_id, group_id, target_date)
+          values (${decidedId}::uuid, ${target.organizationId}::uuid,
+                  ${target.groupId}::uuid, ${day(5)}::date)
+        `.execute(db);
+        /* The two-step, one statement per EDGE, exactly as `writeRoot`'s walk
+         * does it and for the same reason: the guard evaluates one edge at a
+         * time. */
+        await sql`update requests set status = 'under_review' where id = ${decidedId}::uuid`.execute(
+          db,
+        );
+        await sql`
+          update requests
+             set status = 'approved', decided_at = now(), decided_by = ${target.membershipId}::uuid
+           where id = ${decidedId}::uuid
+        `.execute(db);
+        await sql`
+          insert into approvals
+            (organization_id, group_id, request_id, decision, decided_by, reason)
+          values (${target.organizationId}::uuid, ${target.groupId}::uuid, ${decidedId}::uuid,
+                  ${'approved'}, ${target.membershipId}::uuid, null)
+        `.execute(db);
+
         return {
           label: target.label,
-          requests: 4 + (shiftTypeId === null ? 0 : 1) + (shiftGroupId === null ? 0 : 1),
+          requests: 5 + (shiftTypeId === null ? 0 : 1) + (shiftGroupId === null ? 0 : 1),
           shiftPreference: shiftTypeId !== null,
           shiftGroupOff: shiftGroupId !== null,
         };
@@ -385,6 +438,90 @@ export async function seededVacationPeriodId(
            and start_date = ${target.periodStart}::date
       `.execute(uow.query as never);
       return rows.rows[0]?.id ?? null;
+    },
+  );
+}
+
+/**
+ * **Entitle `requests_vacation` for one organization and make it available in
+ * one group** (OPUS-M5-002).
+ *
+ * ## Why a test needs this at all — a finding, recorded where it was found
+ *
+ * `provisionAuthorization` entitles three modules by default —
+ * `core_scheduling`, `organization_administration`, `entitlements` — and
+ * `test/support/multi.ts` never overrides them. **`requests_vacation` is
+ * therefore entitled in no fixture organization**, so every route on the request
+ * surface denies at SPEC-06 **L1.1 NOT_ENTITLED** and answers `404` (P-5), for a
+ * scheduler exactly as for a member.
+ *
+ * That is not a defect in the product: an organization that has bought CAP-021
+ * has the module. It is a gap in the fixture, and the reason it survived M5-001 —
+ * which shipped four request routes — is worth stating, because it is a
+ * test-design observation rather than a typo. **No M5-001 test drove a request
+ * route over HTTP.** `route-policy.test.ts` builds the server with no database
+ * and asserts declarations; `lifecycle-service.test.ts` calls the service
+ * directly, below the authorization layers. A surface can be fully policy-gated,
+ * fully unit-tested, and unreachable in every environment the fixture models,
+ * with nothing saying so until somebody sends a request.
+ *
+ * ## Why this is a helper rather than a change to the fixture's defaults
+ *
+ * `multi.ts` is the single fixture owner. Adding `requests_vacation` to
+ * `provisionAuthorization`'s default set would newly entitle the module for
+ * EVERY test in the suite, changing what a great many entitlement assertions are
+ * asserting about — which is a change to a shared surface that this packet was
+ * not asked to make. A per-file helper reaches the same fixture without editing
+ * the shared provisioning path, exactly as `seedRulesForSweep` records doing for
+ * its own packet.
+ *
+ * ## It writes through the production tables, under the production context
+ *
+ * Both rows go in under an ORGANIZATION-scoped context held by the organization
+ * administrator, which is the context production uses for entitlement
+ * administration (SPEC-06 §1.1). Nothing is granted to anybody, no guard is
+ * bypassed, and an organization that already carries the entitlement is left
+ * alone — so the helper is idempotent across the files that call it.
+ */
+export async function entitleRequestsModule(
+  runner: SeedRunner,
+  target: {
+    readonly organizationId: string;
+    readonly groupId: string;
+    readonly organizationAdminMembershipId: string;
+  },
+): Promise<void> {
+  await runner.run(
+    {
+      organizationId: target.organizationId,
+      groupId: null,
+      membershipId: target.organizationAdminMembershipId,
+      correlationId: `entitle-requests-${target.organizationId.slice(0, 8)}`,
+    },
+    async (uow) => {
+      const db = uow.query as never;
+
+      /* `WHERE NOT EXISTS` rather than `ON CONFLICT DO NOTHING`: the entitlement's
+       * uniqueness is an EXCLUSION constraint over a time range, not a unique
+       * index, so there is no conflict target to name — the same reason
+       * `test/support/settings.ts` gives for its own grant seeding. */
+      await sql`
+        insert into entitlements (id, organization_id, module_key, state)
+        select ${randomUUID()}::uuid, ${target.organizationId}::uuid,
+               ${'requests_vacation'}, ${'active'}
+         where not exists (
+           select 1 from entitlements
+            where organization_id = ${target.organizationId}::uuid
+              and module_key = ${'requests_vacation'})
+      `.execute(db);
+
+      await sql`
+        insert into group_module_availability
+          (id, organization_id, group_id, module_key, available)
+        values (${randomUUID()}::uuid, ${target.organizationId}::uuid,
+                ${target.groupId}::uuid, ${'requests_vacation'}, ${true})
+        on conflict (organization_id, group_id, module_key) do nothing
+      `.execute(db);
     },
   );
 }
