@@ -715,6 +715,60 @@ obtained byte-identical md5s.
 Ten-ish packets was M4's real count including correctives; the same allowance stands —
 correctives get their own serial packets, never squeezed into a neighbour's scope.
 
+### 5e. M5-H — FINALIZED 2026-08-26 (issues against `origin/main` at `4178b6b`, the PR #10 merge)
+
+**Scope: the hygiene batch the pre-declaration reserved, issued alone between M5-002
+and M5-003.** Registered follow-ups only — no capability-bearing feature work, no
+schema change beyond what a named FU's fix designation requires. The items, each
+against its register entry in [40](40-post-gate-follow-ups.md):
+
+- **FU-25 (first — it unblocks trust in every later battery):** `run.mjs` treats a
+  signal-killed gate child (`result.signal !== null`) as **ERRORED — did not run**,
+  at the FAD-50 N-1(ii) site, both legs. Prove it with a harness-level test or arm
+  that simulates a signal-killed gate and asserts the ERRORED verdict (never by
+  weakening an existing arm). This is the deferred fix ratified at M5-002; the FU
+  carries the full evidence.
+- **FU-08:** route the four direct-vitest red-case arms through
+  `vitest-must-run.mjs` so the zero-execution boundary is enforced, not documented,
+  at those sites.
+- **FU-19 (both faces):** narrow X-11's PK exemption to column lists exactly `(id)`
+  or `(id, organization_id)`; this retires the caller-named-PK blindness AND the
+  `approvals_pk` name-load-bearing accident recorded in the 2026-08-26 amendment.
+- **FU-06 · FU-07 · FU-13:** the untracked-probe backstop; the root-file hygiene
+  gate; the small-residues batch exactly as FU-13 enumerates it.
+- **FU-04, under a ruling taken now (delegated authority, to be recorded as a FAD at
+  landing):** a missing solver command becomes a **named `NO_SOLVER_COMMAND`
+  refusal** (or startup validation with the same name) — fail-closed stays, the
+  diagnosis is added; the documented-invocation status quo is superseded. Additive
+  to the error taxonomy; nothing renamed.
+- **FU-28, under a ruling taken now (same basis, FAD at landing):** doc 08 §6's `✓`
+  for Member "Submit requests/vacation" means **role-implication** — `requests.own.*`
+  join the member role's implication set (and whatever implies member), with the
+  cross-product row and tests extended in both layers. The implementer verifies the
+  doc's `✓` legend first and ESCALATES if the legend contradicts the ruling rather
+  than implementing around it; fixtures' explicit grants stay valid (implication
+  adds, never removes).
+- **FU-24:** dispose the two orphan keys per the register's rule — an evaluator with
+  a real reading surface where one exists in scope, otherwise a dated disposition
+  recorded in the FU (awaiting its surface, named); never a silent removal
+  (rule 13), never a new capability surface invented to give a key a reader.
+- **FU-27:** give the `find`-based companion check a durable procedural home
+  (the red-case runner docs/preflight notes), closing the entry.
+- **FU-29 sweep and FU-22, capacity tail only:** if budget remains after the above
+  are proven, start the pre-M5 route families' HTTP-driven sweep (FU-29) —
+  otherwise both stay OPEN, untouched, with no partial claimed.
+
+**Acceptance battery:** validators · `corepack pnpm check` 17/17 · **red cases in
+the sharded-CI primary form on the PR (FAD-54)** — this packet EDITS the battery
+harness (FU-25/FU-08), so serial local proof is limited to the new/changed arms and
+the FU-25 harness test; no full serial battery is attempted on this container
+(the kill class stands) · one composed seeded `api` run at a fresh seed with the
+invocation of record · CI green before merge consideration. Environment discipline
+binds as amended at M5-002 (tree-not-source-of-truth during arms; the two-assertion
+tree gate per arm; the FU-27 find check; exact-`ps`-text waiters). Delivery:
+worktree + patch from `4178b6b`; fresh Opus implementer; fresh Opus reviewer; delta
+by the reviewer; orchestrator lands and commits on the next PR.
+
 ## 6. Standing acceptance battery (every packet, per 24 §G and the M4 form)
 
 Validators (36/36 · 95/95 · research PASS) · `corepack pnpm check` 17/17 · the full

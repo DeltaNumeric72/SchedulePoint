@@ -2,9 +2,9 @@
   "runId": "RUN-20260822-GHRECON-01",
   "orchestrator": "Claude Fable (Claude Code on the web; continuous GitHub master authorization 2026-08-22)",
   "currentMilestone": "M5 ENTERED 2026-08-25 (doc 42) under the prototype-enablement checkpoint (doc 41); M1-M4 COMPLETE and tagged; M3R CLOSED (doc 39)",
-  "currentPacket": "M5-002 ACCEPTED 2026-08-26 (doc 42 5d ACCEPTED record: review ACCEPT WITH CONDITIONS C-1/C-2/C-3, one condition round, delta CONFIRM unconditional; patch 30 files +7875/-62 md5 d6b6a2b0c4656892fdbc614f4e372247; red cases a COMPOSED RECORD - 22/69 serial + 3 unproven + 44 not reached - with sharded CI on this commit the PRIMARY proof, shards 13/23/24 read before merge). Next: M5-H, then M5-003",
+  "currentPacket": "M5-H FINALIZED 2026-08-26 (doc 42 5e: hygiene batch - FU-25 first, FU-08/19/06/07/13, FU-04 + FU-28 under recorded rulings, FU-24/27; FU-29/22 capacity tail). Issues against origin/main 4178b6b. M5-002 ACCEPTED and MERGED (PR #10, CI 15/15 incl. shards 0/10/11 green)",
   "lifecycleState": "REPLACEMENT GATE PASSED 2026-08-25 (doc 39): the doc 38 internal review complete end to end \u2014 three reviewers (REV-A/B/C) filed; 28/28 findings ACCEPTED at filed severity (FAD-53); repair packets R-1..R-13 all landed with fresh implementers, independent reviews, and deltas by the original finder or a recorded surrogate; the \u00a77 battery passed in full (EV-DOC38-GATE: validators, check 17/17, sbx 9/9, migration cycles, red-cases 67 arms in the sharded-CI primary form per FAD-54 with three green executions, fixture-regression 14/14 on the repaired tip, real-stack e2e 2/2 both viewports); REV-C's final ACCEPT issued by a recorded continuation surrogate; fresh-clone validation of origin/main green (17/17); CI on main fully green for the first time (run 32798497944, 15/15, attempt 1); PR #6 MERGED at be7399b with all 15 checks green. M3R CLOSED by substitution (owner \u00a7C). Codex review NOT PERFORMED; Codex-specific requirement SUPERSEDED BY OWNER DECISION; replacement gate FABLE-PLANNED, MULTI-OPUS-EXECUTED INTERNAL REVIEW (internal, never external). New registered risks NR-22/NR-23 (correctness intact); post-gate follow-ups in doc 40 (FU-01..FU-17). The detailed packet-by-packet history lives in FAD-53/FAD-54, the RISK-REGISTER's dated entries, and EV-DOC38-GATE \u2014 this cell no longer duplicates it",
-  "originMainCommit": "8f762a1a0e22441bb3bd276005a703904e784085",
+  "originMainCommit": "4178b6b3d7ab960a58206aeec0eb912896b99943",
   "taskBranch": "claude/schedulepoint-github-auth-a4ns2p",
   "worktree": "/home/user/SchedulePoint (Claude Code web workspace, ephemeral)",
   "latestPushedCommit": "branch tip on origin (this commit)",
@@ -12,10 +12,10 @@
   "implementer": null,
   "reviewer": null,
   "activeProcessesAndPorts": [],
-  "lastCommand": "M5-002 ACCEPTED and landed on the branch (patch + doc 42 5d ACCEPTED record + 5c dated note + FU-24..29 + FU-19 amendment + RISK-REGISTER kill-class entry + ledger twins); pushing to PR #10",
+  "lastCommand": "PR #10 MERGED at 4178b6b; branch reset onto the merge; M5-H finalized in doc 42 5e; ledger twins updated; committing then opening the next draft PR",
   "lastExitCode": 0,
   "openFindings": "Moved to the durable numbered register docs/fable/40-post-gate-follow-ups.md (FU-01..FU-29; FU-01/03 CLOSED at M5-000a; FU-20 half-closed at M5-001; FU-17 the owner action, issue #4; FU-24..29 opened at M5-002 with a dated FU-19 amendment). This field points, it does not duplicate",
   "externalBlockers": [],
-  "exactNextAction": "Push this commit to PR #10; read CI (15 checks) with red-case shards 13/23/24 individually; merge PR #10 at green; then M5-H (FU-24/25/28 + FU-29 sweep as capacity allows), then M5-003",
-  "lastUpdateUtc": "2026-08-26T18:25:00Z"
+  "exactNextAction": "Open the next draft PR with this push; issue M5-H to a fresh Opus implementer (worktree+patch from 4178b6b), fresh reviewer, delta; then M5-003",
+  "lastUpdateUtc": "2026-08-26T19:25:00Z"
 }
