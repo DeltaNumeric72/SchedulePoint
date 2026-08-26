@@ -128,3 +128,15 @@ export * from './solver/index.js';
  * because one is a statement about the problem and the other about the system.
  */
 export * from './builds/index.js';
+
+/**
+ * OPUS-M5-000b — the request aggregate, its six constrained subtypes, and the
+ * vacation carriers (SPEC-08, ADR-0016). Read that module's header before adding
+ * to it: the subtype union is discriminated so that a shift preference without a
+ * shift type cannot be expressed on the wire, and the absence of any
+ * transition-request shape is deliberate — a body carrying a target status would
+ * be a way to move a request without consulting §2's matrix. **No route parses
+ * these yet**; doc 42 §5b ships the schema and the types, and the surfaces land
+ * with M5-001 onward.
+ */
+export * from './requests/index.js';

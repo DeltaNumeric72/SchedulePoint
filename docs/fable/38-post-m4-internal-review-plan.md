@@ -309,6 +309,22 @@ shards + shard completeness).
 > directions, sharded in CI with the union guard green, a serial local run
 > equivalent evidence. The requirement grows by two arms; nothing is relaxed.
 
+> **AMENDMENT 2026-08-25 (M5-000a, FU-03; census only, in the FAD-54 style).**
+> The same item now demands **68/68 arms**. M5-000a added a 68th — the R-13
+> storm-ceiling enforcement proof, which drives T-15's storm past its own
+> measured deadline with the test's `SP_STORM_ITERATIONS` knob and requires the
+> NAMED `R-13 storm ceiling exceeded` error rather than a bare non-zero exit.
+> It closes FU-03, and it exists because R-13's repair rests on a branch that no
+> healthy run executes: all fourteen fixture-regression runs on the repaired tip
+> finished between 0.17 and 0.35 of budget, so the enforcement could have been
+> deleted or inverted with nothing turning red. The runner
+> (`scripts/red-cases/run.mjs`) remains authoritative for the census — it reports
+> 68 — and the CI shard-completeness guard still derives its union from the
+> runner, so the figure cannot drift silently. Nothing else in the item changes,
+> and no shipped constant was weakened to make the arm fire: the ceiling formula,
+> its floor, its safety factor, the hang backstop and all five of the storm's
+> assertions are untouched. The requirement grows by one arm; nothing is relaxed.
+
 ## §8 GitHub branch, pull-request and evidence strategy
 
 - Plan, reports, evidence indexes, adjudications, and control-doc updates land through

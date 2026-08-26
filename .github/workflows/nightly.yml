@@ -347,6 +347,22 @@ jobs:
       # failure is reproducible from the log alone". `$RANDOM` is 0..32767, so
       # two draws are combined before the modulus; one draw alone could never
       # reach six figures and the range would be a lie.
+      #
+      # 2026-08-25 (M5-000a, FU-01): that clause is TRUE again for the file
+      # order, and between 2026-08-24 and this date it was not. NR-22 measured
+      # that `--sequence.seed=N` pinned the permutation only relative to
+      # collection order, and the glob walk that produces collection order is not
+      # stably ordered — so a printed seed was a lead rather than a reproduction,
+      # and this comment asserted more than the tooling delivered. The
+      # canonical-sort sequencer in `apps/api/vitest.config.ts` (installed by the
+      # root `vitest.config.ts` on the file-shuffle path) now sorts the collected
+      # files before the seeded shuffle, so the landed order is a function of the
+      # file SET and the seed alone. The wording above is kept rather than
+      # rewritten, because the record of what it claimed while it was false is
+      # part of NR-22's retirement. Two bounds carry over from the script's
+      # header: the file set is part of the key, so a seed replays an order only
+      # against the tree it was drawn on; and pinning the observed precondition
+      # remains the stronger reproduction for a state-dependent defect.
       - name: Draw and announce the rotating seed
         id: seed
         run: |

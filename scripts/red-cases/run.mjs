@@ -2135,6 +2135,53 @@ const CASES = [
     greenCommand: ['exec', 'node', 'scripts/red-cases/migration-anchor/check.mjs'],
     redCommand: ['exec', 'node', 'scripts/red-cases/migration-anchor/check.mjs'],
   },
+  {
+    id: 'storm-ceiling-enforcement',
+    gate: 'the T-15 storm STOPS at its own MEASURED ceiling (R-13; FU-03)',
+    violation: 'the storm driven past that ceiling by its own SP_STORM_ITERATIONS knob',
+    /* R-13 turned T-15's deadline from a constant into a measurement — four warm
+     * plus twelve timed probe passes, then `min(840_000, max(120_000, passMs ×
+     * 1800 × 4))`, enforced at every iteration boundary with a NAMED error. The
+     * repair rests on that branch, and on a healthy tree the branch is never
+     * executed: the fourteen fixture-regression runs on the repaired tip all
+     * finished between 0.17 and 0.35 of budget. A branch no battery executes is
+     * a branch that can be deleted, inverted or misspelled with nothing turning
+     * red — which is this runner's whole subject.
+     *
+     * The violation is the test's OWN knob rather than a patch: 12 000
+     * iterations is 13.3x the workload `STORM_PROBE_PASSES` scales the ceiling
+     * from, against a x4 safety, so the storm crosses its deadline around a
+     * quarter of the way through. The count is DERIVED rather than picked —
+     * crossing needs the sustained pass cost to exceed 3 600/N times the
+     * calibrated one, which is 0.60 at the 6 000 the R-13 review fired by hand
+     * and 0.30 at 12 000. The four ratios measured on this arm are 0.50, 0.58,
+     * 0.66 and 0.84, so 6 000's threshold was not a theoretical risk: TWO of the
+     * four are below it, and both are runs of this arm that crossed comfortably
+     * at 12 000. Raising it costs nothing — the enforcement stops the storm AT
+     * the ceiling either way. No shipped constant is touched — not
+     * the floor, not the safety factor, not the hang backstop, not one of the
+     * storm's five assertions.
+     *
+     * `scripts/red-cases/storm-ceiling/check.mjs` is what makes the RED leg mean
+     * something: it asserts the NAMED error and its figures rather than a
+     * non-zero exit, because vitest's generic "Test timed out" — the pre-R-13
+     * failure mode — would otherwise score this arm PROVEN with the enforcement
+     * branch never executed. Its docblock carries the exit-code mapping and the
+     * measured bound (the crossing needs a sustained pass cost above
+     * max(5 ms, 0.3 x the calibrated one); below it the arm reports NOT PROVEN
+     * rather than passing quietly, and says so).
+     *
+     * Both legs run through `scripts/gates/vitest-must-run.mjs`, so a selection
+     * that executed nothing fails as a zero-execution run rather than reading as
+     * a gate outcome (REV-B-006). */
+    greenCommand: [
+      'exec',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
+      'apps/api/test/tenancy/unit-of-work.test.ts',
+    ],
+    redCommand: ['exec', 'node', 'scripts/red-cases/storm-ceiling/check.mjs'],
+  },
 ];
 
 /* ── SP_RED_SHARD — the battery, split across CI runners ────────────────────

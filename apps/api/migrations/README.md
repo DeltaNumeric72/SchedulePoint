@@ -2,8 +2,8 @@
 
 Plain versioned SQL files, run by `node-pg-migrate` under the migration role (TDG-02).
 
-**What lives here.** `0001`..`0020` — the tenancy core through the build termination
-facts. Files are numbered with a zero-padded four-digit sequence and a
+**What lives here.** `0001`..`0022` — the tenancy core through the request aggregate and
+the vacation carriers. Files are numbered with a zero-padded four-digit sequence and a
 `snake_case` description; the number is allocated once and **never reused or
 renumbered** (CLAUDE.md rule 13 — a stable ID that silently changes meaning corrupts
 every document citing it), so a gap, if one is ever left, stays a gap.
@@ -18,9 +18,16 @@ of them since.
 `test/support/migrate-cycle-cli.ts` runs `up → down → up → down → up` over the whole
 sequence against an **empty** database, proving the schema cycle. A migration that
 carries data-shape risk additionally gets a **populated**-cycle test — one that seeds
-rows first and asserts what survives the round trip. Six exist today (`0014`, `0016`,
-`0017`, `0018`, `0019`, `0020`); the two cycles are separate claims and are not to be
-described as one (FAD-53, finding REV-A-002).
+rows first and asserts what survives the round trip. Eight exist today (`0014`, `0016`,
+`0017`, `0018`, `0019`, `0020`, `0021`, `0022`); the two cycles are separate claims and
+are not to be described as one (FAD-53, finding REV-A-002).
+
+`0021` and `0022` are ONE design split across two files for dependency order —
+`vacation_selections` is the sixth subtype table and cannot be created before the period
+and grant it references. Each still gets its own populated cycle, and 0022's
+additionally asserts that the function body 0021 created and 0022 WIDENS
+(`app_guard_request_subtype_row`) comes back widened after the round trip: a re-up that
+restored the narrower body would leave every row census identical.
 
 Every file that creates a tenant table must, **in the same file**:
 

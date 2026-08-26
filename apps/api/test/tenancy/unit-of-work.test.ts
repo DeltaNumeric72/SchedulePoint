@@ -42,6 +42,7 @@ import { withSimulatedPoolerFault } from '../support/pooler-simulator.js';
 import { ownedMulti } from '../support/owned-multi.js';
 import { seedRulesForSweep } from '../support/rules.js';
 import { seedBuildLifecycleForSweep } from '../support/builds.js';
+import { seedRequestsForSweep } from '../support/requests.js';
 import { seedSolverSnapshotsForSweep } from '../support/solver.js';
 import { seedLocationsForSweep } from '../support/settings.js';
 
@@ -336,6 +337,43 @@ beforeAll(async () => {
       shiftTypeId: buildsSiblingShiftType,
       startDate: '2041-06-03',
       endDate: '2041-06-09',
+    },
+  ]);
+
+  /* ── OPUS-M5-000b: the ten request/vacation tables (migrations 0021, 0022) ──
+   *
+   * Same arrangement, fifth time: migrations 0021 and 0022 register ten tables
+   * in `TENANT_TABLES`, and this file's probes fail a REGISTERED table that is
+   * never seen with a visible row — a probe over an empty table reports 0 wrong
+   * for the most boring possible reason.
+   *
+   * `seedRequestsForSweep` writes through the unit of work rather than a
+   * production service, because doc 42 §5b ships none: the packet exists to land
+   * the schema and its enforcement BEFORE any lifecycle transaction. It still
+   * meets every constraint on the way in — the deferred D-18 guard, D-19, D-20,
+   * the `allow_request` trigger, the week-in-period trigger and D-27. Its own
+   * header records that it should move onto M5-001's service when that lands. */
+  await seedRequestsForSweep(runtime.runner, [
+    {
+      organizationId: multi().alpha.organizationId,
+      groupId: multi().alpha.groupOne.id,
+      membershipId: multi().alpha.users.scheduler.membershipId,
+      label: 'alpha_one',
+      periodStart: '2044-03-07',
+    },
+    {
+      organizationId: multi().alpha.organizationId,
+      groupId: buildsCatalogue.sibling.groupId,
+      membershipId: multi().alpha.users.groupTwoScheduler.membershipId,
+      label: 'alpha_two',
+      periodStart: '2044-04-04',
+    },
+    {
+      organizationId: multi().beta.organizationId,
+      groupId: multi().beta.groupOne.id,
+      membershipId: multi().beta.users.scheduler.membershipId,
+      label: 'beta_one',
+      periodStart: '2044-05-02',
     },
   ]);
 }, 180_000);

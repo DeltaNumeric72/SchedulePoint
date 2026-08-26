@@ -1073,6 +1073,214 @@ export interface BuildRunCandidateAssignmentsTable {
   pick_position: number | null;
 }
 
+/* ── OPUS-M5-000b — the request aggregate and its subtypes ────────────────────
+ *
+ * `migrations/0021_request_aggregate_and_subtypes.sql` (SPEC-08 §1, §2) and
+ * `migrations/0022_vacation_lifecycle_carriers.sql` (SPEC-08 §5).
+ *
+ * These types describe the schema; they enforce nothing — the file's opening
+ * paragraph, and nowhere is it more load-bearing than here. D-18, D-19, D-20,
+ * D-21, D-27 and the §2 transition matrices are all constraints and triggers in
+ * the two migrations. A `RequestsTable` whose `status` were typed as a union of
+ * every status would type-check `{ subtype: 'shift-preference', status:
+ * 'approved' }` — which is SPEC-08 R-03's illegal row — so the per-subtype
+ * domain is deliberately NOT modelled in the type. Narrowing it here would put a
+ * second, weaker copy of D-20 in a place where a reader might trust it instead.
+ */
+
+export interface RequestsTable {
+  id: Generated<string>;
+  organization_id: string;
+  group_id: string;
+  /** The requester. */
+  membership_id: string;
+  /**
+   * The discriminator. Frozen after insert by `app_guard_request_transition`,
+   * because it selects the row's status domain, its subtype table and its
+   * transition matrix all at once.
+   */
+  subtype:
+    | 'availability'
+    | 'time-off'
+    | 'no-call'
+    | 'shift-preference'
+    | 'shift-group-off'
+    | 'vacation-selection';
+  /**
+   * The union across ALL subtypes. **Not every value is legal for every
+   * subtype** — `unsatisfied` is shift-preference's alone and `reversed` is
+   * vacation's alone — and the legal set per subtype is D-20, a CHECK in 0021.
+   */
+  status: Generated<
+    | 'draft'
+    | 'submitted'
+    | 'under_review'
+    | 'accepted_as_input'
+    | 'approved'
+    | 'denied'
+    | 'withdrawn'
+    | 'consumed_by_build'
+    | 'reflected_in_version'
+    | 'unsatisfied'
+    | 'reversed'
+    | 'expired'
+    | 'superseded_by_revision'
+  >;
+  submitted_at: Date | null;
+  decided_at: Date | null;
+  decided_by: string | null;
+  withdrawn_at: Date | null;
+  /** NOT NULL per SPEC-08 §1.1. Computed server-side at submission (§3, M5-001). */
+  expires_at: Date;
+  idempotency_key: string;
+  version: Generated<number>;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface RequestAvailabilityTable {
+  request_id: string;
+  organization_id: string;
+  group_id: string;
+  subtype: Generated<'availability'>;
+  target_date: string;
+  created_at: Generated<Date>;
+}
+
+export interface RequestTimeOffTable {
+  request_id: string;
+  organization_id: string;
+  group_id: string;
+  subtype: Generated<'time-off'>;
+  /** Exactly one of `target_date` or the `(range_start, range_end)` pair — D-19. */
+  target_date: string | null;
+  range_start: string | null;
+  range_end: string | null;
+  created_at: Generated<Date>;
+}
+
+export interface RequestNoCallTable {
+  request_id: string;
+  organization_id: string;
+  group_id: string;
+  subtype: Generated<'no-call'>;
+  target_date: string;
+  created_at: Generated<Date>;
+}
+
+export interface RequestShiftPreferenceTable {
+  request_id: string;
+  organization_id: string;
+  group_id: string;
+  subtype: Generated<'shift-preference'>;
+  target_date: string;
+  /** `NOT NULL` — SPEC-08 R-02, the review's named failure. */
+  shift_type_id: string;
+  preference_strength: 'low' | 'medium' | 'high';
+  created_at: Generated<Date>;
+}
+
+export interface RequestShiftGroupOffTable {
+  request_id: string;
+  organization_id: string;
+  group_id: string;
+  subtype: Generated<'shift-group-off'>;
+  target_date: string;
+  /** The target's `allow_request` must be true — a trigger, not a foreign key. */
+  shift_group_id: string;
+  created_at: Generated<Date>;
+}
+
+export interface VacationPeriodsTable {
+  id: Generated<string>;
+  organization_id: string;
+  group_id: string;
+  /** A Monday, by CHECK. */
+  start_date: string;
+  /** A Friday, by CHECK. */
+  end_date: string;
+  /** `quota` has grant rows; `open` has none and approval skips them (V-30). */
+  mode: 'quota' | 'open';
+  state: Generated<'draft' | 'open' | 'closed' | 'archived'>;
+  version: Generated<number>;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface VacationGrantsTable {
+  id: Generated<string>;
+  organization_id: string;
+  group_id: string;
+  vacation_period_id: string;
+  kind: 'personal-entitlement' | 'weekly-capacity';
+  /** Present for `personal-entitlement` and null for `weekly-capacity`. */
+  membership_id: string | null;
+  /** Present for `weekly-capacity` and null for `personal-entitlement`. */
+  week_start: string | null;
+  units_total: number;
+  units_consumed: Generated<number>;
+  /** V-28. Written only by the audited override path; raises D-21's bound. */
+  override_units: Generated<number>;
+  version: Generated<number>;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface VacationSelectionsTable {
+  id: Generated<string>;
+  organization_id: string;
+  group_id: string;
+  /** NULL in `available` and only in `available` — a CHECK pins the pair. */
+  request_id: string | null;
+  subtype: Generated<'vacation-selection'>;
+  membership_id: string;
+  vacation_period_id: string;
+  /** A Monday inside the period — a CHECK and a trigger, respectively. */
+  week_start: string;
+  /**
+   * **The authoritative status.** `requests.status` is derived from this one by
+   * SPEC-08 §5.3's mapping, in the same transaction, and D-27 asserts it.
+   */
+  status: Generated<
+    | 'available'
+    | 'pending'
+    | 'approved'
+    | 'committed'
+    | 'denied'
+    | 'withdrawn'
+    | 'expired'
+    | 'reversed'
+  >;
+  /** V-29 — the SELECTION's own counter, not the grant's. */
+  version: Generated<number>;
+  grant_id: string | null;
+  is_override: Generated<boolean>;
+  override_reason: string | null;
+  approval_idempotency_key: string | null;
+  committed_to_version_id: string | null;
+  commit_idempotency_key: string | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface VacationApprovalCommandsTable {
+  id: Generated<string>;
+  organization_id: string;
+  group_id: string;
+  selection_id: string;
+  approval_idempotency_key: string;
+  received_at: Generated<Date>;
+  /** NULL while the command is in flight; set by §5.4's last statement. */
+  outcome:
+    | 'approved'
+    | 'denied'
+    | 'quota_exhausted'
+    | 'version_conflict'
+    | 'selection_not_pending'
+    | null;
+  created_at: Generated<Date>;
+}
+
 export interface Database {
   organizations: OrganizationsTable;
   groups: GroupsTable;
@@ -1125,6 +1333,18 @@ export interface Database {
   build_run_results: BuildRunResultsTable;
   build_run_violations: BuildRunViolationsTable;
   build_run_candidate_assignments: BuildRunCandidateAssignmentsTable;
+
+  /* OPUS-M5-000b — migrations 0021 and 0022 (SPEC-08 §1, §2, §5). */
+  requests: RequestsTable;
+  request_availability: RequestAvailabilityTable;
+  request_time_off: RequestTimeOffTable;
+  request_no_call: RequestNoCallTable;
+  request_shift_preference: RequestShiftPreferenceTable;
+  request_shift_group_off: RequestShiftGroupOffTable;
+  vacation_periods: VacationPeriodsTable;
+  vacation_grants: VacationGrantsTable;
+  vacation_selections: VacationSelectionsTable;
+  vacation_approval_commands: VacationApprovalCommandsTable;
 }
 
 /**
@@ -1452,4 +1672,49 @@ export const TENANT_TABLES: readonly TenantTable[] = [
   { name: 'build_run_results', scope: 'organization-and-group' },
   { name: 'build_run_violations', scope: 'organization-and-group' },
   { name: 'build_run_candidate_assignments', scope: 'organization-and-group' },
+
+  /* ── `migrations/0021_request_aggregate_and_subtypes.sql` and
+   *    `migrations/0022_vacation_lifecycle_carriers.sql` (OPUS-M5-000b) ───────
+   *
+   * Ten tables, registered in the SAME change as the migrations that create them
+   * (packet 30 §7.2's rule, still binding — it exists because migration 0003's
+   * four tenant tables were left out of this registry and stayed unprobed until
+   * OPUS-M1-004 noticed).
+   *
+   * All `organization-and-group` with V-09's conjunctive group predicate, and
+   * there is no reading in which an organization-scoped policy would be correct
+   * for any of them: a request is one member's request against ONE group's
+   * schedule, and a vacation period, grant and selection are all statements
+   * about one group's round.
+   *
+   * The sweep floor rises from 54 to 64. Non-vacuity is established by
+   * `apps/api/test/support/requests.ts::seedRequestsForSweep`, which writes one
+   * row into each of the ten tables in each swept group, through the unit of
+   * work under real tenant context — the same discipline `seedRulesForSweep`,
+   * `seedSolverSnapshotsForSweep` and `seedBuildLifecycleForSweep` follow.
+   *
+   * **The one honest difference from those three, stated rather than glossed:**
+   * they drive a production SERVICE, and this one cannot, because doc 42 §5b
+   * ships no service — the request and vacation transactions are M5-001 through
+   * M5-004. The seed therefore writes through the unit of work and the typed
+   * query builder, under `set_config(name, value, true)` tenant context, meeting
+   * every constraint and trigger the migrations declare. That is the production
+   * DATA path without a production CALLER, and when M5-001's service lands, this
+   * helper should be rewritten onto it for the reason the other three give: a
+   * row a fixture can write directly is a row the application could forge.
+   *
+   * `SENSITIVE-PII` on `requests` and the five subtype tables: doc 06 §3.4
+   * classifies them so, and the `qualification_holdings` narrowing has NOT been
+   * applied — it needs capability keys that do not exist yet, and M5-001 owes it.
+   * See `migrations/0021_request_aggregate_and_subtypes.sql` §5 for the record. */
+  { name: 'requests', scope: 'organization-and-group' },
+  { name: 'request_availability', scope: 'organization-and-group' },
+  { name: 'request_time_off', scope: 'organization-and-group' },
+  { name: 'request_no_call', scope: 'organization-and-group' },
+  { name: 'request_shift_preference', scope: 'organization-and-group' },
+  { name: 'request_shift_group_off', scope: 'organization-and-group' },
+  { name: 'vacation_periods', scope: 'organization-and-group' },
+  { name: 'vacation_grants', scope: 'organization-and-group' },
+  { name: 'vacation_selections', scope: 'organization-and-group' },
+  { name: 'vacation_approval_commands', scope: 'organization-and-group' },
 ] as const;

@@ -22,6 +22,7 @@ import { ownedMulti } from '../support/owned-multi.js';
 import { seedRulesForSweep } from '../support/rules.js';
 import { seedLocationsForSweep } from '../support/settings.js';
 import { seedBuildLifecycleForSweep } from '../support/builds.js';
+import { seedRequestsForSweep } from '../support/requests.js';
 import { seedSolverSnapshotsForSweep } from '../support/solver.js';
 import {
   ProbeFalsified,
@@ -294,6 +295,61 @@ beforeAll(async () => {
   log(
     `      · OPUS-M4-003: seeded ${String(seededBuilds)} complete build(s) across two groups ` +
       'for SBX-004 — six tables, sweep floor raised 48 -> 54',
+  );
+
+  /* ── OPUS-M5-000b: the ten request/vacation tables (migrations 0021, 0022) ──
+   *
+   * Same arrangement, fifth time, and for the same reason: migrations 0021 and
+   * 0022 register ten tables in `TENANT_TABLES` — this packet RAISES the sweep
+   * floor 54 -> 64 — and the sweep's non-vacuity check fails a REGISTERED table
+   * that is never seen with a visible row.
+   *
+   * `seedRequestsForSweep` differs from the four helpers above in one way it
+   * states plainly in its own header: there is no production service to drive,
+   * because doc 42 §5b ships none — the whole packet exists to land the schema
+   * and its enforcement BEFORE any lifecycle transaction. It therefore writes
+   * through the unit of work under real tenant context, meeting the deferred
+   * D-18 guard, D-19, D-20, the `allow_request` trigger, the week-in-period
+   * trigger and D-27 on the way in.
+   *
+   * Two of the ten rows are conditional on what the catalogue seeded into the
+   * group, which is why the helper returns an outcome per target rather than a
+   * count: only Alpha's groups have shift types, and only Alpha Group One's
+   * bundle has `allow_request = true` (the sibling's is deliberately false). The
+   * assertion below is that SOMETHING wrote both, since one visible row is what
+   * non-vacuity needs. */
+  const seededRequests = await seedRequestsForSweep(seedRuntime.runner, [
+    {
+      organizationId: alpha.organizationId,
+      groupId: alpha.groupOne.id,
+      membershipId: alpha.users.scheduler.membershipId,
+      label: 'alpha_one',
+      periodStart: '2043-03-02',
+    },
+    {
+      organizationId: alpha.organizationId,
+      groupId: alpha.groupTwo.id,
+      membershipId: alpha.users.scheduler.groupTwoMembershipId,
+      label: 'alpha_two',
+      periodStart: '2043-04-06',
+    },
+    {
+      organizationId: beta.organizationId,
+      groupId: beta.groupOne.id,
+      membershipId: beta.users.scheduler.membershipId,
+      label: 'beta_one',
+      periodStart: '2043-05-04',
+    },
+  ]);
+  log(
+    `      · OPUS-M5-000b: seeded ${String(
+      seededRequests.reduce((total, one) => total + one.requests, 0),
+    )} request(s) across three groups for SBX-004 — ten tables, sweep floor raised 54 -> 64` +
+      ` (shift preference in ${String(
+        seededRequests.filter((one) => one.shiftPreference).length,
+      )}, shift-group-off in ${String(
+        seededRequests.filter((one) => one.shiftGroupOff).length,
+      )})`,
   );
 }, 240_000);
 
@@ -807,7 +863,18 @@ describe('the G-ARCH tenancy subset', () => {
     // is the two counts agreeing rather than disagreeing.
     // 48 → 54 by OPUS-M4-003: migration 0018 adds the six build-lifecycle
     // tables, kept non-vacuous by `seedBuildLifecycleForSweep` above.
-    expect(expectedTables.length, 'the tenant registry shrank').toBeGreaterThanOrEqual(54);
+    //
+    // 54 → 64 by OPUS-M5-000b: migrations 0021 and 0022 add the request
+    // aggregate, its five non-vacation subtype tables, and the four vacation
+    // carriers (`vacation_periods`, `vacation_grants`, `vacation_selections`,
+    // `vacation_approval_commands`), kept non-vacuous by `seedRequestsForSweep`
+    // above. Raising the floor is what keeps it able to notice a removal, which
+    // is the only thing it is for; it can never be lowered.
+    //
+    // The two-counts note above still holds unchanged: `users` is the one
+    // `through-membership` table and gets its own dedicated probe, so the
+    // runner's sweep line reads one less than this registry length.
+    expect(expectedTables.length, 'the tenant registry shrank').toBeGreaterThanOrEqual(64);
     expect(
       [...(sweep?.tables ?? [])].sort(),
       `tables exercised: ${sweep?.tables.join(', ')}`,

@@ -279,3 +279,17 @@ export * from './catalogue/index.js';
  */
 export * from './calendar/index.js';
 export * from './time/index.js';
+
+/* ── OPUS-M5-000b: the request aggregate and vacation carriers (SPEC-08, doc 42 §5b)
+ *
+ * Types, closed vocabularies and port signatures for one aggregate root, six
+ * constrained subtype records, and the vacation period/grant/selection/approval
+ * carriers. **Additive only** — no line above this block is touched, which is
+ * the discipline doc 35 §2 puts on this barrel and on the contracts one.
+ *
+ * Read that module's header before adding to it. D-18, D-19, D-20, D-21 and
+ * D-27 are constraints and triggers in migrations 0021 and 0022; nothing here
+ * enforces them, and a type that appeared to would be a weaker second copy. The
+ * transitions themselves (§2's matrices) are deliberately absent — M5-001 owns
+ * their domain half and the double enforcement that goes with it. */
+export * from './requests/index.js';
