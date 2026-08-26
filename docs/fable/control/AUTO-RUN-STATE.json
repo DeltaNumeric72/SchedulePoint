@@ -2,7 +2,7 @@
   "runId": "RUN-20260822-GHRECON-01",
   "orchestrator": "Claude Fable (Claude Code on the web; continuous GitHub master authorization 2026-08-22)",
   "currentMilestone": "M5 ENTERED 2026-08-25 (doc 42) under the prototype-enablement checkpoint (doc 41); M1-M4 COMPLETE and tagged; M3R CLOSED (doc 39)",
-  "currentPacket": "M5-001 FINALIZED 2026-08-26 (doc 42 5c: request lifecycle core for the five non-vacation subtypes - R-01 domain half, submission/deadlines/expiry with roll policy, withdrawal incl. R-22/R-10, routes + four-layer policies + the SENSITIVE-PII narrowing discharged, FU-20 allow_request half). Issues against origin/main 93c9f91; next PR carries it",
+  "currentPacket": "M5-001 ACCEPTED and landed 2026-08-26 (doc 42 5c: request lifecycle core - migration 0023, domain+DB double enforcement mutation-proven, FAD-55, SENSITIVE-PII narrowing discharged, arm 69/census 69, FU-22/23 opened). Next: FINALIZE and issue M5-002 (approvals) - its finalization carries five binding notes from 5c",
   "lifecycleState": "REPLACEMENT GATE PASSED 2026-08-25 (doc 39): the doc 38 internal review complete end to end — three reviewers (REV-A/B/C) filed; 28/28 findings ACCEPTED at filed severity (FAD-53); repair packets R-1..R-13 all landed with fresh implementers, independent reviews, and deltas by the original finder or a recorded surrogate; the §7 battery passed in full (EV-DOC38-GATE: validators, check 17/17, sbx 9/9, migration cycles, red-cases 67 arms in the sharded-CI primary form per FAD-54 with three green executions, fixture-regression 14/14 on the repaired tip, real-stack e2e 2/2 both viewports); REV-C's final ACCEPT issued by a recorded continuation surrogate; fresh-clone validation of origin/main green (17/17); CI on main fully green for the first time (run 32798497944, 15/15, attempt 1); PR #6 MERGED at be7399b with all 15 checks green. M3R CLOSED by substitution (owner §C). Codex review NOT PERFORMED; Codex-specific requirement SUPERSEDED BY OWNER DECISION; replacement gate FABLE-PLANNED, MULTI-OPUS-EXECUTED INTERNAL REVIEW (internal, never external). New registered risks NR-22/NR-23 (correctness intact); post-gate follow-ups in doc 40 (FU-01..FU-17). The detailed packet-by-packet history lives in FAD-53/FAD-54, the RISK-REGISTER's dated entries, and EV-DOC38-GATE — this cell no longer duplicates it",
   "originMainCommit": "93c9f916f8998554b871b4e8c613ae834a9ef2a8",
   "taskBranch": "claude/schedulepoint-github-auth-a4ns2p",
@@ -12,10 +12,10 @@
   "implementer": null,
   "reviewer": null,
   "activeProcessesAndPorts": [],
-  "lastCommand": "PR #8 MERGED at 93c9f91 (checkpoint: M5 entry + M5-000a + M5-000b; CI 15/15 on both landing commits); M5-001 finalized in doc 42 5c; ledger twins updated",
+  "lastCommand": "landed M5-001 (m5001.patch md5 2d78df86..., 30 files, +7587/-33) + FU-22/23 + FAD-55 row + doc 42 5c acceptance record + 5b composed-run correction + register process note; gates then commit",
   "lastExitCode": 0,
   "openFindings": "Moved to the durable numbered register docs/fable/40-post-gate-follow-ups.md (FU-01..FU-17; FU-01 NR-22 retirement is SAME-MILESTONE; FU-17 is the owner action, issue #4). This field now points, it does not duplicate",
   "externalBlockers": [],
-  "exactNextAction": "Open the next draft PR for the branch, issue M5-001 to a fresh Opus implementer (worktree+patch from 93c9f91), fresh reviewer, delta; serialized merges per packet through M5-006",
-  "lastUpdateUtc": "2026-08-26T00:25:00Z"
+  "exactNextAction": "FINALIZE M5-002 (approvals) in doc 42 5 with the five binding notes (two-step writer; scheduler queue deliverable; approve/deny keys with evaluators; override_reason out of audit payloads; approved solely via requests.administer); fresh Opus implementer + reviewer + delta; PR #9 accumulates; merge at a green checkpoint",
+  "lastUpdateUtc": "2026-08-26T06:30:00Z"
 }

@@ -77,6 +77,21 @@ export interface RequestAggregate {
   readonly idempotencyKey: string;
   /** §4's `expected_version`: first decision wins, the second gets a conflict. */
   readonly version: number;
+  /* ── OPUS-M5-001 (migration 0023) ──────────────────────────────────────────
+   * The two facts the lifecycle records that the schema foundation deliberately
+   * left until the machinery that reads them existed. */
+  /**
+   * §3: this submission arrived after the effective deadline and the group's
+   * policy is `accept_as_late`. **Never true implicitly** — a `reject` group
+   * refuses the submission rather than marking it.
+   */
+  readonly isLate: boolean;
+  /**
+   * R-10 / FAD-55: withdrawn while a PUBLISHED version honoured it, so a
+   * `ScheduleRevisionRequested` event was raised and a scheduler must decide.
+   * The published version itself is never altered (I-18).
+   */
+  readonly revisionRequested: boolean;
 }
 
 /** §1.2 — required `target_date`. The ON request. */
@@ -183,6 +198,39 @@ export type RequestSubtypeRecord =
   | ShiftPreferenceRecord
   | ShiftGroupOffRecord
   | VacationSelectionRecord;
+
+/**
+ * A subtype record as a CALLER supplies it — the same six shapes, without the
+ * `request_id` that does not exist yet (OPUS-M5-001).
+ *
+ * ## A declared correction to the M5-000b port, and why it is a strengthening
+ *
+ * `NewRequest.record` was typed `RequestSubtypeRecord`, which requires
+ * `requestId`. But `RequestStore.create` inserts the ROOT and then the record,
+ * so at the moment a caller builds the argument the id does not exist — and the
+ * implementation necessarily ignores whatever was supplied and uses the id the
+ * insert returned. A required field the implementation must ignore is a field
+ * that invites a caller to believe it means something: the obvious reading is
+ * "name the request this record belongs to", and a caller who did that would be
+ * silently overruled.
+ *
+ * So the creation shape drops it. Nothing is weakened — the id is still on every
+ * record that has been READ, because a stored record does have one — and the
+ * one thing that changes is that a request id can no longer be handed to a
+ * request that has none.
+ *
+ * Distributive by construction: the conditional is written over a naked type
+ * parameter, so it maps each member of the union rather than collapsing the
+ * union into one object. A plain `Omit<RequestSubtypeRecord, 'requestId'>` would
+ * have produced a single shape with only the fields all six share, which is
+ * exactly the "nullable columns on one table" defect CAR-011 was filed about,
+ * reintroduced in the type system.
+ */
+export type WithoutRequestId<R> = R extends { readonly requestId: string }
+  ? Omit<R, 'requestId'>
+  : never;
+
+export type NewRequestSubtypeRecord = WithoutRequestId<RequestSubtypeRecord>;
 
 /** A request and its one subtype record, which is what D-18 makes always true. */
 export interface Request {

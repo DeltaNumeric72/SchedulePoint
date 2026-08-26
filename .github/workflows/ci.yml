@@ -335,7 +335,7 @@ jobs:
   # position, so which shard a heavy arm lands in is NOT a choice — it is a
   # consequence of N, and the only lever is N itself.
   #
-  # ── The heavy-arm census, counted from the registry (68 arms) ──────────────
+  # ── The heavy-arm census, counted from the registry (69 arms) ──────────────
   #
   # Every arm runs its command TWICE, GREEN then RED, so each line below costs
   # twice what its suites cost once.
@@ -366,15 +366,23 @@ jobs:
   #   one api test FILE, twice, with a real embedded cluster behind it — a fifth
   #   cost class, added 2026-08-25 by M5-000a (FU-03):
   #     index 67  storm-ceiling-enforcement                → shard 2
+  #     index 68  transition-matrix-one-layer-drift        → shard 3
+  #   (M5-001, FAD-55. Same fifth class — ONE api test file per leg with the
+  #   cluster behind it — but far cheaper than index 67: the agreement test is
+  #   1 014 IMMUTABLE function calls in one round trip, not a timed storm, so
+  #   each leg is dominated by globalSetup's migration chain rather than by the
+  #   test. Both legs also rebuild `packages/domain`, because `apps/api` imports
+  #   the built package and an unrebuilt mutation would score the arm NOT PROVEN
+  #   while looking green.)
   #
-  # R-5 added index 65, R-8 added index 66 and M5-000a added index 67, every one
-  # at the END of the registry, which is why every index above still reads as it
-  # did: appending changes no other arm's position, and therefore no other arm's
-  # shard. Shard 0 now carries two builds-subset arms (52 and 65) beside the
+  # R-5 added index 65, R-8 added index 66, M5-000a added index 67 and M5-001
+  # added index 68, every one at the END of the registry, which is why every
+  # index above still reads as it did: appending changes no other arm's position,
+  # and therefore no other arm's shard. Shard 0 now carries two builds-subset arms (52 and 65) beside the
   # full-unit arm at index 13. The builds subset is the cheapest of the five
-  # heavy classes and 68 is not 13 x 5, so shards 0, 1 and 2 carry six arms where
-  # the rest carry five — arithmetic, not a choice, and the union guard below
-  # re-derives the registry either way.
+  # heavy classes and 69 is not 13 x 5, so shards 0, 1, 2 and 3 carry six arms
+  # where the rest carry five — arithmetic, not a choice, and the union guard
+  # below re-derives the registry either way.
   #
   # M5-000a's arm (67 -> shard 2) is the one cost line here that is MEASURED
   # rather than estimated, and it is measured on a 4-vCPU development box rather

@@ -52,7 +52,9 @@ export {
   type NoCallRecord,
   type Request,
   type RequestAggregate,
+  type NewRequestSubtypeRecord,
   type RequestSubtypeRecord,
+  type WithoutRequestId,
   type ShiftGroupOffRecord,
   type ShiftPreferenceRecord,
   type TimeOffRecord,
@@ -68,3 +70,57 @@ export type {
   RequestStore,
   VacationStore,
 } from './port.js';
+
+/* ── OPUS-M5-001 — the lifecycle half (doc 42 §5c) ──────────────────────────
+ *
+ * The three modules below are what this directory's header said was NOT here at
+ * M5-000b: "No transaction, no transition verb, no matrix." The matrices, the §3
+ * deadline policy and the operation cross-product land with the packet that owns
+ * them, against a schema whose invariants were already enforced and tested.
+ *
+ * They remain pure. `packages/domain` imports NOTHING, so there is still no
+ * clock, no database handle and no configuration in any of them — a transition
+ * matrix that could read something would be one whose answer depended on when
+ * you asked, and a deadline calculator with a clock inside it is one you cannot
+ * test at a boundary. */
+
+export {
+  ACCEPTED_AS_INPUT_SUBTYPES,
+  BUILD_CONSUMED_SUBTYPES,
+  INITIAL_REQUEST_STATUS_BY_SUBTYPE,
+  REQUEST_TRANSITIONS,
+  REVIEWED_SUBTYPES,
+  initialRequestStatus,
+  isLegalInitialStatus,
+  legalTransitionsFrom,
+  transitionIsLegal,
+  type RequestTransition,
+} from './transitions.js';
+
+export {
+  DEADLINE_ROLLS,
+  LATE_SUBMISSION_POLICIES,
+  classifySubmission,
+  deadlineBindsInStatus,
+  deadlineRollExhausted,
+  effectiveDeadline,
+  isNonWorkingDay,
+  rollDeadline,
+  type DeadlineRoll,
+  type EffectiveDeadline,
+  type GroupDeadlinePolicy,
+  type LateSubmissionPolicy,
+  type RequestUntilPolicy,
+  type SubmissionTiming,
+} from './deadlines.js';
+
+export {
+  REQUEST_OPERATIONS,
+  REQUEST_REFUSAL_REASONS,
+  operationIsLegal,
+  operationVerdict,
+  withdrawalRequiresRevision,
+  type OperationVerdict,
+  type RequestOperation,
+  type RequestRefusalReason,
+} from './lifecycle.js';

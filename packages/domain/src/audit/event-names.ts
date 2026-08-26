@@ -379,6 +379,49 @@ export const AUDIT_EVENT_NAMES = [
   'build.run.approved',
   /** An approved candidate was applied to a NEW draft version. Never a publication. */
   'build.run.applied',
+
+  /* ── OPUS-M5-001 (SPEC-08 §§2–4) — the request lifecycle ────────────────────
+   *
+   * Four names for the three operations this packet implements, and the reason
+   * there are four rather than three is the same reason `build.run.cancelled`
+   * has its own name beside `build.run.state_changed`: **a name per act somebody
+   * takes responsibility for, and a generic name for the rest.**
+   *
+   * `requests.request.submitted` and `requests.request.withdrawn` are the two
+   * acts a REQUESTER takes, and "when did this person ask to be off, and when did
+   * they take it back" is the question a scheduling dispute actually asks.
+   * `requests.request.expired` is the SWEEPER's act — separate because "nobody
+   * decided this in time" and "the requester changed their mind" are different
+   * facts about the same terminal-looking row, and conflating them would make an
+   * unanswered request indistinguishable from an abandoned one.
+   *
+   * `requests.request.revision_requested` is R-10's, and it is its own name for
+   * the `build.run.approved` reason: it is the moment a PUBLISHED version's
+   * promise is called into question, and the scheduler has to act. Filing it
+   * inside the withdrawal event's payload would make "which published schedules
+   * have outstanding revision requests" a payload scan.
+   *
+   * There is deliberately **no `requests.request.created`**. A request created at
+   * `draft` has been typed into a form, not asked for; the audit chain records
+   * what happened to the aggregate, and until submission nothing has been asked
+   * of anybody. I-13's "no control labelled Add, New, or Create may persist
+   * anything before a completed form, validation, and an explicit Save" is the
+   * same instinct from the UI side. `approved`/`denied` are M5-002's and are
+   * absent for the reason their capability keys are.
+   *
+   * **Payloads carry identifiers and tokens only** (I-07, and the recorder
+   * enforces it before any statement issues). A request's subtype, its status
+   * pair and its id are tokens; a date is not free text but it is also not
+   * needed to answer any of the questions above, and the row itself carries it. */
+
+  /** A requester submitted their request: `draft → submitted`. Carries subtype and lateness. */
+  'requests.request.submitted',
+  /** A requester withdrew their own request (§4 — requester-initiated only). */
+  'requests.request.withdrawn',
+  /** The sweeper expired an undecided request past its deadline (§3). */
+  'requests.request.expired',
+  /** R-10: a withdrawal after `reflected_in_version` asked for a schedule revision. */
+  'requests.request.revision_requested',
 ] as const;
 
 export type AuditEventName = (typeof AUDIT_EVENT_NAMES)[number];
@@ -486,6 +529,21 @@ export const AUDIT_SUBJECT_TYPES = [
    * scheduling incident asks, and a build that was cancelled, or that failed, or
    * that was superseded never produced a version to file it under at all. */
   'build_run',
+  /* ── OPUS-M5-001 (SPEC-08 §1) ───────────────────────────────────────────────
+   * The request aggregate ROOT is the subject, never the membership that made
+   * it and never the subtype table that describes it — the same rule
+   * `capability_grant` and `qualification_holding` record. "Everything that
+   * happened to this request" is the question a scheduling dispute asks, and it
+   * becomes unanswerable if the events live under the person; "everything that
+   * happened to this person" would then also return every colleague's request in
+   * a group the reader can see, which for SENSITIVE-PII data is worse than
+   * merely unhelpful.
+   *
+   * One subject type for all six subtypes, because they are one aggregate with
+   * one id space (§1: "One aggregate root, six constrained subtype tables"). The
+   * subtype is a payload token, so "every time-off request that expired" is a
+   * filter rather than a different stream. */
+  'request',
 ] as const;
 
 export type AuditSubjectType = (typeof AUDIT_SUBJECT_TYPES)[number];

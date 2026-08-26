@@ -1,4 +1,6 @@
 import { recordAuditEvent } from '../audit/recorder.js';
+import { requestExpirySweepHandler } from '../requests/sweeper.js';
+
 import type { JobHandler } from './worker.js';
 
 /**
@@ -54,5 +56,12 @@ export const contextProbeTouchHandler: JobHandler = {
 };
 
 export function defaultJobHandlers(): ReadonlyMap<string, JobHandler> {
-  return new Map([[contextProbeTouchHandler.kind, contextProbeTouchHandler]]);
+  return new Map([
+    [contextProbeTouchHandler.kind, contextProbeTouchHandler],
+    /* OPUS-M5-001 — SPEC-08 §3's "Expiry is a job". Registered here rather than
+     * self-registering, so `defaultJobHandlers` stays the one enumerable answer
+     * to "what can this worker run", which is what the job-context tests
+     * enumerate against. */
+    [requestExpirySweepHandler.kind, requestExpirySweepHandler],
+  ]);
 }

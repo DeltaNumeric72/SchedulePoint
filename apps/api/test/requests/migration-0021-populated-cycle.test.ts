@@ -4,6 +4,7 @@ import {
   EXPIRY_SOURCE_STATUSES,
   REQUEST_STATUSES_BY_SUBTYPE,
   REQUEST_SUBTYPES,
+  initialRequestStatus as initialStatusOf,
   type RequestSubtype,
 } from '@schedulepoint/domain';
 import { sql } from 'kysely';
@@ -108,8 +109,79 @@ async function requestCount(): Promise<number> {
 /**
  * A root and its one subtype row, in ONE unit of work — which is what D-18's
  * deferred guard requires and, equally, what it permits.
+ *
+ * A root at `status`, its subtype row, in ONE unit of work.
+ *
+ * **OPUS-M5-001 — the root is INSERTed at its subtype's initial status and then
+ * WALKED to `status` along §2's legal edges.** Migration 0023's
+ * `requests_guard_initial_status` refuses an insert at anything else: `draft`
+ * for the five non-vacation subtypes, `submitted` for `vacation-selection`,
+ * because submission is a TRANSITION and never an insert state (doc 42 §5c
+ * Part A).
+ *
+ * Walking is stronger than the direct insert this used to do, not a workaround
+ * for it: every row this helper produces is now a row a production writer could
+ * actually have produced, so the negative cases below are refusals of REACHABLE
+ * states rather than of states nobody could reach anyway.
+ *
+ * The record is written BEFORE the walk, so D-18's deferred zero-row guard has
+ * its pair from the first statement onward and the walk's failures — if any —
+ * are attributable to the transition being walked.
+ *
+ * **For a status that is deliberately NOT reachable**, use
+ * `insertRootAtStatus`: the D-20 cases need the row refused AT INSERT, which is
+ * the arm they exist to prove.
  */
 async function createRequest(
+  subtype: RequestSubtype,
+  status: string,
+  suffix: string,
+  writeRecord: (uow: PgUnitOfWork, requestId: string) => Promise<void>,
+): Promise<string> {
+  return run(async (uow) => {
+    const initial = subtype === 'vacation-selection' ? 'submitted' : 'draft';
+    const id = randomUUID();
+    await sql`
+      insert into requests
+        (id, organization_id, group_id, membership_id, subtype, status, expires_at,
+         idempotency_key)
+      values (${id}::uuid, ${context.organizationId}::uuid, ${context.groupId}::uuid,
+              ${membershipId}::uuid, ${subtype}, ${initial},
+              ${'2099-06-01T00:00:00.000Z'}::timestamptz,
+              ${`cycle21.${suffix}.${randomUUID().slice(0, 8)}`})
+    `.execute(uow.query);
+    await writeRecord(uow, id);
+
+    /* One statement per EDGE — the guard evaluates one at a time, and a walk
+     * spelled as a single update would be asserting a transition §2 does not
+     * contain. */
+    if (status !== initial) {
+      await sql`update requests set status = 'submitted' where id = ${id}::uuid`.execute(uow.query);
+    }
+    if (status !== initial && status !== 'submitted') {
+      await sql`update requests set status = ${status} where id = ${id}::uuid`.execute(uow.query);
+    }
+    return id;
+  });
+}
+
+/**
+ * A root inserted DIRECTLY at `status`, with no walk — the shape D-20's
+ * INSERT-time arm is proved with.
+ *
+ * **This is the arm migration 0023's AFTER-INSERT ordering deliberately keeps
+ * reachable.** `requests_guard_initial_status` is an `AFTER INSERT` trigger, so
+ * every CHECK on the statement — D-20 first among them — has already spoken by
+ * the time it runs. A status outside the subtype's domain therefore still comes
+ * back `23514` from D-20, exactly as it did before 0023 existed, and R-03 and
+ * the `unsatisfied`/`reversed` cases below are unchanged in both their
+ * mechanism and their expected error.
+ *
+ * Had the guard been `BEFORE INSERT`, it would have preempted D-20, those three
+ * cases would have started failing with a message about a creation status, and
+ * D-20's INSERT arm would have become unreachable and therefore unprovable.
+ */
+async function insertRootAtStatus(
   subtype: RequestSubtype,
   status: string,
   suffix: string,
@@ -503,7 +575,7 @@ describe('D-20 — the per-subtype status domain', () => {
     /* Not by the transition matrix — an INSERT has no transition to refuse,
      * which is exactly why D-20 and §2 are two constraints rather than one. */
     await expect(
-      createRequest('shift-preference', 'approved', 'r03', async (uow, id) => {
+      insertRootAtStatus('shift-preference', 'approved', 'r03', async (uow, id) => {
         await sql`
           insert into request_shift_preference
             (request_id, organization_id, group_id, target_date, shift_type_id,
@@ -517,7 +589,7 @@ describe('D-20 — the per-subtype status domain', () => {
 
   it('`unsatisfied` is shift-preference\'s alone, and `reversed` is vacation\'s alone', async () => {
     await expect(
-      createRequest('availability', 'unsatisfied', 'unsatisfied', async (uow, id) => {
+      insertRootAtStatus('availability', 'unsatisfied', 'unsatisfied', async (uow, id) => {
         await sql`
           insert into request_availability (request_id, organization_id, group_id, target_date)
           values (${id}::uuid, ${context.organizationId}::uuid, ${context.groupId}::uuid,
@@ -527,7 +599,7 @@ describe('D-20 — the per-subtype status domain', () => {
     ).rejects.toMatchObject({ code: '23514' });
 
     await expect(
-      createRequest('time-off', 'reversed', 'reversed', async (uow, id) => {
+      insertRootAtStatus('time-off', 'reversed', 'reversed', async (uow, id) => {
         await sql`
           insert into request_time_off (request_id, organization_id, group_id, target_date)
           values (${id}::uuid, ${context.organizationId}::uuid, ${context.groupId}::uuid,
@@ -570,26 +642,59 @@ describe('D-20 — the per-subtype status domain', () => {
             `.execute(query),
         );
 
-        if (allowed.has(status)) {
-          /* The status is in the domain, so D-20 admits it — and the write then
-           * fails at COMMIT on D-18's zero-row guard instead, because no subtype
-           * row was written. That distinction IS the assertion: a different
-           * refusal proves D-20 let it past. */
-          await expect(
-            attempt,
-            `${subtype}/${status} must be admitted by D-20`,
-          ).rejects.toMatchObject({
-            message: expect.stringContaining('REQUEST_SUBTYPE_ROW_REQUIRED'),
-          });
-        } else {
+        if (!allowed.has(status)) {
+          /* CLASS 1 — outside the subtype's domain. D-20's CHECK refuses it, and
+           * this assertion is UNCHANGED by migration 0023: the initial-status
+           * guard is `AFTER INSERT`, so every CHECK on the statement has already
+           * spoken before it runs. */
           await expect(
             attempt,
             `${subtype}/${status} must be refused by D-20`,
           ).rejects.toMatchObject({ code: '23514' });
+        } else if (status === initialStatusOf(subtype)) {
+          /* CLASS 2 — in the domain AND the status a row is born at. It gets
+           * past D-20 and past the initial-status guard, and then fails at
+           * COMMIT on D-18's zero-row guard, because the attempt writes no
+           * subtype row. UNCHANGED by 0023, and it is the assertion that proves
+           * D-20 genuinely let the value past rather than refusing it quietly. */
+          await expect(
+            attempt,
+            `${subtype}/${status} must be admitted by D-20 and reach D-18`,
+          ).rejects.toMatchObject({
+            message: expect.stringContaining('REQUEST_SUBTYPE_ROW_REQUIRED'),
+          });
+        } else {
+          /* CLASS 3 — NEW at OPUS-M5-001. In the domain, but not a status a row
+           * may be CREATED at. `requests_guard_initial_status` refuses it, and
+           * this branch is the initial-INSERT ruling's cross-product proof:
+           * every (subtype × status) pair that D-20 admits and the ruling does
+           * not is asserted refused, by name.
+           *
+           * Before 0023 these pairs fell into CLASS 2. Splitting them out is a
+           * strengthening rather than a substitution — the two original classes
+           * keep their exact assertions, and this third one adds discrimination
+           * the file did not have. Net assertions increase. */
+          await expect(
+            attempt,
+            `${subtype}/${status} is in the D-20 domain but is not a creation status`,
+          ).rejects.toMatchObject({
+            message: expect.stringContaining('REQUEST_INITIAL_STATUS_ILLEGAL'),
+          });
         }
       }
     }
   }, 300_000);
+
+  it('the ruling admits EXACTLY ONE creation status per subtype, and it is reachable', () => {
+    /* The non-vacuity guard for the three-way split above: if `initialStatusOf`
+     * ever returned something outside the subtype's own D-20 domain, CLASS 2
+     * would become empty and the whole case would silently degrade into a
+     * two-class test again — passing, and proving less. */
+    for (const subtype of REQUEST_SUBTYPES) {
+      const initial = initialStatusOf(subtype);
+      expect(REQUEST_STATUSES_BY_SUBTYPE[subtype], `${subtype}`).toContain(initial);
+    }
+  });
 });
 
 describe('§2 — the transition matrices, and V-31 in particular', () => {
@@ -811,7 +916,7 @@ describe('X-11 — a subtype-table key is not a cross-tenant existence oracle', 
           values (${id}::uuid, ${multi().beta.organizationId}::uuid,
                   ${multi().beta.groupOne.id}::uuid,
                   ${multi().beta.users.scheduler.membershipId}::uuid,
-                  ${'availability'}, ${'submitted'},
+                  ${'availability'}, ${'draft'},
                   ${'2099-06-01T00:00:00.000Z'}::timestamptz,
                   ${`cycle21.foreign.${randomUUID().slice(0, 8)}`})
         `.execute(uow.query);
@@ -857,9 +962,33 @@ describe('X-11 — a subtype-table key is not a cross-tenant existence oracle', 
       foreign.code,
       'the foreign request and the nonexistent uuid must be indistinguishable',
     ).toBe(nowhere.code);
-    /* And the class itself, recorded so a future reader knows which one it is:
-     * the composite foreign key, not a unique violation. */
-    expect(foreign.code).toBe('23503');
+
+    /* ── The CLASS, and a dated change to it (OPUS-M5-001) ──────────────────
+     *
+     * This was `23503` — the composite foreign key — when 0021 landed, because
+     * the subtype tables then carried the standard group-scope policy and an
+     * INSERT naming any request id in this tenant's group reached the FK.
+     *
+     * It is now `42501`. Migration 0023 discharged the SENSITIVE-PII narrowing
+     * 0021's header §5 recorded as owed, and `request_availability_own`'s
+     * `WITH CHECK` requires an `EXISTS` against a `requests` row belonging to
+     * the ACTING membership. Neither candidate is such a row, so **row security
+     * refuses the statement before the foreign key is ever consulted**.
+     *
+     * **The X-11 property is unchanged and the oracle is closed harder, not
+     * differently.** What X-11 asks is that a caller cannot distinguish "a row
+     * exists that you cannot see" from "no such row" — and the assertion above,
+     * which is the one that matters, still passes: both candidates produce the
+     * SAME error. The change is that the refusal now happens one layer EARLIER,
+     * at the policy rather than at the constraint, and a refusal that never
+     * reaches the constraint cannot leak anything the constraint knows.
+     *
+     * The class is still asserted rather than dropped, for the reason it was
+     * asserted in the first place: a future change that made these two
+     * indistinguishable by making BOTH of them succeed would satisfy the
+     * equality above and would be a catastrophe. Naming the class is what
+     * prevents the equality from being satisfied vacuously. */
+    expect(foreign.code).toBe('42501');
   }, 180_000);
 });
 
@@ -874,7 +1003,7 @@ describe('D-7 — one request per (membership, idempotency key)', () => {
             (id, organization_id, group_id, membership_id, subtype, status, expires_at,
              idempotency_key)
           values (${id}::uuid, ${context.organizationId}::uuid, ${context.groupId}::uuid,
-                  ${membershipId}::uuid, ${'availability'}, ${'submitted'},
+                  ${membershipId}::uuid, ${'availability'}, ${'draft'},
                   ${'2099-06-01T00:00:00.000Z'}::timestamptz, ${key})
         `.execute(uow.query);
         await sql`

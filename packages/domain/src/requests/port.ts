@@ -32,7 +32,7 @@ import type { UnitOfWork } from '../ports/unit-of-work.js';
 import type {
   Request,
   RequestAggregate,
-  RequestSubtypeRecord,
+  NewRequestSubtypeRecord,
   VacationApprovalCommand,
   VacationGrant,
   VacationPeriod,
@@ -65,8 +65,14 @@ export interface NewRequest {
    * refuses the mismatch in the database; this field's type does not, because
    * the discriminator lives on both halves and TypeScript will not relate them
    * without a generic that buys nothing an implementation cannot already check.
+   *
+   * **`requestId` is absent** (OPUS-M5-001). The id does not exist when a caller
+   * builds this argument — `create` inserts the root and then the record — so a
+   * required `requestId` here was a field the implementation had to ignore, and
+   * a caller who filled it in meaningfully would have been silently overruled.
+   * See `NewRequestSubtypeRecord` in `./records.ts`.
    */
-  readonly record: RequestSubtypeRecord;
+  readonly record: NewRequestSubtypeRecord;
 }
 
 /** What a caller supplies to record a vacation selection before submission. */
@@ -113,6 +119,102 @@ export interface RequestStore {
 
   /** A member's requests in a group, newest first. */
   listForMembership(uow: UnitOfWork, membershipId: string): Promise<readonly Request[]>;
+
+  /* ────────────────────────────────────────────────────────────────────────
+   * OPUS-M5-001 — the transition verbs this port reserved by name
+   *
+   * This file's header said the transition verbs "land with the packets that own
+   * the matrices", and named M5-001's as "submit · withdraw · expire · the §2
+   * matrices' domain half". These are they.
+   *
+   * **There is still no `setStatus`.** The header's reason is unchanged and is
+   * the reason these three are separate verbs rather than one parameterised one:
+   * a method that took a status would be a way to move a request without
+   * consulting the matrix, with the database's trigger as the only thing left
+   * objecting. Each verb below moves the row along ONE known edge, and the
+   * service checks the domain matrix before calling it — R-01's two layers, in
+   * that order.
+   *
+   * Every one takes `expectedVersion`. §4's rule is stated for decisions
+   * ("conditional update on `expected_version`; **first decision wins**, the
+   * second gets an explicit conflict — never a silent overwrite") and it is not
+   * weaker for a withdrawal: two tabs open on the same request must not both
+   * succeed, and the loser must be told rather than overwritten. A zero-row
+   * result is a conflict, never a silent success.
+   * ──────────────────────────────────────────────────────────────────────── */
+
+  /**
+   * `draft → submitted` (§3's submission).
+   *
+   * `expiresAt` and `isLate` are computed SERVER-SIDE by the caller from the
+   * group's policy — this port takes them because `packages/domain` has neither
+   * a clock nor access to the group's row, exactly as `NewRequest.expiresAt`
+   * already records.
+   *
+   * Returns the new version, or `null` when the conditional update matched no
+   * row — a stale `expectedVersion`, a row that has already moved, or a row this
+   * tenant context cannot see. The three are deliberately one answer: telling
+   * them apart across a tenancy boundary is the disclosure X-11 exists to close.
+   */
+  submit(
+    uow: UnitOfWork,
+    command: {
+      readonly requestId: string;
+      readonly expectedVersion: number;
+      readonly expiresAt: Date;
+      readonly isLate: boolean;
+      readonly submittedAt: Date;
+    },
+  ): Promise<number | null>;
+
+  /**
+   * `… → withdrawn` (§4). **Requester-initiated only** — the port does not
+   * enforce that and says so: WHO may withdraw is SPEC-06's question, answered
+   * by the route's `ownershipRequired: true` with no override. This verb answers
+   * only "may the row move".
+   *
+   * `revisionRequested` is R-10's flag and is `true` for exactly one source
+   * state, `reflected_in_version`. Migration 0023's guard refuses the pairing in
+   * either wrong direction, so a caller that computed it incorrectly is refused
+   * rather than believed.
+   */
+  withdraw(
+    uow: UnitOfWork,
+    command: {
+      readonly requestId: string;
+      readonly expectedVersion: number;
+      readonly withdrawnAt: Date;
+      readonly revisionRequested: boolean;
+    },
+  ): Promise<number | null>;
+
+  /**
+   * `submitted | under_review | accepted_as_input → expired` (§3's sweeper).
+   *
+   * No `expectedVersion`: the sweeper claims its rows with `FOR UPDATE SKIP
+   * LOCKED` and expires what it holds, so there is no read-then-write window for
+   * a version to close. Passing one would be theatre — the row cannot have moved
+   * between the claim and the write.
+   */
+  expire(
+    uow: UnitOfWork,
+    command: { readonly requestId: string; readonly expiredAt: Date },
+  ): Promise<number | null>;
+
+  /**
+   * The sweeper's working set: undecided requests whose deadline has passed,
+   * claimed for update.
+   *
+   * `limit` bounds one sweep. A sweeper that tried to expire every overdue
+   * request in one transaction would hold locks proportional to how long nobody
+   * ran it, which is exactly backwards — the longer the outage, the more damage
+   * the recovery does.
+   */
+  claimExpirable(
+    uow: UnitOfWork,
+    now: Date,
+    limit: number,
+  ): Promise<readonly RequestAggregate[]>;
 }
 
 /** The vacation round's own store — §5's tables, which the root does not carry. */
