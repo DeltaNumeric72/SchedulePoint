@@ -284,6 +284,75 @@ Dated facts of record:
   with causes) in the session workspace; both agents' final reports.
 
 | 1 | **M5-001 — request lifecycle core** | Subtype transition matrices (§2) domain+DB double enforcement; deadlines/expiry (§3, R-09, R-23); idempotent submission (R-11); withdrawal incl. accepted_as_input/consumed_by_build boundaries (R-22) and post-reflection revision requests (R-10); routes + policies (I-02, four-layer) | M5-000 |
+### 5c. M5-001 — FINALIZED 2026-08-26 (issues against `origin/main` at `93c9f91`, the PR #8 merge)
+
+**Scope: the request lifecycle core for the FIVE non-vacation subtypes, on the 0021/0022
+schema.** The vacation lifecycle's writers are M5-002/003's (its schema and D-27 exist;
+nothing here writes `vacation_selections`). No approvals (§4 is M5-002's), no solver
+projection (M5-004), no UI surfaces (M5-005 — routes here are API only).
+
+**Part A — the domain half of R-01's double enforcement.** The §2 transition matrices
+as domain logic in `packages/domain` (the DB triggers exist; R-01 requires BOTH layers
+to reject illegal (subtype × status × operation) combinations), and a request lifecycle
+service in `apps/api` on the 0021 ports through the unit-of-work. **The initial-INSERT
+status ruling (0021 header §4's open decision, decided here):** a request row is
+CREATED at `draft` for the five subtypes — submission is a TRANSITION, never an insert
+state — and at `submitted` only for `vacation-selection` (§5.3: a selection becomes a
+request AT submission), enforced in the migration that this packet adds (trigger or
+CHECK on INSERT; the packet proposes the mechanism). Escalate if this conflicts with
+anything in SPEC-08.
+
+**Part B — submission, deadlines, expiry (§3).** Idempotent submission (D-7's key,
+R-11: duplicate submission with the same key yields one row); `expires_at` computed
+SERVER-SIDE from the group's `request_until_date` policy at submission and re-validated
+at every transition; the §3 roll policy `deadline_rolls ∈ {forward, backward, exact}`
+against the `group_holidays` TABLE (exists since 0005 — this packet lands the POLICY
+configuration and logic, correcting §5b's earlier imprecision); late submission
+rejected-with-stated-deadline or accepted-as-late per group policy, configured never
+implicit; **expiry as a job** — a sweeper moving undecided past-deadline requests to
+`expired` (the three legal source states only, R-23's domain half), audited, requester
+notified through the outbox (I-11: a notification failure never rolls back the domain
+change).
+
+**Part C — withdrawal (§4's withdrawal rows).** Requester-initiated only — an
+administrator "withdrawing" is a DENIAL with a mandatory reason, recorded as such;
+R-22's boundaries (withdrawal succeeds from `submitted`/`under_review`/`approved`/
+`accepted_as_input`, is REFUSED after `consumed_by_build`); R-10's post-reflection
+path: withdrawal after `reflected_in_version` raises `ScheduleRevisionRequested`
+(the published version is NEVER silently reverted), request `withdrawn` with
+`revision_requested = true`.
+
+**Part D — routes, policies, and the SENSITIVE-PII narrowing (the M5-000b debt,
+0021 header §5).** Staff submission/withdrawal/list-own routes and scheduler read
+routes, each with a declared policy (route-policy gate; I-02 deny-by-default;
+PO-DEC-02's four layers; I-19 re-evaluation against current state). This packet
+CREATES the capability keys its routes need and lands the narrowed RLS policies on
+`requests` + the six subtype tables per the `qualification_holdings` precedent —
+the debt is discharged here, not carried further. I-13 binds any control this
+packet's API design implies (no persist-before-save); I-10 binds route design (one
+action, one request).
+
+**Part E — FU-20's `allow_request` half.** Decide and implement one of the two
+recorded exits: a `shift_groups`-side guard (the §5.5 mode-stability pattern) refusing
+an `allow_request` flip while non-terminal `shift-group-off` requests exist, OR a
+written ruling in the migration/docblock that drift is acceptable with the readers
+named as tolerating it. The packet proposes; the reviewer verifies; the orchestrator
+ratifies in-round. FU-20's period-shrink half stays with M5-003.
+
+**Binding context carried in:** the §5.4 two-step finding (M5-002's, but nothing in
+this packet may write a root status transition that assumes a single-statement
+spelling); `override_reason` posture untouched (M5-002); the three-debris environment
+preflight and the FU-21 port-race characterization for any serial red-case work.
+
+**Acceptance battery (doc 42 §6):** validators · `corepack pnpm check` 17/17 ·
+red-cases at the current census (any new arm registered through the runner with the
+shard ripple) · populated cycle for every new migration (0023+) · targeted
+fixture-regression: one composed seeded `api` run at a fresh seed (suite composition
+changes; counts measured, never assumed) · route-policy gate green with the new routes
+declared · CI green on the packet's PR before merge consideration. Delivery: worktree +
+patch from `93c9f91`; fresh Opus implementer; fresh Opus reviewer; delta by the
+reviewer; orchestrator lands and commits.
+
 | 2 | **M5-002 — approvals** | Individual + batch approval/denial/comments (§4); over-quota advisory + audited override (R-06/R-07); D-21 last-unit race (R-05); reversal floor (R-08); quota CHECK integrity (R-20/R-21); approval idempotency (R-17/R-18/R-19) | M5-001 |
 | H | **M5-H — hygiene batch** | FU-06/07/08/13 (+FU-04 if not yet touched) | after M5-002, issues alone |
 | 3 | **M5-003 — vacation** | Grants/selections + quota vs open modes (§5, R-13, R-16); §5.3 status-mapping invariant (R-15); variance display; selection UX | M5-001 |
