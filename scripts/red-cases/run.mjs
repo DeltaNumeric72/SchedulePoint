@@ -26,6 +26,12 @@ import {
   readMigrationSet,
 } from './migration-anchor-supersession.mjs';
 import { resolveTestPgPort } from '../sbx/test-port.mjs';
+import { describeRedCaseDebris, findRedCaseDebris } from './debris.mjs';
+import { killedWrapperDiagnostic, spawnOutcomeDiagnostic } from './spawn-outcome.mjs';
+import {
+  describeUnwrappedVitestInvocations,
+  findUnwrappedVitestInvocations,
+} from './vitest-invocation.mjs';
 
 /** NR-14: a plain run writes to scratch; `--refresh` updates the tracked file. */
 const EVIDENCE_REFRESH = isEvidenceRefresh();
@@ -65,6 +71,33 @@ const EVIDENCE_REFRESH = isEvidenceRefresh();
  *
  * Everything injected is named `__red_case__*` and gitignored, and the runner
  * clears leftovers before it starts and restores every patched file afterwards.
+ *
+ * ## THE POST-KILL PREFLIGHT — run BOTH checks, in this order (FU-27)
+ *
+ * A battery on this container can be killed mid-arm by the environment (see
+ * `spawn-outcome.mjs` for the measured class). A killed arm leaves debris of two
+ * kinds, and **each kind is invisible to the check that catches the other**:
+ *
+ * ```
+ *  1. git diff <base> --stat        a killed arm can leave a TRACKED file mutated
+ *                                   — at M5-001 it left a runtime security guard
+ *                                   NEUTERED in a worktree. Compare the file
+ *                                   count against the last known-good count.
+ *
+ *  2. node scripts/red-cases/debris.mjs        a killed arm can leave an ADDED
+ *                                   `__red_case__*` file. These are gitignored,
+ *                                   so `git status` reports nothing and check 1
+ *                                   passes BYTE-IDENTICAL with them present —
+ *                                   proven at M5-002, where the debris then
+ *                                   failed the next typecheck gate 16/17.
+ *                                   `--sweep` removes what it finds.
+ * ```
+ *
+ * And the rule the two checks serve, adopted at M5-002 and binding: **the working
+ * tree is not a source of truth while the battery runs.** No diffs, no md5s, no
+ * status reads during an arm — a patch generated mid-battery once captured a live
+ * mutation and was caught only by a file-count assertion. Both checks belong
+ * AFTER the run, or after the kill.
  */
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -548,8 +581,47 @@ const CASES = [
         replace: '  // red case: the aggregate lock is removed, leaving the CAS read unserialized',
       },
     ],
-    greenCommand: ['run', 'gate:unit'],
-    redCommand: ['run', 'gate:unit'],
+    /* ── NARROWED at OPUS-M5-H (FU-13, R-8's F4) ──────────────────────────────
+     *
+     * Both legs ran the WHOLE `gate:unit` — every file in the workspace, twice —
+     * and R-8's review recorded the consequence: this arm's GREEN leg is fragile
+     * under load. It is the battery's most expensive arm and its most
+     * race-exposed, because a whole-gate leg holds the shared embedded-postgres
+     * port for the length of an entire suite and FU-21's port race is precisely a
+     * function of how long the predecessor held it. Two of this arm's sightings in
+     * one serial battery were port-race ERRORs, and the isolated `SP_RED_SHARD`
+     * re-run of the same arm passed both directions with the only changed variable
+     * being predecessors on the port.
+     *
+     * The legs now run the TWO files the violation is about, through
+     * `scripts/gates/vitest-must-run.mjs`. This is the shape doc 38 §7's arm-69
+     * amendment adopted for exactly this reason, naming this arm as the
+     * counter-example: "`stale-edit-cas`'s whole-gate legs are what make it this
+     * battery's most expensive and most race-exposed arm (FU-21)".
+     *
+     * **Nothing is weakened.** The two files are the ones this arm's own comment
+     * above names as what fails — `authoring-concurrency.test.ts` with "both
+     * writers were accepted", and `demand-replacement.test.ts`'s 12-round races
+     * for the aggregate lock — and the api project's globalSetup builds the full
+     * migration chain for a one-file run exactly as it does for the whole gate, so
+     * the database the races meet is the same database. What is removed is the
+     * hundreds of files that were never going to observe a missing advisory lock.
+     * A whole-gate leg is not a broader proof; it is the same proof with more
+     * opportunities to be killed. */
+    greenCommand: [
+      'exec',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
+      'apps/api/test/schedule/authoring-concurrency.test.ts',
+      'apps/api/test/catalogue/demand-replacement.test.ts',
+    ],
+    redCommand: [
+      'exec',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
+      'apps/api/test/schedule/authoring-concurrency.test.ts',
+      'apps/api/test/catalogue/demand-replacement.test.ts',
+    ],
   },
   {
     id: 'draft-invisibility',
@@ -603,8 +675,18 @@ const CASES = [
           '                eventName: CATALOGUE_AUDIT_EVENTS.shiftTypeDemandSet,',
       },
     ],
-    greenCommand: ['exec', 'vitest', 'run', 'apps/api/test/catalogue/demand-replacement.test.ts'],
-    redCommand: ['exec', 'vitest', 'run', 'apps/api/test/catalogue/demand-replacement.test.ts'],
+    greenCommand: [
+      'exec',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
+      'apps/api/test/catalogue/demand-replacement.test.ts',
+    ],
+    redCommand: [
+      'exec',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
+      'apps/api/test/catalogue/demand-replacement.test.ts',
+    ],
   },
   {
     id: 'requires-expiry-service',
@@ -633,14 +715,14 @@ const CASES = [
     ],
     greenCommand: [
       'exec',
-      'vitest',
-      'run',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
       'apps/api/test/profiles/staffing-integrity-red-cases.test.ts',
     ],
     redCommand: [
       'exec',
-      'vitest',
-      'run',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
       'apps/api/test/profiles/staffing-integrity-red-cases.test.ts',
     ],
   },
@@ -702,8 +784,8 @@ const CASES = [
     ],
     greenCommand: [
       'exec',
-      'vitest',
-      'run',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
       'packages/domain/test/eligibility/verdict.test.ts',
       'apps/api/test/profiles/verdict-convergence.test.ts',
       'apps/api/test/profiles/granted-while-retiring-inertness.test.ts',
@@ -711,8 +793,8 @@ const CASES = [
     prepare: [['exec', 'tsc', '-b', 'packages/domain', '--force']],
     redCommand: [
       'exec',
-      'vitest',
-      'run',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
       'packages/domain/test/eligibility/verdict.test.ts',
       'apps/api/test/profiles/verdict-convergence.test.ts',
       'apps/api/test/profiles/granted-while-retiring-inertness.test.ts',
@@ -739,14 +821,14 @@ const CASES = [
     ],
     greenCommand: [
       'exec',
-      'vitest',
-      'run',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
       'apps/api/test/schedule/qualification-requirement-gate.test.ts',
     ],
     redCommand: [
       'exec',
-      'vitest',
-      'run',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
       'apps/api/test/schedule/qualification-requirement-gate.test.ts',
     ],
   },
@@ -789,15 +871,15 @@ const CASES = [
     ],
     greenCommand: [
       'exec',
-      'vitest',
-      'run',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
       'apps/api/test/profiles/staffing-integrity-red-cases.test.ts',
       'apps/api/test/profiles/work-profile-cancellation.test.ts',
     ],
     redCommand: [
       'exec',
-      'vitest',
-      'run',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
       'apps/api/test/profiles/staffing-integrity-red-cases.test.ts',
       'apps/api/test/profiles/work-profile-cancellation.test.ts',
     ],
@@ -842,15 +924,15 @@ const CASES = [
     ],
     greenCommand: [
       'exec',
-      'vitest',
-      'run',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
       'apps/api/test/profiles/requires-expiry-flip-serialization.test.ts',
       'apps/api/test/profiles/migration-0017-populated-cycle.test.ts',
     ],
     redCommand: [
       'exec',
-      'vitest',
-      'run',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
       'apps/api/test/profiles/requires-expiry-flip-serialization.test.ts',
       'apps/api/test/profiles/migration-0017-populated-cycle.test.ts',
     ],
@@ -881,8 +963,18 @@ const CASES = [
         replace: '-- red case: the composite participant FK is not created',
       },
     ],
-    greenCommand: ['exec', 'vitest', 'run', 'apps/api/test/schedule/graph-invariants.test.ts'],
-    redCommand: ['exec', 'vitest', 'run', 'apps/api/test/schedule/graph-invariants.test.ts'],
+    greenCommand: [
+      'exec',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
+      'apps/api/test/schedule/graph-invariants.test.ts',
+    ],
+    redCommand: [
+      'exec',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
+      'apps/api/test/schedule/graph-invariants.test.ts',
+    ],
   },
   {
     id: 'graph-reality-deferred-guard',
@@ -905,8 +997,18 @@ const CASES = [
         replace: '-- red case: the deferred reality guard is never attached',
       },
     ],
-    greenCommand: ['exec', 'vitest', 'run', 'apps/api/test/schedule/graph-invariants.test.ts'],
-    redCommand: ['exec', 'vitest', 'run', 'apps/api/test/schedule/graph-invariants.test.ts'],
+    greenCommand: [
+      'exec',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
+      'apps/api/test/schedule/graph-invariants.test.ts',
+    ],
+    redCommand: [
+      'exec',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
+      'apps/api/test/schedule/graph-invariants.test.ts',
+    ],
   },
   {
     id: 'location-archived-guard',
@@ -928,8 +1030,18 @@ const CASES = [
         replace: '        -- red case: an archived location accepts new shift references',
       },
     ],
-    greenCommand: ['exec', 'vitest', 'run', 'apps/api/test/schedule/locations.test.ts'],
-    redCommand: ['exec', 'vitest', 'run', 'apps/api/test/schedule/locations.test.ts'],
+    greenCommand: [
+      'exec',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
+      'apps/api/test/schedule/locations.test.ts',
+    ],
+    redCommand: [
+      'exec',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
+      'apps/api/test/schedule/locations.test.ts',
+    ],
   },
   {
     id: 'timezone-basis-stale-gate',
@@ -952,8 +1064,18 @@ const CASES = [
         replace: "import { timezoneBasisState } from './timezone.js';",
       },
     ],
-    greenCommand: ['exec', 'vitest', 'run', 'apps/api/test/schedule/timezone-basis.test.ts'],
-    redCommand: ['exec', 'vitest', 'run', 'apps/api/test/schedule/timezone-basis.test.ts'],
+    greenCommand: [
+      'exec',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
+      'apps/api/test/schedule/timezone-basis.test.ts',
+    ],
+    redCommand: [
+      'exec',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
+      'apps/api/test/schedule/timezone-basis.test.ts',
+    ],
   },
   {
     id: 'dst-fold-resolution',
@@ -992,8 +1114,18 @@ const CASES = [
      * `packages/domain/test/time/zoned-time.test.ts` imports
      * `../../src/time/index.js`, source-relative inside its own package, so the
      * patch is the code that runs. */
-    greenCommand: ['exec', 'vitest', 'run', 'packages/domain/test/time/zoned-time.test.ts'],
-    redCommand: ['exec', 'vitest', 'run', 'packages/domain/test/time/zoned-time.test.ts'],
+    greenCommand: [
+      'exec',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
+      'packages/domain/test/time/zoned-time.test.ts',
+    ],
+    redCommand: [
+      'exec',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
+      'packages/domain/test/time/zoned-time.test.ts',
+    ],
   },
   {
     id: 'calendar-date-shape-only',
@@ -1031,14 +1163,14 @@ const CASES = [
      * dist) and the DATABASE half is asserted separately in the same file. */
     greenCommand: [
       'exec',
-      'vitest',
-      'run',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
       'packages/contracts/test/schedule/calendar-date.test.ts',
     ],
     redCommand: [
       'exec',
-      'vitest',
-      'run',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
       'packages/contracts/test/schedule/calendar-date.test.ts',
     ],
   },
@@ -1061,14 +1193,14 @@ const CASES = [
     ],
     greenCommand: [
       'exec',
-      'vitest',
-      'run',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
       'apps/api/test/schedule/membership-semantics.test.ts',
     ],
     redCommand: [
       'exec',
-      'vitest',
-      'run',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
       'apps/api/test/schedule/membership-semantics.test.ts',
     ],
   },
@@ -1154,8 +1286,18 @@ const CASES = [
           'GRANT SELECT, INSERT, UPDATE, DELETE ON solver_input_snapshots TO app_runtime, app_worker;',
       },
     ],
-    greenCommand: ['exec', 'vitest', 'run', 'apps/api/test/solver/snapshot-immutability.test.ts'],
-    redCommand: ['exec', 'vitest', 'run', 'apps/api/test/solver/snapshot-immutability.test.ts'],
+    greenCommand: [
+      'exec',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
+      'apps/api/test/solver/snapshot-immutability.test.ts',
+    ],
+    redCommand: [
+      'exec',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
+      'apps/api/test/solver/snapshot-immutability.test.ts',
+    ],
   },
   {
     id: 'solver-outcome-honesty',
@@ -1233,8 +1375,18 @@ const CASES = [
         replace: '    # red case: the request MAC is computed and never compared\n    return envelope',
       },
     ],
-    greenCommand: ['exec', 'vitest', 'run', 'apps/api/test/solver/rpc-auth.test.ts'],
-    redCommand: ['exec', 'vitest', 'run', 'apps/api/test/solver/rpc-auth.test.ts'],
+    greenCommand: [
+      'exec',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
+      'apps/api/test/solver/rpc-auth.test.ts',
+    ],
+    redCommand: [
+      'exec',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
+      'apps/api/test/solver/rpc-auth.test.ts',
+    ],
   },
   {
     id: 'solver-response-auth',
@@ -1257,8 +1409,18 @@ const CASES = [
           '  return expected.length > 0; // red case: the response MAC is computed and never compared',
       },
     ],
-    greenCommand: ['exec', 'vitest', 'run', 'apps/api/test/solver/rpc-auth.test.ts'],
-    redCommand: ['exec', 'vitest', 'run', 'apps/api/test/solver/rpc-auth.test.ts'],
+    greenCommand: [
+      'exec',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
+      'apps/api/test/solver/rpc-auth.test.ts',
+    ],
+    redCommand: [
+      'exec',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
+      'apps/api/test/solver/rpc-auth.test.ts',
+    ],
   },
   {
     id: 'solver-model-constraint-dropped',
@@ -1299,15 +1461,15 @@ const CASES = [
     ],
     greenCommand: [
       'exec',
-      'vitest',
-      'run',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
       'apps/api/test/solver/model-independence.test.ts',
       'apps/api/test/solver/corpus/corpus-agreement.test.ts',
     ],
     redCommand: [
       'exec',
-      'vitest',
-      'run',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
       'apps/api/test/solver/model-independence.test.ts',
       'apps/api/test/solver/corpus/corpus-agreement.test.ts',
     ],
@@ -1338,8 +1500,8 @@ const CASES = [
     ],
     greenCommand: [
       'exec',
-      'vitest',
-      'run',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
       'packages/domain/test/rules/ruled-kinds.test.ts',
       'apps/api/test/solver/incorrect-worker-output.test.ts',
     ],
@@ -1347,8 +1509,8 @@ const CASES = [
     prepare: [['exec', 'tsc', '-b', 'packages/domain', '--force']],
     redCommand: [
       'exec',
-      'vitest',
-      'run',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
       'packages/domain/test/rules/ruled-kinds.test.ts',
       'apps/api/test/solver/incorrect-worker-output.test.ts',
     ],
@@ -1397,8 +1559,18 @@ const CASES = [
         replace: '    return  # red case: an unmapped kind is silently ignored',
       },
     ],
-    greenCommand: ['exec', 'vitest', 'run', 'apps/api/test/solver/corpus/corpus-agreement.test.ts'],
-    redCommand: ['exec', 'vitest', 'run', 'apps/api/test/solver/corpus/corpus-agreement.test.ts'],
+    greenCommand: [
+      'exec',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
+      'apps/api/test/solver/corpus/corpus-agreement.test.ts',
+    ],
+    redCommand: [
+      'exec',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
+      'apps/api/test/solver/corpus/corpus-agreement.test.ts',
+    ],
   },
   {
     id: 'request-budget-over',
@@ -1629,8 +1801,18 @@ const CASES = [
         replace: 'OBJECTIVE_SCALE = 1000  # red case: the factor drifts on one side only',
       },
     ],
-    greenCommand: ['exec', 'vitest', 'run', 'apps/api/test/solver/e2-objective.test.ts'],
-    redCommand: ['exec', 'vitest', 'run', 'apps/api/test/solver/e2-objective.test.ts'],
+    greenCommand: [
+      'exec',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
+      'apps/api/test/solver/e2-objective.test.ts',
+    ],
+    redCommand: [
+      'exec',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
+      'apps/api/test/solver/e2-objective.test.ts',
+    ],
   },
   {
     id: 'solver-t2-false-minimality',
@@ -1659,15 +1841,15 @@ const CASES = [
     ],
     greenCommand: [
       'exec',
-      'vitest',
-      'run',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
       'apps/api/test/solver/e2-objective.test.ts',
       'apps/api/test/solver/corpus/corpus-agreement.test.ts',
     ],
     redCommand: [
       'exec',
-      'vitest',
-      'run',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
       'apps/api/test/solver/e2-objective.test.ts',
       'apps/api/test/solver/corpus/corpus-agreement.test.ts',
     ],
@@ -1692,8 +1874,18 @@ const CASES = [
         replace: '        if False:  # red case: the pin is no longer an input\n            m.Add(built.cells[key] == 1)',
       },
     ],
-    greenCommand: ['exec', 'vitest', 'run', 'apps/api/test/solver/e2-objective.test.ts'],
-    redCommand: ['exec', 'vitest', 'run', 'apps/api/test/solver/e2-objective.test.ts'],
+    greenCommand: [
+      'exec',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
+      'apps/api/test/solver/e2-objective.test.ts',
+    ],
+    redCommand: [
+      'exec',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
+      'apps/api/test/solver/e2-objective.test.ts',
+    ],
   },
   {
     id: 'builds-comparability-unenforced',
@@ -1775,15 +1967,15 @@ const CASES = [
     ],
     greenCommand: [
       'exec',
-      'vitest',
-      'run',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
       'packages/domain/test/ports/result-reproducibility.test.ts',
     ],
     prepare: [['exec', 'tsc', '-b', 'packages/domain', '--force']],
     redCommand: [
       'exec',
-      'vitest',
-      'run',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
       'packages/domain/test/ports/result-reproducibility.test.ts',
     ],
     restore: [['exec', 'tsc', '-b', 'packages/domain', '--force']],
@@ -1842,15 +2034,15 @@ const CASES = [
     ],
     greenCommand: [
       'exec',
-      'vitest',
-      'run',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
       'packages/domain/test/ports/result-reproducibility.test.ts',
     ],
     prepare: [['exec', 'tsc', '-b', 'packages/domain', '--force']],
     redCommand: [
       'exec',
-      'vitest',
-      'run',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
       'packages/domain/test/ports/result-reproducibility.test.ts',
     ],
     restore: [['exec', 'tsc', '-b', 'packages/domain', '--force']],
@@ -1883,15 +2075,15 @@ const CASES = [
     ],
     greenCommand: [
       'exec',
-      'vitest',
-      'run',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
       'apps/api/test/solver/e2-objective.test.ts',
       'apps/api/test/solver/corpus/corpus-agreement.test.ts',
     ],
     redCommand: [
       'exec',
-      'vitest',
-      'run',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
       'apps/api/test/solver/e2-objective.test.ts',
       'apps/api/test/solver/corpus/corpus-agreement.test.ts',
     ],
@@ -1916,8 +2108,18 @@ const CASES = [
         replace: "  completed: 'Completed — optimal schedule found',",
       },
     ],
-    greenCommand: ['exec', 'vitest', 'run', 'apps/web/test/build-vocabulary.test.ts'],
-    redCommand: ['exec', 'vitest', 'run', 'apps/web/test/build-vocabulary.test.ts'],
+    greenCommand: [
+      'exec',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
+      'apps/web/test/build-vocabulary.test.ts',
+    ],
+    redCommand: [
+      'exec',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
+      'apps/web/test/build-vocabulary.test.ts',
+    ],
   },
 
   /* ── OPUS-M4-005 — the hardening register's own controls (doc 35 §6g (E)) ───
@@ -2034,14 +2236,14 @@ const CASES = [
     ],
     greenCommand: [
       'exec',
-      'vitest',
-      'run',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
       'apps/api/test/architecture/no-tenant-access-outside-unit-of-work.test.ts',
     ],
     redCommand: [
       'exec',
-      'vitest',
-      'run',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
       'apps/api/test/architecture/no-tenant-access-outside-unit-of-work.test.ts',
     ],
   },
@@ -2416,6 +2618,31 @@ function assertMigrationAnchorsAreLive() {
 
 assertMigrationAnchorsAreLive();
 
+/**
+ * FU-08's standing half: **no arm may reach vitest unwrapped.**
+ *
+ * The 27 arms that invoked `pnpm exec vitest run <paths>` directly are routed
+ * through `scripts/gates/vitest-must-run.mjs` in this same change, so the
+ * zero-execution boundary is ENFORCED at those sites rather than documented. This
+ * is what keeps it enforced: the next arm somebody writes in the old shape stops
+ * the battery here instead of quietly re-opening the hole.
+ *
+ * Beside `assertMigrationAnchorsAreLive` and for the same reason — before the
+ * build preflight and before any arm's GREEN leg, exit code 2 for a battery that
+ * was never run, distinct from the 1 that means an arm failed. The predicate
+ * itself is proved both directions in `runner-signature/check.mjs`.
+ *
+ * @returns {void}
+ */
+function assertEveryVitestInvocationIsWrapped() {
+  const problems = findUnwrappedVitestInvocations(CASES);
+  if (problems.length === 0) return;
+  writeFileSync(1, `\n${describeUnwrappedVitestInvocations(problems)}`);
+  process.exit(2);
+}
+
+assertEveryVitestInvocationIsWrapped();
+
 /** The arms this process runs: all of them, unless `SP_RED_SHARD` narrows it. */
 const SELECTED_CASES = selectShard(CASES);
 
@@ -2445,31 +2672,45 @@ function run(args) {
     env: { ...process.env, FORCE_COLOR: '0' },
   });
 
-  /* FAD-50 N-1(ii). `spawnSync` reports a failure to START the process in
-   * `result.error`, NOT in `status` — an ENOENT leaves `status: null`, empty
-   * stdout and empty stderr. That read as `ok: false` with no output at all, so
-   * an arm whose command could not be spawned reported "GATE FAILED" and was
-   * indistinguishable from a gate that ran and correctly failed. The reviewer
-   * hit exactly that, silently.
+  /* FAD-50 N-1(ii) and FU-25, at one site and in one classifier.
    *
-   * Rendered into the output as an ERRORED signature instead, so the detector
-   * that already exists for "this arm did not RUN" catches it. A missing binary
-   * is not evidence about a gate. */
-  if (result.error !== undefined && result.error !== null) {
-    const reason = /** @type {{ message?: unknown }} */ (result.error).message ?? String(result.error);
-    return {
-      ok: false,
-      output:
-        `RED-CASE RUNNER: the command could not be spawned (${String(reason)}).\n` +
-        `  command: ${invocation.command} ${invocation.args.join(' ')}\n` +
-        'vitest matched no test file (a filter or a path is wrong)\n',
-    };
+   * Both branches answer the same question — did this process reach a verdict at
+   * all? — and `spawnSync` answers it in two fields that are neither of them
+   * `status`: `result.error` when the process never started, `result.signal` when
+   * it started and was killed. Each used to arrive here as an ordinary
+   * `GATE FAILED`, and the second is the dangerous one: on a RED leg a killed
+   * gate scored "the gate failed as required", so a kill counted as PROOF.
+   *
+   * The classifier lives in `./spawn-outcome.mjs` because this file runs the
+   * whole battery on import and cannot be imported by a test —
+   * `errored-signatures.mjs` was split out for that same reason. With both halves
+   * importable, `runner-signature/check.mjs` proves this by KILLING a real child
+   * and classifying the real result, rather than by pinning a string. */
+  const diagnostic = spawnOutcomeDiagnostic(
+    result,
+    `${invocation.command} ${invocation.args.join(' ')}`,
+  );
+  if (diagnostic !== null) return { ok: false, output: diagnostic };
+
+  const output = stripAnsi(`${result.stdout ?? ''}${result.stderr ?? ''}`);
+
+  /* FU-25's third case, and the one neither branch above can see. The runner
+   * spawns the package manager, never vitest, and pnpm converts a descendant's
+   * signal death into `exit 1, signal null` — measured. So a SIGKILL landing on
+   * `vitest-must-run.mjs` itself arrives here as an ordinary failing gate. The
+   * wrapper announces its report directory and removes it on every completed
+   * run, so a SURVIVING one is the kill, mechanizing the inference rule M5-002
+   * used by hand. Consulted only when the gate failed. */
+  if (result.status !== 0) {
+    const killedWrapper = killedWrapperDiagnostic(
+      output,
+      `${invocation.command} ${invocation.args.join(' ')}`,
+      existsSync,
+    );
+    if (killedWrapper !== null) return { ok: false, output: `${output}\n${killedWrapper}` };
   }
 
-  return {
-    ok: result.status === 0,
-    output: stripAnsi(`${result.stdout ?? ''}${result.stderr ?? ''}`),
-  };
+  return { ok: result.status === 0, output };
 }
 
 /** @type {Map<string, string>} */
@@ -2578,7 +2819,24 @@ function revertViolation() {
   }
 }
 
-/** Clears anything a previous interrupted run may have left behind. */
+/**
+ * Clears anything a previous interrupted run may have left behind.
+ *
+ * Two passes, and the second is FU-27's (OPUS-M5-H). The first walks the
+ * `inject` targets THIS registry declares, which is every debris file today and
+ * none of the ones a renamed, retired or not-yet-written arm produces. The second
+ * is a sweep by NAME over the whole worktree — the naming convention is the
+ * invariant, and the M5-002 reviewer proved the cost of not having it: a killed
+ * arm left `packages/contracts/src/__red_case__type.ts` behind, `git status`
+ * reported zero (the artifacts are gitignored), a regenerated-diff md5 passed
+ * byte-identical WITH five of them in the tree, and the debris then failed the
+ * next typecheck gate 16/17.
+ *
+ * The same sweep is runnable on its own — `node scripts/red-cases/debris.mjs`,
+ * `--sweep` to remove — which is the form the post-kill preflight needs, because
+ * after a kill the one thing an operator must not do to find out what the last
+ * battery left behind is start another one.
+ */
 function clearStaleInjections() {
   /** @type {string[]} */
   const stale = [];
@@ -2594,6 +2852,16 @@ function clearStaleInjections() {
   if (stale.length > 0) {
     process.stdout.write(
       `Cleared stale red-case injections:\n${stale.map((s) => `  ${s}\n`).join('')}\n`,
+    );
+  }
+
+  const debris = findRedCaseDebris(REPO_ROOT);
+  if (debris.length > 0) {
+    process.stdout.write(`\n${describeRedCaseDebris(debris)}`);
+    for (const path of debris) rmSync(resolve(REPO_ROOT, path), { recursive: true, force: true });
+    process.stdout.write(
+      `  swept ${String(debris.length)} artifact(s) before starting — this battery does not ` +
+        'inherit the last one\'s debris.\n\n',
     );
   }
 }

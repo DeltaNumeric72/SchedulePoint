@@ -2,8 +2,11 @@ import { Link } from '@tanstack/react-router';
 import type {
   BuildRunStateWire,
   ConflictClassWire,
+  ConstituentDirectionWire,
   ExplanationStateWire,
+  ReproducibilityModeWire,
   ResultReproducibilityVerdictWire,
+  TerminationReasonWire,
 } from '@schedulepoint/contracts';
 import type { JSX, ReactNode } from 'react';
 
@@ -169,8 +172,17 @@ export const STATE_EXPLANATIONS: Readonly<Record<BuildRunStateWire, string>> = {
  * `deadline` is not `crashed` is not `user_cancelled`. Each one sends a
  * scheduler somewhere different, and a single "it stopped" would send them
  * nowhere.
+ *
+ * **Keyed by the WIRE type since OPUS-M5-H (FU-13, R-7's C-3).** It was
+ * `Record<string, string>`, which is total over nothing — any six labels
+ * satisfied it, including the wrong six. That is the same defect GH-008 repaired
+ * on `RESULT_REPRODUCIBILITY_LABELS` below, whose docblock records the failure
+ * mode in full: a seventh member added to the wire enum, no label written for it,
+ * nothing structural to notice, and the page falling back to rendering the raw
+ * enum name — "a defect that looks like a label". Every label record in this file
+ * is now keyed by the enum it labels, so the drift is a compile error.
  */
-export const TERMINATION_LABELS: Readonly<Record<string, string>> = {
+export const TERMINATION_LABELS: Readonly<Record<TerminationReasonWire, string>> = {
   completed: 'ran to completion',
   deadline: 'reached its time limit',
   user_cancelled: 'was cancelled by a scheduler',
@@ -257,12 +269,12 @@ export const EXPLANATION_DETAIL: Readonly<Record<ExplanationStateWire, string>> 
  * faster-on-a-hard-instance half is NOT reproduced by this corpus, so it is not
  * claimed.
  */
-export const REPRODUCIBILITY_LABELS: Readonly<Record<string, string>> = {
+export const REPRODUCIBILITY_LABELS: Readonly<Record<ReproducibilityModeWire, string>> = {
   deterministic: 'Deterministic — reproducible',
   'best-effort': 'Best effort — not reproducible',
 };
 
-export const REPRODUCIBILITY_DETAIL: Readonly<Record<string, string>> = {
+export const REPRODUCIBILITY_DETAIL: Readonly<Record<ReproducibilityModeWire, string>> = {
   deterministic:
     'The full pinned parameter set is in force, so the same problem run again on the same worker build produces the same schedule.',
   'best-effort':
@@ -324,7 +336,7 @@ export const RESULT_REPRODUCIBILITY_LABELS: Readonly<
  * nothing the build cited changed, and the build is still stale, because demand
  * now exists for a date the candidate never saw and therefore never filled.
  */
-export const STALENESS_DIRECTION_LABELS: Readonly<Record<string, string>> = {
+export const STALENESS_DIRECTION_LABELS: Readonly<Record<ConstituentDirectionWire, string>> = {
   moved: 'revised since this build was assembled',
   removed: 'no longer part of this build input',
   added: 'added since this build was assembled, so the candidate never saw it',

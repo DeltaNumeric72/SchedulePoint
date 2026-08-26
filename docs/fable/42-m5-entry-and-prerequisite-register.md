@@ -769,6 +769,77 @@ tree gate per arm; the FU-27 find check; exact-`ps`-text waiters). Delivery:
 worktree + patch from `4178b6b`; fresh Opus implementer; fresh Opus reviewer; delta
 by the reviewer; orchestrator lands and commits on the next PR.
 
+**ACCEPTED 2026-08-26/27.** Fresh implementer; fresh reviewer; verdict **ACCEPT WITH
+CONDITIONS** (C-2 MEDIUM · C-1/C-3/C-4/C-5 LOW — all record-accuracy, none
+behavioural), one condition round; delta **CONFIRM** by the original reviewer. Patch
+of record: 19 files, +2 129/−159, md5 `d1217ad01f2b6216e5df18c14db13d74` (round-0
+`d8a15869…` superseded — correct for its tree; the reviewer regenerated BOTH from
+its own worktree byte-identically, and the round delta was structurally confined to
+the two condition files with deletions unchanged at 159).
+
+- **Closed:** FU-04 (the `NO_SOLVER_COMMAND` named refusal — FAD-56) · FU-06/FU-07
+  (`tree-hygiene.test.ts` under `gate:unit`, enumerated allowlists, non-vacuity
+  arms, mutation-proven) · FU-08 (count corrected 4→27 arms/54 legs by dated
+  amendment; all wrapped; `assertEveryVitestInvocationIsWrapped()` refuses to start
+  a battery with an unwrapped invocation, exit 2, mutation-proven) · FU-19 (the
+  name-independent `isServerGeneratedIdentityKey(columns)` exemption retiring BOTH
+  faces; the M5-000b mutation replanted by implementer AND reviewer and caught;
+  balanced-paren parser with both regex traps pinned; `audit_checkpoints_pkey` now
+  genuinely evaluated rather than blanket-exempted; no coverage loss; 0024's SQL
+  body byte-identical, `approvals_pk` deliberately not renamed) · FU-25 (the
+  runner scores a signal-killed gate ERRORED for THREE cases — pm-kill via
+  `result.signal`, vitest-kill via the wrapper's same-worded emission, wrapper-kill
+  via the announced-report-dir survival inference; one signature, three emitters,
+  one matcher; four mutations each killed by a named assertion; the RESIDUAL is
+  named, never assumed closed: a kill on `run.mjs` itself scores nothing — with the
+  `process.on('exit')` candidate recorded after the reviewer measured that
+  `try/finally` cannot close the announce-to-remove window because `process.exit()`
+  skips finally blocks) · FU-27 (`debris.mjs` + the written two-check post-kill
+  procedure) · FU-28 (`requests.own.submit/.withdraw/.read` — the register's
+  `.create` corrected by date; role-implied for member AND scheduler per doc 08
+  §6's verified legend — FAD-57; negatives iterate every other role;
+  implication-widened-nothing proven; HTTP proof with a grantless member and a
+  refused viewer) · FU-13 at **7 of 9** (two items OPEN with the search record:
+  their R-7/R-8 finding texts were never landed in the repository; process lesson
+  adopted — a finding routed into an FU must land its text or pointers at routing
+  time) · FU-24 (both orphan keys as dated retentions; the audit re-point refused
+  as grant-widening).
+- **Acceptance evidence** (implementer's, independently reproduced by the
+  reviewer): `pnpm check` 17/17 (unit **191 files / 2 443 total** — the delta over
+  M5-002 is **+2 files/+16 tests**, all individually attributed; route-policy 125
+  unchanged, a no-route packet) · validators 36/36 · 95/95 · PASS · five isolated
+  `SP_RED_SHARD` arm proofs both directions (61/35/36/60/23) with the tree gate and
+  debris check between each · composed seeded run seed 20260906, engagement line
+  proven, 156+1 files / 1 641+14 tests clean · census 69 unchanged, the
+  four-conjunct bar applied in writing (every candidate fails conjunct 3 — its
+  falsifier already runs — the same discriminator as M5-002's closest candidate);
+  this paragraph is the durable home of that reasoning, per the reviewer's
+  observation.
+- **Open historical residue, recorded not reconciled:** the +16 arithmetic implies
+  a base of 189 files / 2 427 tests where §5d records 189 / 2 426 collected — a
+  ONE-test discrepancy predating this patch (every file it touches is individually
+  counted). It stands here until someone attributes it; neither figure is edited.
+- **Honesty and environment:** the implementer's first check was 16/17 — both
+  defects its own, in its own new file, retained with causes; the reviewer's first
+  check was destroyed by its own two disclosed errors (a runs-on-import accident —
+  `fixture-regression.mjs` is the THIRD member of the runs-on-import class, whose
+  known antidote is the `spawn-outcome.mjs`/`errored-signatures.mjs` extraction
+  pattern — and an exit-status polling trap, a NEW VARIANT of the self-deceiving
+  process-check class: an `&& {…grep…} || {…}` compound whose non-zero first branch
+  routes into the second, printing DONE for a live process), remediated by pid
+  chain with both contaminated logs retained, and re-run clean. **FU-25's new
+  mechanism adjudicated that accident correctly on real input** — the announced
+  report dir was GONE, so the 147 failures were a genuine verdict about a broken
+  environment, not a kill — the first both-directions demonstration outside the
+  harness; and the reviewer's later `git clean` accident proved the
+  remove-on-every-path claim on an unhandled-error path nobody designed a test
+  for. Zero kills this packet: /tmp held exactly the eight pre-existing wrapper
+  dirs throughout, twice independently recounted.
+- The FU-22 row's ten unescaped in-backtick pipes (a rendering defect present
+  since the row was written, displacing its columns) were escaped at this landing
+  by the orchestrator, on the M5-H implementer's declared observation — rendering
+  only, zero content change.
+
 ## 6. Standing acceptance battery (every packet, per 24 §G and the M4 form)
 
 Validators (36/36 · 95/95 · research PASS) · `corepack pnpm check` 17/17 · the full

@@ -22,6 +22,87 @@ import { ownedMulti } from '../support/owned-multi.js';
  */
 const multi = ownedMulti('tenancy-roles-and-schema');
 
+/**
+ * The KEY columns of an index, from `pg_indexes.indexdef` — or `null` when the
+ * definition cannot be parsed (FU-19, OPUS-M5-H).
+ *
+ * X-11's exemption is now a statement about an index's COLUMNS rather than about
+ * its NAME, so the columns have to be read correctly, and the two obvious
+ * spellings both read them wrongly:
+ *
+ *  - a regex anchored on the LAST parenthesised group takes `(deleted_at IS
+ *    NULL)` out of a PARTIAL unique index and calls it the key;
+ *  - a regex anchored on the FIRST `(` takes `(lower` out of
+ *    `USING btree (lower(login_email))` and stops at the inner close paren.
+ *
+ * So the key list is taken as the first BALANCED group after the `USING <method>`
+ * clause, and split on commas at depth 0. `null` — rather than an empty list —
+ * for anything it cannot parse, because the caller must be able to tell "this
+ * index has no columns" from "this parser does not understand this index", and
+ * the second must fail the suite rather than silently exempt a row.
+ *
+ * Column text is lower-cased and trimmed and NOT otherwise normalised: an entry
+ * carrying an opclass or a `DESC` modifier will not compare equal to `id`, and
+ * therefore will not be exempted. That is the fail-closed direction, chosen
+ * deliberately — an exemption that stretches to fit is how this predicate got
+ * into trouble in the first place.
+ */
+function indexKeyColumns(indexdef: string): string[] | null {
+  const usingAt = indexdef.search(/\busing\b[^(]*\(/i);
+  if (usingAt === -1) return null;
+  const open = indexdef.indexOf('(', usingAt);
+  let depth = 0;
+  let close = -1;
+  for (let index = open; index < indexdef.length; index += 1) {
+    const character = indexdef[index];
+    if (character === '(') depth += 1;
+    else if (character === ')') {
+      depth -= 1;
+      if (depth === 0) {
+        close = index;
+        break;
+      }
+    }
+  }
+  if (close === -1) return null;
+
+  const inner = indexdef.slice(open + 1, close);
+  const columns: string[] = [];
+  let current = '';
+  depth = 0;
+  for (const character of inner) {
+    if (character === '(') depth += 1;
+    if (character === ')') depth -= 1;
+    if (character === ',' && depth === 0) {
+      columns.push(current.trim().toLowerCase());
+      current = '';
+      continue;
+    }
+    current += character;
+  }
+  columns.push(current.trim().toLowerCase());
+  const parsed = columns.filter((column) => column !== '');
+  return parsed.length === 0 ? null : parsed;
+}
+
+/**
+ * Is this unique key one the CALLER cannot choose a value for? (FU-19.)
+ *
+ * The X-11 exemption, and it takes COLUMNS — never a name. That signature is the
+ * repair: the predicate it replaces took `indexname` and matched `/_pkey$/`, and
+ * a function that cannot see a name cannot be fooled by one in either direction.
+ *
+ * `id` alone is a server-generated UUIDv4; `(id, organization_id)` is the same
+ * identity carrying its tenant, and is admitted here as well as by the
+ * tenant-qualification rule — stating it twice is what makes the exemption
+ * readable rather than something a reader has to derive.
+ */
+function isServerGeneratedIdentityKey(columns: readonly string[]): boolean {
+  if (columns.length === 1) return columns[0] === 'id';
+  if (columns.length === 2) return columns[0] === 'id' && columns[1] === 'organization_id';
+  return false;
+}
+
 
 /**
  * Suite A / X — the environment, the SPEC-01 §4.4 role matrix, the RLS policy
@@ -476,6 +557,68 @@ describe('X — sharp edges from the executed spike, re-proved against productio
     log('cross-tenant membership reference rejected by the composite FK (23503) even as an authorized superuser');
   });
 
+  it('X-11 the key-column parser reads real indexdefs, including the two that trap regexes', () => {
+    /* FU-19's repair rests entirely on this function, and a parser nobody
+     * falsified is the exact class FU-19 is about. Pure, no database, so it costs
+     * nothing to run beside the sweep that uses it. */
+    expect(
+      indexKeyColumns('CREATE UNIQUE INDEX groups_pkey ON public.groups USING btree (id)'),
+    ).toEqual(['id']);
+    expect(
+      indexKeyColumns(
+        'CREATE UNIQUE INDEX approvals_pk ON public.approvals USING btree (id, organization_id)',
+      ),
+    ).toEqual(['id', 'organization_id']);
+    // The caller-named PK the exemption used to wave through on its NAME alone.
+    expect(
+      indexKeyColumns(
+        'CREATE UNIQUE INDEX request_availability_pkey ON public.request_availability ' +
+          'USING btree (request_id)',
+      ),
+    ).toEqual(['request_id']);
+    // Trap 1: a PARTIAL index. A last-group regex reads the WHERE clause as the key.
+    expect(
+      indexKeyColumns(
+        'CREATE UNIQUE INDEX x ON public.t USING btree (organization_id, code) ' +
+          'WHERE (retired_at IS NULL)',
+      ),
+    ).toEqual(['organization_id', 'code']);
+    // Trap 2: an EXPRESSION index. A first-close-paren regex stops inside `lower(`.
+    expect(
+      indexKeyColumns('CREATE UNIQUE INDEX y ON public.users USING btree (lower(login_email))'),
+    ).toEqual(['lower(login_email)']);
+    // And it says "I could not read this" rather than "this index has no columns".
+    expect(indexKeyColumns('CREATE UNIQUE INDEX z ON public.t')).toBeNull();
+  });
+
+  it('X-11 the exemption is NAME-INDEPENDENT — FU-19\'s second face, at unit level', () => {
+    /* The inverse face of the blindness, recorded in the 2026-08-26 amendment to
+     * FU-19 and in migration 0024's header §6: `approvals_pk` was named to MISS
+     * `/_pkey$/` on purpose, because missing that pattern was the only reason the
+     * old control evaluated `approvals` at all — and a rename to `approvals_pkey`
+     * would have deleted that coverage with nothing turning red.
+     *
+     * The repaired exemption takes COLUMNS and cannot see a name, so it answers
+     * the same for both spellings. Asserted rather than argued, because "the name
+     * is not consulted" is precisely the kind of claim that is true of the code
+     * somebody wrote and false of the code somebody edits next. */
+    expect(isServerGeneratedIdentityKey(['id', 'organization_id'])).toBe(true); // approvals_pk
+    expect(isServerGeneratedIdentityKey(['id'])).toBe(true);
+
+    /* The FIRST face: a caller-named leading column. The old predicate exempted
+     * this on its `_pkey` name and printed "primary key on a server-generated
+     * id" — asserting the opposite of the truth. */
+    expect(isServerGeneratedIdentityKey(['request_id'])).toBe(false);
+    expect(isServerGeneratedIdentityKey(['request_id', 'organization_id'])).toBe(false);
+
+    /* Order is part of the identity, and a third column is not this exemption's
+     * business — both fall through to the tenant-qualification rule, which is the
+     * fail-closed direction. */
+    expect(isServerGeneratedIdentityKey(['organization_id', 'id'])).toBe(false);
+    expect(isServerGeneratedIdentityKey(['id', 'organization_id', 'group_id'])).toBe(false);
+    expect(isServerGeneratedIdentityKey(['id', 'group_id'])).toBe(false);
+  });
+
   it('X-11 tenant-qualified unique keys keep 23505 inside the caller\'s own tenant', async () => {
     // PK and unique checks bypass RLS, so a globally-unique key a caller can
     // choose is an existence oracle for invisible rows. Every unique key on a
@@ -492,9 +635,40 @@ describe('X — sharp edges from the executed spike, re-proved against productio
 
     const unqualified: string[] = [];
     for (const row of result.rows) {
-      // The primary keys are on `id`, a server-generated UUIDv4 the caller does
-      // not choose; every OTHER unique key must lead with organization_id.
-      const isPrimaryKey = /_pkey$/.test(row.indexname);
+      /* ── FU-19 (OPUS-M5-H): the exemption is the COLUMN LIST, never the NAME ──
+       *
+       * This exemption used to read `/_pkey$/.test(row.indexname)`, on the stated
+       * premise that "the primary keys are on `id`, a server-generated UUIDv4 the
+       * caller does not choose". The premise was true when it was written and the
+       * predicate never checked it, and both faces of that gap were measured
+       * rather than argued:
+       *
+       *  - **the blind face.** Migrations 0021/0022 are the first tables whose PK
+       *    leads with a CALLER-NAMED column (`request_id`). Reducing
+       *    `request_availability_pkey` to `(request_id)` reopens the X-11 oracle
+       *    — a foreign request answers 23505, a nonexistent uuid 23503, both
+       *    measured — and this arm still PASSED, printing "primary key on a
+       *    server-generated id" for a key that is nothing of the sort. A control
+       *    asserting the opposite of the truth is worse than no control.
+       *  - **the inverse face.** 0024's `approvals_pk` deliberately does NOT match
+       *    `/_pkey$/`, which is the only reason the control genuinely evaluated
+       *    `approvals` at all. That coverage existed solely while the constraint
+       *    name avoided the pattern, and a rename to `approvals_pkey` would have
+       *    deleted it silently (M5-002 review C-2, recorded in 0024's header §6).
+       *
+       * Both retire in one predicate. The exemption is now the column list
+       * itself — exactly `(id)`, or exactly `(id, organization_id)` — and the
+       * index NAME is not consulted anywhere in this loop. A PK on anything else
+       * must satisfy the tenant-qualification rule like every other unique key,
+       * and a constraint rename can no longer add or remove coverage.
+       *
+       * `(id, organization_id)` is listed for the same reason it is written in
+       * FU-19: it states the intent. It is redundant against `carriesOrganization`
+       * below, and deliberately so — the redundancy is what makes the rule
+       * readable without tracing which branch admits a composite identity key.
+       */
+      const columns = indexKeyColumns(row.indexdef) ?? [];
+      const identityKey = isServerGeneratedIdentityKey(columns);
       // "Tenant-qualified" means the tenant column participates in the key, so a
       // collision can only ever be reported against a row in the caller's own
       // organization. Whether it leads is a performance question, not a
@@ -504,12 +678,44 @@ describe('X — sharp edges from the executed spike, re-proved against productio
       // tenant-qualified without breaking global login; 23505 is translated to a
       // generic error at the edge instead (src/db/pg-errors.ts).
       const isGlobalUserKey = row.indexname === 'users_login_email_unique';
-      if (!isPrimaryKey && !carriesOrganization && !isGlobalUserKey) {
+      if (!identityKey && !carriesOrganization && !isGlobalUserKey) {
         unqualified.push(`${row.indexname}: ${row.indexdef}`);
       }
       log(
-        `${row.indexname}: ${isPrimaryKey ? 'primary key on a server-generated id' : carriesOrganization ? 'tenant-qualified' : 'GLOBAL (login identity)'}`,
+        /* FOUR outcomes, not three (M5-H review C-4). The label used to fall
+         * through to `GLOBAL (login identity)` for anything that was neither an
+         * identity key nor tenant-qualified — which is exactly the FAILING case,
+         * and there it named the wrong reason: the reviewer watched it print
+         * "GLOBAL (login identity)" for a mutated `request_availability_pkey`, a
+         * table that has nothing to do with login. The assertion below was right
+         * throughout and is untouched; this is the log line telling the truth
+         * about WHY a key is being flagged, which is the first thing anybody
+         * reads when it does. */
+        `${row.indexname}: ${
+          identityKey
+            ? `identity key on (${columns.join(', ')}), server-generated and not caller-chosen`
+            : carriesOrganization
+              ? 'tenant-qualified'
+              : isGlobalUserKey
+                ? 'GLOBAL (login identity)'
+                : `UNQUALIFIED on (${columns.join(', ')}) — flagged below`
+        }`,
       );
+    }
+
+    /* Non-vacuity, and it is FU-19's own lesson applied to the repair: a column
+     * parser that returned `[]` for every row would exempt nothing, flag
+     * everything, and fail loudly — but one that mis-parsed in the OTHER
+     * direction would exempt everything and pass forever, which is the shape of
+     * the defect being repaired. So the parse is required to have produced
+     * columns for every index it examined, and the sweep is required to have
+     * examined some. */
+    expect(result.rows.length, 'the unique-key sweep found no index to examine').toBeGreaterThan(0);
+    for (const row of result.rows) {
+      expect(
+        indexKeyColumns(row.indexdef),
+        `no key column list parsed out of ${row.indexname}: ${row.indexdef}`,
+      ).not.toBeNull();
     }
     expect(unqualified, 'unique keys on tenant tables must be tenant-qualified').toEqual([]);
 

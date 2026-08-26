@@ -166,7 +166,47 @@ export const SYSTEM_ROLE_CAPABILITIES: Readonly<Record<string, readonly string[]
    * (P-10), and an organization administrator who needs to read a group's
    * schedule holds a membership in it. This follows the precedent OPUS-M3-007
    * set for the three group-settings keys and is recorded the same way. */
-  member: ['schedule.own_published.read', 'schedule.published.read'],
+  /* ── OPUS-M5-H (FU-28): the three SELF-SCOPED request keys, from doc 08 §6's
+   * "Submit requests/vacation" row — **Member ✓**, Viewer —, Telecom —,
+   * **Scheduler ✓**, Group Admin —, Org Admin —.
+   *
+   * The ruling FU-28 asked for, taken against the document's own legend, which
+   * was verified before this line was written: §6 states "✓ = allowed by role ·
+   * G = requires named grant · — = denied". So a `✓` is role-implication, and
+   * this row carries `✓` rather than `G` for Member — meaning a member submits a
+   * request because they are a member, not because somebody granted it. Until
+   * now `requests.own.submit` / `.own.withdraw` / `.own.read` appeared in NO
+   * role's set, so member access rested entirely on explicit grants written into
+   * test fixtures: the document said role-implied and the system said grantable,
+   * and the two had disagreed since M5-001 (held deliberately at M5-001 and
+   * M5-002 under narrower-never-wider, decided here with the doc and the
+   * cross-product in one change).
+   *
+   * **Scheduler gets them too**, and for the same reason and no other: the row's
+   * fourth cell is `✓`. A scheduler is a person who also has shifts. Group Admin
+   * is `—` in this row and gets nothing here, exactly as the decision keys above
+   * follow that role's `—` rather than intuition about who ought to be able to.
+   *
+   * **Adding, never removing (rule 11 in the direction that matters here).** The
+   * fixtures' explicit grants of these keys stay valid and stay meaningful: a
+   * grant to a `viewer` or a `telecom` membership is still the only way those
+   * roles reach a request surface, and L4's evaluation is unchanged — a key held
+   * by role and a key held by grant satisfy the same check. Nothing that was
+   * authorized before is authorized less.
+   *
+   * **`requests.read_any` and `requests.administer` are NOT here**, and that is
+   * the row too: reading or writing a COLLEAGUE's request is doc 08 §6's
+   * "Approve requests/vacation" row (Member `—`) and the SENSITIVE-PII narrowing
+   * of migration 0023. The three keys added here are self-scoped by their own
+   * catalogue entries — ownership required, no ownership override — so a member
+   * holding all three still reaches exactly their own rows. */
+  member: [
+    'schedule.own_published.read',
+    'schedule.published.read',
+    'requests.own.submit',
+    'requests.own.withdraw',
+    'requests.own.read',
+  ],
   viewer: ['schedule.own_published.read', 'schedule.published.read'],
   telecom: [],
   /* OPUS-M2-002 adds `schedule.catalogue.administer` to both, from doc 08 §6's
@@ -235,11 +275,24 @@ export const SYSTEM_ROLE_CAPABILITIES: Readonly<Record<string, readonly string[]
      * set — so submitting currently needs a grant where the document marks it
      * role-implied. That is M5-001's surface, not this packet's, and changing
      * another packet's authorization posture uninvited is the thing the register
-     * exists to prevent. Recorded for the M5 hygiene batch.)* */
+     * exists to prevent. Recorded for the M5 hygiene batch.)*
+     *
+     * *(OPUS-M5-H, FU-28: the hygiene batch acted on it. The three self-scoped
+     * keys are role-implied for `member` and — because that row's fourth cell is
+     * `✓` as well — for `scheduler`, immediately below. The member half carries
+     * the full reasoning; this half is the same row's other tick.)* */
     'requests.approve',
     'requests.deny',
     'requests.read_any',
     'requests.administer',
+    /* doc 08 §6 "Submit requests/vacation": Scheduler `✓`. A scheduler has
+     * shifts of their own, and these three keys are self-scoped — they reach
+     * that scheduler's own request rows and nobody else's. Reaching a
+     * COLLEAGUE's rows is `requests.read_any`/`requests.administer` above,
+     * which is a different row of the same table. */
+    'requests.own.submit',
+    'requests.own.withdraw',
+    'requests.own.read',
   ],
   group_admin: [
     'membership.touch_self',

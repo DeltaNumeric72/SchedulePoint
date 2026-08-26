@@ -55,6 +55,22 @@ export const ERRORED_SIGNATURES = [
     pattern: /THIS TEST INVOCATION EXECUTED NOTHING/,
     reason: 'vitest selected no test to execute (a name filter matched nothing)',
   },
+  /* FU-25 (OPUS-M5-H). The gate STARTED and was then killed. `spawnSync` puts
+   * that in `result.signal` and leaves `status: null`, which `run.mjs` compared
+   * against 0 and read as a failing gate — so on a RED leg a killed gate scored
+   * "the gate failed as required" and **a kill counted as PROOF**, the
+   * decorative red case arriving through the detector itself. Measured at
+   * M5-002: eight empty `sp-vitest-must-run-*` directories over four days, with
+   * kernel OOM excluded (`oom_kill 0`).
+   *
+   * Quoted from `scripts/red-cases/spawn-outcome.mjs`'s own wording, and pinned
+   * in `runner-signature/check.mjs` — where the sample is produced by KILLING a
+   * real child rather than typed by hand, so the classifier and this pattern
+   * cannot drift apart without that check failing. */
+  {
+    pattern: /the gate was KILLED by a signal/,
+    reason: 'the gate was killed by a signal — it never reached a verdict',
+  },
 ];
 
 /**

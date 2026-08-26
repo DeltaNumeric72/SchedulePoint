@@ -459,6 +459,40 @@ export const CAPABILITIES: readonly CapabilityDefinition[] = [
     module: 'picklist',
     description: 'Administer picklist rounds (doc 08 §4).',
   },
+  /**
+   * **ORPHAN — declared, read by nothing. Dated disposition 2026-08-26 (FU-24).**
+   *
+   * *A key with no evaluator is a grant that lies* (the M5-001 ruling): granting
+   * it changes nothing, while every surface that lists capabilities shows it as
+   * though it did. Surveyed at OPUS-M5-H under FU-24's own detection rule —
+   * **prose ≠ reader**, i.e. drop the declaration and every line whose body
+   * begins `*`, `//`, `/*` or `--`, because a key discussed at length in comments
+   * looks well-read while nothing consults it. After that filter this key's only
+   * occurrence in `apps/` and `packages/` is the declaration below.
+   *
+   * **Disposition: RETAINED, awaiting a NAMED surface.** The surface is the
+   * picklist module, which does not exist yet — there is no `picklist.route.ts`,
+   * no picklist service and no picklist table; the module is roadmapped and
+   * doc 08 §4 lists this key among the named grants that gate it. So the two
+   * exits FU-24 offers resolve as:
+   *
+   *  - *an evaluator with a route that reads it* — **not available.** Writing one
+   *    would mean inventing a picklist surface to give a key a reader, which
+   *    FU-24 forbids in the same sentence that asks for an evaluator;
+   *  - *a recorded removal decision* — **refused.** Rule 13: a stable ID is not
+   *    removed, and this one is cited by `docs/fable/08-roles-and-permissions.md`
+   *    §4 and §6 ("Picklist administer/intervene — G"). Deleting it would leave
+   *    two documents citing a key that no longer exists, and the citation would
+   *    still look correct.
+   *
+   * So it is retained, and the retention is now DATED and NAMED rather than
+   * silent — which is the difference FU-24 exists to make. **It is held by no
+   * role** (`SYSTEM_ROLE_CAPABILITIES` has it nowhere), so no membership acquires
+   * it implicitly while it waits; a grant of it is inert rather than dangerous.
+   * The obligation transfers to the packet that lands the picklist module: the
+   * key gets its evaluator THERE, in the same change as the surface, exactly as
+   * `vacation.override_quota` — an orphan from M1 — got its evaluator at M5-002.
+   */
   {
     key: 'picklist.intervene',
     scope: 'group',
@@ -829,6 +863,35 @@ export const CAPABILITIES: readonly CapabilityDefinition[] = [
       "Revoke another user's live sessions (14 §3). Grant-only: an eviction is an incident " +
       'control, not a default administrative power.',
   },
+  /**
+   * **ORPHAN — declared, read by nothing. Dated disposition 2026-08-26 (FU-24).**
+   *
+   * The same survey and the same rule as `picklist.intervene` above: after
+   * dropping the declaration and every comment line, this key has no reader in
+   * `apps/` or `packages/`. It is the older and more interesting of the two,
+   * because it is surrounded by prose — the `audit.read` docblock immediately
+   * below argues at length about *why not `audit.export`* — and prose is exactly
+   * what FU-24's detection rule was written to see past. A key that is discussed
+   * this thoroughly reads as well-covered; nothing consults it.
+   *
+   * **Disposition: RETAINED, awaiting a NAMED surface — an audit EXPORT.**
+   * `apps/api/src/http/routes/audit.route.ts` registers one route, a group-scoped
+   * subject-filtered READ under `audit.read`, and the docblock below records
+   * deliberately that the export key is the wrong gate for it: `audit.export` is
+   * ORGANIZATION-scoped and covers the whole log, so attaching it to that read
+   * would mean showing one version's audit trail required a grant over the
+   * organization's entire chain. **Re-pointing that route at this key would
+   * therefore be the opposite of a repair** — it would widen a grant to give a
+   * key a reader, which is both FU-24's forbidden move and the mistake
+   * `group.holiday_calendar.read` exists to undo.
+   *
+   * Removal is refused for the same reason as above (rule 13; the key is cited by
+   * `docs/fable/08-roles-and-permissions.md` §4 and §6's "Audit query / export"
+   * row). It is grant-only and in no role's set, so it confers nothing while it
+   * waits. The obligation transfers to the packet that builds an export surface —
+   * whichever milestone lands the reporting/documents module — and the key gets
+   * its evaluator in the same change as the surface.
+   */
   {
     key: 'audit.export',
     scope: 'organization',

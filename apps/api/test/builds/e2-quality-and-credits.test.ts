@@ -1,6 +1,9 @@
 import { randomUUID } from 'node:crypto';
 
-import { buildRunDetailSchema } from '@schedulepoint/contracts';
+import {
+  buildRunDetailSchema,
+  resultReproducibilityVerdictSchema,
+} from '@schedulepoint/contracts';
 
 import type { SolverInputSnapshotDocument } from '@schedulepoint/domain';
 import { sql } from 'kysely';
@@ -349,20 +352,24 @@ describe('the reproducibility record is recorded on the run (SPEC-04 §4)', () =
     /* THE PARSE. `.strict()`, so this is where a leaked field lands. */
     const parsed = buildRunDetailSchema.parse(payload);
 
-    /* B-1: the verdict is on the wire, and it is one of the six (FAD-52). */
+    /* B-1: the verdict is on the wire, and it is one the enum admits (FAD-52).
+     *
+     * **The list is the SCHEMA's own, since OPUS-M5-H (FU-13, R-7's C-4).** It
+     * used to be six string literals typed out here, under a comment conceding
+     * the hazard in as many words — "an assertion that lagged the enum would fail
+     * on an honest value". A seventh verdict added to the contract would have
+     * turned this arm red for a value that was perfectly correct, and the repair
+     * anybody makes under that pressure is to add the literal, which is the
+     * transcription this file exists to avoid. `schema.options` is the same list
+     * with one author. */
     expect(parsed.resultReproducibility).not.toBeUndefined();
     if (parsed.resultReproducibility !== null) {
-      expect([
-        'reproducible',
-        'wall-clock-truncated',
-        /* FAD-52's sixth. Listed here rather than left out: `buildRunDetailSchema`
-           is the thing that would reject an unknown verdict, and an assertion
-           that lagged the enum would fail on an honest value. */
-        'stopped-early',
-        'interrupted',
-        'best-effort',
-        'unrecorded',
-      ]).toContain(parsed.resultReproducibility.verdict);
+      /* Non-vacuity: an empty options array would make `toContain` fail rather
+         than pass, but a one-member one would pass for the wrong reason. */
+      expect(resultReproducibilityVerdictSchema.options.length).toBeGreaterThan(1);
+      expect([...resultReproducibilityVerdictSchema.options]).toContain(
+        parsed.resultReproducibility.verdict,
+      );
       expect(parsed.resultReproducibility.detail.length).toBeGreaterThan(0);
       /* and a verdict that refuses never carries the promise sentence */
       if (!parsed.resultReproducibility.reproducible) {

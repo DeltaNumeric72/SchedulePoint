@@ -526,17 +526,36 @@ corepack pnpm fixture-regression          # the gate
 corepack pnpm fixture-regression --quick  # seeds only, no standalone sweep
 ```
 
-**What it runs.** Eleven full `api` suite runs with **both** `--sequence.shuffle.files`
-and `--sequence.shuffle.tests` — ten fixed seeds plus one rotating seed drawn per run —
-and then **every test file on its own**. The FAD-15 Layer 1 baseline control runs inside
-all of them, so a run that writes to the shared read-only MULTI fixture fails and names
-the file that did it.
+**What it runs.** **Fourteen** full `api` suite runs with **both**
+`--sequence.shuffle.files` and `--sequence.shuffle.tests` — **thirteen** fixed seeds plus
+one rotating seed drawn per run — and then **every test file on its own**. The FAD-15
+Layer 1 baseline control runs inside all of them, so a run that writes to the shared
+read-only MULTI fixture fails and names the file that did it.
 
-**Why it is not in `pnpm check`.** 35 suite runs is the wrong cost for a per-commit gate
-and the right cost for an acceptance gate. It is a **standing acceptance-time
-requirement**: it runs at every task acceptance and at every milestone exit, not on every
-push. (Wiring it into the gate runner would also be a gate-runner edit, which task packets
-treat as an escalation.)
+> **Counts corrected 2026-08-26 (OPUS-M5-H, FU-13).** This paragraph said "Eleven … ten
+> fixed seeds" and the one below said "35 suite runs". `FIXED_SEEDS` in
+> `scripts/sbx/fixture-regression.mjs` holds **thirteen** — the set grows by FAD-15
+> ruling 3, which requires a seed that exposes a defect to JOIN the fixed set, so this
+> prose was guaranteed to go stale and did. **The script is the authority for the count,
+> never this page**, and the suite-run figure is now given as an expression rather than a
+> number for the same reason. The per-file half likewise scales with the suite, so it is
+> named rather than counted here: it is **one run per file the `api` project collects**,
+> which the run itself reports and which several older notes still quote as 142. Writing
+> today's figure into this paragraph would have been the very thing the paragraph is
+> about — and this correction round caught itself doing it.
+
+**Why it is not in `pnpm check`.** Fourteen full suite runs plus one run per test file is
+the wrong cost for a per-commit gate and the right cost for an acceptance gate. It is a
+**standing acceptance-time requirement**: it runs at every task acceptance and at every
+milestone exit, not on every push. (Wiring it into the gate runner would also be a
+gate-runner edit, which task packets treat as an escalation.)
+
+**It does have a CI home, and it is the nightly.** FAD-53's R-11 closed REV-C-004 by
+adding a scheduled workflow on `main` — `.github/workflows/nightly.yml` — which runs the
+fixed seeds as a matrix plus the rotating seed, with a `seed-set-completeness` job that
+reads `FIXED_SEEDS` out of the script itself so the workflow's matrix cannot drift from
+it. "Not in `pnpm check`" therefore means *not per-push*; it has never meant *not
+automated*.
 
 **What a red means.** Not a flake. NR-13 measured that a *single* shuffled run is a weak
 detector — four of ten seeds found nothing against the pre-refactor suite — so a seed that
