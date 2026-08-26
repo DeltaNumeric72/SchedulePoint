@@ -498,6 +498,82 @@ canonical-sequencer/replay-key properties rest on M5-000a's direct proofs, which
 unaffected. Found at M5-001 (the invocation-form finding); the correct spelling is
 recorded above.
 
+### 5d. M5-002 — FINALIZED 2026-08-26 (issues against `origin/main` at `8f762a1`, the PR #9 merge)
+
+**Scope: SPEC-08 §4 decisions for the FIVE non-vacation subtypes, plus §5.4/§5.5's
+vacation approval transaction.** M5-001's lifecycle core is the substrate; M5-003
+owns vacation grants/selection UX and the §5.3 selection-side matrix; M5-004 owns
+commit/reverse and the solver projection; M5-005 owns UI surfaces.
+
+**Part A — non-vacation decisions (§4).** Approve and deny, individual and BATCH,
+through the `under_review` review path (§2's edges; a shift-preference is never
+approved — `accepted_as_input` is its only acceptance, already M5-001's).
+First-decision-wins on `expected_version` — the loser gets an explicit conflict,
+never a silent overwrite; decisions audited with the `request` subject; denial
+carries a MANDATORY reason. **The `override_reason`/denial-reason I-07 posture
+(binding, from §5b/§5c):** reason text is scheduler-authored bounded free text on
+the DECISION record only — it never enters an audit payload, an outbox payload, or a
+notification (the audit payload validator enforces the closed shape; prove it).
+**BINDING (§5c note): `approved` is reachable SOLELY through the
+`requests.administer` (or a new decision-capability) path** — the approve/deny
+capability keys land HERE with their evaluators, per the M5-001 ruling that a key
+with no evaluator is a grant that lies.
+
+**Part B — the vacation approval transaction (§5.4/§5.5).** `APPROVE-VACATION` per
+the spec AS AMENDED BY THE RECORD: **the root status write is the TWO-STEP
+`submitted → under_review → approved` inside one transaction** (M5-000b finding #1,
+proven by test: §5.4's printed single-statement spelling is refused by §2's own
+matrix; deferred D-27 never sees the intermediate) — same for denial. D-26
+idempotency at step 0 (replay returns the recorded outcome, consumes nothing);
+the §5.4 mode branch (quota consumes under D-21's CHECKs; open mode skips the grant
+update entirely, `grant_id` null — V-30); D-21's last-unit race: exactly one of two
+racing approvals succeeds, the loser gets `QUOTA_EXHAUSTED` (R-05); the selection
+update guarded on `status='pending'` AND `expected_selection_version` (R-18/R-19).
+Over-quota: refused without the override capability (R-06); WITH the capability and
+a mandatory reason, the audited override path raises `override_units` in the same
+transaction — the CHECK is never suspended, the BOUND is raised (R-07, V-28);
+reversal decrements BOTH `units_consumed` and `override_units` (R-20's write path)
+and respects the floor (R-08). R-21 stays proven (the unconditional CHECKs against
+direct UPDATE — M5-000b's proof carries; do not re-prove, do not weaken).
+**Approval-side reversal (§4's "a new approvals record; the prior decision never
+overwritten")** for the five subtypes; §5.6's vacation commit/reverse stays with
+M5-004.
+
+**Part C — the scheduler queue (the M5-001 scope MOVE, now due).** The named
+deliverable: scheduler-facing read routes over requests — the pending-review queue
+(filterable by subtype/status/group), a request detail read — designed AROUND the
+decision affordances this packet adds. `requests.read_any` gains its route
+evaluators; batch decision routes take a LIST with per-item outcomes (a partial
+batch failure is per-item, never all-or-nothing silent). Comments (§4: append-only,
+author recorded, SENSITIVE-PII, visible per capability) land here IF the packet can
+carry them without free text entering protected paths (rule 8 — comments are
+scheduler/staff-authored bounded text on the request surface, the `change_summary`
+precedent); if the implementer judges the I-07 boundary needs its own packet,
+escalate rather than squeeze.
+
+**Constraints carried:** every new unique key carries `organization_id` (X-11;
+FU-19's control is blind to caller-named PKs — design as if it were not); no new
+migration weakens 0021/0022/0023 (additive only; down restores byte-for-byte where
+policies are replaced); the R-01 cross-product extends to the new operations in
+BOTH layers; `requests_own` stays row-scoped (RLS decides rows, never operations).
+Tests: R-05/R-06/R-07/R-08/R-17/R-18/R-19/R-20 write-path per SPEC-08 §7; the
+two-step proven for approval AND denial; batch per-item outcomes; queue
+authorization (a member cannot reach the queue; a scheduler sees only their
+group's requests).
+
+**Acceptance battery (doc 42 §6):** validators · `corepack pnpm check` 17/17 ·
+red-cases at census 69 (a new arm only if a new gate-worthy invariant emerges —
+same bar as M5-001's arm 69) · populated cycle per new migration · one composed
+seeded `api` run at a fresh seed using **the invocation of record**
+(`node node_modules/vitest/vitest.mjs run --project api --sequence.shuffle.files
+--sequence.shuffle.tests --sequence.seed=N`, cwd repo root, the sequencer's stderr
+line as proof of engagement) · route-policy gate green with the new routes · CI
+green on the packet's PR before merge consideration. Delivery: worktree + patch
+from `8f762a1`; fresh Opus implementer; fresh Opus reviewer; delta by the reviewer;
+orchestrator lands and commits. The §5c environment discipline binds (four-level
+chain, three-debris preflight, post-kill diff re-count, clock interims, no
+turn-ending during db legs).
+
 | 2 | **M5-002 — approvals** | Individual + batch approval/denial/comments (§4); over-quota advisory + audited override (R-06/R-07); D-21 last-unit race (R-05); reversal floor (R-08); quota CHECK integrity (R-20/R-21); approval idempotency (R-17/R-18/R-19) | M5-001 |
 | H | **M5-H — hygiene batch** | FU-06/07/08/13 (+FU-04 if not yet touched) | after M5-002, issues alone |
 | 3 | **M5-003 — vacation** | Grants/selections + quota vs open modes (§5, R-13, R-16); §5.3 status-mapping invariant (R-15); variance display; selection UX | M5-001 |
