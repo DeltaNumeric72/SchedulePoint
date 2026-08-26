@@ -31,17 +31,27 @@ import { calendarDateSchema } from '../schedule/calendar-date.js';
  *    target status would be a way to move a request without consulting the
  *    matrix. Those bodies land with the packets that own the matrices — M5-001
  *    for submit/withdraw/expire, M5-002 for approve/deny, M5-004 for
- *    commit/reverse. **This packet ships no routes at all** (doc 42 §5b), so
- *    nothing parses these schemas on an HTTP boundary yet.
+ *    commit/reverse. *(The sentence that stood here — "this packet ships no
+ *    routes at all (doc 42 §5b)" — was M5-000b's and went stale the moment
+ *    OPUS-M5-001 added the submit/withdraw/list/deadline schemas below and the
+ *    routes that parse them. Corrected rather than deleted, because the shape it
+ *    described is still true of the APPROVAL and COMMIT bodies: those have no
+ *    HTTP boundary yet.)*
  *  - **No free-text field except `overrideReason`**, which is a scheduler-
  *    authored administrative note bounded at 1000 characters, of the same class
  *    as `changeSummary` on a schedule version. It is not an ingestion path and
  *    never enters an audit payload; the closed-payload rule (ADR-0019) would
  *    reject free text there. There is no comment body here — §4's comments are
  *    M5-002's surface.
- *  - **No `isLate`.** SPEC-08 §1.1 supersedes doc 06 §3.4 for the root and does
- *    not carry it; §3's late-submission policy is M5-001's, and the field lands
- *    with the machinery that decides it.
+ *  - **`isLate` and `revisionRequested` ARE carried** (OPUS-M5-001). This entry
+ *    previously read "**No `isLate`**" on the M5-000b reasoning that SPEC-08
+ *    §1.1 supersedes doc 06 §3.4 for the root and does not carry it — true then,
+ *    and false the moment the machinery that decides it landed. Both fields are
+ *    on `requestAggregateSchema` below, because both are facts a REQUESTER needs
+ *    to see: whether their submission counted as late (§3), and whether taking a
+ *    request back has put a published schedule in question (R-10). The original
+ *    reasoning is kept rather than erased — it is why the fields were absent
+ *    until a packet could decide them.
  *
  * ## The enums are duplicated from `@schedulepoint/domain`, deliberately
  *
@@ -295,6 +305,16 @@ export const requestAggregateSchema = z
     expiresAt: z.string().datetime(),
     idempotencyKey: idempotencyKeySchema,
     version: z.number().int().positive(),
+    /* ── OPUS-M5-001 (migration 0023) ────────────────────────────────────────
+     * The two lifecycle facts the schema foundation withheld until the
+     * machinery that reads them existed. Both are on the wire because both are
+     * things a requester needs to SEE: whether their submission counted as
+     * late, and whether taking a request back has put a published schedule in
+     * question. */
+    /** §3: accepted after the effective deadline, where group policy permits. */
+    isLate: z.boolean(),
+    /** R-10: withdrawn after a published version honoured it; a revision was asked for. */
+    revisionRequested: z.boolean(),
   })
   .strict();
 export type RequestAggregateWire = z.infer<typeof requestAggregateSchema>;
@@ -323,6 +343,158 @@ export const createRequestSchema = z
   })
   .strict();
 export type CreateRequest = z.infer<typeof createRequestSchema>;
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * OPUS-M5-001 — the lifecycle wire surface (SPEC-08 §§3–4)
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * What a client sends to SUBMIT.
+ *
+ * ## One body, one action, one row (I-10, I-13)
+ *
+ * There is no separate "create draft" body and no `POST …/requests/:id/submit`.
+ * A staff member pressing Submit performs ONE action, so it produces ONE request
+ * (I-10) — and nothing is persisted before that completed, validated body
+ * arrives (I-13: no control labelled Add, New or Create may persist anything
+ * before an explicit Save). The `draft` status the row is born at exists inside
+ * the server's transaction and is never a state a client has seen or can address.
+ *
+ * `periodStart` is optional because it is only MEANINGFUL under the group's
+ * `days_before_period_start` request-until mode, where the deadline is relative
+ * to the schedule period the request is for. It is not a deadline and cannot be
+ * used as one: the server computes `expiresAt` from the group's own policy, and
+ * a `periodStart` a group's mode does not read is ignored entirely.
+ */
+export const submitRequestSchema = z
+  .object({
+    idempotencyKey: idempotencyKeySchema,
+    record: requestRecordSchema,
+    /** The schedule period the request is for. Read only under `days_before_period_start`. */
+    periodStart: calendarDateSchema.optional(),
+  })
+  .strict();
+export type SubmitRequest = z.infer<typeof submitRequestSchema>;
+
+/**
+ * What a client sends to WITHDRAW.
+ *
+ * `expectedVersion` and nothing else. §4's conditional-update rule is stated for
+ * decisions — "first decision wins, the second gets an explicit conflict, never
+ * a silent overwrite" — and it is not weaker for a withdrawal: two tabs open on
+ * the same request must not both succeed.
+ *
+ * **There is deliberately no `reason`.** Withdrawal is requester-initiated (§4)
+ * and a person taking back their own request owes nobody an explanation; an
+ * administrator "withdrawing" for somebody is a DENIAL with a mandatory reason,
+ * which is a different operation, on a different key, in M5-002. Adding an
+ * optional reason here would blur exactly the line §4 draws — and would put new
+ * bounded free text on a SENSITIVE-PII aggregate, which is a question this
+ * packet deliberately does not open.
+ */
+export const withdrawRequestSchema = z
+  .object({
+    expectedVersion: z.number().int().positive(),
+  })
+  .strict();
+export type WithdrawRequest = z.infer<typeof withdrawRequestSchema>;
+
+/** What a withdrawal returns: the new version, and whether R-10 fired. */
+export const withdrawRequestResultSchema = z
+  .object({
+    requestId: uuidSchema,
+    version: z.number().int().positive(),
+    /**
+     * R-10: a published version already honoured this request, so a
+     * `ScheduleRevisionRequested` event was raised. **The published version is
+     * unchanged** — this is a request for the scheduler to act, not a report
+     * that anything was reverted.
+     */
+    revisionRequested: z.boolean(),
+  })
+  .strict();
+export type WithdrawRequestResult = z.infer<typeof withdrawRequestResultSchema>;
+
+/** A member's own requests, newest first. */
+export const requestListSchema = z.object({ requests: z.array(requestSchema) }).strict();
+export type RequestList = z.infer<typeof requestListSchema>;
+
+/**
+ * §3's effective deadline, as a client may read it.
+ *
+ * Both dates are carried, and the pair is the point: `nominal` is what the
+ * group's policy names and `effective` is where the roll moved it to. A surface
+ * showing only the effective date cannot explain why "requests close on the
+ * 15th" is showing the 14th, and "the deadline is Friday" being ambiguous when
+ * Friday is a holiday is the exact ambiguity §3's roll policy exists to remove.
+ */
+export const requestDeadlineSchema = z.union([
+  z.object({ kind: z.literal('closed') }).strict(),
+  z
+    .object({
+      kind: z.literal('dated'),
+      nominal: calendarDateSchema,
+      effective: calendarDateSchema,
+      rolled: z.boolean(),
+    })
+    .strict(),
+]);
+export type RequestDeadlineWire = z.infer<typeof requestDeadlineSchema>;
+
+/**
+ * §3's late-submission refusal, **which states the effective deadline**.
+ *
+ * > Late submission — Rejected with the effective deadline stated, **or**
+ * > accepted into `submitted` with `is_late = true` where group policy permits.
+ *
+ * The date is on the wire because §3 puts it there, and because a refusal that
+ * will not say what the deadline was is a refusal the requester cannot act on.
+ * This is deliberately NOT the fixed error envelope, for the same reason
+ * `validationProblemBodySchema` is not: the envelope carries no detail, and here
+ * the detail IS the remedy.
+ *
+ * `effective` is null for `WINDOW_CLOSED` — a closed window has no date at all,
+ * which is exactly the distinction migration 0010 kept `closed` separate from an
+ * absent date to preserve. Reporting some date for it would invent one.
+ */
+export const requestDeadlineRefusalBodySchema = z
+  .object({
+    error: z
+      .object({
+        code: z.enum(['REQUEST_WINDOW_CLOSED', 'REQUEST_SUBMISSION_LATE']),
+        message: z.string().min(1),
+        correlationId: z.string().min(1),
+        effectiveDeadline: calendarDateSchema.nullable(),
+      })
+      .strict(),
+  })
+  .strict();
+export type RequestDeadlineRefusalBody = z.infer<typeof requestDeadlineRefusalBodySchema>;
+
+/**
+ * The refusal for an operation §2's matrix does not permit from the row's
+ * current status — R-22's "rejected after `consumed_by_build`", and R-23's two
+ * named illegal expiries reached from an API rather than from SQL.
+ *
+ * The CURRENT status is carried, and nothing else about the row. A requester
+ * told only "no" cannot tell "somebody already decided this" from "a build has
+ * consumed it and it is too late" — two situations with different remedies. The
+ * status is a closed vocabulary, not free text, so it discloses nothing beyond
+ * what the requester's own list already shows them.
+ */
+export const requestIllegalOperationBodySchema = z
+  .object({
+    error: z
+      .object({
+        code: z.literal('REQUEST_OPERATION_ILLEGAL'),
+        message: z.string().min(1),
+        correlationId: z.string().min(1),
+        status: requestStatusSchema,
+      })
+      .strict(),
+  })
+  .strict();
+export type RequestIllegalOperationBody = z.infer<typeof requestIllegalOperationBodySchema>;
 
 /* ────────────────────────────────────────────────────────────────────────────
  * §5 — the vacation carriers

@@ -282,6 +282,89 @@ export const CAPABILITIES: readonly CapabilityDefinition[] = [
     module: 'requests_vacation',
     description: 'Approve requests in bulk (doc 08 §6: Scheduler, batch requires a grant).',
   },
+
+  /* ── OPUS-M5-001: the request lifecycle's action keys (CAP-021) ─────────────
+   *
+   * Five ACTION keys, all group-scoped, all under baseline capability **CAP-021**
+   * ("Requests: ON, OFF, No Call, shift preference"). **This does not expand the
+   * 58-capability baseline** (non-bypass rule 11), for the reason the
+   * `schedule.own_published.read` / `schedule.published.read` pair already
+   * records above: several actions belong to one baseline capability, the
+   * baseline id is what the route declares in `policy.capability`, and an action
+   * key is the unit SPEC-06 L4 evaluates. CAP-021's own traceability row
+   * ([18](../../../../docs/architecture/18-capability-traceability.md)) states
+   * the split these five implement: *"Submitting is self-scoped; deciding
+   * requires an approval capability."*
+   *
+   * Group-scoped by SPEC-06 §1.1's exclusion rule — "Everything not in this
+   * enumeration is group-scoped. The default is the narrower scope,
+   * deliberately." A request belongs to a group's schedule and to nothing wider.
+   *
+   * **Two of the five are also RLS predicates**, which is why they exist as a
+   * pair rather than as one key. Migration 0023 discharges the SENSITIVE-PII
+   * narrowing migration 0021 recorded as owed, on `requests` and all six subtype
+   * tables, and its policies name `requests.read_any` and `requests.administer`
+   * directly. So the narrowing is a property of the DATA — true for any caller
+   * on any path, including one that never went through a route — rather than of
+   * which URL was called. That is the same reasoning
+   * `staffing.qualification_holding.read_any` records, applied to the aggregate
+   * doc 06 §3.4 classifies `SENSITIVE-PII`.
+   *
+   * **`deny` is deliberately absent**, and so is `approve`. §4's decision verbs
+   * are M5-002's, and a key with no evaluator behind it is a key somebody grants
+   * believing it does something. They land with their implementation, exactly as
+   * the request store's transition verbs did.
+   */
+  {
+    key: 'requests.own.submit',
+    scope: 'group',
+    module: 'requests_vacation',
+    description:
+      "CAP-021: submit one's OWN request (ON, OFF, No Call, shift preference, shift-group off). " +
+      'Self-scoped through SPEC-06 L5.1 with ownership required and **no ownership override** — ' +
+      'submitting a request on a named colleague\'s behalf is not a power anybody holds, because ' +
+      'a request is a statement about that person\'s own availability.',
+  },
+  {
+    key: 'requests.own.withdraw',
+    scope: 'group',
+    module: 'requests_vacation',
+    description:
+      "CAP-021: withdraw one's OWN request. **Requester-initiated only** (SPEC-08 §4): an " +
+      'administrator "withdrawing" for somebody is a DENIAL with a reason, recorded as such, and ' +
+      'that is a different action with a different key in M5-002. Hence ownership required with ' +
+      'no override — the override would be the very confusion §4 forbids.',
+  },
+  {
+    key: 'requests.own.read',
+    scope: 'group',
+    module: 'requests_vacation',
+    description:
+      "CAP-021: read one's OWN requests and their status history. Self-scoped with no ownership " +
+      'override; reading a named colleague\'s requests is `requests.read_any`, which is a ' +
+      'separate grant because the data is SENSITIVE-PII.',
+  },
+  {
+    key: 'requests.read_any',
+    scope: 'group',
+    module: 'requests_vacation',
+    description:
+      "CAP-021: read ANOTHER membership's requests — the scheduler's queue. A member always " +
+      'reads their own; this is the SENSITIVE-PII narrowing, enforced in the RLS SELECT policies ' +
+      'of migration 0023 themselves. A READ key with no write power, so a scheduler who must see ' +
+      'the queue does not thereby gain the ability to decide anything.',
+  },
+  {
+    key: 'requests.administer',
+    scope: 'group',
+    module: 'requests_vacation',
+    description:
+      "CAP-021: WRITE another membership's request rows — the administrative half of the " +
+      'SENSITIVE-PII narrowing (migration 0023). Held by the expiry sweeper, whose job context ' +
+      'names a real acting membership and is re-evaluated at execution (I-19), and by M5-002\'s ' +
+      'decision paths. Distinct from `requests.read_any` so that reading the queue and acting on ' +
+      'it are separately grantable.',
+  },
   {
     key: 'vacation.commit',
     scope: 'group',

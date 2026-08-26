@@ -325,6 +325,34 @@ shards + shard completeness).
 > its floor, its safety factor, the hang backstop and all five of the storm's
 > assertions are untouched. The requirement grows by one arm; nothing is relaxed.
 
+> **AMENDMENT 2026-08-26 (M5-001, FAD-55; census only, in the FAD-54 style).**
+> The same item now demands **69/69 arms**. M5-001 added a 69th —
+> `transition-matrix-one-layer-drift`, which deletes FAD-55's
+> `reflected_in_version → withdrawn` cell from the DOMAIN matrix alone and
+> requires `apps/api/test/requests/transition-matrix-agreement.test.ts` to fail
+> with its own disagreement assertion rather than with a bare non-zero exit.
+> It exists because SPEC-08 R-01's two layers are related by no compiler: the
+> agreement test walks all 1 014 (subtype × from × to) cells and is the only
+> thing standing between FAD-55 and a one-layer edit, and FAD-55's ratification
+> named it as that standing guarantee. **A guarantee whose falsifier has never
+> been run is the class FU-19 warns about** — a control nobody had falsified,
+> which on eventual falsification asserted the opposite of the truth. One
+> mutation direction suffices: the test asserts EQUALITY, so drift on either side
+> breaks it, and a second arm would prove the same property twice at twice the
+> cost. Both legs run the ONE agreement test file through
+> `scripts/gates/vitest-must-run.mjs` rather than the whole `unit` gate —
+> `stale-edit-cas`'s whole-gate legs are what make it this battery's most
+> expensive and most race-exposed arm (FU-21), and globalSetup builds the full
+> migration chain either way, so the database's copy of the matrix is real.
+> The runner (`scripts/red-cases/run.mjs`) remains authoritative for the census —
+> it reports 69 — and the CI shard-completeness guard still derives its union
+> from the runner, so the figure cannot drift silently. The arm appends at the
+> END of the registry, so no other arm's position, and therefore no other arm's
+> shard, changes. Nothing else in the item changes, and no shipped constant or
+> assertion was weakened to make the arm fire: the mutation is a deletion from a
+> matrix the same commit added the cell to. The requirement grows by one arm;
+> nothing is relaxed.
+
 ## §8 GitHub branch, pull-request and evidence strategy
 
 - Plan, reports, evidence indexes, adjudications, and control-doc updates land through

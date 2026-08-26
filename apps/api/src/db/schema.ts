@@ -56,6 +56,16 @@ export interface GroupsTable {
   request_until_date: string | null;
   /** Populated exactly when the mode is `days_before_period_start`. 0..365. */
   request_until_lead_days: number | null;
+  /* ── OPUS-M5-001 §3 policy (`migrations/0023_request_lifecycle_policy_and_narrowing.sql`)
+   *
+   * The two columns SPEC-08 §3 names and 0010 did not land, because 0010 landed
+   * the request-until policy alone and said the enforcement was M5's. Both
+   * DEFAULT to the strict direction, so a group that has chosen nothing gets the
+   * behaviour that grants nobody anything they did not have. */
+  /** §3's roll against `group_holidays`, weekends included. Defaults to `exact`. */
+  deadline_rolls: Generated<'forward' | 'backward' | 'exact'>;
+  /** §3's "configured, never implicit" late rule. Defaults to `reject`. */
+  late_submission_policy: Generated<'reject' | 'accept_as_late'>;
   /**
    * SchedulePoint's own closed set. The source's `Pick List Access` semantics
    * are UNRESOLVED (C-02, doc 05 §5) and are not reproduced here. The setting
@@ -1134,6 +1144,26 @@ export interface RequestsTable {
   expires_at: Date;
   idempotency_key: string;
   version: Generated<number>;
+  /* ── OPUS-M5-001 (`migrations/0023_…`) ─────────────────────────────────────
+   * The two columns 0021 deliberately withheld until the machinery that reads
+   * them existed. */
+  /**
+   * §3: the submission arrived after the effective deadline and group policy is
+   * `accept_as_late`. Never set implicitly — a `reject` group has no path that
+   * produces a `true` here, because the submission is refused instead.
+   */
+  is_late: Generated<boolean>;
+  /**
+   * R-10 / FAD-55: this request was withdrawn while a PUBLISHED version honoured
+   * it, so a `ScheduleRevisionRequested` event was raised and the scheduler must
+   * decide. **The published version is never touched** (I-18).
+   *
+   * Monotonic and single-sourced: migration 0023's
+   * `app_guard_request_revision_requested` refuses to clear it, refuses a
+   * `reflected_in_version → withdrawn` write that does not set it, and refuses
+   * any other transition that tries to.
+   */
+  revision_requested: Generated<boolean>;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }

@@ -67,6 +67,13 @@
 > 2. **`accepted_as_input → withdrawn` is added for shift-preference.** A shift preference moves `submitted → accepted_as_input` immediately, because it is never approved — so under the previous matrix it became **unwithdrawable the moment it was accepted**. A non-binding preference must be retractable until a build consumes it, and it is forbidden after that only because the build already used it.
 > 3. **`* → expired` is replaced by the enumerated legal source states.** A literal `*` as a database rule would have permitted `reflected_in_version → expired` — expiring a request already honoured in a published version.
 
+> **AMENDED 2026-08-26 (FAD-55) — `reflected_in_version → withdrawn` is ADDED for the five non-vacation subtypes.**
+> **§4 and R-10 required a transition this matrix did not contain.** §4's withdrawal row states it in terms that admit no other reading — *"Withdrawal after `reflected_in_version` … The request moves to `withdrawn` with `revision_requested = true`"* — and R-10 tests exactly that outcome. The matrix had no such cell for any subtype. The V-31 sweep of this section added `accepted_as_input → withdrawn` and rewrote the expiry rows, but never added the row §4's own sentence requires, so §2 and §4 disagreed and any implementation faithful to §2 refused the edge R-10 needs. Found during OPUS-M5-001, escalated rather than resolved in the implementation, and **resolved ADDITIVELY in favour of the explicit behavioural requirement**: the cell is added below and to the enforcement in the same change, so the specification and the database do not disagree after this.
+> **Nothing is narrowed.** V-31's enumerated expiry sources are untouched and no wildcard is reintroduced. D-20 needs no amendment either, because `withdrawn` is already in every subtype's status domain — this was a missing EDGE, never a missing status.
+> **The cell is guarded, not bare.** A `reflected_in_version → withdrawn` write that does not set `revision_requested = true` in the same row write is refused, so the only thing the new cell permits is the scenario §4 describes. **The published version is never touched** (I-18); what the withdrawal produces is a `ScheduleRevisionRequested` event and a scheduler decision.
+> **`vacation-selection` is excluded, deliberately.** A committed vacation week's undo is §5.6's REVERSAL, `reflected_in_version → reversed`, which this matrix already carries. A second spelling of the same act would leave §5.3's mapping unable to say which one a `withdrawn` selection meant.
+> **Why the pairing with R-22 is coherent rather than odd.** Refusal at `consumed_by_build` and permission at the later `reflected_in_version` look inverted until you ask what has been PROMISED. At `consumed_by_build` a solver run has taken the request as input and **nothing has been promised to anybody** — there is nothing to revise and a live run to protect. At `reflected_in_version` a **published version honours the request** — a promise exists — and a person asking out of a promise must produce a visible revision request rather than either silence or a refusal.
+
 | From → To | avail. | time-off | no-call | shift-pref | sg-off | vacation *(V-27)* |
 |---|:--:|:--:|:--:|:--:|:--:|:--:|
 | `draft → submitted` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -84,6 +91,7 @@
 | **`approved → reflected_in_version`** *(vacation only — commit to a version, §5.6)* | | | | | | ✓ |
 | `consumed_by_build → unsatisfied` | | | | **✓** | | |
 | **`reflected_in_version → reversed`** *(vacation only, §5.6)* | | | | | | ✓ |
+| **`reflected_in_version → withdrawn`** *(added 2026-08-26, FAD-55 — §4's withdrawal-after-reflection row; requires `revision_requested = true` in the same write; vacation uses `→ reversed` instead)* | ✓ | ✓ | ✓ | ✓ | ✓ | |
 | `→ expired`, **from `submitted`, `under_review`, or `accepted_as_input` only** *(amended 2026-08-01, V-31 — replaces the literal `*`)* | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `approved → superseded_by_revision` | ✓ | ✓ | ✓ | | ✓ | ✓ |
 

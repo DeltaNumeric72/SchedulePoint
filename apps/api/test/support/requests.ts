@@ -174,21 +174,49 @@ export async function seedRequestsForSweep(
          * D-18's DEFERRED zero-row guard requires and, equally, what it permits:
          * the root necessarily exists before the row referencing it, and the
          * guard is evaluated at COMMIT, when the pair is complete. */
+        /**
+         * A root at the requested status, reached the way a writer must reach it.
+         *
+         * **OPUS-M5-001: the row is INSERTed at its subtype's initial status and
+         * then WALKED to the target along §2's legal edges.** Migration 0023's
+         * `requests_guard_initial_status` refuses an insert at anything else —
+         * `draft` for the five non-vacation subtypes, `submitted` for
+         * `vacation-selection` — because submission is a TRANSITION, never an
+         * insert state (doc 42 §5c Part A).
+         *
+         * This seed previously inserted directly at `submitted` and
+         * `accepted_as_input`. Walking instead is not a workaround: it makes the
+         * fixture exercise the transition guard rather than sidestep it, so a
+         * seeded row is now a row a production writer could actually have
+         * produced — which is what a fixture is FOR.
+         */
         const writeRoot = async (
           subtype: string,
           status: string,
           suffix: string,
         ): Promise<string> => {
           const id = randomUUID();
+          const initial = subtype === 'vacation-selection' ? 'submitted' : 'draft';
           await sql`
             insert into requests
               (id, organization_id, group_id, membership_id, subtype, status,
                expires_at, idempotency_key)
             values
               (${id}::uuid, ${target.organizationId}::uuid, ${target.groupId}::uuid,
-               ${target.membershipId}::uuid, ${subtype}, ${status},
+               ${target.membershipId}::uuid, ${subtype}, ${initial},
                ${'2099-01-01T00:00:00.000Z'}::timestamptz, ${`${keyPrefix}.${suffix}`})
           `.execute(db);
+
+          /* The walk. `draft → submitted` for every subtype, then
+           * `submitted → accepted_as_input` where §2 carries it. Each step is a
+           * separate statement because each is a separate EDGE, and the guard
+           * evaluates one edge at a time. */
+          if (status !== initial) {
+            await sql`update requests set status = 'submitted' where id = ${id}::uuid`.execute(db);
+          }
+          if (status !== initial && status !== 'submitted') {
+            await sql`update requests set status = ${status} where id = ${id}::uuid`.execute(db);
+          }
           return id;
         };
 

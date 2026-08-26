@@ -2182,6 +2182,85 @@ const CASES = [
     ],
     redCommand: ['exec', 'node', 'scripts/red-cases/storm-ceiling/check.mjs'],
   },
+  {
+    id: 'transition-matrix-one-layer-drift',
+    gate: "SPEC-08 R-01's two layers AGREE cell for cell (FAD-55; OPUS-M5-001)",
+    violation: "FAD-55's `reflected_in_version -> withdrawn` cell deleted from the DOMAIN matrix alone",
+    /* ── Why this arm exists ──────────────────────────────────────────────────
+     *
+     * SPEC-08 R-01 requires illegal (subtype x status x operation) combinations
+     * to be "rejected by both domain and database". Two layers that DISAGREE are
+     * worse than one, because both look authoritative: a service that ALLOWS
+     * what the database refuses turns every such call into a 500 at commit.
+     *
+     * `apps/api/test/requests/transition-matrix-agreement.test.ts` is the control
+     * — it walks the FULL cross-product (6 subtypes x 13 statuses x 13 statuses =
+     * 1 014 cells) and requires `transitionIsLegal` and the SQL function
+     * `app_request_transition_is_legal` to return the same boolean for every one.
+     * FAD-55's ratification named that test as the standing guarantee that the
+     * added `reflected_in_version -> withdrawn` cell can never decay into a
+     * one-layer edit.
+     *
+     * **A guarantee whose falsifier has never been run is exactly the class FU-19
+     * is the standing warning about**: that was a control nobody had falsified,
+     * and when a review finally did, it asserted the OPPOSITE of the truth. A
+     * review-time mutation is one-shot evidence; this arm makes it standing.
+     *
+     * ## ONE mutation direction, and why it covers both
+     *
+     * The test asserts EQUALITY between the two layers, so drift on EITHER side
+     * breaks it — a single deletion proves the comparison detects asymmetry, and
+     * a second arm mutating the SQL side would prove the same property twice at
+     * twice the cost. The domain constant is the simpler of the two mutations: it
+     * is one array entry, and it does not touch a migration whose down leg would
+     * then also need amending.
+     *
+     * ## The legs run ONE test FILE, deliberately
+     *
+     * Not `gate:unit`. `stale-edit-cas`'s whole-gate legs are what make it this
+     * battery's most expensive and most race-exposed arm (FU-21), and nothing
+     * here needs the other 143 files: globalSetup still builds the full migration
+     * chain, so the database's copy of the matrix is real. Both legs go through
+     * `vitest-must-run.mjs`, so a selection that executed nothing fails as a
+     * zero-execution run rather than reading as a gate outcome (REV-B-006).
+     *
+     * The RED leg's failure is the agreement test's OWN assertion — the
+     * disagreement list is non-empty and names the five cells — rather than a
+     * bare non-zero exit, which is what makes the arm evidence about the control
+     * rather than about the process.
+     *
+     * `prepare`/`restore` rebuild `packages/domain`, because `apps/api` imports
+     * the BUILT package (`main: ./dist/src/index.js`): a source mutation with no
+     * rebuild would leave the api-side test reading the pre-mutation matrix and
+     * the arm would score NOT PROVEN while looking green. Same discipline as the
+     * `verdict.ts` arm above. */
+    patch: [
+      {
+        file: 'packages/domain/src/requests/transitions.ts',
+        find:
+          "  {\n" +
+          "    from: 'reflected_in_version',\n" +
+          "    to: 'withdrawn',\n" +
+          "    subtypes: ['availability', 'time-off', 'no-call', 'shift-preference', 'shift-group-off'],\n" +
+          "  },",
+        replace: '  // red case: FAD-55’s cell is deleted from the domain matrix alone',
+      },
+    ],
+    prepare: [['exec', 'tsc', '-b', 'packages/domain', '--force']],
+    greenCommand: [
+      'exec',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
+      'apps/api/test/requests/transition-matrix-agreement.test.ts',
+    ],
+    redCommand: [
+      'exec',
+      'node',
+      'scripts/gates/vitest-must-run.mjs',
+      'apps/api/test/requests/transition-matrix-agreement.test.ts',
+    ],
+    restore: [['exec', 'tsc', '-b', 'packages/domain', '--force']],
+  },
 ];
 
 /* ── SP_RED_SHARD — the battery, split across CI runners ────────────────────

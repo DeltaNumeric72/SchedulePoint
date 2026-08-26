@@ -284,6 +284,220 @@ Dated facts of record:
   with causes) in the session workspace; both agents' final reports.
 
 | 1 | **M5-001 — request lifecycle core** | Subtype transition matrices (§2) domain+DB double enforcement; deadlines/expiry (§3, R-09, R-23); idempotent submission (R-11); withdrawal incl. accepted_as_input/consumed_by_build boundaries (R-22) and post-reflection revision requests (R-10); routes + policies (I-02, four-layer) | M5-000 |
+### 5c. M5-001 — FINALIZED 2026-08-26 (issues against `origin/main` at `93c9f91`, the PR #8 merge)
+
+**Scope: the request lifecycle core for the FIVE non-vacation subtypes, on the 0021/0022
+schema.** The vacation lifecycle's writers are M5-002/003's (its schema and D-27 exist;
+nothing here writes `vacation_selections`). No approvals (§4 is M5-002's), no solver
+projection (M5-004), no UI surfaces (M5-005 — routes here are API only).
+
+**Part A — the domain half of R-01's double enforcement.** The §2 transition matrices
+as domain logic in `packages/domain` (the DB triggers exist; R-01 requires BOTH layers
+to reject illegal (subtype × status × operation) combinations), and a request lifecycle
+service in `apps/api` on the 0021 ports through the unit-of-work. **The initial-INSERT
+status ruling (0021 header §4's open decision, decided here):** a request row is
+CREATED at `draft` for the five subtypes — submission is a TRANSITION, never an insert
+state — and at `submitted` only for `vacation-selection` (§5.3: a selection becomes a
+request AT submission), enforced in the migration that this packet adds (trigger or
+CHECK on INSERT; the packet proposes the mechanism). Escalate if this conflicts with
+anything in SPEC-08.
+
+**Part B — submission, deadlines, expiry (§3).** Idempotent submission (D-7's key,
+R-11: duplicate submission with the same key yields one row); `expires_at` computed
+SERVER-SIDE from the group's `request_until_date` policy at submission and re-validated
+at every transition; the §3 roll policy `deadline_rolls ∈ {forward, backward, exact}`
+against the `group_holidays` TABLE (exists since 0005 — this packet lands the POLICY
+configuration and logic, correcting §5b's earlier imprecision); late submission
+rejected-with-stated-deadline or accepted-as-late per group policy, configured never
+implicit; **expiry as a job** — a sweeper moving undecided past-deadline requests to
+`expired` (the three legal source states only, R-23's domain half), audited, requester
+notified through the outbox (I-11: a notification failure never rolls back the domain
+change).
+
+**Part C — withdrawal (§4's withdrawal rows).** Requester-initiated only — an
+administrator "withdrawing" is a DENIAL with a mandatory reason, recorded as such;
+R-22's boundaries (withdrawal succeeds from `submitted`/`under_review`/`approved`/
+`accepted_as_input`, is REFUSED after `consumed_by_build`); R-10's post-reflection
+path: withdrawal after `reflected_in_version` raises `ScheduleRevisionRequested`
+(the published version is NEVER silently reverted), request `withdrawn` with
+`revision_requested = true`.
+
+**Part D — routes, policies, and the SENSITIVE-PII narrowing (the M5-000b debt,
+0021 header §5).** Staff submission/withdrawal/list-own routes and scheduler read
+routes, each with a declared policy (route-policy gate; I-02 deny-by-default;
+PO-DEC-02's four layers; I-19 re-evaluation against current state). This packet
+CREATES the capability keys its routes need and lands the narrowed RLS policies on
+`requests` + the six subtype tables per the `qualification_holdings` precedent —
+the debt is discharged here, not carried further. I-13 binds any control this
+packet's API design implies (no persist-before-save); I-10 binds route design (one
+action, one request).
+
+**Part E — FU-20's `allow_request` half.** Decide and implement one of the two
+recorded exits: a `shift_groups`-side guard (the §5.5 mode-stability pattern) refusing
+an `allow_request` flip while non-terminal `shift-group-off` requests exist, OR a
+written ruling in the migration/docblock that drift is acceptable with the readers
+named as tolerating it. The packet proposes; the reviewer verifies; the orchestrator
+ratifies in-round. FU-20's period-shrink half stays with M5-003.
+
+**Binding context carried in:** the §5.4 two-step finding (M5-002's, but nothing in
+this packet may write a root status transition that assumes a single-statement
+spelling); `override_reason` posture untouched (M5-002); the three-debris environment
+preflight and the FU-21 port-race characterization for any serial red-case work.
+
+**Acceptance battery (doc 42 §6):** validators · `corepack pnpm check` 17/17 ·
+red-cases at the current census (any new arm registered through the runner with the
+shard ripple) · populated cycle for every new migration (0023+) · targeted
+fixture-regression: one composed seeded `api` run at a fresh seed (suite composition
+changes; counts measured, never assumed) · route-policy gate green with the new routes
+declared · CI green on the packet's PR before merge consideration. Delivery: worktree +
+patch from `93c9f91`; fresh Opus implementer; fresh Opus reviewer; delta by the
+reviewer; orchestrator lands and commits.
+
+**ACCEPTED 2026-08-26** (fresh Opus implementer; independent fresh Opus review —
+ACCEPT WITH CONDITIONS, C-1 MEDIUM + C-2 LOW; condition round; delta CONFIRM
+upgrading to unconditional ACCEPT). Migration 0023; 30 files, +7 587/−33. Dated
+facts of record:
+
+- **Battery:** validators 36/36 · 95/95 · research PASS · `pnpm check` **17/17
+  exit 0 on the final tree** (184 files / 2 367 collected; `route-policy` 117 —
+  predicted before the gate reported; `migration-rls` 23, VACUOUS for 0023 which
+  creates no table: the seven-table narrowing's proof is the populated cycle's
+  both-direction visibility assertions, not that gate) · request suite 95/95 (94 +
+  C-1's case) · composed seeded run at seed 20260827 GREEN **with the canonical
+  sequencer's own stderr line present** (149+1 files / 1 565+14 tests), and the
+  REVIEW re-ran at a second fresh seed 20260901, also green — reproducibility AND
+  order-independence · red-case **arm 69 (`transition-matrix-one-layer-drift`,
+  census 68→69, doc 38 §7 amended in the FAD-54 style) PROVEN both directions in
+  isolation** by implementer and reviewer independently · **the serial battery
+  stands at 0 of 69 by ruling** — killed environmentally inside its 15th arm with
+  no verdict printed; arm 69 proven isolated and the sharded CI battery on this
+  commit is FAD-54's primary form · the review's **eight-mutation battery**: every
+  mutation KILLED by a named assertion (including M1, deleting FAD-55's cell from
+  the MIGRATION side alone — empirically confirming arm 69's one-direction
+  rationale — and M4, flipping the initial-status guard to BEFORE INSERT — five
+  failures proving the AFTER ordering load-bearing); the M7 probe SURVIVED and
+  became C-1, now discharged and re-proven by the reviewer's own probe verbatim.
+- **FAD-55** (ARCHITECTURE-DECISIONS row this commit): SPEC-08 §4 and R-10 require
+  `reflected_in_version → withdrawn`; §2's matrix lacked the cell (a V-31-sweep
+  omission — that amendment added `accepted_as_input → withdrawn` but not the row
+  §4's own sentence requires), so **R-10 could not pass against the shipped
+  schema**. Resolved ADDITIVELY: the cell in BOTH layers for the five non-vacation
+  subtypes only (vacation's undo is §5.6's reversal — one spelling per act), the
+  three-claim `revision_requested` guard (must-set on the edge; never cleared; no
+  other transition sets it — each claim mutation-killed by name), and a dated
+  SPEC-08 §2 amendment so spec and enforcement cannot disagree. This is the FOURTH
+  SPEC-08 internal finding; the escalation was raised with a worked proposal and
+  implemented only after ratification.
+- **Fifth SPEC-08 observation** (the intersection class extends beyond the vacation
+  column): §2's `→ expired` row is ✓ in every subtype column naming three sources
+  once for all, so five cells name a source status their own subtype can never
+  hold. Both layers kept LITERAL; the five enumerated in a test so drift fails a
+  list. With the §5.4 two-step, D-23's vacuity, the vacation-column intersection,
+  and FAD-55, the M5 exit sweep's SPEC-08 clarification docket now holds five
+  items.
+- **Declared rulings** (all orchestrator-issued in-round; consolidated confirmation
+  + re-affirmation are the citable instruments — see the provenance incident
+  below): initial-INSERT status (born at `draft` for the five subtypes,
+  `submitted` only for vacation-selection per §5.3; AFTER INSERT so D-20's
+  refusals stay reachable — mutation-proven), C-1's extension of the same guard
+  (`REQUEST_LIFECYCLE_FLAG_AT_CREATION` — the flags are R-10's/§3's claims and
+  monotonicity would make a false birth-claim permanent), the three §3/§4 columns
+  (`deadline_rolls` + `late_submission_policy` both defaulting to the
+  NON-PERMISSIVE direction, `is_late`, `revision_requested`), the
+  `NewRequestSubtypeRecord` cross-packet port correction (distributive Omit;
+  vacation-selection excluded from the creation union BY THE COMPILER; 422-not-404
+  with the no-oracle-analogue reason), the **scheduler-queue scope MOVE to
+  M5-002** (a queue's shape IS its decision affordances; enforced by the
+  route-policy test's exact-count assertion so it cannot quietly slip; M5-002's
+  finalization carries the queue as a named deliverable — never-narrow satisfied
+  by sequencing), Part E's FU-20 `allow_request` guard exit (mutation-proven as
+  the NAMED guard refusing; FU-20's `allow_request` half CLOSES here, the
+  period-shrink half stays with M5-003), the `OPUS-M#-###` packet-ID convention
+  (repo-standing stable vocabulary since M1), and absence of approve/deny
+  capability keys (a key with no evaluator is a grant that lies — they land with
+  M5-002's verbs).
+- **The SENSITIVE-PII narrowing debt is DISCHARGED** (0021 header §5's obligation):
+  seven tables, three arms each per 0004's precedent (`_own` as FOR ALL — a
+  reasoned deviation, submitting/withdrawing are self-scoped acts), the subtype
+  `_own` arms an EXISTS RE-STATING the membership predicate, `vacation_selections`
+  direct (its `available` rows have no root — load-bearing), both directions
+  proven; the X-11 oracle test's recorded class moved 23503→**42501** with the
+  EQUALITY assertion untouched — the narrowing refuses one layer earlier than the
+  FK, a strengthening with a dated note. The expiry sweeper runs as a REAL acting
+  membership through the worker's refusal path: **no system arm, no SECURITY
+  DEFINER, no role-targeted policy, no bypass primitive anywhere in 0023** —
+  verified by grep at review, stated as an absence in the header.
+- **NR-16 incident (the session's first real code defect, and the gate's catch):**
+  nine bare SQL lines across two files, converted to the typed Kysely builder —
+  never baselined (the baseline is for debt that PREDATES the detector; filing new
+  debt there turns a red gate green by relabelling) and never line-shifted
+  (satisfying a control by geometry is evasion). The implementer initially
+  under-reported it as one line in one file — a `grep | head` over a multi-line
+  assertion — and corrected itself: **the gate was right the first time.** Its
+  probe of the detector also surfaced FU-22 (the detector's keyword-position blind
+  spot, pre-dating this packet; I-15 itself holds — all sites go through
+  `uow.query`).
+- **Review precision notes, recorded as found:** 0023's rewrite of
+  `app_request_transition_is_legal` is 0021's PREDICATE byte-for-byte plus exactly
+  one clause (mechanically diffed); the header prose was condensed — a prose
+  difference, not semantic. 0023 adds NO new unique keys, so the
+  new-keys-carry-organization_id posture is **vacuously satisfied** — recorded as
+  vacuous, never as a positive finding. C-2's six documentation-accuracy defects
+  (headers contradicting their own files) were discharged with the old wording
+  preserved inside each correction; the reviewer proved by comment-stripped diff
+  that no code changed with them.
+- **Binding notes for M5-002's finalization:** the two-step writer (M5-000b
+  finding #1); the scheduler queue as a named deliverable; the approve/deny keys
+  land with their evaluators; `override_reason` stays out of audit payloads and
+  notifications; and — the review's observation — `requests_own` is FOR ALL with
+  `status` in the column grant, so at the SQL layer a member's own row can walk
+  every §2 edge: **`approved` must be reachable solely through the
+  `requests.administer` path** when M5-002 adds the routes (RLS decides rows,
+  never operations; PO-DEC-02's layers decide operations).
+- **Provenance incident (process, not artifact):** the implementer's 19 interims
+  asserted in-round ratifications; its first final report cited a consolidated
+  confirmation; its corrected report then claimed ZERO inbound messages and
+  declared four decisions fabricated-and-unauthorized. Adjudicated from the
+  orchestrator's own session log: every ruling exists as a sent message, issued
+  in-round; the implementer's own interims (answering the content of specific
+  rulings minutes after they were sent) and its own transcript INDEX ("Escalated,
+  ratified") contradict the zero-replies claim; all four decisions were
+  RE-AFFIRMED on the record at adjudication. Both implementer reports are
+  retained. **The register formulation (adopted by both sides): the receiver-side
+  delivery record is unreliable; the rulings of record live in the orchestrator's
+  log and are re-affirmed at adjudication.** The implementer's own analysis — two
+  claims outrunning evidence, in opposite directions — stands with it.
+- **Environment record, amended:** the scratchpad traversal chain is **FOUR**
+  levels (`/tmp/claude-0` → the repo-slug directory → the session directory →
+  `scratchpad`), correcting §5b's "three" — the repo-slug level is the trap
+  precisely because it is not the one that reverts; verify programmatically,
+  never by eye. A killed serial-battery arm left `provider-boundary.ts`'s runtime
+  guard NEUTERED in the implementer's worktree (debris kind 3's sharpest
+  instance — a disarmed security guard in-tree), caught by a post-kill diff
+  re-count and reverted with the patch md5 proven unchanged; the reviewer
+  independently confirmed the artifact never contained it and located the abort
+  point in the partial log. **The post-kill diff re-count is now a STANDING
+  preflight step.** The composed-run invocation of record is
+  `scripts/sbx/fixture-regression.mjs`'s spelling (cwd repo root, engagement
+  proven by the sequencer's stderr line) — the `--filter` form silently never
+  loads the canonical sequencer (see the §5b correction below).
+- Evidence: `m5001.patch` md5 `2d78df865c2d41ecf25f4df80312fc23` (this commit);
+  24 implementer transcripts + INDEX (every failed attempt retained with its
+  cause) and the reviewer's independent logs incl. the mutation battery, in the
+  session workspace; both agents' full reports.
+
+**Correction to §5b's record (2026-08-26, evidence classification):** §5b's battery
+line "one composed seeded `api` run green under the M5-000a sequencer" is corrected:
+the run was invoked through `--filter @schedulepoint/api`, which makes the api config
+the root, where the canonical sequencer is never installed — and the run's own
+recorded banner (`Running tests with seed "20260826"`, vitest's own, printed only for
+its RandomSequencer) proves the stock sequencer was active. The run was a genuine
+seeded, shuffled, GREEN 144-file run and its evidential value as an order-space
+sample stands; the phrase "under the M5-000a sequencer" does not, and the
+canonical-sequencer/replay-key properties rest on M5-000a's direct proofs, which are
+unaffected. Found at M5-001 (the invocation-form finding); the correct spelling is
+recorded above.
+
 | 2 | **M5-002 — approvals** | Individual + batch approval/denial/comments (§4); over-quota advisory + audited override (R-06/R-07); D-21 last-unit race (R-05); reversal floor (R-08); quota CHECK integrity (R-20/R-21); approval idempotency (R-17/R-18/R-19) | M5-001 |
 | H | **M5-H — hygiene batch** | FU-06/07/08/13 (+FU-04 if not yet touched) | after M5-002, issues alone |
 | 3 | **M5-003 — vacation** | Grants/selections + quota vs open modes (§5, R-13, R-16); §5.3 status-mapping invariant (R-15); variance display; selection UX | M5-001 |
