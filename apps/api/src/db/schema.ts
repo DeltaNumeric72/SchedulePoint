@@ -1311,6 +1311,32 @@ export interface VacationApprovalCommandsTable {
   created_at: Generated<Date>;
 }
 
+/**
+ * §4's decision record (OPUS-M5-002, migration 0024).
+ *
+ * **No column of this table is ever updated**, and the type does not mark any of
+ * them mutable-by-convention because the privilege does not exist: no runtime
+ * role holds UPDATE or DELETE on `approvals`. A reversal is a SECOND row naming
+ * the first through `supersedes_approval_id`.
+ *
+ * `reason` is scheduler-authored bounded free text and never leaves this row for
+ * an audit payload, an outbox payload or a notification (I-07, ADR-0019).
+ */
+export interface ApprovalsTable {
+  id: Generated<string>;
+  organization_id: string;
+  group_id: string;
+  request_id: string;
+  decision: 'approved' | 'denied' | 'reversed';
+  decided_by: string;
+  decided_at: Generated<Date>;
+  reason: string | null;
+  is_override: Generated<boolean>;
+  vacation_selection_id: string | null;
+  supersedes_approval_id: string | null;
+  created_at: Generated<Date>;
+}
+
 export interface Database {
   organizations: OrganizationsTable;
   groups: GroupsTable;
@@ -1375,6 +1401,9 @@ export interface Database {
   vacation_grants: VacationGrantsTable;
   vacation_selections: VacationSelectionsTable;
   vacation_approval_commands: VacationApprovalCommandsTable;
+
+  /* OPUS-M5-002 — migration 0024 (SPEC-08 §4). */
+  approvals: ApprovalsTable;
 }
 
 /**
@@ -1747,4 +1776,11 @@ export const TENANT_TABLES: readonly TenantTable[] = [
   { name: 'vacation_grants', scope: 'organization-and-group' },
   { name: 'vacation_selections', scope: 'organization-and-group' },
   { name: 'vacation_approval_commands', scope: 'organization-and-group' },
+
+  /* OPUS-M5-002 — migration 0024 (SPEC-08 §4). `SENSITIVE-PII` by inheritance:
+   * a decision is about a request, and doc 06 §3.4 classifies the request. Its
+   * three policy arms are the narrowed ones from the start — the own-arm is
+   * `FOR SELECT` where `requests_own` is `FOR ALL`, because deciding is not a
+   * self-scoped act. */
+  { name: 'approvals', scope: 'organization-and-group' },
 ] as const;

@@ -607,3 +607,327 @@ export const vacationApprovalCommandSchema = z
   })
   .strict();
 export type VacationApprovalCommandWire = z.infer<typeof vacationApprovalCommandSchema>;
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * OPUS-M5-002 — §4's decisions, and §5.4's vacation approval
+ *
+ * The `approve`/`deny` bodies this file's header said "have no HTTP boundary
+ * yet". They have one now, and the header's REASON for the absence is what these
+ * shapes satisfy: there is still no `setStatus` and no `{ from, to }`. A decision
+ * body names the DECISION and the version it expects, and the server derives the
+ * status path from §2's matrix — a body that carried a target status would be a
+ * way to move a request without consulting it.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * §4's decision reason — scheduler-authored bounded free text.
+ *
+ * The same class and the same bound as `overrideReason` above and
+ * `changeSummary` on a schedule version. **It is stored on the decision row and
+ * goes nowhere else**: not into an audit payload, not into an outbox payload, not
+ * into a notification (I-07, ADR-0019, non-bypass rules 8 and 9). The closed
+ * payload rule would reject it anyway — a payload string may not contain a space
+ * — which is a property the api suite proves in both layers rather than a promise
+ * made here.
+ *
+ * It is not an ingestion path and it is not clinical. `.min(1)` after trimming is
+ * migration 0024's `length(btrim(reason)) BETWEEN 1 AND 1000` on the wire, so a
+ * reason of pure whitespace is refused before it reaches a constraint.
+ */
+export const decisionReasonSchema = z
+  .string()
+  .trim()
+  .min(1, 'a decision reason says something')
+  .max(1000, 'a decision reason is at most 1000 characters');
+
+/**
+ * What a client sends to APPROVE one request.
+ *
+ * `expectedVersion` and nothing else. §4: "conditional update on
+ * `expected_version`; **first decision wins**, the second gets an explicit
+ * conflict — never a silent overwrite."
+ *
+ * **There is deliberately no `reason`**, and the absence is the rule rather than
+ * an omission: §4 makes a reason mandatory on a DENIAL and §5.5 on an override,
+ * and neither asks for one on an ordinary approval. An optional note here would
+ * be new bounded free text on a `SENSITIVE-PII` aggregate that no specification
+ * asks for, and migration 0024's CHECK refuses it in that direction too.
+ */
+export const approveRequestSchema = z
+  .object({
+    expectedVersion: z.number().int().positive(),
+  })
+  .strict();
+export type ApproveRequest = z.infer<typeof approveRequestSchema>;
+
+/**
+ * What a client sends to DENY one request — the version, and the MANDATORY
+ * reason (§4).
+ *
+ * §4's other sentence is what makes this the administrator's only way to end
+ * somebody else's request: "an administrator 'withdrawing' for someone is a
+ * **denial with a reason**, recorded as such". `requests.own.withdraw` carries no
+ * ownership override precisely so that this is the only door.
+ */
+export const denyRequestSchema = z
+  .object({
+    expectedVersion: z.number().int().positive(),
+    reason: decisionReasonSchema,
+  })
+  .strict();
+export type DenyRequest = z.infer<typeof denyRequestSchema>;
+
+/**
+ * What a client sends to REVERSE an approval (§4's reversal row).
+ *
+ * A reason is mandatory here for the reason it is mandatory on a denial: this
+ * takes back something a person was told they had. The prior decision is not
+ * named in the body — the server finds it, because a client naming which decision
+ * it believes it is reversing would be a client that could name the wrong one.
+ */
+export const reverseDecisionSchema = z
+  .object({
+    expectedVersion: z.number().int().positive(),
+    reason: decisionReasonSchema,
+  })
+  .strict();
+export type ReverseDecision = z.infer<typeof reverseDecisionSchema>;
+
+/** One decision, as a client reads it back. §4's history is a list of these. */
+export const approvalSchema = z
+  .object({
+    id: uuidSchema,
+    requestId: uuidSchema,
+    decision: z.enum(['approved', 'denied', 'reversed']),
+    decidedBy: uuidSchema,
+    decidedAt: z.string().datetime(),
+    /** Present exactly when §4 or §5.5 makes it mandatory. */
+    reason: z.string().min(1).max(1000).nullable(),
+    isOverride: z.boolean(),
+    vacationSelectionId: uuidSchema.nullable(),
+    /** A reversal names what it reverses; nothing else does. */
+    supersedesApprovalId: uuidSchema.nullable(),
+  })
+  .strict();
+export type ApprovalWire = z.infer<typeof approvalSchema>;
+
+/** What a single decision returns. */
+export const decisionResultSchema = z
+  .object({
+    requestId: uuidSchema,
+    decision: z.enum(['approved', 'denied', 'reversed']),
+    status: requestStatusSchema,
+    version: z.number().int().positive(),
+    approvalId: uuidSchema,
+  })
+  .strict();
+export type DecisionResultWire = z.infer<typeof decisionResultSchema>;
+
+/**
+ * The refusal for a decision that could not be made.
+ *
+ * A closed `code`, because a caller must be able to branch. `VERSION_CONFLICT` is
+ * §4's loser and means reload-and-retry; `REQUEST_OPERATION_ILLEGAL` means
+ * somebody already decided this and there is nothing to retry;
+ * `DECISION_REASON_REQUIRED` means the body was incomplete; and
+ * `SUBTYPE_NOT_DECIDABLE` means the request is decided somewhere else — a shift
+ * preference is never approved at all (§2.1), and a vacation selection goes
+ * through §5.4's transaction (§5.3's one writer).
+ */
+export const decisionRefusalBodySchema = z
+  .object({
+    error: z
+      .object({
+        code: z.enum([
+          'VERSION_CONFLICT',
+          'REQUEST_OPERATION_ILLEGAL',
+          'DECISION_REASON_REQUIRED',
+          'SUBTYPE_NOT_DECIDABLE',
+        ]),
+        message: z.string().min(1),
+        correlationId: z.string().min(1),
+      })
+      .strict(),
+  })
+  .strict();
+export type DecisionRefusalBody = z.infer<typeof decisionRefusalBodySchema>;
+
+/* ── the batch ──────────────────────────────────────────────────────────────── */
+
+/**
+ * What a client sends to decide MANY requests at once.
+ *
+ * One `decision` and one `reason` for the whole batch, and a list of
+ * `(requestId, expectedVersion)` pairs. Per-item reasons are deliberately not
+ * offered: a scheduler denying twenty requests has ONE reason, and twenty boxes
+ * get filled with the same sentence or with nothing. The one reason is stored on
+ * every one of the twenty decision rows, so each still carries its explanation
+ * when read back alone.
+ *
+ * The bound is 100, matching `DECISION_BATCH_MAX_ITEMS`. A batch decision is ONE
+ * user action (I-10), and the bound keeps one action from holding row locks
+ * proportional to how many rows somebody selected.
+ */
+export const batchDecisionSchema = z
+  .object({
+    decision: z.enum(['approved', 'denied']),
+    reason: decisionReasonSchema.nullable().default(null),
+    items: z
+      .array(
+        z
+          .object({
+            requestId: uuidSchema,
+            expectedVersion: z.number().int().positive(),
+          })
+          .strict(),
+      )
+      .min(1, 'a batch decides at least one request')
+      .max(100, 'a batch decides at most 100 requests'),
+  })
+  .strict();
+export type BatchDecision = z.infer<typeof batchDecisionSchema>;
+
+/**
+ * The batch's answer: **one outcome per item, in the order sent**.
+ *
+ * A partial failure is per-item and never all-or-nothing silent (doc 42 §5d Part
+ * C). The union is discriminated on `ok`, so a client cannot read a `version` off
+ * a failed item, and `failure` is a closed vocabulary rather than a message.
+ */
+export const decisionItemOutcomeSchema = z.union([
+  z
+    .object({
+      requestId: uuidSchema,
+      ok: z.literal(true),
+      decision: z.enum(['approved', 'denied', 'reversed']),
+      status: requestStatusSchema,
+      version: z.number().int().positive(),
+    })
+    .strict(),
+  z
+    .object({
+      requestId: uuidSchema,
+      ok: z.literal(false),
+      failure: z.enum([
+        'not-found',
+        'illegal-operation',
+        'version-conflict',
+        'reason-required',
+        'subtype-not-decidable-here',
+      ]),
+    })
+    .strict(),
+]);
+export type DecisionItemOutcomeWire = z.infer<typeof decisionItemOutcomeSchema>;
+
+export const batchDecisionResultSchema = z
+  .object({ outcomes: z.array(decisionItemOutcomeSchema) })
+  .strict();
+export type BatchDecisionResult = z.infer<typeof batchDecisionResultSchema>;
+
+/* ── the queue and the detail read ──────────────────────────────────────────── */
+
+/** The scheduler's pending-review queue — requests plus their decision history. */
+export const requestQueueSchema = z.object({ requests: z.array(requestSchema) }).strict();
+export type RequestQueue = z.infer<typeof requestQueueSchema>;
+
+/**
+ * One request in full, as the queue's detail read returns it: the aggregate, its
+ * subtype record, and every decision ever made about it.
+ *
+ * The history is a LIST because §4's reversal is "a new `approvals` record; the
+ * prior decision is never overwritten" — a single `decision` field would be the
+ * shape that sentence forbids.
+ */
+export const requestDetailSchema = z
+  .object({
+    request: requestSchema,
+    approvals: z.array(approvalSchema),
+  })
+  .strict();
+export type RequestDetail = z.infer<typeof requestDetailSchema>;
+
+/* ── §5.4's vacation decision ───────────────────────────────────────────────── */
+
+/**
+ * What a client sends to APPROVE a vacation selection (§5.4).
+ *
+ * Four fields, and each one is an amendment's fix:
+ *
+ *  * `approvalIdempotencyKey` — **D-26** (V-29). Approval had no key at all;
+ *    `commitIdempotencyKey` covers COMMIT. Without it a retry consumed a second
+ *    quota unit.
+ *  * `expectedSelectionVersion` — **V-29**. The version §5.4 checked was the
+ *    GRANT's, so the selection update ran unguarded.
+ *  * `grantId` / `expectedGrantVersion` — optional, per §5.4's own signature.
+ *    Absent in `open` mode, where there are no grants at all (V-30), and
+ *    resolvable by the server in quota mode.
+ *  * `overrideReason` — §5.5's MANDATORY reason when the approval exceeds the
+ *    bound. Supplying it does not authorise anything: the override capability is
+ *    evaluated server-side inside the transaction, and without it the approval is
+ *    refused (R-06) whatever the body says.
+ */
+export const approveVacationSelectionSchema = z
+  .object({
+    approvalIdempotencyKey: idempotencyKeySchema,
+    expectedSelectionVersion: z.number().int().positive(),
+    grantId: uuidSchema.optional(),
+    expectedGrantVersion: z.number().int().positive().optional(),
+    overrideReason: decisionReasonSchema.optional(),
+  })
+  .strict();
+export type ApproveVacationSelection = z.infer<typeof approveVacationSelectionSchema>;
+
+/** What a client sends to DENY a vacation selection. A denial consumes nothing. */
+export const denyVacationSelectionSchema = z
+  .object({
+    approvalIdempotencyKey: idempotencyKeySchema,
+    expectedSelectionVersion: z.number().int().positive(),
+    reason: decisionReasonSchema,
+  })
+  .strict();
+export type DenyVacationSelection = z.infer<typeof denyVacationSelectionSchema>;
+
+/** What a vacation decision returns. `replayed` is D-26 answering (R-17). */
+export const vacationDecisionResultSchema = z
+  .object({
+    selectionId: uuidSchema,
+    requestId: uuidSchema,
+    outcome: vacationApprovalOutcomeSchema,
+    selectionVersion: z.number().int().positive(),
+    /** Null in open mode — V-30's recorded fact, not a missing one. */
+    grantId: uuidSchema.nullable(),
+    isOverride: z.boolean(),
+    /** D-26 stopped this at step 0: nothing consumed, nothing emitted. */
+    replayed: z.boolean(),
+  })
+  .strict();
+export type VacationDecisionResultWire = z.infer<typeof vacationDecisionResultSchema>;
+
+/**
+ * §5.4/§5.5's refusals, as a closed `code`.
+ *
+ * Each one has a different remedy, which is why they are not one message:
+ * `QUOTA_EXHAUSTED` means there is nothing to retry (R-05's loser),
+ * `VERSION_CONFLICT` means reload, `SELECTION_NOT_PENDING` means somebody already
+ * decided it (R-18/R-19), `OVERRIDE_REQUIRED` means this actor may not exceed the
+ * quota (R-06), and `OVERRIDE_REASON_REQUIRED` means they may but did not say why.
+ */
+export const vacationDecisionRefusalBodySchema = z
+  .object({
+    error: z
+      .object({
+        code: z.enum([
+          'QUOTA_EXHAUSTED',
+          'VERSION_CONFLICT',
+          'SELECTION_NOT_PENDING',
+          'OVERRIDE_REQUIRED',
+          'OVERRIDE_REASON_REQUIRED',
+        ]),
+        message: z.string().min(1),
+        correlationId: z.string().min(1),
+      })
+      .strict(),
+  })
+  .strict();
+export type VacationDecisionRefusalBody = z.infer<typeof vacationDecisionRefusalBodySchema>;

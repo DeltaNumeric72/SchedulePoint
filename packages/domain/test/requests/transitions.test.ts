@@ -12,6 +12,7 @@ import {
   isLegalInitialStatus,
   legalTransitionsFrom,
   operationIsLegal,
+  operationStatusPath,
   operationVerdict,
   transitionIsLegal,
   withdrawalRequiresRevision,
@@ -391,11 +392,37 @@ describe('R-01 — the (subtype × status × operation) cross-product', () => {
           if (verdict.allowed) {
             allowed += 1;
             /* A permitted operation must land somewhere §2 actually permits —
-             * so the operation layer cannot invent an edge the matrix lacks. */
-            expect(
-              transitionIsLegal(subtype, status, verdict.to),
-              `${subtype}/${status}/${operation} → ${verdict.to} is not in §2`,
-            ).toBe(true);
+             * so the operation layer cannot invent an edge the matrix lacks.
+             *
+             * ── OPUS-M5-002: this assertion was `transitionIsLegal(subtype,
+             * status, verdict.to)`, a ONE-EDGE check, and it is replaced by a
+             * PATH check. The replacement is strictly stronger, and the reason it
+             * is needed is M5-000b finding #1.
+             *
+             * Until this packet every operation was one edge, so the endpoint and
+             * the edge were the same question. §4's decision is TWO: §2 carries no
+             * `submitted → approved` cell for any subtype, so an approval from
+             * `submitted` walks `submitted → under_review → approved` inside one
+             * transaction. Against the old assertion a CORRECT implementation
+             * fails, because the endpoint is genuinely not one edge away.
+             *
+             * The new assertion keeps the old one's meaning and adds to it: every
+             * HOP must be in §2 (so no edge can be invented, exactly as before)
+             * AND the walk must end at the verdict's target (so no intermediate
+             * can be invented either, which the one-edge check never asked). */
+            const path = operationStatusPath(subtype, status, operation);
+            expect(path, `${subtype}/${status}/${operation} has no §2 path`).not.toBeNull();
+            let cursor = status;
+            for (const hop of path ?? []) {
+              expect(
+                transitionIsLegal(subtype, cursor, hop),
+                `${subtype}/${status}/${operation}: ${cursor} → ${hop} is not in §2`,
+              ).toBe(true);
+              cursor = hop;
+            }
+            expect(cursor, `${subtype}/${status}/${operation} must END at its target`).toBe(
+              verdict.to,
+            );
           } else {
             refused += 1;
             expect(verdict.reason).toBeTruthy();

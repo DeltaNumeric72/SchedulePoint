@@ -344,7 +344,7 @@ beforeAll(async () => {
   log(
     `      · OPUS-M5-000b: seeded ${String(
       seededRequests.reduce((total, one) => total + one.requests, 0),
-    )} request(s) across three groups for SBX-004 — ten tables, sweep floor raised 54 -> 64` +
+    )} request(s) across three groups for SBX-004 — eleven tables, sweep floor raised 54 -> 65` +
       ` (shift preference in ${String(
         seededRequests.filter((one) => one.shiftPreference).length,
       )}, shift-group-off in ${String(
@@ -874,7 +874,14 @@ describe('the G-ARCH tenancy subset', () => {
     // The two-counts note above still holds unchanged: `users` is the one
     // `through-membership` table and gets its own dedicated probe, so the
     // runner's sweep line reads one less than this registry length.
-    expect(expectedTables.length, 'the tenant registry shrank').toBeGreaterThanOrEqual(64);
+    //
+    // 64 -> 65 by OPUS-M5-002: migration 0024 adds `approvals`, SPEC-08 §4's
+    // decision record, kept non-vacuous by the same `seedRequestsForSweep` — which
+    // now walks a fifth request through the BINDING two-step and records the
+    // decision, so the seeded row is one a production writer could have produced.
+    // The floor rises for the reason it always rises: a floor that lags the
+    // registry stops noticing a removal, which is the only thing it is for.
+    expect(expectedTables.length, 'the tenant registry shrank').toBeGreaterThanOrEqual(65);
     expect(
       [...(sweep?.tables ?? [])].sort(),
       `tables exercised: ${sweep?.tables.join(', ')}`,

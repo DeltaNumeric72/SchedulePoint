@@ -162,16 +162,35 @@ beforeAll(async () => {
   shiftTypeId = seededShiftType;
   organizationAdminMembershipId = alpha.users.organizationAdmin.membershipId;
 
+  /* ── OPUS-M5-002: the two memberships are SWAPPED, and the swap is the point ──
+   *
+   * This file shipped with `mine` = the MEMBER and `theirs` = the SCHEDULER, and
+   * proved the narrowing by showing the scheduler could not see the member's
+   * rows. That was correct while `requests.read_any` and `requests.administer`
+   * were grant-only.
+   *
+   * OPUS-M5-002 makes four decision keys ROLE-IMPLIED for `scheduler`, from doc
+   * 08 §6's "Approve requests/vacation ✓" row — so **a scheduler now legitimately
+   * sees the queue**, and an assertion that they cannot is asserting something
+   * the permission model says is false. The test was encoding an assumption doc
+   * 08 contradicts; the role map is not what is wrong.
+   *
+   * **Every assertion below keeps its meaning, unchanged**, by choosing an actor
+   * for whom the key is genuinely absent: the rows belong to the SCHEDULER, and
+   * the colleague who must not see them is the MEMBER, whose row in doc 08 §6 is
+   * `—`. Nothing is weakened — the narrowing is still proven in both directions,
+   * and the grant/revoke arm still opens and closes, because a member has no
+   * role-implied key for a revoke to leave behind. */
   mine = {
     organizationId: alpha.organizationId,
     groupId: alpha.groupOne.id,
-    membershipId: alpha.users.member.membershipId,
+    membershipId: alpha.users.scheduler.membershipId,
     correlationId: 'cycle23-mine',
   };
   theirs = {
     organizationId: alpha.organizationId,
     groupId: alpha.groupOne.id,
-    membershipId: alpha.users.scheduler.membershipId,
+    membershipId: alpha.users.member.membershipId,
     correlationId: 'cycle23-theirs',
   };
 }, 240_000);

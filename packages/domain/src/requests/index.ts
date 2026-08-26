@@ -65,6 +65,8 @@ export {
 } from './records.js';
 
 export type {
+  Approval,
+  NewApproval,
   NewRequest,
   NewVacationSelection,
   RequestStore,
@@ -115,12 +117,52 @@ export {
 } from './deadlines.js';
 
 export {
+  DECIDABLE_FROM_STATUSES,
+  DECIDABLE_SUBTYPES,
   REQUEST_OPERATIONS,
   REQUEST_REFUSAL_REASONS,
+  decisionStatusPath,
   operationIsLegal,
+  operationStatusPath,
   operationVerdict,
   withdrawalRequiresRevision,
   type OperationVerdict,
   type RequestOperation,
   type RequestRefusalReason,
 } from './lifecycle.js';
+
+/* ── OPUS-M5-002 — §4's decisions and §5.4/§5.5's vacation transaction ───────
+ *
+ * The two modules below are what `./lifecycle.ts` and `./port.ts` recorded as
+ * M5-002's: "approve · deny · batch · the §5.4 `APPROVE-VACATION` transaction".
+ * They are pure for the same reason everything else in this directory is —
+ * `packages/domain` imports NOTHING — so `./vacation-approval.ts` carries D-21's
+ * bound as a predicate and the two-step as a constant, while the transaction
+ * that walks them lives in `apps/api`. */
+
+export {
+  DECISION_BATCH_MAX_ITEMS,
+  DECISION_ITEM_FAILURES,
+  DECISION_REASON_MAX_LENGTH,
+  REQUEST_DECISIONS,
+  decisionReasonIsWellFormed,
+  decisionRequiresReason,
+  type DecisionAuditFacts,
+  type DecisionItemFailure,
+  type DecisionItemOutcome,
+  type RequestDecision,
+} from './decisions.js';
+
+export {
+  VACATION_APPROVAL_FAILURES,
+  VACATION_APPROVAL_ROOT_PATH,
+  VACATION_DENIAL_ROOT_PATH,
+  approvalConsumesQuota,
+  countersAfterReversal,
+  grantBound,
+  grantHasHeadroom,
+  overrideUnitsNeeded,
+  reversalKeepsFloor,
+  type GrantCounters,
+  type VacationApprovalFailure,
+} from './vacation-approval.js';

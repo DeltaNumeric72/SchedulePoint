@@ -938,10 +938,37 @@ describe('X-11 — a subtype-table key is not a cross-tenant existence oracle', 
     );
     expect(visible.rows[0]?.n, 'the foreign request must be invisible to this tenant').toBe('0');
 
+    /* ── OPUS-M5-002: the attempts run as the MEMBER, not this file's scheduler ──
+     *
+     * The class asserted below is `42501` — row security refusing the statement
+     * before the foreign key is consulted — and that is a claim about a caller
+     * who **cannot see** the candidate row. OPUS-M5-002 makes
+     * `requests.administer` role-implied for `scheduler` (doc 08 §6's "Approve
+     * requests/vacation ✓"), so this file's own actor now legitimately passes
+     * `request_availability_group_administration` and reaches the foreign key —
+     * `23503`, which is a DIFFERENT true statement about a different caller.
+     *
+     * **The X-11 property is untouched and the assertion that carries it is
+     * untouched**: both candidates still produce the same error either way. What
+     * changes is only WHOSE refusal the class names, so the case now names an
+     * actor for whom the narrowing is the operative control. The member holds no
+     * request key — doc 08 §6 marks their cell `—` — which is exactly the caller
+     * X-11 is about. */
+    const asMember = <T>(body: (uow: PgUnitOfWork) => Promise<T>): Promise<T> =>
+      runtime.runner.run(
+        {
+          organizationId: context.organizationId,
+          groupId: context.groupId,
+          membershipId: multi().alpha.users.member.membershipId,
+          correlationId: 'requests-migration-0021-cycle-x11',
+        },
+        body,
+      );
+
     /** The error class Alpha gets for naming `candidate` in its OWN tenant. */
     const attemptWith = async (candidate: string): Promise<{ code: unknown }> => {
       try {
-        await run(
+        await asMember(
           async ({ query }) =>
             await sql`
               insert into request_availability (request_id, organization_id, group_id, target_date)

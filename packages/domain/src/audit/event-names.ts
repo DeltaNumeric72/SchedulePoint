@@ -422,6 +422,46 @@ export const AUDIT_EVENT_NAMES = [
   'requests.request.expired',
   /** R-10: a withdrawal after `reflected_in_version` asked for a schedule revision. */
   'requests.request.revision_requested',
+
+  /* ── OPUS-M5-002 (SPEC-08 §4, §5.4/§5.5) — the DECISIONS ────────────────────
+   *
+   * Four names, and the same rule that produced four for M5-001's three
+   * operations: **a name per act somebody takes responsibility for.**
+   *
+   * `approved` and `denied` are separate names rather than one
+   * `requests.request.decided` carrying the outcome in its payload, because "how
+   * many requests were denied in this period, and by whom" is a question a
+   * scheduling dispute asks directly and a payload scan answers badly. The same
+   * reasoning that gave `build.run.cancelled` its own name beside
+   * `build.run.state_changed`.
+   *
+   * `requests.request.decision_reversed` is §4's reversal — a decision taken
+   * back. Its own name because it is the one decision event that means somebody
+   * was told they had something and no longer has it.
+   *
+   * `requests.vacation_selection.approved` is filed separately from
+   * `requests.request.approved` because the two acts are materially different:
+   * one consumes a quota unit under D-21 and may raise an audited bound, the
+   * other does not. Collapsing them would make "which approvals consumed quota"
+   * unanswerable without joining. The DENIAL of a vacation selection produces
+   * `requests.request.denied` on the root, because a denial consumes nothing and
+   * a second name would be a distinction with no fact behind it.
+   *
+   * **No payload here carries a reason** (I-07, ADR-0019, non-bypass rule 9).
+   * §4's denial reason and §5.5's override reason are bounded free text on their
+   * own rows and stay there; the payload validator would refuse them anyway,
+   * which `apps/api/test/requests/decision-reason-closure.test.ts` proves in both
+   * layers rather than asserting here. What these payloads carry is
+   * `DecisionAuditFacts` — ids, subtypes and statuses, all tokens. */
+
+  /** §4: a scheduler approved a request. `under_review → approved`, the two-step's end. */
+  'requests.request.approved',
+  /** §4: a scheduler denied a request, with the mandatory reason recorded on the decision row. */
+  'requests.request.denied',
+  /** §4: an approval was reversed — a NEW approvals record; the prior decision stands. */
+  'requests.request.decision_reversed',
+  /** §5.4: an approval that consumed a quota unit (or, audited, raised the bound). */
+  'requests.vacation_selection.approved',
 ] as const;
 
 export type AuditEventName = (typeof AUDIT_EVENT_NAMES)[number];
