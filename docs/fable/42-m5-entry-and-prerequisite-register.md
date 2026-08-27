@@ -1195,6 +1195,122 @@ now three surfaces wide. Registered rather than fixed here: the barrel is a
 shared control and the M5-H precedent routes shared-control changes through
 their own packet.
 
+### 5h. M5-004 — FINALIZED 2026-08-27 (issues against `origin/main` at `6769319`, the PR #13 merge)
+
+**Scope: SPEC-08 §5.6 commit and reversal, the §6 solver projection, and their
+integration with the M4 build pipeline.** The two questions this packet has owed
+since M5-000b/M5-001 are ruled here (FAD-59, FAD-60, both recorded in
+ARCHITECTURE-DECISIONS at this finalization); the packet implements the rulings,
+never re-litigates them, and ESCALATES if SPEC-08's text cannot be satisfied
+within them. API/store/solver-input only — UI surfaces (including the graduated
+confirmation SURFACE) are M5-005's; this packet ships reversal's API half: the
+override capability, the mandatory reason, and the named refusal without both.
+
+**FAD-59 (the D-23 enforcing shape — answers M5-000b finding (2), "D-23 is
+vacuous as spelled"):** commit idempotency is enforced by a COMMIT-COMMAND
+LEDGER, the D-26/R-17 recorded-outcome pattern lifted from approvals to the
+version level. A new migration (0027) adds the ledger table: one row per commit
+command — organization, period, target DRAFT version, acting membership,
+instant, outcome — UNIQUE on `(organization_id, idempotency_key)`, append-only
+by privilege (GRANT SELECT, INSERT and nothing else; the
+`approvals`/`request_comments` pattern), organization-scoped RLS in the same
+migration, X-11-conformant keys. The ledger row, the OFF assignment snapshots,
+and the selection updates commit in ONE transaction; a replayed command key
+returns the recorded outcome (R-12) and writes nothing. The per-selection half
+of D-23 is the §5.3 matrix itself: `approved → committed` is the only edge that
+writes `committed_to_version_id` (double-enforced per R-01, so a second commit
+of a committed selection is an illegal transition in BOTH layers), plus a CHECK
+making `(status = 'committed') = (committed_to_version_id IS NOT NULL)` — the
+`vacation_selections.request_id` CHECK precedent. D-23's original spelled form
+stays in SPEC-08 unedited; 0027's header records this FAD as the enforcing
+shape, superseding the in-migration honesty statement that the spelled form
+enforces nothing.
+
+**FAD-60 (the preference-strength→weight mapping — answers the M5-000b
+declared-latitude note, "a real decision, not an identity"):** the projection
+NEVER routes `REQUEST_PREFERENCE_STRENGTHS` (`low|medium|high`, unsigned — a
+request states a preference FOR its named shift type) through the rules AST's
+four-value SIGNED vocabulary (`strong_prefer|prefer|avoid|strong_avoid`,
+`packages/domain/src/rules/ast.ts:33`): three unsigned values onto a two-value
+positive arm is lossy, and the avoid arm is UNREACHABLE from a request by
+construction — a mapping that could express it would manufacture a hostile
+preference no one stated. Instead §6's `SoftPreference` row carries the
+request's own three-value strength VERBATIM, and the solver-side objective maps
+it by a TOTAL, STRICTLY MONOTONE, positive weight table recorded in the
+projection module's header and pinned by test (totality over the closed set;
+strict ordering low < medium < high; positivity). The exact weight values are
+declared latitude for the implementer AGAINST doc 08's objective-term structure
+(verify against the file, never from this text — the FU-28 rule); the
+monotonicity and unreachability-of-avoid properties are NOT latitude.
+
+**The packet:**
+- **Commit (§5.6, doc 09 §2.3 — "the most consequential operation in this
+  domain"):** in one transaction against a DRAFT version (SPEC-05; committing
+  to a published version is refused by name — I-18, rule 5): create the OFF
+  assignment snapshots, mark selections `committed` with
+  `committed_to_version_id`, write the FAD-59 ledger row, audit, enqueue outbox
+  events (I-11: a notification failure never rolls back the commit; SPEC-07
+  payload closure — no reason text in any payload). Quota accounting is
+  UNTOUCHED by commit (consumption happened at approval; M5-002's).
+  Re-validation at commit per I-19: selection still `approved`, version still
+  draft, period/mode state admits commitment — the request-until gate's
+  commit-side reading is derived from SPEC-08 §3 + doc 09 §2.3 at
+  implementation; if those texts do not force a reading, ESCALATE, never
+  assume.
+- **Reversal (§5.6):** `committed → reversed`, override capability + mandatory
+  bounded reason (the administrative bounded-text class; kept out of audit
+  payloads/outbox/logs per I-07 rule 9), decrements `units_consumed` — and
+  `override_units` TOGETHER when reversing an override (R-20's write path;
+  M5-000b's proof carries) — respecting the floor (R-08), marks the selection
+  `reversed`, and RAISES A REVISION REQUEST against the schedule rather than
+  editing any published version (I-18; rule 5). Reversal's quota release
+  composes with `releaseGrantUnits` (first production caller was M5-003's J1
+  per the §5d dated correction; this packet adds the reversal caller). Open
+  mode: no grant row, release is a no-op by the same mode branch as §5.4.
+- **Commit and reverse are REQUEST OPERATIONS** (status-moving — unlike
+  M5-00C's comments, by D-1's own criterion): they join `REQUEST_OPERATIONS`
+  and the R-01 cross-product in BOTH layers, with the by-name pin and
+  agreement tests extended and the D-1 byte-identical-root proof updated.
+- **The §6 solver projection:** the four projection rows built EXACTLY per the
+  amended table (`reflected_in_version` INCLUDED per V-31; committed vacation
+  in `HardOff`), the exhaustive never-enters list asserted status-by-status
+  against §2's full set, `SoftPreference` per FAD-60, and the projection
+  emitted into the pinned `solver_inputs` snapshot (M4's pipeline — the solver
+  reads the projection, never the raw tables). R-14: on a REBUILD of the same
+  period, a time-off request already honoured in a published version is still
+  `HardOff` — proven with a real build-pipeline rebuild, not a unit stub.
+- **Routes + policies:** commit, reverse (and any read this surface forces)
+  under four-layer policies, deny-by-default, CAP-023 traceability; these are
+  scheduler/administrative operations — NOT own-scoped; the by-id-write
+  structural test still re-derives its set from the route table.
+
+**Constraints carried:** additive migrations only (0021–0026 untouched);
+0027's populated cycle with the `-- Up Migration` marker; every store port
+takes the unit of work; no capability baseline change; audit event names per
+the M5-002 naming rule; reason bodies never in audit payloads, outbox rows, or
+logs; the §5e/§5f/§5g environment discipline binds in full (tree gate + debris
++ FU-30 in-place sweep; restore ADDED files by cp + recorded md5;
+`SP_SOLVER_WORKER_COMMAND` set for every gate run; solver venv provisioned
+before any solver-touching leg — the M5-000b lesson: solver tests do NOT
+self-skip).
+
+**Acceptance battery:** the standing battery (§6 below) · the SPEC-08 §7 rows
+this packet owns: R-12 (replayed commit, one commit, recorded outcome), R-14
+(the rebuild HardOff invariant on a real rebuild), R-08/R-20 on the reversal
+path, R-10's composition where reversal raises the revision request · the
+projection's never-enters list proven exhaustively · red cases at census 69+
+under the four-conjunct bar (reasoning written either way; the FAD-59 ledger's
+append-only privilege and the published-version commit refusal are candidate
+arms — argue them against the bar, do not assume) · one composed seeded `api`
+run at a fresh seed with the invocation of record (two-attempt cap; base-tree
+replication for any pre-existing failure; FU-32's file is KNOWN
+order-dependent — a failure there replicates on base by expectation: verify
+and cite, do not re-diagnose) · CI 15/15 before merge. Delivery: worktree +
+patch from `6769319`; fresh Opus implementer; fresh Opus reviewer; delta by
+the reviewer; orchestrator lands on PR #14.
+
+## 6. Standing acceptance battery (every packet, per 24 §G and the M4 form)
+
 Validators (36/36 · 95/95 · research PASS) · `corepack pnpm check` 17/17 · the full
 red-case battery at the current census · targeted fixture-regression where the packet
 touches suite composition · migration schema cycle + a populated cycle for every new
