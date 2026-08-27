@@ -85,6 +85,8 @@ import { buildServer } from '../../src/http/server.js';
 
 const BASE = '/organizations/:organizationId/groups/:groupId/requests';
 const VACATION_BASE = '/organizations/:organizationId/groups/:groupId/vacation/selections';
+/** OPUS-M5-003's member-facing half of the same surface. */
+const VACATION_ROUNDS = '/organizations/:organizationId/groups/:groupId/vacation/rounds';
 
 /** M5-001's four. Self-scoped, and every M5-001 assertion still runs over these. */
 const OWN_ROUTES = [
@@ -106,11 +108,28 @@ const SCHEDULER_ROUTES = [
 
 const EXPECTED = [...OWN_ROUTES, ...SCHEDULER_ROUTES];
 
-/** The vacation decision surface — §5.4/§5.5's two routes, in their own file. */
-const EXPECTED_VACATION = [
+/** The vacation DECISION surface — §5.4/§5.5's two routes. NOT self-scoped. */
+const VACATION_DECISION_ROUTES = [
   { method: 'POST', url: `${VACATION_BASE}/:selectionId/approve`, key: 'requests.approve' },
   { method: 'POST', url: `${VACATION_BASE}/:selectionId/deny`, key: 'requests.deny' },
 ] as const;
+
+/**
+ * The vacation MEMBER surface — OPUS-M5-003's three. Self-scoped, exactly as
+ * M5-001's four are, and asserted against the same `OWN_ROUTES` properties: the
+ * §5f half of doc 08 §6's "Submit requests/**vacation**" row is the same row.
+ */
+const VACATION_OWN_ROUTES = [
+  { method: 'GET', url: VACATION_ROUNDS, key: 'requests.own.read' },
+  { method: 'GET', url: `${VACATION_ROUNDS}/:periodId`, key: 'requests.own.read' },
+  {
+    method: 'POST',
+    url: `${VACATION_BASE}/:selectionId/withdraw`,
+    key: 'requests.own.withdraw',
+  },
+] as const;
+
+const EXPECTED_VACATION = [...VACATION_DECISION_ROUTES, ...VACATION_OWN_ROUTES];
 
 let app: FastifyInstance;
 let routeTable: readonly RouteTableEntry[];
@@ -125,10 +144,21 @@ function requestRoutes(): readonly RouteTableEntry[] {
   return routeTable.filter((entry) => entry.method !== 'HEAD' && entry.url.startsWith(BASE));
 }
 
-/** Every registered route on the vacation decision surface, HEAD excluded. */
+/**
+ * Every registered route on the vacation surface, HEAD excluded — the decision
+ * half AND the member half.
+ *
+ * The prefix is `/vacation` rather than `/vacation/selections`, because
+ * OPUS-M5-003's round routes live under `/vacation/rounds` and a filter keyed to
+ * the selections prefix would have silently excluded them from every
+ * whole-surface assertion in this file — including the ownership-override one,
+ * which is the assertion this file says matters most.
+ */
 function vacationRoutes(): readonly RouteTableEntry[] {
   return routeTable.filter(
-    (entry) => entry.method !== 'HEAD' && entry.url.startsWith(VACATION_BASE),
+    (entry) =>
+      entry.method !== 'HEAD' &&
+      entry.url.startsWith('/organizations/:organizationId/groups/:groupId/vacation'),
   );
 }
 
@@ -199,12 +229,72 @@ describe('SPEC-08 §4 — withdrawal is REQUESTER-INITIATED ONLY, enforced by an
      * surface now includes routes that act on other people's rows BY DESIGN —
      * and running an averaged assertion over both sets would have meant either
      * weakening this one or misdescribing those. */
-    for (const expected of OWN_ROUTES) {
+    for (const expected of [...OWN_ROUTES, ...VACATION_OWN_ROUTES]) {
       const config = capabilityRouteConfig(entryFor(expected.method, expected.url)?.config);
       const where = `${expected.method} ${expected.url}`;
+      expect(config, where).toBeDefined();
       expect(config?.action.requiresObjectPolicy, `${where}: L5.1 must run`).toBe(true);
       expect(config?.action.ownershipRequired, `${where}: ownership must be required`).toBe(true);
+      expect(config?.action.key, where).toBe(expected.key);
     }
+  });
+
+  it('the declaration is NECESSARY and NOT SUFFICIENT — the by-id writes self-scope as well', () => {
+    /* **A finding, recorded where the declaration lives** (OPUS-M5-003).
+     *
+     * The assertion above is the whole of what a route DECLARATION can promise,
+     * and on this surface it promises less than it appears to: SPEC-06 L5.1
+     * compares a TARGET's owner to the acting membership, and every route here
+     * names the ACTING MEMBERSHIP as its own target because none of them names a
+     * subject in its path (the assertion four tests below). So L5.1 passes by
+     * construction and cannot decide whose row a by-id write touches. Migration
+     * 0023's `_own` policy does not decide it either: `_group_administration` is
+     * `FOR ALL` behind `requests.administer`, which is the design — "RLS decides
+     * which ROWS, never which OPERATIONS".
+     *
+     * The control is therefore an operation-layer predicate on the VERIFIED
+     * context's membership, and the routes that need one are exactly the
+     * own-scoped WRITES that address a row BY ID. This test names that set, so a
+     * future route joining it meets the rule here; the BEHAVIOUR is proven over
+     * HTTP in `test/requests/own-write-ownership.test.ts`, both directions.
+     *
+     * Reads are deliberately not in the set: a member's read is row-scoped by
+     * RLS, and a scheduler reading a colleague's row rides `requests.read_any`,
+     * which is a granted power rather than an accident. */
+    const byIdOwnWrites = [
+      { method: 'POST', url: `${BASE}/:requestId/withdraw` },
+      { method: 'POST', url: `${VACATION_BASE}/:selectionId/withdraw` },
+    ] as const;
+
+    for (const route of byIdOwnWrites) {
+      const entry = entryFor(route.method, route.url);
+      expect(entry, `${route.method} ${route.url} must be registered`).toBeDefined();
+      const config = capabilityRouteConfig(entry?.config);
+      expect(config?.action.ownershipRequired).toBe(true);
+      expect(config?.action.ownershipOverrideCapability).toBeUndefined();
+    }
+
+    /* Non-vacuity, and the sweep's own closing condition: this set is exactly the
+     * own-scoped routes that write and take an id. If a new one appears with
+     * neither, the count below moves and this test says so. */
+    /* Every verb that WRITES, not only POST (condition C-4). A `PUT …/:id` or a
+     * `DELETE …/:id` on a self-scoped surface would be the same defect wearing a
+     * different method, and a POST-only filter would have let it through this
+     * sweep silently — which is the failure mode the sweep exists to close. */
+    const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+    const ownScopedWrites = [...requestRoutes(), ...vacationRoutes()].filter((entry) => {
+      const config = capabilityRouteConfig(entry.config);
+      return (
+        WRITE_METHODS.has(entry.method) &&
+        config?.action.ownershipRequired === true &&
+        entry.url.split('/').some((segment) => segment.startsWith(':') &&
+          segment !== ':organizationId' && segment !== ':groupId')
+      );
+    });
+    expect(
+      ownScopedWrites.map((entry) => `${entry.method} ${entry.url}`).sort(),
+      'the by-id own-scoped write set has changed — every member needs the service predicate',
+    ).toEqual(byIdOwnWrites.map((route) => `${route.method} ${route.url}`).sort());
   });
 
   it('NO route on this surface carries an ownership OVERRIDE — the §4 ruling', () => {
@@ -257,6 +347,9 @@ describe('SPEC-08 §4 — withdrawal is REQUESTER-INITIATED ONLY, enforced by an
       ':groupId',
       ':requestId',
       ':selectionId',
+      /* OPUS-M5-003. `:periodId` names a vacation ROUND — a bounded date range
+       * with a mode and a state — and is no more a person than the two above. */
+      ':periodId',
     ]);
     for (const entry of [...requestRoutes(), ...vacationRoutes()]) {
       const parameters = entry.url.split('/').filter((segment) => segment.startsWith(':'));
@@ -272,7 +365,7 @@ describe('SPEC-08 §4 — withdrawal is REQUESTER-INITIATED ONLY, enforced by an
 
 describe('OPUS-M5-002 — the scheduler half, and the §5c binding note at the route layer', () => {
   it('the six scheduler routes declare no ownership, and say so explicitly', () => {
-    for (const expected of SCHEDULER_ROUTES) {
+    for (const expected of [...SCHEDULER_ROUTES, ...VACATION_DECISION_ROUTES]) {
       const config = capabilityRouteConfig(entryFor(expected.method, expected.url)?.config);
       const where = `${expected.method} ${expected.url}`;
       expect(config, where).toBeDefined();
@@ -349,7 +442,7 @@ describe('OPUS-M5-002 — the scheduler half, and the §5c binding note at the r
     }
   });
 
-  it('the vacation decision surface registers exactly two routes, both decision-keyed', () => {
+  it('the vacation surface registers exactly FIVE routes: two decisions and three member routes', () => {
     const registered = vacationRoutes()
       .map((entry) => `${entry.method} ${entry.url}`)
       .sort();

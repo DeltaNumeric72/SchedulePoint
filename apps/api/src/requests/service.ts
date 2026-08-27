@@ -24,6 +24,7 @@ import {
   loadGroupDeadlineContext,
   type GroupDeadlineContext,
 } from './deadlines.js';
+import { classifyIdempotencyKey } from './idempotency.js';
 import { requestStore } from './store.js';
 
 /**
@@ -53,11 +54,17 @@ import { requestStore } from './store.js';
  * Authorization is evaluated per request against current state inside the same
  * unit of work as the mutation (I-19, SPEC-06 §7), by the route and the job
  * handler. This service is handed a unit of work whose context is already
- * verified, and it decides whether the ROW may move. §4's
- * "**Requester-initiated only**" is enforced by the route's
- * `ownershipRequired: true` with no ownership override — an administrator
- * "withdrawing" for somebody is a DENIAL with a reason, which is a different
- * operation with a different key and belongs to M5-002.
+ * verified, and it decides whether the ROW may move.
+ *
+ * **With ONE exception, and it is a correction** (OPUS-M5-003). This paragraph
+ * used to end "§4's *Requester-initiated only* is enforced by the route's
+ * `ownershipRequired: true` with no ownership override". That sentence was
+ * false, and a test found it false: on a self-scoped surface L5.1's target IS
+ * the acting membership, so the declaration passes by construction. §4's rule
+ * therefore lives in `withdrawRequest` below, on the VERIFIED context's own
+ * membership — see its docblock for the full reasoning and the measurement. An
+ * administrator "withdrawing" for somebody is still a DENIAL with a reason,
+ * which is a different operation with a different key and is M5-002's.
  *
  * ## I-11 — a notification failure never rolls back a domain change
  *
@@ -102,7 +109,15 @@ export type RequestFailure =
       readonly detail: 'window-closed' | 'late-rejected';
       /** The effective deadline, STATED — §3 requires the refusal to carry it. */
       readonly effective: CalendarDate | null;
-    };
+    }
+  /**
+   * **FU-23's named ending** (OPUS-M5-003). This member's key already names a
+   * request of a DIFFERENT subtype. Not a replay, and not something reloading
+   * fixes: the remedy is another key, and it is the only refusal on this surface
+   * with that remedy. See `./idempotency.ts` for why this is decided here rather
+   * than left to `UNIQUE (membership_id, idempotency_key, organization_id)`.
+   */
+  | { readonly kind: 'idempotency-key-reused'; readonly existingSubtype: RequestSubtype };
 
 export type RequestOutcome<T> =
   | { readonly ok: true; readonly value: T }
@@ -179,12 +194,30 @@ export async function submitRequest(
   uow: Uow,
   command: SubmitCommand,
 ): Promise<RequestOutcome<SubmitResult>> {
-  const existing = await requestStore.findByIdempotencyKey(
+  /* ── FU-23: the replay read is a ROOT read, and the answer has three cases ──
+   *
+   * It was one composed read — root, then subtype record, `null` if either
+   * missed — and `loadRecord` misses for `vacation-selection` BY DESIGN. While no
+   * vacation root could exist that was harmless. This packet creates them, and
+   * then the composition answers "no request holds this key" about a request that
+   * does, sending the caller into a `23505` that surfaces as an unexplained 409.
+   *
+   * `classifyIdempotencyKey` reads the root and stops. The full request is loaded
+   * only on the REPLAY branch, where the subtype is already known to match — so
+   * the record read still happens, on the path where it is a question about the
+   * same request rather than a test of whether one exists. */
+  const known = await classifyIdempotencyKey(
     uow,
     command.membershipId,
     command.idempotencyKey,
+    command.subtype,
   );
-  if (existing !== null) {
+  if (known.kind === 'reused') {
+    return fail({ kind: 'idempotency-key-reused', existingSubtype: known.existingSubtype });
+  }
+  if (known.kind === 'replay') {
+    const existing = await requestStore.load(uow, known.root.id);
+    if (existing === null) return fail({ kind: 'not-found' });
     return succeed({ request: existing, replayed: true, isLate: existing.root.isLate });
   }
 
@@ -297,6 +330,13 @@ function expiryInstant(
 export interface WithdrawCommand {
   readonly requestId: string;
   readonly expectedVersion: number;
+  /**
+   * The ACTING membership — §4's "requester-initiated only", made true here
+   * (OPUS-M5-003). See the ownership section of `withdrawRequest`'s docblock for
+   * why neither L5.1 nor RLS decides it, and why this is the only place it can
+   * live. It reads the VERIFIED context, never a path parameter or a body field.
+   */
+  readonly membershipId: string;
   readonly now: Date;
 }
 
@@ -332,6 +372,41 @@ export interface WithdrawResult {
  * either wrong direction — so a service that computed it incorrectly is refused
  * by the database rather than believed.
  *
+ * ## Requester-initiated only — a SPEC-CONFORMANCE fix, found by test
+ *
+ * §4: *"**Requester-initiated only.** An administrator 'withdrawing' for someone
+ * is a **denial with a reason**, recorded as such."* Until OPUS-M5-003 that
+ * sentence was defended by two controls that are individually correct and whose
+ * COMPOSITION defends nothing:
+ *
+ *  * **`ownershipRequired: true` with no override** — SPEC-06 L5.1 compares a
+ *    TARGET's owner to the acting membership, and every route on this self-scoped
+ *    surface names the ACTING MEMBERSHIP as its own target, because none of them
+ *    names a subject in its path. `requests.route.ts` says so explicitly and
+ *    calls it "what makes the declaration have consequences". So L5.1 passes by
+ *    construction and cannot decide whose row a by-id write touches.
+ *  * **Migration 0023's `requests_own` policy** — not the only arm.
+ *    `requests_group_administration` is `FOR ALL` behind `requests.administer`,
+ *    and 0023 states that as the design: *"RLS decides which ROWS, never which
+ *    OPERATIONS."*
+ *
+ * **Measured, not inferred:** a scheduler holding `requests.administer` withdrew
+ * a member's time-off request — `200`, the row `withdrawn` — in
+ * `test/requests/own-write-ownership.test.ts` before this predicate existed. The
+ * defect PREDATES FAD-57: an explicitly granted `requests.administer` reached it
+ * identically from M5-001 onward. FAD-57 (M5-H) made that key role-implied for
+ * `scheduler`, which WIDENED the exposed population from "whoever was granted it"
+ * to "every scheduler". Both are true; neither is the other's excuse.
+ *
+ * The cure is one predicate on the VERIFIED context's membership — the "queries
+ * are self-scoped too, on `uow.context.membershipId` rather than on any path
+ * parameter" discipline `GET …/requests/mine` already follows, applied to a route
+ * that addresses a row by id and so cannot get it from a list predicate. A
+ * colleague's request answers `not-found`, byte-identical to one that does not
+ * exist (X-11), and the administrator's legitimate door — `POST …/:requestId/deny`
+ * under `requests.deny`, with a mandatory reason — is untouched, which is what
+ * makes this a conformance fix rather than a narrowing.
+ *
  * ## §3's re-validation, and why a passed deadline does NOT block a withdrawal
  *
  * §3 requires the deadline to be re-validated at every transition, and
@@ -349,6 +424,11 @@ export async function withdrawRequest(
 ): Promise<RequestOutcome<WithdrawResult>> {
   const root = await requestStore.loadRoot(uow, command.requestId);
   if (root === null) return fail({ kind: 'not-found' });
+
+  /* §4's requester-initiated-only rule. See the ownership section above for why
+   * neither L5.1 nor RLS decides this one, and why the answer is `not-found`
+   * rather than a refusal that would confirm the row exists. */
+  if (root.membershipId !== command.membershipId) return fail({ kind: 'not-found' });
 
   const verdict = operationVerdict(root.subtype, root.status, 'withdraw');
   if (!verdict.allowed) {

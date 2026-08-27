@@ -6,6 +6,7 @@ import {
   decisionRefusalBodySchema,
   decisionResultSchema,
   denyRequestSchema,
+  idempotencyKeyReusedBodySchema,
   isUuid,
   requestDeadlineRefusalBodySchema,
   requestDeadlineSchema,
@@ -17,6 +18,7 @@ import {
   reverseDecisionSchema,
   submitRequestSchema,
   validationProblemBodySchema,
+  vacationSelectionRefusalBodySchema,
   withdrawRequestResultSchema,
   withdrawRequestSchema,
   type RequestWire,
@@ -50,8 +52,14 @@ import {
   withdrawRequest,
   type RequestFailure,
   type RequestOutcome,
+  type SubmitResult,
 } from '../../requests/service.js';
 import { requestStore } from '../../requests/store.js';
+import {
+  loadVacationRequest,
+  submitVacationSelection,
+  type VacationSelectionServiceFailure,
+} from '../../requests/vacation-selection.js';
 import { requireTenantContext } from '../context/middleware.js';
 import { sendNotFound } from '../context/responses.js';
 import { MEMBERSHIP_AGGREGATE } from '../context/target-resolution.js';
@@ -343,7 +351,25 @@ type Outcome<T> =
         | 'REQUEST_OPERATION_ILLEGAL'
         | 'DECISION_REASON_REQUIRED'
         | 'SUBTYPE_NOT_DECIDABLE';
+    }
+  /**
+   * OPUS-M5-003 — FU-23's named ending. This member's key already names a
+   * request of a DIFFERENT subtype: not a replay, and not something reloading
+   * fixes. The subtype it names discloses nothing — D-7's uniqueness is scoped to
+   * `membership_id`, so the row is the caller's own.
+   */
+  | { readonly kind: 'key-reused'; readonly existingSubtype: RequestSubtypeName }
+  /** OPUS-M5-003 — §5.3's member-side refusals on the vacation round. */
+  | {
+      readonly kind: 'vacation-refused';
+      readonly code:
+        | 'SELECTION_NOT_PENDING'
+        | 'VACATION_ROUND_NOT_OPEN'
+        | 'VACATION_WEEK_ALREADY_SELECTED';
     };
+
+/** The subtype vocabulary, named locally so the union above reads as one line. */
+type RequestSubtypeName = (typeof REQUEST_SUBTYPES)[number];
 
 const MAX_PROBLEM_MESSAGE = 300;
 
@@ -385,6 +411,32 @@ function fromService<T>(outcome: RequestOutcome<T>): Outcome<T> {
       return { kind: 'deadline', failure: outcome.failure };
     case 'illegal-operation':
       return { kind: 'illegal-operation', failure: outcome.failure };
+    case 'idempotency-key-reused':
+      return { kind: 'key-reused', existingSubtype: outcome.failure.existingSubtype };
+  }
+}
+
+/**
+ * A vacation selection service failure, as the route's shape.
+ *
+ * The three vacation codes are their own vocabulary for the reason the decision
+ * codes are: each has a different remedy, and a caller that could not tell
+ * "this round is not open" from "you already hold this week" is a caller that
+ * cannot act on either.
+ */
+function fromVacationSelection<T>(failure: VacationSelectionServiceFailure): Outcome<T> {
+  switch (failure.kind) {
+    case 'not-found':
+      return { kind: 'not-found' };
+    case 'reused':
+      return { kind: 'key-reused', existingSubtype: failure.existingSubtype };
+    case 'refused':
+      return { kind: 'vacation-refused', code: failure.code };
+    case 'deadline':
+      return {
+        kind: 'deadline',
+        failure: { kind: 'deadline', detail: failure.detail, effective: failure.effective },
+      };
   }
 }
 
@@ -615,6 +667,39 @@ function respond<T>(
           },
         }),
       );
+    case 'key-reused':
+      /* `409`, and not `422`: the body was well-formed and the route was reached —
+       * what is wrong is the state of the caller's own key namespace, which is a
+       * fact about the world rather than about this document. The remedy is
+       * neither reload nor re-prompt but a DIFFERENT key, which is why the code is
+       * its own and the subtype it already names is stated. */
+      return reply.code(409).send(
+        idempotencyKeyReusedBodySchema.parse({
+          error: {
+            code: 'IDEMPOTENCY_KEY_REUSED',
+            message:
+              'This idempotency key already names one of your requests of another kind. ' +
+              'Use a different key.',
+            correlationId: request.correlationId,
+            existingSubtype: outcome.existingSubtype,
+          },
+        }),
+      );
+    case 'vacation-refused':
+      return reply.code(409).send(
+        vacationSelectionRefusalBodySchema.parse({
+          error: {
+            code: outcome.code,
+            message:
+              outcome.code === 'VACATION_ROUND_NOT_OPEN'
+                ? 'This vacation round is not accepting selections.'
+                : outcome.code === 'VACATION_WEEK_ALREADY_SELECTED'
+                  ? 'You already hold a selection for that week.'
+                  : 'This selection is no longer awaiting a decision.',
+            correlationId: request.correlationId,
+          },
+        }),
+      );
     case 'ok':
       return body(outcome.value);
   }
@@ -645,25 +730,51 @@ function respond<T>(
  */
 function requestView(request: DomainRequest): RequestWire {
   const { root, record } = request;
+  /* ── OPUS-M5-003: the vacation record is PROJECTED, not stripped ────────────
+   *
+   * The other five records differ from their wire shapes by exactly one field —
+   * `requestId`, dropped above for the reason this docblock gives. The selection
+   * record differs by eleven: it carries its own id, status, version, grant,
+   * override and both idempotency keys, and `vacationSelectionRecordSchema` is
+   * `.strict()` over three fields. A rest-spread would therefore answer `500` on
+   * every successful vacation response — the identical defect this docblock
+   * records for M5-001, arriving by a different route.
+   *
+   * The dropped fields are not lost: `GET …/vacation/rounds/:periodId` carries
+   * the selection in full, with the root status R-15 derives from. What a
+   * SUBMISSION answers is the aggregate, and the aggregate's record is §1.2's
+   * three fields. */
+  if (record.subtype === 'vacation-selection') {
+    return {
+      root: rootView(root),
+      record: {
+        subtype: 'vacation-selection',
+        vacationPeriodId: record.vacationPeriodId,
+        weekStart: record.weekStart,
+      },
+    } as RequestWire;
+  }
   const { requestId: _requestId, ...wireRecord } = record;
+  return { root: rootView(root), record: wireRecord } as RequestWire;
+}
+
+/** The aggregate root on the wire. One projection, used by both record branches. */
+function rootView(root: DomainRequest['root']): RequestWire['root'] {
   return {
-    root: {
-      id: root.id,
-      membershipId: root.membershipId,
-      subtype: root.subtype,
-      status: root.status,
-      submittedAt: root.submittedAt?.toISOString() ?? null,
-      decidedAt: root.decidedAt?.toISOString() ?? null,
-      decidedBy: root.decidedBy,
-      withdrawnAt: root.withdrawnAt?.toISOString() ?? null,
-      expiresAt: root.expiresAt.toISOString(),
-      idempotencyKey: root.idempotencyKey,
-      version: root.version,
-      isLate: root.isLate,
-      revisionRequested: root.revisionRequested,
-    },
-    record: wireRecord,
-  } as RequestWire;
+    id: root.id,
+    membershipId: root.membershipId,
+    subtype: root.subtype,
+    status: root.status,
+    submittedAt: root.submittedAt?.toISOString() ?? null,
+    decidedAt: root.decidedAt?.toISOString() ?? null,
+    decidedBy: root.decidedBy,
+    withdrawnAt: root.withdrawnAt?.toISOString() ?? null,
+    expiresAt: root.expiresAt.toISOString(),
+    idempotencyKey: root.idempotencyKey,
+    version: root.version,
+    isLate: root.isLate,
+    revisionRequested: root.revisionRequested,
+  };
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -683,34 +794,50 @@ export default function requestRoutes(app: FastifyInstance): void {
       const membershipId = uow.context.membershipId;
       if (membershipId === null) return { kind: 'not-found' as const };
 
-      /* ── A vacation selection is not submitted here ────────────────────────
+      /* ── A vacation selection IS submitted here ────────────────────────────
        *
-       * Doc 42 §5c: "nothing here writes `vacation_selections`". §5.3 gives that
-       * lifecycle ONE writer and it is the vacation module's (M5-002/003), and a
-       * second writer on this route is exactly what would make "the vacation
-       * module never writes one without the other" untrue.
+       * **The `422` refusal that stood here is RETIRED** (doc 42 §5f Part A). It
+       * read "A vacation selection is not submitted through this route", and it
+       * was true of M5-001 and M5-002, whose reason it stated correctly: §5.3
+       * gives that lifecycle ONE writer, and a second writer on this route would
+       * make "the vacation module never writes one without the other" untrue.
        *
-       * `422` and not `404`: the route exists, the caller was authorized to
-       * reach it, and the body is well-formed against `requestRecordSchema` —
-       * what is wrong is that this subtype is not submitted through this
-       * surface. A `404` would say the route is absent, which is false, and
-       * would send a client looking for a URL rather than for the right one.
+       * **That reason is satisfied rather than abandoned.** This branch does not
+       * write anything — it DISPATCHES to `submitVacationSelection`, which is the
+       * vacation module and which moves the selection and the derived root in one
+       * transaction. What changes is the door, not the writer: a staff member
+       * asking for a week off and a staff member asking for a vacation week are
+       * doing the same thing from the same form, and I-10's "one user action, one
+       * request" is better served by one submission endpoint than by two that
+       * differ only in which table the server ends up in.
        *
-       * The narrowing is also what satisfies the type system: the store's
-       * creation union has no vacation member at all, so this check is the
-       * runtime half of a boundary the compiler already draws. */
+       * The type system still draws the boundary underneath: `NewRequest.record`
+       * — what `PgRequestStore.create` accepts — has no vacation member, so the
+       * request store remains structurally unable to write one. */
       const record = parsed.value.record;
       if (record.subtype === 'vacation-selection') {
+        const selected = await submitVacationSelection(uow, {
+          membershipId,
+          vacationPeriodId: record.vacationPeriodId,
+          weekStart: record.weekStart,
+          idempotencyKey: parsed.value.idempotencyKey,
+          now: new Date(),
+        });
+        if (!selected.ok) return fromVacationSelection<SubmitResult>(selected.failure);
+
+        /* The aggregate is composed from BOTH stores — `loadVacationRequest` —
+         * because `PgRequestStore.load` answers `null` for a vacation root by
+         * design. The reply shape is the same `requestSchema` the other five
+         * return, so a client that submits six kinds parses one answer. */
+        const created = await loadVacationRequest(uow, selected.value.requestId);
+        if (created === null) return { kind: 'not-found' as const };
         return {
-          kind: 'invalid' as const,
-          problems: [
-            {
-              field: 'record.subtype',
-              message:
-                'A vacation selection is not submitted through this route. Vacation has its own ' +
-                'quota and commitment lifecycle (SPEC-08 §5).',
-            },
-          ],
+          kind: 'ok' as const,
+          value: {
+            request: created,
+            replayed: selected.value.replayed,
+            isLate: selected.value.isLate,
+          },
         };
       }
 
@@ -745,9 +872,18 @@ export default function requestRoutes(app: FastifyInstance): void {
       const parsed = parseBody(withdrawRequestSchema, request.body);
       if (parsed.kind !== 'ok') return parsed;
 
+      const membershipId = uow.context.membershipId;
+      if (membershipId === null) return { kind: 'not-found' as const };
+
       const result = await withdrawRequest(uow, {
         requestId,
         expectedVersion: parsed.value.expectedVersion,
+        /* The VERIFIED context's own membership (SPEC-01 §2.3 derives it
+         * server-side), never a path parameter and never a body field. §4's
+         * requester-initiated-only rule is decided on this value — see
+         * `withdrawRequest`'s docblock for why the route declaration and RLS
+         * between them do not decide it. */
+        membershipId,
         now: new Date(),
       });
       return fromService(result);

@@ -174,6 +174,74 @@ export function countersAfterReversal(counters: GrantCounters, units: number): G
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
+ * §5.5's variance indicator — OPUS-M5-003, doc 42 §5f Part B
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * What a variance display says about one grant.
+ *
+ * Three numbers and a verdict, and the numbers are the three
+ * [report 12](../../../../schedulepoint-research/reports/12-product-glossary.md)
+ * TERM-051 renames: the ENTITLEMENT (`unitsTotal` — the allowance), the BALANCE
+ * (`remaining` — what is left of it), and, for a `weekly-capacity` grant, the
+ * per-week capacity those same fields carry. The glossary's disposition on that
+ * term is explicit that the over-quota indicator is **advisory only** — "it
+ * turns red but does not block approval" — and doc 09 §2.1 says the same:
+ * *"Over-quota is advisory, not blocking. The variance indicator warns; approval
+ * still succeeds."*
+ *
+ * So `state` is a WARNING vocabulary, never a permission. Nothing consults it to
+ * decide anything: §5.5's refusal is `OVERRIDE_REQUIRED`, evaluated against the
+ * override capability inside the transaction, and D-21's two unconditional
+ * CHECKs are what actually bound the counters.
+ */
+export interface GrantVariance extends GrantCounters {
+  /** D-21's upper bound: `unitsTotal + overrideUnits`. */
+  readonly bound: number;
+  /** What is left under the bound. Never negative — the CHECK makes it so. */
+  readonly remaining: number;
+  /**
+   * How far consumption has passed the ENTITLEMENT, ignoring any override that
+   * authorised it. Zero when the entitlement still covers it.
+   *
+   * This is the number the indicator turns red on, and it is deliberately
+   * measured against `unitsTotal` rather than against `bound`: an approval that
+   * raised the bound to fit itself is precisely the event a variance display
+   * exists to make visible, and measuring against the raised bound would hide
+   * every override behind the headroom it created.
+   */
+  readonly overEntitlement: number;
+  readonly state: 'within' | 'at-entitlement' | 'over-entitlement';
+}
+
+/**
+ * §5.5's advisory indicator, computed from the three counters and nothing else.
+ *
+ * `at-entitlement` is its own value rather than folded into `within`, because a
+ * surface warns differently about "the last unit is gone" and "there are three
+ * left" — and a caller that had to compare two numbers to tell them apart is a
+ * caller that will compare them differently somewhere else.
+ */
+export function grantVariance(counters: GrantCounters): GrantVariance {
+  const bound = grantBound(counters);
+  const overEntitlement =
+    counters.unitsConsumed > counters.unitsTotal ? counters.unitsConsumed - counters.unitsTotal : 0;
+  const remaining = bound - counters.unitsConsumed > 0 ? bound - counters.unitsConsumed : 0;
+  return {
+    ...counters,
+    bound,
+    remaining,
+    overEntitlement,
+    state:
+      overEntitlement > 0
+        ? 'over-entitlement'
+        : counters.unitsConsumed === counters.unitsTotal
+          ? 'at-entitlement'
+          : 'within',
+  };
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
  * V-30's mode branch
  * ──────────────────────────────────────────────────────────────────────────── */
 

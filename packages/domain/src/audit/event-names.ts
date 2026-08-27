@@ -462,6 +462,31 @@ export const AUDIT_EVENT_NAMES = [
   'requests.request.decision_reversed',
   /** §5.4: an approval that consumed a quota unit (or, audited, raised the bound). */
   'requests.vacation_selection.approved',
+
+  /* ── OPUS-M5-003 (SPEC-08 §5.3) — the SUBMISSION side's one new name ────────
+   *
+   * ONE, and the restraint is the rule above applied rather than relaxed. A
+   * vacation SUBMISSION consumes nothing and takes the same responsibility a
+   * time-off submission takes, so it emits `requests.request.submitted` with
+   * `subtype: 'vacation-selection'` — the same reasoning that files a vacation
+   * DENIAL under `requests.request.denied` ("a denial consumes nothing and a
+   * second name would be a distinction with no fact behind it").
+   *
+   * A vacation WITHDRAWAL is the case where that reasoning points the other way.
+   * Withdrawing an APPROVED selection RELEASES the quota unit the approval
+   * consumed — §5.5's reversal write path, both counters — and that is materially
+   * different from taking back a time-off request, in exactly the way
+   * `requests.vacation_selection.approved` is materially different from
+   * `requests.request.approved`. "Which withdrawals returned quota, and to whose
+   * allowance" is a question a quota dispute asks directly, and a payload scan
+   * answers it badly.
+   *
+   * The payload carries the same tokens as its approval sibling — ids, the mode,
+   * and whether a unit was released. No reason, no week, no date: I-07, and the
+   * row carries them. */
+
+  /** §5.3: a requester withdrew their own vacation selection; an approved one releases a unit. */
+  'requests.vacation_selection.withdrawn',
 ] as const;
 
 export type AuditEventName = (typeof AUDIT_EVENT_NAMES)[number];

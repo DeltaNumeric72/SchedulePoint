@@ -118,6 +118,43 @@ export interface RequestStore {
   ): Promise<Request | null>;
 
   /**
+   * **D-7's read side, ROOT ONLY — FU-23's closure** (OPUS-M5-003).
+   *
+   * `findByIdempotencyKey` above composes two reads: it finds the root, then
+   * loads the subtype record, and answers `null` if either misses. For five of
+   * the six subtypes those are the same question. For `vacation-selection` they
+   * are not: `loadRecord` returns `null` for it BY DESIGN, because §5.3 gives
+   * that lifecycle one reader and it is `VacationStore` — so the composition
+   * answers "no request holds this key" about a request that does hold it.
+   *
+   * Harmless while no vacation root could exist. **This packet makes them
+   * exist**, and then the composition means: a member holding a vacation request
+   * under key `K` who submits a time-off under the same `K` gets `null` from the
+   * replay read, proceeds to the insert, and is refused by
+   * `UNIQUE (membership_id, idempotency_key, organization_id)` — a bare `23505`
+   * conflict standing where a replay answer belongs.
+   *
+   * This method is the split FU-23's row names. It reads the ROOT and stops,
+   * because D-7's uniqueness is a property of the root and of nothing else. Its
+   * caller then decides, on the root's own `subtype`, whether this is a genuine
+   * replay (load the full request through the reader that subtype has) or a
+   * cross-subtype REUSE of one member's key — which is a real conflict, named as
+   * such, rather than a database constraint surfacing as an accident.
+   *
+   * **Per-subtype idempotency namespacing was the row's other exit and is
+   * rejected**: D-7 is `UNIQUE (membership_id, idempotency_key,
+   * organization_id)`, so namespacing means altering a constraint 0021 declares
+   * (this packet is additive), and it would make one key mean different things
+   * depending on which body carried it — which is the opposite of what an
+   * idempotency key is for.
+   */
+  findRootByIdempotencyKey(
+    uow: UnitOfWork,
+    membershipId: string,
+    idempotencyKey: string,
+  ): Promise<RequestAggregate | null>;
+
+  /**
    * Creates the root and its subtype record in one unit of work, returning the
    * new request id.
    */
@@ -368,6 +405,19 @@ export interface VacationStore {
 
   loadSelection(uow: UnitOfWork, selectionId: string): Promise<VacationSelectionRecord | null>;
 
+  /**
+   * §5.1's linkage, read from the root: the selection a request carries.
+   *
+   * `null` when the request is not a `vacation-selection`, or is not visible
+   * here. The R-11 replay path needs it (OPUS-M5-003): a replayed submission
+   * returns the RECORDED request, and the recorded week is a fact about the
+   * stored row rather than about the body that replayed it.
+   */
+  findSelectionByRequest(
+    uow: UnitOfWork,
+    requestId: string,
+  ): Promise<VacationSelectionRecord | null>;
+
   /** D-22's read side: one selection per (membership, period, week). */
   findSelection(
     uow: UnitOfWork,
@@ -585,4 +635,177 @@ export interface VacationStore {
       readonly overrideUnits: number;
     },
   ): Promise<number | null>;
+
+  /* ────────────────────────────────────────────────────────────────────────
+   * OPUS-M5-003 — §5's SUBMISSION side (doc 42 §5f Part A)
+   *
+   * The five verbs above are §5.4's decision. These are the member's half of the
+   * same lifecycle, and they are HERE for the same reason
+   * `writeDerivedRootStatus` is: §5.3's "**One writer.** Only the vacation module
+   * updates either status. No other module writes `requests.status` for a
+   * `vacation-selection` row, and the vacation module never writes one without
+   * the other."
+   *
+   * `RequestStore` therefore gains nothing for vacation and keeps its structural
+   * inability to write one — its creation union has no vacation member and its
+   * `decide`/`withdraw` are reachable only from services that refuse the subtype
+   * before calling.
+   * ──────────────────────────────────────────────────────────────────────── */
+
+  /**
+   * **The vacation ROOT, created at the status 0023 names for this subtype.**
+   *
+   * A vacation root is born `submitted` — `app_request_initial_status` returns it
+   * and `requests_guard_initial_status` refuses anything else — so unlike the
+   * five, there is no `draft` to transition out of and no `submit` verb here.
+   * That is the same fact `submitVerdict` records in `./lifecycle.ts`.
+   *
+   * **No subtype record is inserted with it**, and the omission is D-18 working
+   * rather than D-18 skipped: the subtype row for this root is the
+   * `vacation_selections` row, which already exists in `available` and is LINKED
+   * by `linkSelectionToRoot` in the same transaction. D-18's zero-row guard is
+   * deferred and counts at commit, by which time there is exactly one.
+   *
+   * `isLate` is deliberately not a parameter. 0023's creation guard refuses a
+   * row BORN with either lifecycle flag true — §3's late marker is a fact about
+   * a submission measured against a deadline, and a row created with it has been
+   * measured against nothing — so a late-accepted vacation submission sets it
+   * with `markRootLate` as a second statement in the same transaction.
+   */
+  createRoot(
+    uow: UnitOfWork,
+    command: {
+      readonly membershipId: string;
+      readonly expiresAt: Date;
+      readonly idempotencyKey: string;
+      readonly submittedAt: Date;
+    },
+  ): Promise<string>;
+
+  /**
+   * §3's late marker, as the second statement 0023's creation guard forces.
+   *
+   * Same status, so `app_guard_request_transition`'s early return admits it —
+   * "the matrix has no self-edges … stamping `decided_at`, recording
+   * `expires_at` after a deadline recomputation, or bumping `version` are all
+   * legitimate same-status work", and so is this.
+   */
+  markRootLate(uow: UnitOfWork, requestId: string): Promise<void>;
+
+  /**
+   * **§5.3's `available → pending`, guarded — the submission's second half.**
+   *
+   * ```
+   *   UPDATE vacation_selections
+   *      SET request_id = :requestId, status = 'pending', version = version + 1
+   *    WHERE id = :selectionId
+   *      AND status  = 'available'
+   *      AND version = :expectedSelectionVersion
+   * ```
+   *
+   * The guard is R-18/R-19's shape with `available` in place of `pending`, and
+   * for the identical reason V-29 gives: an unguarded update lets a second
+   * delivery of the same command move a selection that has already moved. Here
+   * that would link a SECOND root to a selection that already has one — and the
+   * `UNIQUE (request_id, organization_id)` D-18 declares would then refuse the
+   * transaction from a long way away from the caller that caused it.
+   *
+   * `null` means the selection is not `available`, or the version is stale, or it
+   * is not visible in this tenant context. One answer for the three, for the
+   * X-11 reason this file's header gives.
+   */
+  linkSelectionToRoot(
+    uow: UnitOfWork,
+    command: {
+      readonly selectionId: string;
+      readonly expectedSelectionVersion: number;
+      readonly requestId: string;
+    },
+  ): Promise<number | null>;
+
+  /**
+   * **§5.3's `pending | approved → withdrawn`, guarded (R-18, R-19).**
+   *
+   * `status = :expectedStatus AND version = :expectedSelectionVersion` — the
+   * same two predicates §5.4 step 2 carries, and neither is redundant beside the
+   * other: the status predicate is what makes a second withdrawal of an already
+   * withdrawn selection an explicit refusal rather than a silent second success.
+   *
+   * The caller names the source status because a withdrawal from `approved`
+   * additionally RELEASES the quota unit the approval consumed, and a store verb
+   * that inferred which case it was in would be deciding that on its own.
+   */
+  withdrawSelection(
+    uow: UnitOfWork,
+    command: {
+      readonly selectionId: string;
+      readonly expectedSelectionVersion: number;
+      readonly expectedStatus: VacationSelectionStatus;
+    },
+  ): Promise<number | null>;
+
+  /**
+   * **§5.3's derived root status for a WITHDRAWAL, same transaction.**
+   *
+   * Separate from `writeDerivedRootStatus` rather than a path through it: that
+   * verb stamps `decided_at`/`decided_by`, and a withdrawal is not a decision —
+   * §4 is explicit that an administrator "withdrawing" for somebody is a denial
+   * instead, so a withdrawn request that named a decider would be recording the
+   * confusion §4 exists to prevent. This one stamps `withdrawn_at`.
+   *
+   * No `expectedVersion`: the optimistic token for a vacation write is the
+   * SELECTION's (V-29), checked by `withdrawSelection` in the same transaction,
+   * and the root's version is nobody's to hold because §5.3 gives it one writer.
+   * That is the same reasoning `writeDerivedRootStatus`'s first statement records.
+   */
+  writeRootWithdrawal(
+    uow: UnitOfWork,
+    command: { readonly requestId: string; readonly withdrawnAt: Date },
+  ): Promise<number | null>;
+
+  /**
+   * A member's own selections in a group, with the root facts a display needs.
+   *
+   * **Not ordered by the query.** The order a selection list is PRESENTED in is
+   * `compareSelectionsForDisplay` in `./vacation-selection.ts`, which is a stated
+   * rule with a matrix test behind it; a second ordering in an `ORDER BY` here
+   * would be the copy that drifts, and it would drift in the direction a surface
+   * reads. What this returns is a set.
+   */
+  listSelectionsForMembership(
+    uow: UnitOfWork,
+    membershipId: string,
+  ): Promise<readonly VacationSelectionView[]>;
+
+  /**
+   * Every selection in a period, with the same root facts — the scheduler's
+   * period-wide view of the round. Unordered, for the reason above.
+   */
+  listSelectionsInPeriod(
+    uow: UnitOfWork,
+    periodId: string,
+  ): Promise<readonly VacationSelectionView[]>;
+
+  /** The group's vacation periods, newest first. The round a member selects in. */
+  listPeriods(uow: UnitOfWork): Promise<readonly VacationPeriod[]>;
+}
+
+/**
+ * A selection together with the root facts a display needs — **and the root
+ * status R-15 derives the displayed status from** (doc 42 §5f).
+ *
+ * The root status is carried rather than the derived selection status, and that
+ * is R-15's whole shape: nothing stores a display status, the surface calls
+ * `selectionStatusForRootStatus`, and `vacationStatusPairAgrees` is what a test
+ * (and the read model itself) uses to assert the two rows have not come apart.
+ * `rootStatus` is `null` only for an `available` selection, which by §5.3 has no
+ * root at all.
+ */
+export interface VacationSelectionView {
+  readonly selection: VacationSelectionRecord;
+  readonly rootStatus: RequestStatus | null;
+  readonly rootVersion: number | null;
+  readonly submittedAt: Date | null;
+  readonly expiresAt: Date | null;
+  readonly isLate: boolean;
 }

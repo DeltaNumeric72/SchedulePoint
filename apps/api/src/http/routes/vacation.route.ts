@@ -1,12 +1,25 @@
 import {
   approveVacationSelectionSchema,
   denyVacationSelectionSchema,
+  idempotencyKeyReusedBodySchema,
   isUuid,
+  requestDeadlineRefusalBodySchema,
   vacationDecisionRefusalBodySchema,
   vacationDecisionResultSchema,
+  vacationRoundListSchema,
+  vacationRoundSchema,
+  vacationSelectionRefusalBodySchema,
+  vacationSelectionResultSchema,
   validationProblemBodySchema,
+  withdrawVacationSelectionSchema,
 } from '@schedulepoint/contracts';
-import type { Decision, VacationApprovalFailure } from '@schedulepoint/domain';
+import {
+  derivedRequestStatus,
+  type Decision,
+  type RequestStatus,
+  type VacationApprovalFailure,
+  type VacationSelectionStatus,
+} from '@schedulepoint/domain';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
 import {
@@ -21,8 +34,18 @@ import {
   denyVacationSelection,
   type VacationDecisionResult,
 } from '../../requests/vacation-approval.js';
+import {
+  VacationSelectionRolledBack,
+  readVacationRound,
+  withdrawVacationSelection,
+  type VacationRound,
+  type VacationSelectionServiceFailure,
+  type VacationSelectionWriteResult,
+} from '../../requests/vacation-selection.js';
+import { vacationStore } from '../../requests/vacation-store.js';
 import { requireTenantContext } from '../context/middleware.js';
 import { sendNotFound } from '../context/responses.js';
+import { MEMBERSHIP_AGGREGATE } from '../context/target-resolution.js';
 import type { RouteConfigWithPolicy } from '../policy.js';
 
 /**
@@ -211,6 +234,296 @@ function respond(request: FastifyRequest, reply: FastifyReply, outcome: Outcome)
   }
 }
 
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * OPUS-M5-003 — the MEMBER's half of the round (doc 42 §5f Part B)
+ *
+ * ## Three routes, and why they are self-scoped where the two above are not
+ *
+ * | Route | Is | Key |
+ * |---|---|---|
+ * | `GET …/vacation/rounds` | the group's rounds | `requests.own.read` |
+ * | `GET …/vacation/rounds/:periodId` | ONE round: the period, the caller's selections, the variance | `requests.own.read` |
+ * | `POST …/vacation/selections/:selectionId/withdraw` | the requester taking their own week back | `requests.own.withdraw` |
+ *
+ * The two decision routes above declare `requiresObjectPolicy: false` — a queue
+ * that could only show the reader's own rows would not be a queue. These three
+ * are the opposite and declare `ownershipRequired: true` with **no ownership
+ * override**, exactly as the staff request surface does: §4's withdrawal is
+ * requester-initiated only, an administrator "withdrawing" for somebody is a
+ * DENIAL with a reason, and that denial is `POST …/:selectionId/deny` above under
+ * its own key. An ownership override here would be that confusion spelled as a
+ * config field.
+ *
+ * **The keys are M5-001's, not new ones.** FAD-57 made `requests.own.submit` /
+ * `.own.withdraw` / `.own.read` role-implied for member and scheduler on doc 08
+ * §6's "Submit requests/**vacation**" row, so vacation riding them is the row
+ * being honoured rather than a scope widened. Rule 11 cuts both ways: never
+ * narrow a capability, and never invent one either.
+ *
+ * ## Where "edit this week" is, for a future packet that comes looking
+ *
+ * There is no route that MOVES a selection to another week, and the absence is
+ * structural rather than an omission: 0022's column-level UPDATE grant on
+ * `vacation_selections` does not include `week_start`, so no runtime role can
+ * re-point a selection at a different week at all. The mechanism is WITHDRAW AND
+ * RESELECT — two deliberate acts, each with its own audit row, rather than one
+ * silent move — and a packet that wants to change that must change the grant
+ * first, with the reasoning that a week is what a selection IS.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** Read one's OWN vacation round — `requests.own.read`, CAP-021. */
+export const OWN_VACATION_ROUND_CONFIG = {
+  policy: { kind: 'capability', capability: 'CAP-021' },
+  actionScope: 'group',
+  action: {
+    key: 'requests.own.read',
+    moduleKey: 'requests_vacation',
+    requiresObjectPolicy: true,
+    ownershipRequired: true,
+  },
+} as const satisfies RouteConfigWithPolicy;
+
+/** Withdraw one's OWN selection — `requests.own.withdraw`, CAP-021. No override. */
+export const WITHDRAW_VACATION_SELECTION_CONFIG = {
+  policy: { kind: 'capability', capability: 'CAP-021' },
+  actionScope: 'group',
+  action: {
+    key: 'requests.own.withdraw',
+    moduleKey: 'requests_vacation',
+    requiresObjectPolicy: true,
+    ownershipRequired: true,
+  },
+} as const satisfies RouteConfigWithPolicy;
+
+/** What a member's route answers with. The decision routes' `Outcome` is separate. */
+type MemberOutcome<T> =
+  | { readonly kind: 'ok'; readonly value: T }
+  | { readonly kind: 'denied'; readonly decision: Decision }
+  | { readonly kind: 'not-found' }
+  | { readonly kind: 'invalid'; readonly message: string }
+  | { readonly kind: 'refused'; readonly failure: VacationSelectionServiceFailure };
+
+/**
+ * One unit of work, one verdict, with the target resolved INSIDE it.
+ *
+ * The target is always the ACTING membership, because none of these three routes
+ * names a subject in its path — `:selectionId` names a selection, and which
+ * selections this caller can see at all is migration 0023's
+ * `vacation_selections_own` policy rather than a path parameter. So
+ * `ownershipRequired` compares the acting membership to itself by construction,
+ * and a route that ever gained a subject parameter would fail that comparison
+ * rather than silently start authorizing it.
+ *
+ * The rollback is caught OUTSIDE `runtime.run`, for the reason
+ * `withVacationDecision` above gives: by the time the error arrives the runner
+ * has already rolled back, so a released quota unit is released and a root
+ * inserted for a failed link is gone.
+ */
+async function withOwnVacation<T>(
+  request: FastifyRequest,
+  run: (
+    uow: Parameters<Parameters<FastifyRequest['server']['tenancy']['runtime']['run']>[1]>[0],
+  ) => Promise<MemberOutcome<T>>,
+): Promise<MemberOutcome<T>> {
+  const { context, command, route } = requireTenantContext(request);
+
+  try {
+    return await request.server.tenancy.runtime.run(
+      command,
+      async (uow): Promise<MemberOutcome<T>> => {
+        const { decision } = await evaluateInTransaction(uow.query, {
+          request,
+          context,
+          route,
+          target: {
+            organizationId: context.expectedOrganizationId,
+            groupId: context.expectedGroupId,
+            type: MEMBERSHIP_AGGREGATE,
+            ownerMembershipId: context.membershipId,
+            state: null,
+          },
+        });
+        if (!decision.allowed) return { kind: 'denied', decision };
+        return await run(uow);
+      },
+    );
+  } catch (error) {
+    if (error instanceof VacationSelectionRolledBack) {
+      request.log.info(
+        { correlationId: request.correlationId, failure: error.failure },
+        'vacation selection rolled back',
+      );
+      return { kind: 'refused', failure: { kind: 'refused', code: error.failure } };
+    }
+    if (!isPostgresError(error)) throw error;
+    /* A `restrict_violation` reaching here is a row whose state the caller was
+     * not supposed to be able to observe — 0022's week-in-period guard, 0025's
+     * bounds guard, D-27's mapping. `404`, never `409`, for the reason the staff
+     * request surface records: a `409` would confirm the row exists and what
+     * state it is in. */
+    request.log.warn(
+      { correlationId: request.correlationId, sqlstate: error.code },
+      'vacation selection refused by the database',
+    );
+    return { kind: 'not-found' };
+  }
+}
+
+/** The member routes' replies. One mapping, three routes. */
+function respondToMember<T>(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  outcome: MemberOutcome<T>,
+  body: (value: T) => unknown,
+): unknown {
+  switch (outcome.kind) {
+    case 'denied':
+      return respondToDenial(request, reply, outcome.decision);
+    case 'not-found':
+      return sendNotFound(request, reply);
+    case 'invalid':
+      return reply.code(422).send(
+        validationProblemBodySchema.parse({
+          error: {
+            code: 'VALIDATION_FAILED',
+            message: 'The request body is not valid.',
+            correlationId: request.correlationId,
+            problems: [{ field: 'body', message: outcome.message }],
+          },
+        }),
+      );
+    case 'refused':
+      switch (outcome.failure.kind) {
+        case 'not-found':
+          return sendNotFound(request, reply);
+        case 'reused':
+          return reply.code(409).send(
+            idempotencyKeyReusedBodySchema.parse({
+              error: {
+                code: 'IDEMPOTENCY_KEY_REUSED',
+                message:
+                  'This idempotency key already names one of your requests of another kind. ' +
+                  'Use a different key.',
+                correlationId: request.correlationId,
+                existingSubtype: outcome.failure.existingSubtype,
+              },
+            }),
+          );
+        case 'deadline':
+          /* §3: "Rejected with the effective deadline STATED". */
+          return reply.code(409).send(
+            requestDeadlineRefusalBodySchema.parse({
+              error: {
+                code:
+                  outcome.failure.detail === 'window-closed'
+                    ? 'REQUEST_WINDOW_CLOSED'
+                    : 'REQUEST_SUBMISSION_LATE',
+                message:
+                  outcome.failure.detail === 'window-closed'
+                    ? 'This group is not accepting requests.'
+                    : 'This selection is later than the group\u2019s deadline.',
+                correlationId: request.correlationId,
+                effectiveDeadline: outcome.failure.effective,
+              },
+            }),
+          );
+        case 'refused':
+          return reply.code(409).send(
+            vacationSelectionRefusalBodySchema.parse({
+              error: {
+                code: outcome.failure.code,
+                message:
+                  outcome.failure.code === 'VACATION_ROUND_NOT_OPEN'
+                    ? 'This vacation round is not accepting selections.'
+                    : outcome.failure.code === 'VACATION_WEEK_ALREADY_SELECTED'
+                      ? 'You already hold a selection for that week.'
+                      : 'This selection is no longer awaiting a decision.',
+                correlationId: request.correlationId,
+              },
+            }),
+          );
+      }
+      break;
+    case 'ok':
+      return body(outcome.value);
+  }
+  /* Unreachable: every `MemberOutcome` member is handled above, and the inner
+   * switch is exhaustive over `VacationSelectionServiceFailure`. Written rather
+   * than cast away, because a cast is what turns a widened union into a silent
+   * fall-through. */
+  return sendNotFound(request, reply);
+}
+
+/**
+ * §5.3's derived root status for a selection status that must have one.
+ *
+ * Throws rather than defaulting: the only status the mapping refuses is
+ * `available`, which by §5.3 has no request row at all — so reaching this with
+ * one would mean answering a caller about a request that does not exist. A
+ * default would invent it.
+ */
+function derivedRootStatusOf(status: VacationSelectionStatus): RequestStatus {
+  const root = derivedRequestStatus(status);
+  if (root === null) {
+    throw new Error(
+      `VACATION_ROOT_STATUS_UNDERIVABLE: §5.3 derives no request status from '${status}'`,
+    );
+  }
+  return root;
+}
+
+/** One round on the wire — the period, the selections, and §5.5's variance. */
+function roundView(round: VacationRound): unknown {
+  return {
+    period: {
+      id: round.period.id,
+      startDate: round.period.startDate,
+      endDate: round.period.endDate,
+      mode: round.period.mode,
+      state: round.period.state,
+      version: round.period.version,
+    },
+    selections: round.selections.map((view) => ({
+      selection: {
+        id: view.selection.id,
+        requestId: view.selection.requestId,
+        membershipId: view.selection.membershipId,
+        vacationPeriodId: view.selection.vacationPeriodId,
+        weekStart: view.selection.weekStart,
+        status: view.selection.status,
+        version: view.selection.version,
+        grantId: view.selection.grantId,
+        /* C-3: `isOverride` is carried and `overrideReason` is NOT. The FACT
+         * that a week was approved over the allowance is a fact about the
+         * member's own week; the REASON is a scheduler's administrative note of
+         * the `change_summary` class, and widening who reads that class is a
+         * decision nobody has taken. See `vacationSelectionSummarySchema`. */
+        isOverride: view.selection.isOverride,
+        committedToVersionId: view.selection.committedToVersionId,
+      },
+      rootStatus: view.rootStatus,
+      rootVersion: view.rootVersion,
+      submittedAt: view.submittedAt?.toISOString() ?? null,
+      expiresAt: view.expiresAt?.toISOString() ?? null,
+      isLate: view.isLate,
+    })),
+    variance: round.variance.map((row) => ({
+      grantId: row.grantId,
+      kind: row.kind,
+      membershipId: row.membershipId,
+      weekStart: row.weekStart,
+      unitsTotal: row.unitsTotal,
+      unitsConsumed: row.unitsConsumed,
+      overrideUnits: row.overrideUnits,
+      bound: row.bound,
+      remaining: row.remaining,
+      overEntitlement: row.overEntitlement,
+      state: row.state,
+    })),
+  };
+}
+
 export default function vacationRoutes(app: FastifyInstance): void {
   const base = '/organizations/:organizationId/groups/:groupId/vacation/selections';
 
@@ -283,4 +596,104 @@ export default function vacationRoutes(app: FastifyInstance): void {
 
     return respond(request, reply, outcome);
   });
+  /* ── the group's rounds ────────────────────────────────── requests.own.read ── */
+
+  const rounds = '/organizations/:organizationId/groups/:groupId/vacation/rounds';
+
+  app.get(rounds, { config: OWN_VACATION_ROUND_CONFIG }, async (request, reply) => {
+    const outcome = await withOwnVacation(request, async (uow) => ({
+      kind: 'ok' as const,
+      value: await vacationStore.listPeriods(uow),
+    }));
+
+    return respondToMember(request, reply, outcome, (periods) =>
+      vacationRoundListSchema.parse({
+        periods: periods.map((period) => ({
+          id: period.id,
+          startDate: period.startDate,
+          endDate: period.endDate,
+          mode: period.mode,
+          state: period.state,
+          version: period.version,
+        })),
+      }),
+    );
+  });
+
+  /* ── ONE round: period + own selections + variance ─────── requests.own.read ──
+   *
+   * One request for one surface (I-10). The period, the caller's selections in it
+   * and the variance rows come back together because a member opening the round
+   * takes ONE action, and three fetches for it is the amplification the
+   * request-budget gate counts. */
+
+  app.get(`${rounds}/:periodId`, { config: OWN_VACATION_ROUND_CONFIG }, async (request, reply) => {
+    const outcome = await withOwnVacation(request, async (uow) => {
+      const { periodId } = request.params as { periodId: string };
+      if (!isUuid(periodId)) return { kind: 'not-found' as const };
+
+      const membershipId = uow.context.membershipId;
+      if (membershipId === null) return { kind: 'not-found' as const };
+
+      const round = await readVacationRound(uow, { periodId, scope: 'own', membershipId });
+      return round.ok
+        ? { kind: 'ok' as const, value: round.value }
+        : { kind: 'refused' as const, failure: round.failure };
+    });
+
+    return respondToMember(request, reply, outcome, (round) =>
+      vacationRoundSchema.parse(roundView(round)),
+    );
+  });
+
+  /* ── withdraw one's own selection ─────────────────── requests.own.withdraw ── */
+
+  app.post(
+    `${base}/:selectionId/withdraw`,
+    { config: WITHDRAW_VACATION_SELECTION_CONFIG },
+    async (request, reply) => {
+      const outcome = await withOwnVacation(request, async (uow) => {
+        const { selectionId } = request.params as { selectionId: string };
+        if (!isUuid(selectionId)) return { kind: 'not-found' as const };
+
+        const parsed = withdrawVacationSelectionSchema.safeParse(request.body);
+        if (!parsed.success) {
+          return { kind: 'invalid' as const, message: 'The withdrawal body is not valid.' };
+        }
+
+        const membershipId = uow.context.membershipId;
+        if (membershipId === null) return { kind: 'not-found' as const };
+
+        const result = await withdrawVacationSelection(uow, {
+          selectionId,
+          expectedSelectionVersion: parsed.data.expectedSelectionVersion,
+          /* The VERIFIED context's own membership (SPEC-01 §2.3 derives it
+           * server-side), never a path parameter and never a body field. §4's
+           * requester-initiated-only rule is decided on this value. */
+          membershipId,
+          now: new Date(),
+        });
+        return result.ok
+          ? { kind: 'ok' as const, value: result.value }
+          : { kind: 'refused' as const, failure: result.failure };
+      });
+
+      return respondToMember(request, reply, outcome, (value: VacationSelectionWriteResult) =>
+        vacationSelectionResultSchema.parse({
+          selectionId: value.selectionId,
+          requestId: value.requestId,
+          selectionStatus: value.selectionStatus,
+          /* C-7: DERIVED through §5.3's table, not written as the literal
+           * `'withdrawn'`. The module derives everywhere else — the read model,
+           * the surface, the agreement test — and a literal here would be the one
+           * place a reader could change the mapping and leave this reply saying
+           * the old thing. `null` is unreachable: `derivedRequestStatus` returns
+           * null only for `available`, and no withdrawal starts or ends there. */
+          rootStatus: derivedRootStatusOf(value.selectionStatus),
+          selectionVersion: value.selectionVersion,
+          unitReleased: value.unitReleased,
+        }),
+      );
+    },
+  );
 }

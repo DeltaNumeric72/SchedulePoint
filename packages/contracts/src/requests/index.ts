@@ -931,3 +931,289 @@ export const vacationDecisionRefusalBodySchema = z
   })
   .strict();
 export type VacationDecisionRefusalBody = z.infer<typeof vacationDecisionRefusalBodySchema>;
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * OPUS-M5-003 — §5's SUBMISSION side and the staff surfaces (doc 42 §5f)
+ *
+ * The member's half of the vacation lifecycle: selecting a week, taking the
+ * selection back, and the round as a surface reads it. The decision bodies above
+ * are the scheduler's half and neither restates the other.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * **R-15's mapping, inverted, as a CLIENT may compute it.**
+ *
+ * The forward table (`vacation_selections.status` → `requests.status`) lives in
+ * three places already and this is the fourth reader rather than a fifth
+ * authority: `packages/domain`'s `VACATION_STATUS_TO_REQUEST_STATUS`, the
+ * database's `app_vacation_derived_request_status`, and D-27's deferred triggers
+ * which enforce it. This is the same table read the other way, duplicated here
+ * for the reason this file's header already states about the enums — **this
+ * package may import zod and nothing else**, so a client that must DERIVE a
+ * displayed status cannot reach the domain's copy.
+ *
+ * "Two copies of a closed set are two truths that can drift, so they are not
+ * left to agree by inspection": `apps/api/test/requests/
+ * vacation-status-mapping-agreement.test.ts` asserts this table equals the
+ * domain's inverse AND the database's function, over every status, in one place.
+ *
+ * **Nothing stores a displayed status.** That is R-15's shape, and the reason
+ * this is a derivation rather than a field on `vacationSelectionViewSchema`
+ * below: a stored copy is a third value that can disagree with two rows D-27
+ * already holds together.
+ */
+export const VACATION_ROOT_STATUS_TO_SELECTION_STATUS: Readonly<
+  Partial<Record<RequestStatusWire, VacationSelectionStatusWire>>
+> = {
+  submitted: 'pending',
+  approved: 'approved',
+  reflected_in_version: 'committed',
+  denied: 'denied',
+  withdrawn: 'withdrawn',
+  expired: 'expired',
+  reversed: 'reversed',
+};
+
+/**
+ * The selection status a `vacation-selection` root in `status` implies, or
+ * `null` when §5.3's mapping produces no such root status.
+ *
+ * `null` is a finding, not a rendering problem: `draft`, `under_review` and
+ * `superseded_by_revision` are in §2's vacation column (D-20 admits them) and are
+ * produced by no selection status (D-27 refuses the row) — the declared tension
+ * migration 0022's header §2 records. A surface that met one would be looking at
+ * a row the database says cannot exist, and showing "unknown" is the honest
+ * answer.
+ */
+export function selectionStatusForRootStatusWire(
+  status: RequestStatusWire,
+): VacationSelectionStatusWire | null {
+  return VACATION_ROOT_STATUS_TO_SELECTION_STATUS[status] ?? null;
+}
+
+/**
+ * §5.5's advisory variance, as a surface reads it.
+ *
+ * Doc 09 §2.1: *"Over-quota is advisory, not blocking. The variance indicator
+ * warns; approval still succeeds."* `state` is therefore a WARNING vocabulary
+ * and never a permission — nothing on either side of the wire consults it to
+ * decide anything.
+ *
+ * `overEntitlement` is measured against `unitsTotal` rather than against `bound`,
+ * because an approval that raised the bound to fit itself is precisely the event
+ * a variance display exists to make visible.
+ */
+export const vacationVarianceSchema = z
+  .object({
+    grantId: uuidSchema,
+    kind: vacationGrantKindSchema,
+    /** The member a personal entitlement belongs to, or null for a weekly capacity. */
+    membershipId: uuidSchema.nullable(),
+    /** The week a capacity is for, or null for a personal entitlement. */
+    weekStart: calendarDateSchema.nullable(),
+    unitsTotal: z.number().int().nonnegative(),
+    unitsConsumed: z.number().int().nonnegative(),
+    overrideUnits: z.number().int().nonnegative(),
+    bound: z.number().int().nonnegative(),
+    remaining: z.number().int().nonnegative(),
+    overEntitlement: z.number().int().nonnegative(),
+    state: z.enum(['within', 'at-entitlement', 'over-entitlement']),
+  })
+  .strict();
+export type VacationVarianceWire = z.infer<typeof vacationVarianceSchema>;
+
+/**
+ * One selection as the round's surface reads it: the selection row, and the ROOT
+ * facts R-15's derivation and §3's deadline display need.
+ *
+ * `rootStatus` is carried and a displayed status is NOT. The client calls
+ * `selectionStatusForRootStatusWire` on it, and the server has already asserted
+ * that the derivation agrees with `selection.status` before answering — so the
+ * two halves of D-27's pair are on the wire together and a disagreement is
+ * visible rather than papered over.
+ *
+ * Every root field is nullable for exactly one reason: §5.3's `available` row has
+ * no root at all.
+ */
+/**
+ * The selection as the MEMBER's round read carries it — **without
+ * `overrideReason`** (OPUS-M5-003, condition C-3).
+ *
+ * `vacationSelectionSchema` above is the full row and stays as it is; this is a
+ * PROJECTION of it for one surface, and the omission is the point.
+ * `overrideReason` is SCHEDULER-authored bounded free text explaining why
+ * somebody's allowance was exceeded — the `change_summary` class — and putting
+ * it on a member's own round read would widen who can read that class of text
+ * without any decision having been taken to widen it. `isOverride` is retained,
+ * because the FACT that a week was approved over the allowance is a fact about
+ * the member's own week and they are entitled to see it; the REASON is a
+ * scheduler's administrative note about it.
+ *
+ * A future packet may grant the member the reason deliberately, under a recorded
+ * decision. Until then the field is absent rather than nulled: an absent field
+ * cannot be read, whereas a nulled one is a field somebody will one day fill in
+ * "because it is already on the wire".
+ *
+ * The `.refine` that pairs `isOverride` with `overrideReason` is deliberately
+ * NOT carried here — there is no reason field for it to pair with, and a
+ * refinement over an absent field would be a rule that can never fire.
+ */
+export const vacationSelectionSummarySchema = z
+  .object({
+    id: uuidSchema,
+    requestId: uuidSchema.nullable(),
+    membershipId: uuidSchema,
+    vacationPeriodId: uuidSchema,
+    weekStart: calendarDateSchema,
+    status: vacationSelectionStatusSchema,
+    version: z.number().int().positive(),
+    grantId: uuidSchema.nullable(),
+    /** §5.5: this week was approved beyond the allowance. The REASON is not here. */
+    isOverride: z.boolean(),
+    committedToVersionId: uuidSchema.nullable(),
+  })
+  .strict();
+export type VacationSelectionSummaryWire = z.infer<typeof vacationSelectionSummarySchema>;
+
+export const vacationSelectionViewSchema = z
+  .object({
+    selection: vacationSelectionSummarySchema,
+    rootStatus: requestStatusSchema.nullable(),
+    rootVersion: z.number().int().positive().nullable(),
+    submittedAt: z.string().datetime().nullable(),
+    /** §3's server-computed deadline for the root. Never client-supplied. */
+    expiresAt: z.string().datetime().nullable(),
+    isLate: z.boolean(),
+  })
+  .strict();
+export type VacationSelectionViewWire = z.infer<typeof vacationSelectionViewSchema>;
+
+/**
+ * The vacation ROUND, as one read.
+ *
+ * One request, one surface (I-10): the period, the caller's selections in it, and
+ * the variance rows for its grants. A surface that had to fetch three of these
+ * separately would be three requests for one action, and the request-budget gate
+ * counts exactly that.
+ *
+ * `variance` is EMPTY in `open` mode and that is not an error — V-30: open mode
+ * has no `vacation_grants` rows at all, and a client that treated an empty list
+ * as "no allowance left" would be reintroducing the defect V-30 fixed.
+ */
+export const vacationRoundSchema = z
+  .object({
+    period: vacationPeriodSchema,
+    selections: z.array(vacationSelectionViewSchema),
+    variance: z.array(vacationVarianceSchema),
+  })
+  .strict();
+export type VacationRoundWire = z.infer<typeof vacationRoundSchema>;
+
+/** Every round a member may select in, newest first. */
+export const vacationRoundListSchema = z
+  .object({ periods: z.array(vacationPeriodSchema) })
+  .strict();
+export type VacationRoundList = z.infer<typeof vacationRoundListSchema>;
+
+/**
+ * What a member sends to WITHDRAW their own selection.
+ *
+ * The SELECTION's version, not the root's (V-29 — the version §5.4 originally
+ * checked was the grant's, and that confusion was the defect). §4's conditional
+ * rule is not weaker for a withdrawal than for a decision: two tabs open on the
+ * same week must not both succeed.
+ *
+ * **There is deliberately no `reason`**, exactly as `withdrawRequestSchema` has
+ * none: withdrawal is requester-initiated and a person taking back their own week
+ * owes nobody an explanation, and adding one would put new bounded free text on a
+ * `SENSITIVE-PII` aggregate — the question M5-00C owns and this packet does not
+ * open.
+ */
+export const withdrawVacationSelectionSchema = z
+  .object({
+    expectedSelectionVersion: z.number().int().positive(),
+  })
+  .strict();
+export type WithdrawVacationSelection = z.infer<typeof withdrawVacationSelectionSchema>;
+
+/**
+ * What a member's WITHDRAWAL returns — both halves of D-27's pair.
+ *
+ * The root status is carried BESIDE the selection status rather than instead of
+ * it, so a client can check the derivation itself. That is R-15 on the wire: the
+ * two rows agree, and the answer says so in a form a caller can verify rather
+ * than in one it must trust.
+ *
+ * **A SUBMISSION does not use this shape.** It answers `requestSchema`, the same
+ * body the other five subtypes return from the same route — one submission
+ * endpoint, one answer to parse. `unitReleased` is what a withdrawal has to say
+ * that a submission does not: withdrawing an APPROVED selection returns the quota
+ * unit the approval consumed (§5.5's release write path), and a member whose
+ * balance just moved should be told so rather than left to re-read for it.
+ */
+export const vacationSelectionResultSchema = z
+  .object({
+    selectionId: uuidSchema,
+    requestId: uuidSchema,
+    selectionStatus: vacationSelectionStatusSchema,
+    rootStatus: requestStatusSchema,
+    selectionVersion: z.number().int().positive(),
+    /** §5.5: a quota unit was returned to its grant. False from a `pending` withdrawal. */
+    unitReleased: z.boolean(),
+  })
+  .strict();
+export type VacationSelectionResultWire = z.infer<typeof vacationSelectionResultSchema>;
+
+/**
+ * **FU-23's named ending.** One member's idempotency key already names a request
+ * of a DIFFERENT subtype.
+ *
+ * Before this packet the same situation produced a bare `23505` surfacing as an
+ * unexplained `409` — the failure FU-23 records as "a 409 posing as a replay".
+ * The remedy is different from every other conflict on this surface: reloading
+ * changes nothing and retrying repeats it. The caller must choose another key.
+ *
+ * The subtype the key already names is carried, and it discloses nothing: D-7's
+ * uniqueness is scoped to `membership_id`, so the row it names is the caller's
+ * own, and their own list already shows it.
+ */
+export const idempotencyKeyReusedBodySchema = z
+  .object({
+    error: z
+      .object({
+        code: z.literal('IDEMPOTENCY_KEY_REUSED'),
+        message: z.string().min(1),
+        correlationId: z.string().min(1),
+        existingSubtype: requestSubtypeSchema,
+      })
+      .strict(),
+  })
+  .strict();
+export type IdempotencyKeyReusedBody = z.infer<typeof idempotencyKeyReusedBodySchema>;
+
+/**
+ * §5.3/§5.5's refusals on the member's side of the round.
+ *
+ * `SELECTION_NOT_PENDING` is R-18/R-19's, reused deliberately: it means the same
+ * thing here as it does on the decision side — the selection is not standing
+ * where the command believed, or the version is stale — and a second code with
+ * the same remedy would be a vocabulary that grew without meaning.
+ * `VACATION_ROUND_NOT_OPEN` is the period's own window, which is not §3's
+ * deadline and is refused separately from it.
+ */
+export const vacationSelectionRefusalBodySchema = z
+  .object({
+    error: z
+      .object({
+        code: z.enum([
+          'SELECTION_NOT_PENDING',
+          'VACATION_ROUND_NOT_OPEN',
+          'VACATION_WEEK_ALREADY_SELECTED',
+        ]),
+        message: z.string().min(1),
+        correlationId: z.string().min(1),
+      })
+      .strict(),
+  })
+  .strict();
+export type VacationSelectionRefusalBody = z.infer<typeof vacationSelectionRefusalBodySchema>;

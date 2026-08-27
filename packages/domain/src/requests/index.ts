@@ -70,6 +70,7 @@ export type {
   NewRequest,
   NewVacationSelection,
   RequestStore,
+  VacationSelectionView,
   VacationStore,
 } from './port.js';
 
@@ -161,8 +162,34 @@ export {
   countersAfterReversal,
   grantBound,
   grantHasHeadroom,
+  grantVariance,
   overrideUnitsNeeded,
   reversalKeepsFloor,
   type GrantCounters,
+  type GrantVariance,
   type VacationApprovalFailure,
 } from './vacation-approval.js';
+
+/* ── OPUS-M5-003 — §5's SUBMISSION side (doc 42 §5f) ─────────────────────────
+ *
+ * §5.3's own lifecycle, the mapping read in both directions (R-15), and the
+ * order a selection list is presented in. The approval side above and this one
+ * share one table and one set of statuses; neither restates the other. */
+
+export {
+  VACATION_SELECTION_OPERATIONS,
+  VACATION_SELECTION_REFUSAL_REASONS,
+  VACATION_SELECTION_TRANSITIONS,
+  compareSelectionsForDisplay,
+  orderSelectionsForDisplay,
+  selectionEdgeRootPath,
+  selectionOperationIsLegal,
+  selectionOperationVerdict,
+  selectionStatusForRootStatus,
+  selectionTransitionIsLegal,
+  vacationStatusPairAgrees,
+  type SelectionOrderKey,
+  type VacationSelectionOperation,
+  type VacationSelectionRefusalReason,
+  type VacationSelectionVerdict,
+} from './vacation-selection.js';

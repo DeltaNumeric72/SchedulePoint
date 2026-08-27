@@ -906,6 +906,117 @@ next PR. The §5c/§5e environment discipline binds in full (tree-not-source-of-
 during arms; per-arm two-assertion gate + `debris.mjs`; exact-`ps`-text waiters;
 `SP_SOLVER_WORKER_COMMAND` must now be SET for any gate run — FAD-56).
 
+**ACCEPTED 2026-08-27.** Fresh implementer (~13.5 h); fresh reviewer; verdict
+**ACCEPT WITH CONDITIONS** (C-1/C-2/C-3 MEDIUM · C-4..C-7 LOW), one condition round;
+delta **CONFIRM upgrading to ACCEPT** — the reviewer mutation-proved four of the
+seven discharges itself. Patch of record: 29 files, +7 084/−56, md5
+`4bffb3c637083ddc7e1f92e3b6a27ca4` (round-0 `063cafa0…` superseded — correct for
+its tree; the reviewer regenerated both byte-identically from its own worktree, and
+the round delta was structurally confined to five files with the only new deletion
+one import line).
+
+- **Built:** vacation roots through the M5-001 lifecycle (the 422 retires; the
+  vacation module is the single writer — the creation union excludes vacation
+  STRUCTURALLY via a `never`-mapping type, not a comment); selections per 0022 with
+  R-18/R-19 guards on every write; quota and open modes proven from the submission
+  side; **R-15 as a three-copy §5.3 agreement** (domain constant · database
+  function · contracts inverse — each copy independently mutation-killed at review,
+  each naming the disagreement) with a live walk visiting all eight statuses and
+  D-27 refused from both sides, AND proven ON SCREEN with a genuinely divergent
+  fixture row after the review's C-2 finding; the ordering matrix (weekStart-first,
+  RATIFIED under this section's "or as SPEC-08 §5.3 rules" clause — within one
+  round every selection shares one deadline, so a deadline cannot discriminate);
+  the staff round surface with advisory variance (`role="alert"`, control stays
+  enabled), I-13 at zero requests both halves, four request budgets both
+  viewports; route-policy 125→128, all four-layer, driven over HTTP as a grantless
+  member with the viewer refusal pinned at NO_CAPABILITY.
+- **FU-23 CLOSED:** root read split from record read; three answers classified
+  before any write — fresh / replay / `IDEMPOTENCY_KEY_REUSED` (a named 409) —
+  proven over HTTP in both directions with "a bare CONFLICT is the 409 posing as a
+  replay" as the surviving-defect assertion; per-subtype namespacing rejected on
+  0021's D-7 (non-additive; one key meaning two commands).
+- **FU-20's period-shrink half CLOSED, branch (b) by measurement:** migration 0025
+  (additive; 0021–0024 md5-identical) — the period-side bounds guard covering
+  `pending`/`approved`/`committed` and allocating weekly-capacity grants, with the
+  five irremediable statuses EXCLUDED by name (no DELETE grant exists;
+  `week_start` is outside the UPDATE grant; no outgoing §2 edge — an unconditional
+  guard would have made periods permanently unshrinkable against inert debris);
+  BOTH measurement premises are themselves asserted as tests so a later grant
+  cannot silently invalidate the exclusion; ten populated-cycle cases including
+  permitted-shrink and widening-never-blocked.
+- **The §4 authorization finding — found by this packet's own deny-by-default
+  test, cured on both class members:** a scheduler could withdraw a member's
+  selection (and, verified by measurement before any fix, a member's request via
+  M5-001's route — 200, row withdrawn, transcript 09 retained). The composition
+  gap: L5.1 passes BY CONSTRUCTION on self-scoped surfaces (the acting membership
+  is its own target) and RLS admits the write BY DESIGN (rows, never operations) —
+  so the operation-layer ownership predicate is the only place §4's
+  "requester-initiated only" can live, and it was absent. Cured with the verified
+  context's own membershipId on both by-id own-scoped write routes; the class
+  closed by ENUMERATION (exactly two members; context-probe correctly OUT — it
+  names a real subject, so L5.1 genuinely decides it) with a structural test
+  re-deriving the set from the route table (write verbs widened per C-4) so a
+  third member meets the rule at declaration; owner paths AND the scheduler's
+  legitimate deny door proven preserved; the false docblock sentence corrected
+  with the measurement beside it; FAD-57's exposure-widening recorded unsoftened
+  (the defect predates it; the population widened with it). Both cures replanted
+  and re-proven independently at review.
+- **Conditions:** C-1 the approved→withdrawn quota release shipped unexecuted
+  (`unitReleased: true` produced nowhere in 2 508 tests) — discharged with three
+  HTTP cases built on the REAL routes: exact-equality unit restoration, the
+  audited-override both-counters case, and a DETERMINISTIC grant-version-conflict
+  interleave (lock held by a second connection, the block polled on
+  `pg_stat_activity`, release and withdrawal proven to roll back TOGETHER; the
+  reviewer verified a spurious poll can only produce a loud failure, never a false
+  pass — residual note: the unscoped poll is a false-RED risk on a busy cluster;
+  scoping via `pg_blocking_pids()` is the recorded candidate). C-2 the on-screen
+  R-15 e2e could not discriminate (the review planted the read-off-selection
+  defect and the case PASSED — pair-consistent fixtures cannot separate the
+  implementations because the derivation is total) — discharged with a divergent
+  row mutation-proven 2-failed-then-clean at both viewports, and the false
+  docblock sentence corrected to state the CLASS. C-3 `overrideReason` removed
+  from the member projection (a silent reader widening; the summary schema is
+  `.strict()` with the field ABSENT, not nulled — a future recorded decision can
+  grant it deliberately). C-4 write-verb widening (mutation-proven on a planted
+  DELETE route). C-7 the one literal root status now derived, with an explicit
+  throw on the sole unmapped status. C-5/C-6 record corrections carried here.
+- **Acceptance figures, FROM MEASUREMENT (both agents' independent runs agree;
+  the implementation report's passed-vs-total label slips are superseded by this
+  paragraph per C-5):** `pnpm check` 17/17 · unit **196 files / 2 511 tests total
+  (2 497 passed + 14 skipped)** — round-0's 2 508 + exactly C-1's three cases ·
+  axe **458 passed / 16 skipped**, both viewports, all four vacation budgets ·
+  request-budget 48/95 · route-policy **128** · migration-rls **25** ·
+  invariant-ids 22 · validators 36/36 · 95/95 · PASS · composed seeded run at seed
+  **20260913** clean (160+1 files / 1 680+14 tests, engagement line proven) after
+  two environmental kills and one recorded own-error — the three-attempt history
+  stands in the INDEX · census **69** (no arm touched, verified path-by-path by
+  both agents; every candidate fails conjunct 3, and the §4 predicate fails
+  conjunct 1 OUTRIGHT — the finding itself proves only one layer can hold it) ·
+  arm 68 isolated PROVEN by both agents.
+- **Observations recorded, no action this packet:** the accepted-save e2e state is
+  the one rendered state without its own axe sweep (→ M5-005's surface work); the
+  R-01 selection-level illegal-edge refusal is argued from D-27 + 0021's guard
+  composition rather than database-tested (→ M5-006's integration sweep).
+- **Environment record:** the unit gate's own in-test red leg left
+  `provider-boundary.ts` neutered in-tree, poisoning two runs before `git diff`
+  found it (→ FU-30; `debris.mjs` structurally cannot see in-place mutations —
+  the two-check discipline is the cover); two phantom vitest process trees
+  observed re-parented to init (mechanism UNKNOWN, recorded not theorized —
+  RISK-REGISTER); run 11's four failures stand as one observed non-reproducing
+  occurrence, not attributed; `git checkout --` TRUNCATES intent-to-add files to
+  empty (their index entry IS empty) — every added file in a patch-delivered
+  packet is at risk; restore added files by `cp` + recorded md5 or from the
+  patch's own addition hunk (the reviewer verified the one repair three
+  independent ways); the implementer's declared own-errors (recursive chmod, 393
+  modes; pgdata removed before its postmaster was killed; a waiter blinded by
+  vitest renaming its process title) are in the INDEX with causes.
+
+**Dated correction to §5d (2026-08-27, C-6):** §5d's line "`releaseGrantUnits`
+currently has no production caller — only tests — because §5.6's reversal
+transaction is M5-004's" was true when written; as of M5-003, J1's
+approved→withdrawn quota release is its first production caller, and (per C-1) that
+composed path is now proven by execution. The original §5d text stands unedited.
+
 ## 6. Standing acceptance battery (every packet, per 24 §G and the M4 form)
 
 Validators (36/36 · 95/95 · research PASS) · `corepack pnpm check` 17/17 · the full

@@ -174,6 +174,31 @@ function submitVerdict(subtype: RequestSubtype, from: RequestStatus): OperationV
  * which one a `withdrawn` selection meant.
  */
 function withdrawVerdict(subtype: RequestSubtype, from: RequestStatus): OperationVerdict {
+  /* ── OPUS-M5-003: `vacation-selection` is withdrawn by the vacation module ──
+   *
+   * **§2's matrix is NOT narrowed by this branch.** Every vacation withdrawal
+   * cell §2 carries stays legal, in the domain matrix and in the database, and
+   * `apps/api/test/requests/transition-matrix-agreement.test.ts` still holds the
+   * two copies to each other cell by cell. What moves is MODULE OWNERSHIP, not a
+   * transition: §5.3's "**One writer.** Only the vacation module updates either
+   * status" means a withdrawal must move the SELECTION and the derived root in
+   * one transaction, and this operation's writer (`withdrawRequest` in
+   * `apps/api/src/requests/service.ts`, through `RequestStore.withdraw`) moves
+   * only the root. Reaching it with a vacation request would produce a root the
+   * mapping cannot explain, and deferred D-27 would refuse the whole transaction
+   * at COMMIT with a message about a mapping rather than about a mistaken caller.
+   *
+   * The refusal is house-consistent rather than novel: `submitVerdict` above
+   * already refuses this subtype with this reason — its root is CREATED at
+   * `submitted`, by the vacation writers — and `decisionVerdict` below refuses it
+   * through `DECIDABLE_SUBTYPES` on §5.3's one-writer rule verbatim. This is the
+   * third face of one rule, and the withdrawal that DOES exist is
+   * `selectionOperationVerdict(…, 'withdraw')` in `./vacation-selection.ts`,
+   * whose writer moves both rows.
+   */
+  if (subtype === 'vacation-selection') {
+    return { allowed: false, reason: 'operation-not-available-for-subtype' };
+  }
   /* The matrix carries FAD-55's cell, so this consults it exactly as the other
    * two operations do. There is deliberately no special case here: an operation
    * that reasoned about `reflected_in_version` on its own would be a second copy
