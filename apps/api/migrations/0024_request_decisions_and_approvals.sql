@@ -166,6 +166,20 @@
 -- `approvals_pkey` would change no behaviour of the database and would silently
 -- delete that coverage, which is precisely FU-19's shape: a control that stops
 -- looking without anything failing.
+--
+-- **AMENDMENT 2026-08-26 (OPUS-M5-H, FU-19 discharged): the paragraph above is
+-- now HISTORY, and the name is no longer load-bearing.** The X-11 control's
+-- exemption was narrowed in the same change that closes FU-19: it is now a
+-- statement about an index's COLUMN LIST — exactly `(id)`, or exactly
+-- `(id, organization_id)` — and the index name is not consulted at all. So this
+-- table's primary key is evaluated because of what it IS rather than because of
+-- what it is called, and renaming it to `approvals_pkey` would now change
+-- nothing whatsoever. **The name stays `approvals_pk` regardless**: it is a
+-- shipped identifier, renaming it would rewrite a landed migration for cosmetic
+-- reasons, and the paragraph above must remain readable as the reason it was
+-- chosen. The text is amended rather than deleted, per this repository's
+-- standing rule that the provenance of a decision stays legible (the NR-20
+-- precedent).
 
 -- Up Migration
 

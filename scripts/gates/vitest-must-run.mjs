@@ -78,6 +78,25 @@ const forwarded = process.argv.slice(2);
 const reportDir = mkdtempSync(join(tmpdir(), 'sp-vitest-must-run-'));
 const reportPath = join(reportDir, 'run.json');
 
+/* FU-25's residual, mechanized (OPUS-M5-H).
+ *
+ * This wrapper removes `reportDir` on EVERY path it completes — success,
+ * failure, spawn error, signal death of its child. So **a surviving directory is
+ * a killed WRAPPER**: that inference rule is M5-002's, drawn from eight empty
+ * `sp-vitest-must-run-*` directories spanning four days, and it was the evidence
+ * that established the environment's kill class in the first place.
+ *
+ * It was an inference a human made afterwards by listing `/tmp`. Announcing the
+ * path here turns it into something the red-case runner can check for itself: on
+ * a non-zero gate whose announced directory still exists, the runner scores
+ * ERRORED — did not run — instead of counting a kill as a verdict. Without this
+ * line the case is undetectable from outside, because a killed wrapper writes no
+ * diagnostic of its own and pnpm converts its signal death into an ordinary
+ * `exit 1`.
+ *
+ * One line, on stderr, structure only. */
+process.stderr.write(`VITEST-MUST-RUN-REPORT-DIR: ${reportDir}\n`);
+
 /* `default` is re-stated because naming any reporter replaces the default set,
    and the human reading this run must still see the run. */
 const result = spawnSync(
@@ -106,6 +125,39 @@ if (result.error !== undefined) {
       `(spawnSync ${VITEST_BIN} ${code}).\n` +
       `  arguments: ${forwarded.join(' ') || '(none)'}\n` +
       '  Nothing ran, so this is not a gate result at all.\n\n',
+  );
+  process.exit(1);
+}
+
+/* FU-25 (OPUS-M5-H), the wrapper's half of the signal-death class.
+ *
+ * `scripts/red-cases/run.mjs` treats a signal-killed child as ERRORED — did not
+ * run. It cannot see THIS child's death, and that was measured rather than
+ * assumed: the runner never spawns vitest directly, it spawns the package
+ * manager, and pnpm converts a descendant's signal death into an ordinary
+ * `exit 1` with `signal: null` (probed for both a direct child and a grandchild).
+ * So a SIGKILL landing on vitest — the long, memory-hungry leg the environment
+ * actually kills — reached the runner as a plain non-zero exit and, on a RED leg,
+ * scored as "the gate failed as required": a kill counted as PROOF.
+ *
+ * `result.status ?? 1` below is what erased the distinction. The signal is
+ * announced here instead, in the SAME wording
+ * `scripts/red-cases/spawn-outcome.mjs` uses, so the runner's existing matcher
+ * classifies it: one signature, two emitters, one matcher.
+ *
+ * **The residual is named rather than assumed closed.** If the WRAPPER ITSELF is
+ * killed, it prints nothing — a dead process writes no diagnostic — and pnpm
+ * again reports exit 1. That case is FU-25's amendment, with a candidate fix
+ * recorded there and deliberately not built here.
+ *
+ * Structure only, never content (I-07 / non-bypass rule 9). */
+if (result.status === null && result.signal !== null && result.signal !== undefined) {
+  rmSync(reportDir, { recursive: true, force: true });
+  process.stderr.write(
+    `\nVITEST-MUST-RUN: the gate was KILLED by a signal (${String(result.signal)}) ` +
+      'and never reached a verdict.\n' +
+      `  arguments: ${forwarded.join(' ') || '(none)'}\n` +
+      '  Nothing ran to completion, so this is not a gate result at all.\n\n',
   );
   process.exit(1);
 }

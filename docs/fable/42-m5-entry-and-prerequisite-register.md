@@ -715,6 +715,131 @@ obtained byte-identical md5s.
 Ten-ish packets was M4's real count including correctives; the same allowance stands —
 correctives get their own serial packets, never squeezed into a neighbour's scope.
 
+### 5e. M5-H — FINALIZED 2026-08-26 (issues against `origin/main` at `4178b6b`, the PR #10 merge)
+
+**Scope: the hygiene batch the pre-declaration reserved, issued alone between M5-002
+and M5-003.** Registered follow-ups only — no capability-bearing feature work, no
+schema change beyond what a named FU's fix designation requires. The items, each
+against its register entry in [40](40-post-gate-follow-ups.md):
+
+- **FU-25 (first — it unblocks trust in every later battery):** `run.mjs` treats a
+  signal-killed gate child (`result.signal !== null`) as **ERRORED — did not run**,
+  at the FAD-50 N-1(ii) site, both legs. Prove it with a harness-level test or arm
+  that simulates a signal-killed gate and asserts the ERRORED verdict (never by
+  weakening an existing arm). This is the deferred fix ratified at M5-002; the FU
+  carries the full evidence.
+- **FU-08:** route the four direct-vitest red-case arms through
+  `vitest-must-run.mjs` so the zero-execution boundary is enforced, not documented,
+  at those sites.
+- **FU-19 (both faces):** narrow X-11's PK exemption to column lists exactly `(id)`
+  or `(id, organization_id)`; this retires the caller-named-PK blindness AND the
+  `approvals_pk` name-load-bearing accident recorded in the 2026-08-26 amendment.
+- **FU-06 · FU-07 · FU-13:** the untracked-probe backstop; the root-file hygiene
+  gate; the small-residues batch exactly as FU-13 enumerates it.
+- **FU-04, under a ruling taken now (delegated authority, to be recorded as a FAD at
+  landing):** a missing solver command becomes a **named `NO_SOLVER_COMMAND`
+  refusal** (or startup validation with the same name) — fail-closed stays, the
+  diagnosis is added; the documented-invocation status quo is superseded. Additive
+  to the error taxonomy; nothing renamed.
+- **FU-28, under a ruling taken now (same basis, FAD at landing):** doc 08 §6's `✓`
+  for Member "Submit requests/vacation" means **role-implication** — `requests.own.*`
+  join the member role's implication set (and whatever implies member), with the
+  cross-product row and tests extended in both layers. The implementer verifies the
+  doc's `✓` legend first and ESCALATES if the legend contradicts the ruling rather
+  than implementing around it; fixtures' explicit grants stay valid (implication
+  adds, never removes).
+- **FU-24:** dispose the two orphan keys per the register's rule — an evaluator with
+  a real reading surface where one exists in scope, otherwise a dated disposition
+  recorded in the FU (awaiting its surface, named); never a silent removal
+  (rule 13), never a new capability surface invented to give a key a reader.
+- **FU-27:** give the `find`-based companion check a durable procedural home
+  (the red-case runner docs/preflight notes), closing the entry.
+- **FU-29 sweep and FU-22, capacity tail only:** if budget remains after the above
+  are proven, start the pre-M5 route families' HTTP-driven sweep (FU-29) —
+  otherwise both stay OPEN, untouched, with no partial claimed.
+
+**Acceptance battery:** validators · `corepack pnpm check` 17/17 · **red cases in
+the sharded-CI primary form on the PR (FAD-54)** — this packet EDITS the battery
+harness (FU-25/FU-08), so serial local proof is limited to the new/changed arms and
+the FU-25 harness test; no full serial battery is attempted on this container
+(the kill class stands) · one composed seeded `api` run at a fresh seed with the
+invocation of record · CI green before merge consideration. Environment discipline
+binds as amended at M5-002 (tree-not-source-of-truth during arms; the two-assertion
+tree gate per arm; the FU-27 find check; exact-`ps`-text waiters). Delivery:
+worktree + patch from `4178b6b`; fresh Opus implementer; fresh Opus reviewer; delta
+by the reviewer; orchestrator lands and commits on the next PR.
+
+**ACCEPTED 2026-08-26/27.** Fresh implementer; fresh reviewer; verdict **ACCEPT WITH
+CONDITIONS** (C-2 MEDIUM · C-1/C-3/C-4/C-5 LOW — all record-accuracy, none
+behavioural), one condition round; delta **CONFIRM** by the original reviewer. Patch
+of record: 19 files, +2 129/−159, md5 `d1217ad01f2b6216e5df18c14db13d74` (round-0
+`d8a15869…` superseded — correct for its tree; the reviewer regenerated BOTH from
+its own worktree byte-identically, and the round delta was structurally confined to
+the two condition files with deletions unchanged at 159).
+
+- **Closed:** FU-04 (the `NO_SOLVER_COMMAND` named refusal — FAD-56) · FU-06/FU-07
+  (`tree-hygiene.test.ts` under `gate:unit`, enumerated allowlists, non-vacuity
+  arms, mutation-proven) · FU-08 (count corrected 4→27 arms/54 legs by dated
+  amendment; all wrapped; `assertEveryVitestInvocationIsWrapped()` refuses to start
+  a battery with an unwrapped invocation, exit 2, mutation-proven) · FU-19 (the
+  name-independent `isServerGeneratedIdentityKey(columns)` exemption retiring BOTH
+  faces; the M5-000b mutation replanted by implementer AND reviewer and caught;
+  balanced-paren parser with both regex traps pinned; `audit_checkpoints_pkey` now
+  genuinely evaluated rather than blanket-exempted; no coverage loss; 0024's SQL
+  body byte-identical, `approvals_pk` deliberately not renamed) · FU-25 (the
+  runner scores a signal-killed gate ERRORED for THREE cases — pm-kill via
+  `result.signal`, vitest-kill via the wrapper's same-worded emission, wrapper-kill
+  via the announced-report-dir survival inference; one signature, three emitters,
+  one matcher; four mutations each killed by a named assertion; the RESIDUAL is
+  named, never assumed closed: a kill on `run.mjs` itself scores nothing — with the
+  `process.on('exit')` candidate recorded after the reviewer measured that
+  `try/finally` cannot close the announce-to-remove window because `process.exit()`
+  skips finally blocks) · FU-27 (`debris.mjs` + the written two-check post-kill
+  procedure) · FU-28 (`requests.own.submit/.withdraw/.read` — the register's
+  `.create` corrected by date; role-implied for member AND scheduler per doc 08
+  §6's verified legend — FAD-57; negatives iterate every other role;
+  implication-widened-nothing proven; HTTP proof with a grantless member and a
+  refused viewer) · FU-13 at **7 of 9** (two items OPEN with the search record:
+  their R-7/R-8 finding texts were never landed in the repository; process lesson
+  adopted — a finding routed into an FU must land its text or pointers at routing
+  time) · FU-24 (both orphan keys as dated retentions; the audit re-point refused
+  as grant-widening).
+- **Acceptance evidence** (implementer's, independently reproduced by the
+  reviewer): `pnpm check` 17/17 (unit **191 files / 2 443 total** — the delta over
+  M5-002 is **+2 files/+16 tests**, all individually attributed; route-policy 125
+  unchanged, a no-route packet) · validators 36/36 · 95/95 · PASS · five isolated
+  `SP_RED_SHARD` arm proofs both directions (61/35/36/60/23) with the tree gate and
+  debris check between each · composed seeded run seed 20260906, engagement line
+  proven, 156+1 files / 1 641+14 tests clean · census 69 unchanged, the
+  four-conjunct bar applied in writing (every candidate fails conjunct 3 — its
+  falsifier already runs — the same discriminator as M5-002's closest candidate);
+  this paragraph is the durable home of that reasoning, per the reviewer's
+  observation.
+- **Open historical residue, recorded not reconciled:** the +16 arithmetic implies
+  a base of 189 files / 2 427 tests where §5d records 189 / 2 426 collected — a
+  ONE-test discrepancy predating this patch (every file it touches is individually
+  counted). It stands here until someone attributes it; neither figure is edited.
+- **Honesty and environment:** the implementer's first check was 16/17 — both
+  defects its own, in its own new file, retained with causes; the reviewer's first
+  check was destroyed by its own two disclosed errors (a runs-on-import accident —
+  `fixture-regression.mjs` is the THIRD member of the runs-on-import class, whose
+  known antidote is the `spawn-outcome.mjs`/`errored-signatures.mjs` extraction
+  pattern — and an exit-status polling trap, a NEW VARIANT of the self-deceiving
+  process-check class: an `&& {…grep…} || {…}` compound whose non-zero first branch
+  routes into the second, printing DONE for a live process), remediated by pid
+  chain with both contaminated logs retained, and re-run clean. **FU-25's new
+  mechanism adjudicated that accident correctly on real input** — the announced
+  report dir was GONE, so the 147 failures were a genuine verdict about a broken
+  environment, not a kill — the first both-directions demonstration outside the
+  harness; and the reviewer's later `git clean` accident proved the
+  remove-on-every-path claim on an unhandled-error path nobody designed a test
+  for. Zero kills this packet: /tmp held exactly the eight pre-existing wrapper
+  dirs throughout, twice independently recounted.
+- The FU-22 row's ten unescaped in-backtick pipes (a rendering defect present
+  since the row was written, displacing its columns) were escaped at this landing
+  by the orchestrator, on the M5-H implementer's declared observation — rendering
+  only, zero content change.
+
 ## 6. Standing acceptance battery (every packet, per 24 §G and the M4 form)
 
 Validators (36/36 · 95/95 · research PASS) · `corepack pnpm check` 17/17 · the full

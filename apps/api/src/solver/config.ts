@@ -116,13 +116,45 @@ export function solverRpcKey(): SolverRpcKey {
  * `SP_SOLVER_WORKER_COMMAND` and `SP_SOLVER_WORKER_ARGS` exist because the
  * worker is a *separate deployment unit* (SPEC-04 §1.1) and the way it is
  * reached differs by environment: an interpreter path under the FAD-7 venv
- * substitution, a container entry point in CI. The default is the plain
- * interpreter invocation, which is the one that works from a checkout.
+ * substitution, a container entry point in CI.
  *
  * **This is the whole surface over which a solve is reached.** There is no
  * connection string, no credential, and no filesystem handoff — the worker
  * receives its problem on stdin and returns its result on stdout (SPEC-04 §1.1:
  * "Not a shared database, not a shared filesystem").
+ *
+ * ## `NO_SOLVER_COMMAND` — FU-04, ruled 2026-08-26 under the delegated mandate
+ *
+ * The command used to default to the literal `'python3'`. **That default is
+ * gone**, and this is the FU-04 exit: *"a missing solver command becomes a named
+ * `NO_SOLVER_COMMAND` refusal (or startup validation with the same name) — the
+ * documented-invocation status quo is superseded."*
+ *
+ * The evidence is why the diagnosis had to be added HERE rather than at the spawn.
+ * `docs/evidence/EV-DOC38-GATE/leg7-attempt1-no-solver-env-real-stack.txt` is a
+ * full real-stack run with the variable unset: `python3` existed, so nothing
+ * failed to spawn — it started, found no OR-Tools, and exited without writing a
+ * response, which the parent correctly attributed as `crashed` /
+ * `exit-N-no-response`. The build reached `failed`, the UI said "the independent
+ * check REFUSED this candidate", and **nothing anywhere named the missing
+ * configuration**. So an `ENOENT` branch at the spawn would not have caught the
+ * observed failure at all; only asking the question before the spawn does.
+ *
+ * **Fail-closed is unchanged — only the diagnosis is added.** Without the
+ * variable the system already could not solve; it merely could not say so. This
+ * refusal is the same shape, at the same point of use, as `solverRpcKey`'s
+ * refusal for a missing shared secret directly above: there is deliberately no
+ * default, and the throw travels the identical path — `solveOnWorker` reads the
+ * secret and the command two lines apart, so the handling of the two is not
+ * merely similar, it is the same code.
+ *
+ * **The trade, stated rather than discovered.** A deployment that relied on a
+ * bare working `python3` on `PATH` must now set the variable. Nothing in this
+ * repository did: `ci.yml` and `nightly.yml` export it (twice each), the test
+ * harness `applySolverEnv` always sets it, `real-stack-daemon.ts` forwards it,
+ * and `docs/dev-setup.md` §8 documents the invocation with it. And a bare
+ * `python3` was never a working configuration anyway unless it happened to carry
+ * OR-Tools — which is precisely the silent failure the evidence records.
  */
 export interface SolverWorkerCommand {
   readonly command: string;
@@ -130,8 +162,25 @@ export interface SolverWorkerCommand {
   readonly cwd: string;
 }
 
+/**
+ * The refusal name FU-04 asks for, carried in the message so it survives into
+ * every log line, transcript and screenshot that quotes the error.
+ *
+ * ADDITIVE to the error taxonomy: nothing is renamed, no existing refusal
+ * changes shape, and no wire enum gains a member — this is a configuration
+ * refusal at the point of use, like the two above it, not a solve outcome.
+ */
+export const NO_SOLVER_COMMAND = 'NO_SOLVER_COMMAND';
+
 export function solverWorkerCommand(): SolverWorkerCommand {
-  const command = env('SP_SOLVER_WORKER_COMMAND') ?? 'python3';
+  const command = requiredEnv(
+    'SP_SOLVER_WORKER_COMMAND',
+    `${NO_SOLVER_COMMAND}: the solver worker is a separate deployment unit (SPEC-04 §1.1) and ` +
+      'the interpreter or entry point that runs it differs by environment, so there is no ' +
+      'command this process can guess. Set it to an interpreter that has OR-Tools — ' +
+      'see docs/dev-setup.md §8 (FAD-7 venv substitution) — or to the worker container\'s ' +
+      'entry point.',
+  );
   const rawArgs = env('SP_SOLVER_WORKER_ARGS');
   const args =
     rawArgs === undefined ? ['-m', 'schedulepoint_solver'] : (JSON.parse(rawArgs) as string[]);

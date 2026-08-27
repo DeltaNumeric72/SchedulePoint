@@ -99,6 +99,32 @@ export type ResultReproducibilityVerdictWire = z.infer<
  * Configurations
  * ──────────────────────────────────────────────────────────────────────────── */
 
+/**
+ * The two dispatch-time reproducibility modes, as a NAMED schema (OPUS-M5-H,
+ * FU-13's R-7 C-3 item).
+ *
+ * The values are unchanged — this is `z.enum(['deterministic', 'best-effort'])`
+ * given a name and an exported type, at the three places that spelled it inline.
+ * The reason is the one GH-008 recorded against
+ * `RESULT_REPRODUCIBILITY_LABELS`: a label record typed
+ * `Record<string, string>` is total over nothing, so a third mode could be added
+ * to the wire and the screen would fall back to rendering the raw enum name — a
+ * defect that looks like a label. With the type exported, `apps/web`'s label
+ * records key by it and a new mode does not compile until it has words.
+ */
+export const reproducibilityModeSchema = z.enum(['deterministic', 'best-effort']);
+export type ReproducibilityModeWire = z.infer<typeof reproducibilityModeSchema>;
+
+/**
+ * The three ways a constituent can differ from the revision a build was posed
+ * against, as a NAMED schema (OPUS-M5-H, same item).
+ *
+ * `added` is the one a naive comparison misses, which is exactly why its label
+ * must never silently become the raw word `added` on a screen.
+ */
+export const constituentDirectionSchema = z.enum(['moved', 'removed', 'added']);
+export type ConstituentDirectionWire = z.infer<typeof constituentDirectionSchema>;
+
 export const buildConfigurationSchema = z
   .object({
     id: uuidSchema,
@@ -114,7 +140,7 @@ export const buildConfigurationSchema = z
     heartbeatTimeoutMs: z.number().int().positive(),
     retryLimit: z.number().int().min(0).max(10),
     /** Computed from the parameters, never declared (SPEC-04 §4). */
-    reproducibilityMode: z.enum(['deterministic', 'best-effort']),
+    reproducibilityMode: reproducibilityModeSchema,
   })
   .strict();
 export type BuildConfiguration = z.infer<typeof buildConfigurationSchema>;
@@ -429,7 +455,7 @@ export type BuildRunSummary = z.infer<typeof buildRunSummarySchema>;
 export const constituentChangeSchema = z
   .object({
     kind: z.string().min(1).max(64),
-    direction: z.enum(['moved', 'removed', 'added']),
+    direction: constituentDirectionSchema,
     /** How many of this class moved this way. Never which ones. */
     count: z.number().int().min(1),
   })
@@ -488,7 +514,7 @@ export const buildRunDetailSchema = z
      * The DISPATCH statement: which parameter set the build was posed under.
      * A fact about the REQUEST, computed before any search happened.
      */
-    reproducibility: z.enum(['deterministic', 'best-effort']).nullable(),
+    reproducibility: reproducibilityModeSchema.nullable(),
     /**
      * **Whether this RESULT can be reproduced** (FAD-49; EV-M4-005 §20/§21).
      *
