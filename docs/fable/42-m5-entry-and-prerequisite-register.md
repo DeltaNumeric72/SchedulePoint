@@ -1084,7 +1084,116 @@ the next PR. The §5e/§5f environment discipline binds in full (tree gate +
 debris check; exact-`ps` waiters; `SP_SOLVER_WORKER_COMMAND` set for gate runs;
 restore ADDED files by cp + recorded md5, never `git checkout --`).
 
-## 6. Standing acceptance battery (every packet, per 24 §G and the M4 form)
+**ACCEPTED 2026-08-27.** Fresh implementer; fresh reviewer; verdict **ACCEPT WITH
+CONDITIONS** (round 1, C-1..C-4) → delta → reviewer CONFIRM upgrading to ACCEPT
+with one carried correction (C-5) → round-2 single-sentence remedy → reviewer
+micro-CONFIRM: **ACCEPT, unconditional**. Patch chain v1 `8b02d341` → v2
+`42363652` → v3 **`4d56bd47c88946392ac08cc4f95fc658`** (landed), 19 files,
++4 333/−8, base `b246b97`; the orchestrator's applied tree regenerated the v3
+md5 byte-identically before any record was written.
+
+- **FAD-58 held at every layer, adversarially.** No text field on the requester
+  channel at wire (`.strict()`; seven candidate field names each POSTed and each
+  refused with `unrecognized_keys` naming the key, comment rows proven absent
+  after every one), domain (both entry shapes refuse requester-with-prose), or
+  database (no column a requester channel can write text into; the exactly-one-of
+  rule is TWO CHECKs written in both directions). Nine codes identical across
+  SQL / domain / wire; `other` TERMINAL (domain refuses `{requester, other,
+  body}`); 14 clinical near-synonyms asserted absent at all three layers; body
+  `length(btrim(body)) BETWEEN 1 AND 1000` measured at 1000/1001/whitespace;
+  UPDATE and DELETE driven to `42501` in the populated cycle; comment bodies
+  proven absent from audit payloads, outbox rows, and logs with a non-vacuous
+  closure leg (all nine codes pass both closure predicates, then the emitted
+  payload's keys are exactly `['channel','commentId','requestId']`).
+- **The packet's strongest property was killed and revived at review.** The 0026
+  administration arm's `WITH CHECK` pins `channel = 'scheduler'` AND the acting
+  author; the reviewer's M1 mutation removed exactly the channel pin and the
+  forged-attribution write was ADMITTED (`numAffectedRows: 1n`, the named forgery
+  case failing); restored, refused. D-1 (comments are not a request operation)
+  proven both-layers-independent: dropping the DB CHECK fails the cycle test
+  alone, dropping the domain half fails the agreement test BY NAME alone.
+- **Conditions:** C-1 the patch's only unintended byte change (contracts barrel
+  trailing newline + stray blank line; prettier-exact restore; noted:
+  `format:check` is not one of the 17 gates, which is why nothing caught it).
+  C-2 the `listOwnComments` ownership predicate was UNDEFENDED BY TEST (the
+  reviewer's mutation turned nothing red) — discharged with the
+  scheduler-drives-the-own-thread-route case (404 on a colleague's request, 200
+  on their own — also the visibility table's one previously unproven positive
+  cell) plus two controls separating "refused" from "empty thread"; the
+  implementer replanted the mutation and found a STRONGER signature than review
+  measured: the mutated route disclosed the member's actual reason code
+  (`"family"`) and the scheduler's note through the requester's own door — the
+  disclosure the predicate exists to prevent, shown rather than described. C-3
+  the ownership docblocks overstated (the service predicate is A control, not
+  THE control: 0026's own-arm WITH CHECK independently refuses the same forged
+  write and `withRequests` maps its 42501 to the IDENTICAL 404 — X-11 design,
+  not coincidence; killing the property took removing both layers). C-4 the
+  `NewRequestComment` docblock claimed a discriminated-union guarantee the flat
+  interface does not provide (the reviewer compiled the illegal shape under
+  `tsc --strict`, exit 0) — corrected in place, the guarantee relocated to
+  `CommentContent` and the three live layers, no type re-shaping (sole caller is
+  the private `append()`). C-5 (found at delta CONFIRM) the C-3 remedy's added
+  route-policy sentence named the WRONG arm — the neighbours' own-arms DO re-ask
+  ownership in both clauses; the real mechanism is the ADMINISTRATION arms
+  (0023:650/863, zero ownership predicates, permissive-OR combination means the
+  own-arm's question is never reached for a `requests.administer` holder), and
+  `request_comments` differs because ITS administration arm pins the channel —
+  corrected after the implementer re-read 0023 itself, every citation re-checked
+  by the reviewer against the SQL, the four policies quoted into the INDEX.
+- **Acceptance figures, FROM MEASUREMENT (implementer and reviewer ran the full
+  battery independently on the round-1 tree; both agree):** `pnpm check` 17/17 ·
+  unit **200 files (199 + 1 skipped) / 2 562 tests (2 548 + 14 skipped)** — the
+  base's 196/2 511 plus exactly the four new files' 51 tests, decomposed · axe
+  458 passed / 16 skipped (API-only packet; no axe delta) · route-policy **131**
+  (128 + 3) · migration-rls **26** · invariant-ids 22 · request-budget 48/95 ·
+  validators 36/36 · 95/95 · PASS · census **69**, and the 41 registry mutation
+  targets ∩ the 19 changed paths = **EMPTY** (measured independently by both
+  agents from `run.mjs` read as text) — every census candidate fails conjunct 3
+  (this packet's falsifiers RUN: four were killed by mutation at review), and
+  the ownership predicate fails conjunct 1 outright · SBX floor 65→**66**, one
+  row per channel through the two different RLS arms. The delta rounds re-ran
+  what they touched (typecheck, lint, both changed test files 26/26 + 15/15,
+  prettier) with v2→v3 confinement proven by tree comparison; the full battery
+  was NOT re-run for v2/v3 (stated, not silent: 18 of 19 files byte-identical
+  across the chain, 0026 unmoved since v1); the v3 whole-suite figure (2 563
+  expected) is CI-on-PR-#13's to measure as the primary form.
+- **Seeded composed runs (invocation of record, two-attempt cap honored):** seed
+  20260920 → 3 failures, seed 20260921 → 4 failures, ALL in M5-003's
+  `vacation-selection-http.test.ts` — and BOTH replicated BYTE-IDENTICALLY on
+  the unmodified base tree (same seeds, same flags): a pre-existing
+  order-dependence, not this packet's content (→ FU-32; the base-tree
+  replication is the gold standard for "pre-existing, not mine," superseding
+  diff-doesn't-name-the-file arguments). The packet's own six files: ZERO
+  failures under both permutations. Attempt 2 also crossed NR-23's growth
+  ceiling once at the R-03/R-12 drain precondition (198 jobs, the 45 s floor
+  exceeded) — ruled the first observed crossing CANDIDATE, dated rider on NR-23;
+  no third run (the nightly 13-seed matrix is the systematic series).
+- **FU-06's first live production catch:** the round-1 interim check ran 16/17
+  with the tree-hygiene gate failing on exactly the four new untracked test
+  files — cured by its own named remedy (`git add -N`), then 17/17. The gate
+  caught real drift in production use for the first time since it landed at M5-H.
+- **Observations recorded, no action this packet:** the `python .egg-info`
+  build debris is not in `.gitignore` (a bare `git add -N .` will intent-add
+  it; excluded by hand twice this packet); the channel domain's CHECK is
+  policy-shadowed on the write path (RLS refuses first — the CHECK is the
+  BYPASSRLS/second-driver layer, 42501-asserted with the loosened-arm
+  justification and FAD-15 positive controls on both legal shapes); group-scoped
+  reads answer 404 before the capability layer for an org-admin (measured truth
+  of the fixture's ORGANIZATION membership, asserted with the measured-not-
+  designed paragraph — NOT a weakening: the `NO_CAPABILITY` identity is kept for
+  the three roles that reach the capability layer).
+- **Environment record:** clean run — zero kills, zero pauses, tree gate 0/0/0
+  at every arm, `debris.mjs` PASS throughout, FU-30 in-place sweep clean at
+  every mutation, all restores by `cp` + recorded md5 (never `git checkout --`),
+  both throwaway interdiff worktrees removed. The reviewer's round-1 unit gate
+  ran 2 025 588 ms and axe 865 719 ms on the shared box without incident.
+
+**Ports-registry observation promoted at this landing (→ FU-31):** the packet's
+store port joins `RequestStore` and `VacationStore` in being absent from
+`packages/domain/src/ports/index.ts` — a registry gap standing since M5-001,
+now three surfaces wide. Registered rather than fixed here: the barrel is a
+shared control and the M5-H precedent routes shared-control changes through
+their own packet.
 
 Validators (36/36 · 95/95 · research PASS) · `corepack pnpm check` 17/17 · the full
 red-case battery at the current census · targeted fixture-regression where the packet

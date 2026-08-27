@@ -1337,6 +1337,34 @@ export interface ApprovalsTable {
   created_at: Generated<Date>;
 }
 
+/**
+ * §4's fifth row — the COMMENT record (OPUS-M5-00C, migration 0026, FAD-58).
+ *
+ * **No column of this table is ever updated**, for the reason `ApprovalsTable`
+ * gives above: `app_runtime` holds SELECT and INSERT and nothing else, so
+ * "append-only" is a privilege rather than a convention the type has to encode.
+ * A correction is a NEW comment.
+ *
+ * `reason_code` and `body` are exclusive by CHECK in both directions — a
+ * `requester` row carries a code and no body, a `scheduler` row carries a body
+ * and no code — so the two nullable columns are one field with two vocabularies
+ * rather than two optional notes. Neither ever leaves this row for an audit
+ * payload, an outbox payload or a notification: the body could not (the closed
+ * payload rule refuses prose), and the code deliberately does not (see migration
+ * 0026's header §4).
+ */
+export interface RequestCommentsTable {
+  id: Generated<string>;
+  organization_id: string;
+  group_id: string;
+  request_id: string;
+  channel: 'requester' | 'scheduler';
+  reason_code: string | null;
+  body: string | null;
+  author_membership_id: string;
+  created_at: Generated<Date>;
+}
+
 export interface Database {
   organizations: OrganizationsTable;
   groups: GroupsTable;
@@ -1404,6 +1432,9 @@ export interface Database {
 
   /* OPUS-M5-002 — migration 0024 (SPEC-08 §4). */
   approvals: ApprovalsTable;
+
+  /* OPUS-M5-00C — migration 0026 (SPEC-08 §4's fifth row, FAD-58). */
+  request_comments: RequestCommentsTable;
 }
 
 /**
@@ -1783,4 +1814,14 @@ export const TENANT_TABLES: readonly TenantTable[] = [
    * `FOR SELECT` where `requests_own` is `FOR ALL`, because deciding is not a
    * self-scoped act. */
   { name: 'approvals', scope: 'organization-and-group' },
+
+  /* OPUS-M5-00C — migration 0026 (SPEC-08 §4's fifth row, FAD-58).
+   * `SENSITIVE-PII` by inheritance, and more directly than `approvals` is: a
+   * comment is the requester's own statement about their own circumstances. Its
+   * three policy arms follow the ratified reader table — a comment is visible
+   * exactly where the REQUEST it is on is visible, and no wider — with the
+   * own-arm `FOR ALL` (commenting on one's own request IS a self-scoped act,
+   * where deciding is not) and BOTH write arms pinning the channel and the
+   * author. */
+  { name: 'request_comments', scope: 'organization-and-group' },
 ] as const;

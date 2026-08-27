@@ -1,13 +1,18 @@
 import {
+  appendSchedulerCommentSchema,
   approveRequestSchema,
+  attachReasonCodeSchema,
   batchDecisionResultSchema,
   batchDecisionSchema,
+  commentRefusalBodySchema,
   conflictBodySchema,
   decisionRefusalBodySchema,
   decisionResultSchema,
   denyRequestSchema,
   idempotencyKeyReusedBodySchema,
   isUuid,
+  requestCommentResultSchema,
+  requestCommentThreadSchema,
   requestDeadlineRefusalBodySchema,
   requestDeadlineSchema,
   requestDetailSchema,
@@ -28,6 +33,7 @@ import {
   REQUEST_SUBTYPES,
   type Approval,
   type Decision,
+  type RequestComment,
   type DecisionItemFailure,
   type FieldProblem,
   type Request as DomainRequest,
@@ -42,6 +48,13 @@ import {
 } from '../../authz/authorize-request.js';
 import { isPostgresError } from '../../db/pg-errors.js';
 import { deadlineFor, loadGroupDeadlineContext } from '../../requests/deadlines.js';
+import {
+  appendSchedulerComment,
+  attachReasonCode,
+  listComments,
+  listOwnComments,
+  type CommentFailure,
+} from '../../requests/comments.js';
 import {
   decideRequest,
   decideRequestsBatch,
@@ -140,6 +153,80 @@ import type { RouteConfigWithPolicy } from '../policy.js';
  * channel is a CONTROLLED VOCABULARY (I-17's spirit), with free text confined to
  * the scheduler-side administrative class the precedents already cover. **No
  * column exists before it is ruled on.**
+ *
+ * ## OPUS-M5-00C — the ruling landed, and the working default became the rule
+ *
+ * **FAD-58 (2026-08-27)** resolved the escalation above, adopting its reasoning
+ * verbatim as the ruling's basis. Three routes join the ten, and the paragraphs
+ * above are kept because they are the REASON these three are shaped the way they
+ * are:
+ *
+ * | Route | Is | Key |
+ * |---|---|---|
+ * | `POST …/requests/:requestId/reason-codes` | the REQUESTER attaching ONE controlled-vocabulary code to their OWN request | `requests.own.comment` |
+ * | `POST …/requests/:requestId/comments` | a DECIDER appending bounded administrative text to a request in their queue | `requests.comment_any` |
+ * | `GET …/requests/:requestId/comments` | the REQUESTER reading their OWN request's thread, both channels | `requests.own.read` |
+ *
+ * **The two resources have different names because the two acts are different
+ * things.** A requester does not write a comment; they attach a code from a
+ * curated non-clinical list in which `other` is TERMINAL, because I-07 forbids
+ * clinical free text and not merely patient identifiers, and in this product the
+ * honest answer to "why that Friday?" is frequently a medical one. There is no
+ * text field on `POST …/reason-codes` at any layer — the body schema is
+ * `.strict()` with no such member, so a body carrying one is refused
+ * STRUCTURALLY rather than having its value dropped.
+ *
+ * **`GET` and `POST` on `…/comments` carry different keys, and that is the
+ * design rather than an inconsistency.** Reading one's own thread and appending
+ * an administrative note to somebody else's request are different acts by
+ * different people; the route table decides per method, and pretending
+ * otherwise would mean giving one of them the other's population.
+ *
+ * ## The reader table, and where each cell is enforced
+ *
+ * The governing sentence, ratified for this packet and taken from migration
+ * 0024's header §3 where it was already shipped for a decision reason: **a
+ * comment is visible exactly where the REQUEST it is on is visible, and no
+ * wider.** §4 says "visible per capability" and names no reader; the capability
+ * that decides whether somebody may see a request is the capability that decides
+ * whether they may see what is attached to it, and a separate comment-read key
+ * would be a second visibility rule that can drift from the first.
+ *
+ * | Role (doc 08 §6) | Read own thread | Read a colleague's | Attach a code to own | Attach a code to a colleague's | Append a scheduler comment |
+ * |---|---|---|---|---|---|
+ * | Member | ✓ `requests.own.read` | — 404 | ✓ `requests.own.comment` | — 404 | — |
+ * | Viewer | — | — | — | — | — |
+ * | Telecom | — | — | — | — | — |
+ * | Scheduler | ✓ (as requester) | ✓ `requests.read_any`, through the DETAIL read | ✓ own only | — 404 | ✓ `requests.comment_any` |
+ * | Group Admin | — | — | — | — | — |
+ * | Org Admin | — | — | — | — | — |
+ *
+ * **Group Admin and Org Admin are `—` on every write cell because doc 08 §6's
+ * two rows say `—` — the document deciding, not this file.** "Submit
+ * requests/vacation" is `✓` for Member and Scheduler only; "Approve
+ * requests/vacation" is `✓` for Scheduler only. Both roles reach a comment
+ * surface the way any role does that a document marks `—`: by taking a grant.
+ *
+ * **A decider reads comments through `GET …/requests/:requestId`**, the detail
+ * read, which now carries the thread beside the decision history. That is the
+ * reader table's second forced cell implemented without a fourth route: the key
+ * that already decides that read (`requests.read_any`) is the key that decides
+ * the thread.
+ *
+ * ## Two absences, both ruled rather than overlooked
+ *
+ * **There is no internal-note class.** Both channels are visible to everyone who
+ * may see the request, including the requester — 0024's `approvals_own` exists
+ * precisely so a denial's reason reaches the person it is for, and FAD-58.4 says
+ * "their own request's comments", not one channel of them. If deciders ever need
+ * private deliberation notes, **that is a NEW CONCEPT and needs its own recorded
+ * decision**; it is not something a later packet may add by widening a policy.
+ *
+ * **There is no status gate and no `expectedVersion`.** §4's comments row states
+ * four properties and a lifecycle predicate is not among them, so a code can be
+ * attached to a withdrawn, denied or expired request; and a comment is an APPEND,
+ * which conflicts with nothing, so there is no version to send and no conflict to
+ * report. Appending one leaves the root byte-identical.
  * ─────────────────────────────────────────────────────────────────────────────
  *
  * ─────────────────────────────────────────────────────────────────────────────
@@ -328,6 +415,68 @@ export const BATCH_DECISION_CONFIG = {
 } as const satisfies RouteConfigWithPolicy;
 
 /* ────────────────────────────────────────────────────────────────────────────
+ * OPUS-M5-00C — §4's fifth row, under FAD-58
+ *
+ * TWO declarations for three routes, because the own-thread READ rides
+ * `OWN_REQUESTS_CONFIG` above. That reuse IS the ruling: a comment is visible
+ * exactly where the request it is on is visible, and `requests.own.read` already
+ * means "read one's own requests and their status history". A third key would be
+ * a second visibility rule to keep in step with the first.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Attach ONE reason code to one's OWN request — `requests.own.comment`, CAP-021.
+ *
+ * Shaped exactly like `SUBMIT_REQUEST_CONFIG` and `WITHDRAW_REQUEST_CONFIG`,
+ * with **no `ownershipOverrideCapability`**, and the omission is the ruling
+ * rather than a default: a reason code is a statement about the requester's own
+ * circumstances, so "attach a code to somebody else's request" is not a power
+ * that exists. An administrator with something to say about a colleague's
+ * request says it on the scheduler channel below, under their own name and in
+ * their own words.
+ *
+ * L5.1 passes here BY CONSTRUCTION, as it does on every route of this
+ * self-scoped surface, so the declaration is not what keeps a scheduler off a
+ * colleague's request — `attachReasonCode`'s ownership predicate is. See its
+ * docblock, and `test/requests/own-write-ownership.test.ts` for the class.
+ */
+export const ATTACH_REASON_CODE_CONFIG = {
+  policy: { kind: 'capability', capability: 'CAP-021' },
+  actionScope: 'group',
+  action: {
+    key: 'requests.own.comment',
+    moduleKey: 'requests_vacation',
+    requiresObjectPolicy: true,
+    ownershipRequired: true,
+  },
+} as const satisfies RouteConfigWithPolicy;
+
+/**
+ * Append an administrative comment to a request in the queue —
+ * `requests.comment_any`, CAP-021.
+ *
+ * Shaped like the four decision declarations rather than the three staff ones:
+ * `requiresObjectPolicy: false` and no ownership at all, because a decider who
+ * could only comment on their own requests would not be a decider. What scopes
+ * the rows is migration 0026's group-scoped policy arms, and what decides the
+ * OPERATION is this key.
+ *
+ * **A separate key from `requests.approve`/`requests.deny`, deliberately.**
+ * Commenting on a request is not deciding it, and a scheduler who may annotate a
+ * queue is not thereby a scheduler who may approve out of it. That is a
+ * narrowing, in the same direction M5-002's two-keys-not-one split was.
+ */
+export const APPEND_COMMENT_CONFIG = {
+  policy: { kind: 'capability', capability: 'CAP-021' },
+  actionScope: 'group',
+  action: {
+    key: 'requests.comment_any',
+    moduleKey: 'requests_vacation',
+    requiresObjectPolicy: false,
+  },
+} as const satisfies RouteConfigWithPolicy;
+
+/* ────────────────────────────────────────────────────────────────────────────
  * Outcomes
  * ──────────────────────────────────────────────────────────────────────────── */
 
@@ -359,6 +508,15 @@ type Outcome<T> =
    * `membership_id`, so the row is the caller's own.
    */
   | { readonly kind: 'key-reused'; readonly existingSubtype: RequestSubtypeName }
+  /**
+   * OPUS-M5-00C — §4's comment refusals (FAD-58).
+   *
+   * ONE code, because there is one way to be refused that is not already a 404:
+   * the content did not satisfy the domain's exactly-one-of rule or the
+   * controlled vocabulary. There is deliberately no conflict member — a comment
+   * is an append and conflicts with nothing.
+   */
+  | { readonly kind: 'comment-refused' }
   /** OPUS-M5-003 — §5.3's member-side refusals on the vacation round. */
   | {
       readonly kind: 'vacation-refused';
@@ -580,6 +738,22 @@ function fromDecision<T>(failure: DecisionItemFailure): Outcome<T> {
   }
 }
 
+/**
+ * A comment service failure, as the route's shape. One mapping for both verbs.
+ *
+ * Generic in `T` for the reason `fromDecision` is: the callers' success type is
+ * a `RequestComment`, and a non-generic `Outcome<never>` would narrow their
+ * inferred return type to one that cannot carry a result.
+ */
+function fromComment<T>(failure: CommentFailure): Outcome<T> {
+  switch (failure) {
+    case 'not-found':
+      return { kind: 'not-found' };
+    case 'content-refused':
+      return { kind: 'comment-refused' };
+  }
+}
+
 function respond<T>(
   request: FastifyRequest,
   reply: FastifyReply,
@@ -682,6 +856,22 @@ function respond<T>(
               'Use a different key.',
             correlationId: request.correlationId,
             existingSubtype: outcome.existingSubtype,
+          },
+        }),
+      );
+    case 'comment-refused':
+      /* `422`, because it is a statement about the BODY — the same distinction
+       * `DECISION_REASON_REQUIRED` draws, and it tells a client to re-prompt
+       * rather than to reload. The message names neither the rejected text nor
+       * the rejected code: non-bypass rule 9 applies to an error body exactly as
+       * it applies to a log line, and echoing what was refused would put it in
+       * whatever the client writes its errors to. */
+      return reply.code(422).send(
+        commentRefusalBodySchema.parse({
+          error: {
+            code: 'COMMENT_CONTENT_REFUSED',
+            message: 'That comment is not a shape this request accepts.',
+            correlationId: request.correlationId,
           },
         }),
       );
@@ -981,13 +1171,20 @@ export default function requestRoutes(app: FastifyInstance): void {
       const found = await requestStore.load(uow, requestId);
       if (found === null) return { kind: 'not-found' as const };
       const approvals = await requestStore.listApprovals(uow, requestId);
-      return { kind: 'ok' as const, value: { request: found, approvals } };
+      /* OPUS-M5-00C: §4's thread, beside §4's decision history. This is where a
+       * DECIDER reads comments — the reader table's second forced cell, served
+       * by the key that already decides this read rather than by a fourth
+       * route. `listComments` applies no visibility predicate of its own;
+       * migration 0026's arms scope the rows. */
+      const comments = await listComments(uow, requestId);
+      return { kind: 'ok' as const, value: { request: found, approvals, comments } };
     });
 
     return respond(request, reply, outcome, (value) =>
       requestDetailSchema.parse({
         request: requestView(value.request),
         approvals: value.approvals.map(approvalView),
+        comments: value.comments.map(commentView),
       }),
     );
   });
@@ -1135,6 +1332,121 @@ export default function requestRoutes(app: FastifyInstance): void {
       batchDecisionResultSchema.parse({ outcomes }),
     );
   });
+
+  /* ════════════════════════════════════════════════════════════════════════════
+   * OPUS-M5-00C — §4's fifth row: COMMENTS, under FAD-58
+   *
+   * Registered after the parametric decision routes above; Fastify's radix
+   * router prefers a static segment over a parametric one regardless of order,
+   * and `test/requests/route-policy.test.ts` asserts the registered table rather
+   * than trusting it.
+   * ════════════════════════════════════════════════════════════════════════════ */
+
+  /* ── the REQUESTER attaches ONE code ──────────────── requests.own.comment ── */
+
+  app.post(
+    `${base}/:requestId/reason-codes`,
+    { config: ATTACH_REASON_CODE_CONFIG },
+    async (request, reply) => {
+      const outcome = await withRequests(request, async (uow) => {
+        const { requestId } = request.params as { requestId: string };
+        if (!isUuid(requestId)) return { kind: 'not-found' as const };
+
+        /* `.strict()` with no text member, so a body carrying `text`, `note` or
+         * `otherText` is refused HERE with `unrecognized_keys` — structurally,
+         * before any handler sees it. FAD-58.1's "no 'other, specify' field"
+         * is this line plus the schema it names, and
+         * `test/requests/request-comments.test.ts` POSTs one and reads the
+         * refusal. */
+        const parsed = parseBody(attachReasonCodeSchema, request.body);
+        if (parsed.kind !== 'ok') return parsed;
+
+        const membershipId = uow.context.membershipId;
+        if (membershipId === null) return { kind: 'not-found' as const };
+
+        const result = await attachReasonCode(uow, {
+          requestId,
+          /* The VERIFIED context's own membership, never a path parameter and
+           * never a body field — the by-id-write ownership class (M5-003), whose
+           * predicate lives in the service because L5.1 passes by construction
+           * on this surface and RLS decides rows rather than operations. */
+          membershipId,
+          reasonCode: parsed.value.reasonCode,
+        });
+        return result.ok
+          ? { kind: 'ok' as const, value: result.value }
+          : fromComment<RequestComment>(result.failure);
+      });
+
+      if (outcome.kind === 'ok') reply.code(201);
+      return respond(request, reply, outcome, (comment) =>
+        requestCommentResultSchema.parse({ comment: commentView(comment) }),
+      );
+    },
+  );
+
+  /* ── a DECIDER appends a comment ─────────────────── requests.comment_any ── */
+
+  app.post(
+    `${base}/:requestId/comments`,
+    { config: APPEND_COMMENT_CONFIG },
+    async (request, reply) => {
+      const outcome = await withScheduler(request, async (uow) => {
+        const { requestId } = request.params as { requestId: string };
+        if (!isUuid(requestId)) return { kind: 'not-found' as const };
+
+        const parsed = parseBody(appendSchedulerCommentSchema, request.body);
+        if (parsed.kind !== 'ok') return parsed;
+
+        const membershipId = uow.context.membershipId;
+        if (membershipId === null) return { kind: 'not-found' as const };
+
+        const result = await appendSchedulerComment(uow, {
+          requestId,
+          membershipId,
+          body: parsed.value.body,
+        });
+        return result.ok
+          ? { kind: 'ok' as const, value: result.value }
+          : fromComment<RequestComment>(result.failure);
+      });
+
+      if (outcome.kind === 'ok') reply.code(201);
+      return respond(request, reply, outcome, (comment) =>
+        requestCommentResultSchema.parse({ comment: commentView(comment) }),
+      );
+    },
+  );
+
+  /* ── the REQUESTER reads their OWN thread ───────────── requests.own.read ── */
+
+  app.get(
+    `${base}/:requestId/comments`,
+    { config: OWN_REQUESTS_CONFIG },
+    async (request, reply) => {
+      const outcome = await withRequests(request, async (uow) => {
+        const { requestId } = request.params as { requestId: string };
+        if (!isUuid(requestId)) return { kind: 'not-found' as const };
+
+        const membershipId = uow.context.membershipId;
+        if (membershipId === null) return { kind: 'not-found' as const };
+
+        /* Self-scoped on the VERIFIED context's membership, exactly as
+         * `GET …/requests/mine` is and for the reason that route's docblock
+         * gives: the authorization decides the request, this predicate decides
+         * the rows, and migration 0026's `request_comments_own` arm decides them
+         * a third time. `null` — not an empty list — so a colleague's request,
+         * another group's, and an id that names nothing all answer `404`. */
+        const thread = await listOwnComments(uow, requestId, membershipId);
+        if (thread === null) return { kind: 'not-found' as const };
+        return { kind: 'ok' as const, value: thread };
+      });
+
+      return respond(request, reply, outcome, (comments) =>
+        requestCommentThreadSchema.parse({ comments: comments.map(commentView) }),
+      );
+    },
+  );
 }
 
 /**
@@ -1146,6 +1458,26 @@ export default function requestRoutes(app: FastifyInstance): void {
  * Ordered by deadline, so the page a scheduler gets is the most urgent one.
  */
 const QUEUE_PAGE_LIMIT = 200;
+
+/**
+ * One comment on the wire (OPUS-M5-00C).
+ *
+ * Both content columns travel, each `null` on the channel that does not carry
+ * it — the row's own shape, and the exclusivity is enforced by migration 0026's
+ * two CHECKs and the domain's `commentContentIsWellFormed` rather than by a
+ * projection here that could disagree with either.
+ */
+function commentView(comment: RequestComment): unknown {
+  return {
+    id: comment.id,
+    requestId: comment.requestId,
+    channel: comment.channel,
+    reasonCode: comment.reasonCode,
+    body: comment.body,
+    authorMembershipId: comment.authorMembershipId,
+    createdAt: comment.createdAt.toISOString(),
+  };
+}
 
 /** One decision on the wire. */
 function approvalView(approval: Approval): unknown {

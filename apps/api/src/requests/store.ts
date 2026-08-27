@@ -1,9 +1,13 @@
 import type {
   Approval,
+  CommentChannel,
   NewApproval,
   NewRequest,
+  NewRequestComment,
   Request,
   RequestAggregate,
+  RequestComment,
+  RequestReasonCode,
   RequestStatus,
   RequestStore,
   RequestSubtype,
@@ -638,6 +642,106 @@ export class PgRequestStore implements RequestStore {
       isOverride: row.is_override,
       vacationSelectionId: row.vacation_selection_id,
       supersedesApprovalId: row.supersedes_approval_id,
+    }));
+  }
+
+  /**
+   * Append one comment to `request_comments` (§4's fifth row, FAD-58,
+   * migration 0026).
+   *
+   * There is no update counterpart in this class and there cannot be one, for
+   * the reason `recordApproval` gives one method above: migration 0026 grants
+   * `app_runtime` SELECT and INSERT and nothing else, so a method that tried to
+   * edit or remove a comment would raise `42501` rather than silently succeed.
+   * FAD-58.3's "correction is a new comment" is what a caller does instead.
+   *
+   * **`author_membership_id` comes from the CALLER and is checked by the
+   * DATABASE.** The tenant columns come from `uow.context` as everywhere else in
+   * this class, but the author does not: both of 0026's write policies require
+   * the stored author to equal the acting membership, so a caller passing
+   * somebody else's id is refused rather than believed. §4's "author recorded"
+   * is enforced twice and assumed nowhere.
+   */
+  async appendComment(uow: Uow, comment: NewRequestComment): Promise<string> {
+    const { organizationId, groupId } = uow.context;
+    const row = await uow.query
+      .insertInto('request_comments')
+      .values({
+        organization_id: organizationId,
+        group_id: groupId as string,
+        request_id: comment.requestId,
+        channel: comment.channel,
+        reason_code: comment.reasonCode,
+        body: comment.body,
+        author_membership_id: comment.authorMembershipId,
+      })
+      .returning('id')
+      .executeTakeFirst();
+
+    if (row === undefined) {
+      /* Unreachable through RLS — a `WITH CHECK` failure raises rather than
+       * returning nothing. Kept for the reason `recordApproval` keeps its twin:
+       * "the insert silently produced no row" must never become "the comment was
+       * recorded". */
+      throw new Error('COMMENT_INSERT_PRODUCED_NO_ROW: the comment insert returned nothing.');
+    }
+    return row.id;
+  }
+
+  /**
+   * One request's comment thread, OLDEST first.
+   *
+   * The opposite ordering to `listApprovals`, deliberately: a decision history
+   * answers "what is the current decision" and leads with the newest; a comment
+   * thread answers "how did this conversation go" and reads from the top.
+   * `request_comments_by_request` is the index for exactly this, tie-broken on
+   * `id` so two comments written in the same transaction have a stable order.
+   *
+   * **No membership predicate and no channel filter**, for the reason
+   * `listPendingReview` has neither: which rows a caller may see is migration
+   * 0026's three policy arms — a comment is visible exactly where the REQUEST it
+   * is on is visible, and no wider — and a predicate here would be a second,
+   * weaker copy of a control that already holds. Both channels come back
+   * together because §4 describes ONE comment surface.
+   *
+   * The self-scoped READ that a requester's own route needs is not this method's
+   * job either: that route passes its own request id, and the row-level policy
+   * plus the route's `requests.own.read` key decide the rest.
+   */
+  async listComments(
+    uow: Uow,
+    requestId: string,
+    limit: number,
+  ): Promise<readonly RequestComment[]> {
+    const rows = await uow.query
+      .selectFrom('request_comments')
+      .select([
+        'id',
+        'request_id',
+        'channel',
+        'reason_code',
+        'body',
+        'author_membership_id',
+        'created_at',
+      ])
+      .where('request_id', '=', requestId)
+      .orderBy('created_at')
+      .orderBy('id')
+      .limit(limit)
+      .execute();
+
+    return rows.map((row) => ({
+      id: row.id,
+      requestId: row.request_id,
+      channel: row.channel as CommentChannel,
+      /* The column's CHECK domain is the vocabulary's third copy and the api
+       * suite holds all three to each other as sets, so a value that reached this
+       * column IS a member. The cast says that rather than re-validating, which
+       * would be a fourth copy in the layer least able to enforce it. */
+      reasonCode: row.reason_code as RequestReasonCode | null,
+      body: row.body,
+      authorMembershipId: row.author_membership_id,
+      createdAt: row.created_at,
     }));
   }
 

@@ -436,6 +436,60 @@ export const CAPABILITIES: readonly CapabilityDefinition[] = [
       'Separately grantable from `requests.approve` so the power to refuse and the power to ' +
       'commit the group can be held apart.',
   },
+  /* ── OPUS-M5-00C: §4's fifth row — the two COMMENT keys (CAP-021, FAD-58) ───
+   *
+   * **Two keys, because FAD-58 rules two channels**, and the split is the same
+   * kind of narrowing `requests.approve`/`requests.deny` is rather than a new
+   * power. §4 states one row — "Comments — Append-only; author recorded;
+   * SENSITIVE-PII; **visible per capability**" — and names no capability; FAD-58
+   * settles which, and the ratified reader table derives the rest from doc 08 §6
+   * under narrower-never-wider.
+   *
+   * **There is deliberately no comment READ key.** The governing sentence, taken
+   * from migration 0024's header §3 where it was already shipped for a decision
+   * reason: *a comment is visible exactly where the REQUEST it is on is visible,
+   * and no wider.* So reading a thread rides `requests.own.read` (one's own) or
+   * `requests.read_any` (the queue's). A third key would be a second visibility
+   * rule that can drift from the first, and the drift is the thing
+   * narrower-never-wider forbids — not the convenience.
+   *
+   * Both are under baseline **CAP-021** and neither moves the 58-capability
+   * baseline in either direction (rule 11 cuts both ways: never narrow a
+   * capability, never invent one).
+   */
+  {
+    key: 'requests.own.comment',
+    scope: 'group',
+    module: 'requests_vacation',
+    description:
+      "CAP-021 (SPEC-08 §4, FAD-58.1): attach ONE controlled-vocabulary reason CODE to one's " +
+      'OWN request. **There is no text field and there never will be one** — I-07 forbids ' +
+      'clinical free text, not merely patient identifiers, and in this product the honest ' +
+      'answer to "why that Friday?" is frequently a medical one, so the requester picks from a ' +
+      'curated non-clinical list (I-17) in which "other" is TERMINAL. One turn, one accepted ' +
+      'code, one transaction (I-16). Self-scoped with ownership required and **no ownership ' +
+      'override**, for the reason `requests.own.submit` has none: a reason code is a statement ' +
+      "about that person's own circumstances, and attaching one on a named colleague's behalf " +
+      'is not a power anybody holds. Role-implied for member and scheduler on the ' +
+      '"Submit requests/vacation" row of doc 08 §6, exactly as FAD-57 did the three ' +
+      'self-scoped keys above.',
+  },
+  {
+    key: 'requests.comment_any',
+    scope: 'group',
+    module: 'requests_vacation',
+    description:
+      "CAP-021 (SPEC-08 §4, FAD-58.2): append a bounded administrative COMMENT to another " +
+      "membership's request — the decider's channel, of exactly the class `approvals.reason` " +
+      'and `schedule_versions.change_summary` are, bounded at 1000 characters, never clinical, ' +
+      'never an ingestion path (rule 8). A WRITE key with no read power and no decision power: ' +
+      'seeing the queue is `requests.read_any` and deciding is `requests.approve`/' +
+      '`requests.deny`, so commenting on a request is separately grantable from deciding it. ' +
+      'Role-implied for scheduler alone, from the "Approve requests/vacation" row of doc 08 ' +
+      '§6 ' +
+      '(Member —, Viewer —, Telecom —, Scheduler ✓, Group Admin —, Org Admin —) — the ' +
+      'document deciding, not a view about who ought to be able to.',
+  },
   {
     key: 'vacation.commit',
     scope: 'group',

@@ -38,6 +38,7 @@ import type {
   VacationPeriod,
   VacationSelectionRecord,
 } from './records.js';
+import type { CommentChannel, RequestReasonCode } from './comments.js';
 import type { RequestDecision } from './decisions.js';
 import type {
   RequestStatus,
@@ -340,6 +341,54 @@ export interface RequestStore {
   listApprovals(uow: UnitOfWork, requestId: string): Promise<readonly Approval[]>;
 
   /**
+   * **Append one comment to `request_comments`** (§4's fifth row, FAD-58,
+   * migration 0026).
+   *
+   * There is no update counterpart and there never will be one, for the reason
+   * `recordApproval` gives one method above: `app_runtime` holds SELECT and
+   * INSERT on that table and nothing else, so a method that tried to edit or
+   * remove a comment would raise `42501` rather than silently succeed. §4's
+   * "append-only" is a PRIVILEGE, not a promise, and FAD-58.3's "correction is a
+   * new comment" is what a caller does instead.
+   *
+   * The verb lives on this port rather than on one of its own for the reason
+   * `recordApproval` and `listApprovals` do: a comment is a child row of the
+   * request aggregate, written in the same unit of work as everything else about
+   * that aggregate, and a second port over the same root would be a second place
+   * to remember the tenant columns.
+   *
+   * **`authorMembershipId` is the acting membership, always.** The store fills
+   * the tenant columns; the caller supplies the author; and migration 0026's two
+   * write policies additionally require the stored author to BE the acting
+   * membership, so a caller that passed somebody else's id would be refused by
+   * the database rather than believed. §4's "author recorded" is enforced twice
+   * and assumed nowhere.
+   */
+  appendComment(uow: UnitOfWork, comment: NewRequestComment): Promise<string>;
+
+  /**
+   * One request's comment thread, OLDEST first.
+   *
+   * The opposite ordering to `listApprovals`, deliberately: a decision history
+   * answers "what is the current decision", so it leads with the newest, and a
+   * comment thread answers "how did this conversation go", so it reads from the
+   * top.
+   *
+   * **No membership predicate and no channel filter.** Which rows a caller may
+   * see is migration 0026's three policy arms — the ruling being that a comment
+   * is visible exactly where the REQUEST it is on is visible, and no wider — and
+   * a predicate here would be a second, weaker copy of a control that already
+   * holds. Both channels come back together because §4 describes one comment
+   * surface; there is no decider-private note class, and creating one would need
+   * its own recorded decision.
+   */
+  listComments(
+    uow: UnitOfWork,
+    requestId: string,
+    limit: number,
+  ): Promise<readonly RequestComment[]>;
+
+  /**
    * **The scheduler's pending-review queue** (doc 42 §5d Part C).
    *
    * Undecided requests in the acting context's group, oldest first — a queue is
@@ -388,6 +437,86 @@ export interface NewApproval {
 /** A decision, as stored. */
 export interface Approval extends NewApproval {
   readonly id: string;
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * §4's fifth row — comments (OPUS-M5-00C, FAD-58, migration 0026)
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * What a caller supplies to append a comment. The store fills the tenant columns.
+ *
+ * ## This type is FLAT, and it does NOT make the illegal shapes unrepresentable
+ *
+ * `channel`, `reasonCode: RequestReasonCode | null` and `body: string | null`
+ * are three independent members, so
+ * `{ channel: 'requester', reasonCode: 'travel', body: 'prose' }` **compiles.**
+ * Proven at review by compiling exactly that value under `tsc --strict`, exit 0.
+ *
+ * *(An earlier version of this docblock claimed the opposite — "the content is a
+ * discriminated union on the channel … the two illegal shapes are not
+ * expressible at this boundary at all". That is true of `CommentContent` in
+ * `./comments.ts` and it is NOT true of this interface, which does not use it.
+ * The sentence is corrected rather than deleted, because a docblock asserting a
+ * guarantee the type does not carry is worse than no docblock at all: it is the
+ * kind of claim a later reader relies on instead of checking, and this one was
+ * caught by a compiler and not by a reader. The shape is deliberately NOT
+ * re-worked to match the old claim — this interface's sole caller is the private
+ * `append()` in `apps/api/src/requests/comments.ts`, which is reached only
+ * through `attachReasonCode` / `appendSchedulerComment`, each of which has
+ * already run the content through `commentContentIsWellFormed` and narrowed the
+ * union; re-shaping a type to make a comment true is the tail wagging the dog.)*
+ *
+ * ## Where the guarantee actually lives — three live layers, none of them here
+ *
+ *  1. **`commentContentIsWellFormed`** (`./comments.ts`) refuses both illegal
+ *     shapes with `channel-content-mismatch`, in both directions, and it is what
+ *     the two service verbs call before they reach `append()`.
+ *  2. **Migration 0026's two CHECKs** —
+ *     `request_comments_requester_channel_is_a_code` and
+ *     `request_comments_scheduler_channel_is_text`, each written in both
+ *     directions — refuse the same two shapes in the DATABASE, on every path,
+ *     including one that never touched this module.
+ *  3. **Migration 0026's RLS `WITH CHECK` arms** pin the CHANNEL and the AUTHOR
+ *     per arm, so a member cannot reach the free-text column by naming the other
+ *     channel and a decider cannot attach a code to somebody else's request.
+ *
+ * Each was proven independently load-bearing by mutation: killing one leaves the
+ * others refusing. That is a genuinely stronger position than a compile-time
+ * union at this boundary would have been — a type cannot refuse a row that
+ * arrives from `psql` — and it is the honest description of what is defended.
+ *
+ * There is deliberately no `createdAt`: the instant is the database's `now()`,
+ * because "author and instant recorded" (FAD-58.2) is worth less if the instant
+ * is whatever the caller said it was.
+ */
+export interface NewRequestComment {
+  readonly requestId: string;
+  /**
+   * The ACTING membership, and migration 0026's write policies require it to be
+   * exactly that. See `appendComment` for why the property is enforced twice.
+   */
+  readonly authorMembershipId: string;
+  readonly channel: CommentChannel;
+  /** Present exactly on the `requester` channel. FAD-58.1's controlled vocabulary. */
+  readonly reasonCode: RequestReasonCode | null;
+  /**
+   * Present exactly on the `scheduler` channel — bounded administrative text of
+   * the `approvals.reason` class.
+   *
+   * **This value never reaches an audit payload, an outbox payload or a
+   * notification** (I-07, non-bypass rules 8 and 9), and neither does
+   * `reasonCode` — the second for a ruled reason rather than a mechanical one.
+   * `CommentAuditFacts` in `./comments.ts` is the closed set a comment does
+   * publish, and it names neither.
+   */
+  readonly body: string | null;
+}
+
+/** A comment, as stored. */
+export interface RequestComment extends NewRequestComment {
+  readonly id: string;
+  readonly createdAt: Date;
 }
 
 /** The vacation round's own store — §5's tables, which the root does not carry. */

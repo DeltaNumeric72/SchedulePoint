@@ -68,7 +68,9 @@ export type {
   Approval,
   NewApproval,
   NewRequest,
+  NewRequestComment,
   NewVacationSelection,
+  RequestComment,
   RequestStore,
   VacationSelectionView,
   VacationStore,
@@ -193,3 +195,25 @@ export {
   type VacationSelectionRefusalReason,
   type VacationSelectionVerdict,
 } from './vacation-selection.js';
+
+/* ── OPUS-M5-00C — §4's fifth row, comments (doc 42 §5g, FAD-58) ─────────────
+ *
+ * The vocabulary and the exactly-one-of rule that keeps the two channels apart.
+ * Pure like everything else here — migration 0026's CHECKs are the independent
+ * second copy, and `apps/api/src/requests/comments.ts` is the transaction. */
+
+export {
+  COMMENT_BODY_MAX_LENGTH,
+  COMMENT_CHANNELS,
+  COMMENT_REFUSAL_REASONS,
+  REQUEST_REASON_CODES,
+  commentBodyIsWellFormed,
+  commentContentIsWellFormed,
+  isRequestReasonCode,
+  type CommentAuditFacts,
+  type CommentChannel,
+  type CommentContent,
+  type CommentContentVerdict,
+  type CommentRefusalReason,
+  type RequestReasonCode,
+} from './comments.js';
