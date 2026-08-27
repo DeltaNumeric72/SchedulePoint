@@ -94,6 +94,19 @@ const OWN_ROUTES = [
   { method: 'POST', url: `${BASE}/:requestId/withdraw`, key: 'requests.own.withdraw' },
   { method: 'GET', url: `${BASE}/mine`, key: 'requests.own.read' },
   { method: 'GET', url: `${BASE}/deadline`, key: 'requests.own.read' },
+  /* ── OPUS-M5-00C (FAD-58): the requester's half of §4's fifth row ───────────
+   *
+   * Both self-scoped, and asserted against exactly the same properties the four
+   * above are — `requiresObjectPolicy: true`, `ownershipRequired: true`, no
+   * override — because they are the same kind of route: a person acting on, and
+   * reading, their OWN request.
+   *
+   * The reason-code POST additionally joins the BY-ID OWN-SCOPED WRITE set two
+   * tests below, which is the M5-003 class doing what it was built to do: a new
+   * member of the class meets the rule at its declaration rather than after
+   * somebody notices. */
+  { method: 'POST', url: `${BASE}/:requestId/reason-codes`, key: 'requests.own.comment' },
+  { method: 'GET', url: `${BASE}/:requestId/comments`, key: 'requests.own.read' },
 ] as const;
 
 /** M5-002's six. NOT self-scoped, deliberately — see the header. */
@@ -104,6 +117,11 @@ const SCHEDULER_ROUTES = [
   { method: 'POST', url: `${BASE}/:requestId/deny`, key: 'requests.deny' },
   { method: 'POST', url: `${BASE}/:requestId/reverse`, key: 'requests.approve' },
   { method: 'POST', url: `${BASE}/decisions`, key: 'requests.batch_approve' },
+  /* OPUS-M5-00C (FAD-58.2): the DECIDER's half of §4's fifth row. Shaped like
+   * its six neighbours rather than like the two staff routes above — a decider
+   * who could only comment on their own requests would not be a decider — and
+   * carrying its OWN key, because commenting on a request is not deciding it. */
+  { method: 'POST', url: `${BASE}/:requestId/comments`, key: 'requests.comment_any' },
 ] as const;
 
 const EXPECTED = [...OWN_ROUTES, ...SCHEDULER_ROUTES];
@@ -170,7 +188,7 @@ afterAll(async () => {
   await app.close();
 });
 
-describe('the request surface registers exactly the ten routes these two packets ship', () => {
+describe('the request surface registers exactly the thirteen routes these three packets ship', () => {
   it('each expected route is REGISTERED, with the expected action key', () => {
     for (const expected of EXPECTED) {
       const entry = entryFor(expected.method, expected.url);
@@ -186,7 +204,12 @@ describe('the request surface registers exactly the ten routes these two packets
      * route on this surface fails here until somebody updates the list." The list
      * grew by six because doc 42 §5d landed the queue and §4's decision verbs;
      * the mechanism that made that a decision rather than a slip is this
-     * assertion, and it stays. */
+     * assertion, and it stays.
+     *
+     * *(OPUS-M5-00C, 2026-08-27: ten → THIRTEEN. Doc 42 §5g landed §4's fifth
+     * row under FAD-58 — two staff routes and one decider route. The mechanism
+     * worked again: adding them meant editing this list, which meant deciding
+     * that three routes were what the reader table needs, in the open.)* */
     const registered = requestRoutes()
       .map((entry) => `${entry.method} ${entry.url}`)
       .sort();
@@ -223,7 +246,7 @@ describe('the request surface registers exactly the ten routes these two packets
 });
 
 describe('SPEC-08 §4 — withdrawal is REQUESTER-INITIATED ONLY, enforced by an absence', () => {
-  it('the four STAFF routes are self-scoped: ownershipRequired, object policy on', () => {
+  it('the SIX staff routes are self-scoped: ownershipRequired, object policy on', () => {
     /* M5-001's assertion, re-run over exactly the set it was written about. It is
      * scoped to `OWN_ROUTES` rather than to the whole surface because the whole
      * surface now includes routes that act on other people's rows BY DESIGN —
@@ -264,6 +287,45 @@ describe('SPEC-08 §4 — withdrawal is REQUESTER-INITIATED ONLY, enforced by an
     const byIdOwnWrites = [
       { method: 'POST', url: `${BASE}/:requestId/withdraw` },
       { method: 'POST', url: `${VACATION_BASE}/:selectionId/withdraw` },
+      /* OPUS-M5-00C: the class's THIRD member, and it arrived through this
+       * assertion rather than past it. `attachReasonCode` carries the predicate
+       * (`root.membershipId !== command.membershipId → not-found`);
+       * `test/requests/request-comments.test.ts` proves it over HTTP in both
+       * directions, with the owner's own success as the positive control beside
+       * the colleague's 404.
+       *
+       * **On this route the predicate is A control and not THE control**, and
+       * the distinction was established at review by mutation rather than by
+       * reading: migration 0026's `request_comments_own` arm asks the same
+       * ownership question in its `WITH CHECK`, so dropping the service
+       * predicate alone leaves the forged write refused by the database with
+       * `42501`, which `withRequests` maps to the IDENTICAL `404`. Both layers
+       * had to go before the property broke. That is DEFENCE IN DEPTH and it
+       * does not weaken this set's rule — the rule is that every member carries
+       * the service predicate, because on the other two members
+       * (`…/requests/:requestId/withdraw`, `…/vacation/selections/:selectionId/
+       * withdraw`) the database does NOT re-ask ownership for the actor who
+       * matters. *(Corrected 2026-08-27 at the second condition round: an
+       * earlier version of this sentence said those tables' OWN-arms are
+       * `FOR ALL` and therefore do not re-ask it. That is false, and reading
+       * 0023 is what settles it — `requests_own` (line 632) and
+       * `vacation_selections_own` (line 845) are `FOR ALL` and DO re-ask, with
+       * `membership_id = nullif(current_setting('app.membership_id', true),
+       * '')::uuid` in BOTH `USING` and `WITH CHECK`.)* The real mechanism is the
+       * ADMINISTRATION arms: `requests_group_administration` (line 650) and
+       * `vacation_selections_group_administration` (line 863) are `FOR ALL`
+       * behind `app_acting_membership_holds('requests.administer')` with **no
+       * ownership predicate at all**, and permissive RLS policies combine with
+       * OR — so for a holder of `requests.administer` that arm alone admits the
+       * write and the own-arm's ownership question is never reached. On those
+       * two routes the service predicate is therefore the only control, which is
+       * exactly the composition gap M5-003 found by measurement.
+       * `request_comments` differs because ITS administration arm additionally
+       * pins `channel = 'scheduler'` (and the author), so the OR-escape is shut:
+       * a forged requester-channel row satisfies neither arm and the database
+       * refuses it. A future member may have no second layer at all, which is
+       * exactly why the declaration-time rule stays unconditional. */
+      { method: 'POST', url: `${BASE}/:requestId/reason-codes` },
     ] as const;
 
     for (const route of byIdOwnWrites) {
@@ -364,7 +426,7 @@ describe('SPEC-08 §4 — withdrawal is REQUESTER-INITIATED ONLY, enforced by an
 });
 
 describe('OPUS-M5-002 — the scheduler half, and the §5c binding note at the route layer', () => {
-  it('the six scheduler routes declare no ownership, and say so explicitly', () => {
+  it('the seven scheduler routes declare no ownership, and say so explicitly', () => {
     for (const expected of [...SCHEDULER_ROUTES, ...VACATION_DECISION_ROUTES]) {
       const config = capabilityRouteConfig(entryFor(expected.method, expected.url)?.config);
       const where = `${expected.method} ${expected.url}`;

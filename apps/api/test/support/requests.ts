@@ -16,6 +16,14 @@ import { sql } from 'kysely';
  * refuse. So every one of the ten gets a row, in more than one group, before the
  * sweep runs.
  *
+ * *(Dated amendments, in the FAD-54 style — the requirement GROWS, nothing is
+ * relaxed. **OPUS-M5-002**: migration 0024's `approvals` makes it eleven tables
+ * and the floor 65. **OPUS-M5-00C**: migration 0026's `request_comments` makes
+ * it twelve and the floor 66, with one row per CHANNEL because the two channels
+ * are admitted by two different policy arms and a single row would leave one of
+ * them unexercised. The paragraph above is kept unedited because it is the RULE
+ * both amendments follow.)*
+ *
  * Same arrangement as `seedRulesForSweep`, `seedLocationsForSweep`,
  * `seedSolverSnapshotsForSweep` and `seedBuildLifecycleForSweep`: seeded HERE
  * rather than in `provisionMulti`, because `test/support/multi.ts` is the single
@@ -397,6 +405,55 @@ export async function seedRequestsForSweep(
             (organization_id, group_id, request_id, decision, decided_by, reason)
           values (${target.organizationId}::uuid, ${target.groupId}::uuid, ${decidedId}::uuid,
                   ${'approved'}, ${target.membershipId}::uuid, null)
+        `.execute(db);
+
+        /* ── OPUS-M5-00C: `request_comments`, the TWELFTH table (migration 0026)
+         *
+         * The sweep floor moves 65 → 66 and the non-vacuity check fails a
+         * REGISTERED table never seen with a visible row, so these rows exist for
+         * the same reason the eleven above do.
+         *
+         * **One row per CHANNEL**, because a single row would leave whichever
+         * channel it did not use unexercised — and the two channels are written
+         * through DIFFERENT policy arms, which is the property most worth having
+         * a live row for. Both are written under the target's own context and
+         * neither invents a privilege:
+         *
+         *   * the `requester` row meets `request_comments_own`, whose
+         *     `WITH CHECK` requires the row to be on a request the acting
+         *     membership OWNS, to carry `channel = 'requester'`, and to name that
+         *     membership as its author. Every root this helper writes belongs to
+         *     the target membership, so the arm admits it.
+         *   * the `scheduler` row meets `request_comments_group_administration`,
+         *     which requires `requests.administer` — role-implied for `scheduler`
+         *     from doc 08 §6's "Approve requests/vacation ✓" — and likewise pins
+         *     `channel = 'scheduler'` and the author. Every target of this helper
+         *     is a scheduler membership.
+         *
+         * If the role map ever stopped carrying the key, or either policy arm
+         * were loosened or tightened, one of these INSERTs would fail rather than
+         * quietly writing a row no production path could produce.
+         *
+         * The comment BODY is an administrative note about a synthetic roster.
+         * The reason CODE is `other`, the TERMINAL member of the vocabulary — the
+         * fixture states nothing about anybody, which is the honest choice for a
+         * `SENSITIVE-PII` row that exists to make a sweep non-vacuous. */
+        await sql`
+          insert into request_comments
+            (organization_id, group_id, request_id, channel, reason_code, body,
+             author_membership_id)
+          values (${target.organizationId}::uuid, ${target.groupId}::uuid,
+                  ${decidedId}::uuid, ${'requester'}, ${'other'}, ${null},
+                  ${target.membershipId}::uuid)
+        `.execute(db);
+        await sql`
+          insert into request_comments
+            (organization_id, group_id, request_id, channel, reason_code, body,
+             author_membership_id)
+          values (${target.organizationId}::uuid, ${target.groupId}::uuid,
+                  ${decidedId}::uuid, ${'scheduler'}, ${null},
+                  ${'Approved after checking the cover for that week.'},
+                  ${target.membershipId}::uuid)
         `.execute(db);
 
         return {

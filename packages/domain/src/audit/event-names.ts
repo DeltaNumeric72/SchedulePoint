@@ -487,6 +487,53 @@ export const AUDIT_EVENT_NAMES = [
 
   /** §5.3: a requester withdrew their own vacation selection; an approved one releases a unit. */
   'requests.vacation_selection.withdrawn',
+
+  /* ── OPUS-M5-00C (SPEC-08 §4's fifth row, FAD-58) — COMMENTS ────────────────
+   *
+   * TWO names, and the rule that produced them is the one this list has applied
+   * since `build.run.cancelled`: **a name per act somebody takes responsibility
+   * for.**
+   *
+   * `requests.request.reason_code_attached` is the REQUESTER's act and
+   * `requests.request.comment_appended` is the DECIDER's. One
+   * `requests.request.commented` carrying the channel in its payload would make
+   * "which of a scheduler's requests did they annotate, and when" a payload
+   * scan — and worse, it would file a member's statement about their own
+   * circumstances and an administrator's note about a roster under one name, as
+   * if they were the same kind of fact. They are not, they have different
+   * authorities, and FAD-58 rules them two channels precisely because the
+   * distinction is load-bearing.
+   *
+   * **What these payloads carry is `CommentAuditFacts` — `{ requestId,
+   * commentId, channel }`, three tokens — and the two things they do NOT carry
+   * are absent for DIFFERENT reasons.** The scheduler's BODY could not be here:
+   * `auditPayloadViolations` refuses any payload string containing a space, so
+   * prose is rejected before a statement issues, exactly as a decision reason
+   * is. The requester's CODE *could* be here — `childcare` is a token that
+   * passes the validator — and is left out by RULING: the chain is immutable
+   * and has its own reader population behind `audit.export`, so a code in a
+   * payload would put a fact about the requester's circumstances somewhere the
+   * comment table's own RLS does not reach (narrower-never-wider). **The chain
+   * records THAT a code was attached, by whom, and when — never WHICH.**
+   * `apps/api/test/requests/comment-body-closure.test.ts` proves that the
+   * omission is a choice by showing the validator would have accepted it.
+   *
+   * There is deliberately **no `requests.request.comment_removed`** and no
+   * `…_edited`: migration 0026 grants no runtime role UPDATE or DELETE, so
+   * neither act exists to name. A correction is a second
+   * `…comment_appended`/`…reason_code_attached` row, which is what §4's
+   * "append-only" means.
+   *
+   * The SUBJECT is the request root, as it is for every other `requests.*` name:
+   * "everything that happened to this request" must return its comments, and
+   * filing them under the author would make "everything that happened to this
+   * person" return every colleague's comment in a group the reader can see —
+   * which for `SENSITIVE-PII` data is worse than merely unhelpful. */
+
+  /** §4 (FAD-58.1): a requester attached ONE controlled-vocabulary code to their own request. */
+  'requests.request.reason_code_attached',
+  /** §4 (FAD-58.2): a decider appended a bounded administrative comment to a request. */
+  'requests.request.comment_appended',
 ] as const;
 
 export type AuditEventName = (typeof AUDIT_EVENT_NAMES)[number];

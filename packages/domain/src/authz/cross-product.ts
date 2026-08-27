@@ -206,6 +206,21 @@ export const SYSTEM_ROLE_CAPABILITIES: Readonly<Record<string, readonly string[]
     'requests.own.submit',
     'requests.own.withdraw',
     'requests.own.read',
+    /* ── OPUS-M5-00C (FAD-58.1): the requester's COMMENT channel, from the same
+     * "Submit requests/vacation" row the three keys above come from.
+     *
+     * Attaching a reason code to one's own request is part of asking, not part
+     * of deciding: it is the requester's own statement about their own
+     * circumstances, on their own row. So it takes that row's population — a
+     * `✓` cell, hence role-implied rather than grant-only — and the key is
+     * self-scoped with no ownership override, so a member holding it still
+     * reaches exactly their own request.
+     *
+     * `requests.comment_any` is deliberately NOT here: appending an
+     * administrative comment to a COLLEAGUE's request is the "Approve
+     * requests/vacation" row, where Member is `—`. Same table, different row,
+     * different answer. */
+    'requests.own.comment',
   ],
   viewer: ['schedule.own_published.read', 'schedule.published.read'],
   telecom: [],
@@ -293,6 +308,28 @@ export const SYSTEM_ROLE_CAPABILITIES: Readonly<Record<string, readonly string[]
     'requests.own.submit',
     'requests.own.withdraw',
     'requests.own.read',
+    /* OPUS-M5-00C: the same row's comment key, for the same reason — a
+     * scheduler has requests of their own. Self-scoped; it reaches that
+     * scheduler's own rows and nobody else's. */
+    'requests.own.comment',
+    /* ── OPUS-M5-00C (FAD-58.2): the DECIDER's comment channel, from doc 08 §6's
+     * "Approve requests/vacation" row — Member —, Viewer —, Telecom —,
+     * **Scheduler ✓**, Group Admin —, Org Admin —.
+     *
+     * A `✓` cell rather than a `G`, so role-implied exactly as the four decision
+     * keys above are, and NOT given to `group_admin` for the reason they are
+     * not: that role's cell in this row is `—`, and this map follows the
+     * document rather than intuition about who ought to be able to. A group
+     * administrator who must comment takes a grant.
+     *
+     * It sits beside `requests.read_any` and `requests.administer` rather than
+     * replacing either: seeing the queue is the first, writing another
+     * membership's rows at all is the second (migration 0026's administration
+     * arm requires it), and this key is the OPERATION. A holder of this one
+     * alone would be authorized to comment and would see nothing to comment on;
+     * a holder of the other two alone reaches migration 0026's rows and is
+     * refused at the route. All three, or nothing useful. */
+    'requests.comment_any',
   ],
   group_admin: [
     'membership.touch_self',

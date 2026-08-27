@@ -344,7 +344,7 @@ beforeAll(async () => {
   log(
     `      · OPUS-M5-000b: seeded ${String(
       seededRequests.reduce((total, one) => total + one.requests, 0),
-    )} request(s) across three groups for SBX-004 — eleven tables, sweep floor raised 54 -> 65` +
+    )} request(s) across three groups for SBX-004 — twelve tables, sweep floor raised 54 -> 66` +
       ` (shift preference in ${String(
         seededRequests.filter((one) => one.shiftPreference).length,
       )}, shift-group-off in ${String(
@@ -881,7 +881,15 @@ describe('the G-ARCH tenancy subset', () => {
     // decision, so the seeded row is one a production writer could have produced.
     // The floor rises for the reason it always rises: a floor that lags the
     // registry stops noticing a removal, which is the only thing it is for.
-    expect(expectedTables.length, 'the tenant registry shrank').toBeGreaterThanOrEqual(65);
+    //
+    // 65 -> 66 by OPUS-M5-00C: migration 0026 adds `request_comments`, SPEC-08
+    // §4's fifth row under FAD-58, kept non-vacuous by the same
+    // `seedRequestsForSweep` — which now writes ONE ROW PER CHANNEL through the
+    // two DIFFERENT policy arms that admit them, so a loosening or a tightening
+    // of either arm fails the seed rather than passing quietly. The floor rises
+    // for the reason it always rises: a floor that lags the registry stops
+    // noticing a removal, which is the only thing it is for.
+    expect(expectedTables.length, 'the tenant registry shrank').toBeGreaterThanOrEqual(66);
     expect(
       [...(sweep?.tables ?? [])].sort(),
       `tables exercised: ${sweep?.tables.join(', ')}`,

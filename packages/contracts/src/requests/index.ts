@@ -42,7 +42,16 @@ import { calendarDateSchema } from '../schedule/calendar-date.js';
  *    as `changeSummary` on a schedule version. It is not an ingestion path and
  *    never enters an audit payload; the closed-payload rule (ADR-0019) would
  *    reject free text there. There is no comment body here — §4's comments are
- *    M5-002's surface.
+ *    M5-002's surface. *(Corrected by date, 2026-08-27: M5-002 ESCALATED §4's
+ *    comments to a packet of their own rather than squeezing them in, and
+ *    OPUS-M5-00C lands them under FAD-58. The clause "no free-text field except
+ *    `overrideReason`" is superseded by exactly ONE addition —
+ *    `appendSchedulerCommentSchema`'s `body`, which is the same
+ *    scheduler-authored administrative class with the same 1000-character
+ *    bound. The REQUESTER side gained no text field and never will: FAD-58.1
+ *    rules the requester channel a controlled vocabulary permanently. The
+ *    original sentence is kept because it is the reason the shapes below are
+ *    shaped the way they are.)*
  *  - **`isLate` and `revisionRequested` ARE carried** (OPUS-M5-001). This entry
  *    previously read "**No `isLate`**" on the M5-000b reasoning that SPEC-08
  *    §1.1 supersedes doc 06 §3.4 for the root and does not carry it — true then,
@@ -831,6 +840,209 @@ export type BatchDecisionResult = z.infer<typeof batchDecisionResultSchema>;
 export const requestQueueSchema = z.object({ requests: z.array(requestSchema) }).strict();
 export type RequestQueue = z.infer<typeof requestQueueSchema>;
 
+/* ════════════════════════════════════════════════════════════════════════════
+ * OPUS-M5-00C — SPEC-08 §4's FIFTH row: COMMENTS, under FAD-58
+ *
+ * The header of this file says, of the M5-000b vintage: "**No free-text field
+ * except `overrideReason`** … There is no comment body here — §4's comments are
+ * M5-002's surface." M5-002 ESCALATED them out rather than squeezing them in,
+ * FAD-58 ruled, and this block is that ruling on the wire. The header sentence
+ * is left standing because it is the reason the shapes below look the way they
+ * do, and because its second clause was corrected by date rather than by
+ * deletion: the surface is M5-00C's.
+ * ════════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * **FAD-58.1's controlled vocabulary — a `SCHEDULEPOINT-REQUIREMENT`, not an
+ * observed fact, extensible only by a recorded decision.**
+ *
+ * ## Why this is a code list and not a text box
+ *
+ * Every bounded-free-text precedent this repository holds is SCHEDULER-authored
+ * administrative text about a scheduling act — `changeSummary`,
+ * `overrideReason`, a decision `reason`. §4's comments are REQUESTER-authored
+ * text about the requester's own circumstances, on a `SENSITIVE-PII` aggregate,
+ * in a product where **the honest answer to "why that Friday?" is frequently a
+ * medical one**. I-07 is not patient-scoped — *"no patient-identifying
+ * information **or clinical free text** enters the system"* — and a length bound
+ * bounds SIZE, not KIND. So the requester picks a code (I-17) and there is
+ * nowhere to type.
+ *
+ * ## `other` is TERMINAL, and that is the load-bearing part
+ *
+ * There is **no "other, specify" field**, here or at any other layer, because
+ * that field would be the free-text channel under a different name. `other`
+ * means "no further statement", and it is a complete answer.
+ *
+ * ## The ABSENCE of a medical or sick code is the DESIGN
+ *
+ * A reader arriving here with a bug report — "a doctor cannot say they are ill"
+ * — is meeting the ruling, not a gap in it. **A requester whose reason is
+ * medical selects `personal`, or `other`, and discloses nothing**; the scheduler
+ * learns that the request has a reason and does not learn a diagnosis. That is
+ * the entire purpose of FAD-58.1, and adding `medical`, `sick`, `health`,
+ * `appointment` or any near-synonym would re-open the clinical channel this list
+ * exists to close. **A future packet must not add one**; if the product ever
+ * genuinely needs one, it needs a recorded decision that overturns FAD-58 first.
+ *
+ * ## Two curation notes, recorded rather than left to be re-litigated
+ *
+ *  * **`bereavement` is kept and NOT folded into `family`.** It is a standard,
+ *    non-clinical HR leave category, and folding it would make the vocabulary
+ *    less honest rather than narrower — a bereaved requester would have to pick
+ *    a code that says something else.
+ *  * **`professional-obligation` covers the "I am teaching / on a committee /
+ *    at a tribunal" case** that would otherwise be pushed into `other`, which is
+ *    where a vocabulary starts losing its usefulness and a text box starts
+ *    getting asked for.
+ *
+ * ## Three copies, held to each other
+ *
+ * This list, `REQUEST_REASON_CODES` in `@schedulepoint/domain`, and migration
+ * 0026's `request_comments_reason_code_domain` CHECK. This package may import
+ * zod and nothing else, so the copies cannot be one; the api suite asserts all
+ * three are equal as sets, which is the discipline the subtype and status
+ * vocabularies already use.
+ */
+export const requestReasonCodeSchema = z.enum([
+  'personal',
+  'family',
+  'childcare',
+  'bereavement',
+  'travel',
+  'education',
+  'religious-observance',
+  'professional-obligation',
+  'other',
+]);
+export type RequestReasonCodeWire = z.infer<typeof requestReasonCodeSchema>;
+
+/** FAD-58's two channels. One comment surface (§4); two kinds of statement. */
+export const commentChannelSchema = z.enum(['requester', 'scheduler']);
+export type CommentChannelWire = z.infer<typeof commentChannelSchema>;
+
+/**
+ * **What a REQUESTER sends to attach a reason code to their own request.**
+ *
+ * One field. `.strict()`, so a body carrying `text`, `note`, `detail`,
+ * `otherText` or anything else is refused STRUCTURALLY with
+ * `unrecognized_keys` before it reaches a handler — there is no field to remove
+ * and no field to null, because none was ever declared.
+ * `apps/api/test/requests/request-comments.test.ts` POSTs such a body over HTTP
+ * and reads the refusal, so the claim is behavioural rather than a promise made
+ * in this docblock.
+ *
+ * **One code, not an array.** I-16: one turn, at most one accepted selection,
+ * through one transaction. A list would be one turn producing several accepted
+ * statements, and a client that sent twenty would be holding a transaction open
+ * proportional to how many boxes somebody ticked.
+ */
+export const attachReasonCodeSchema = z
+  .object({
+    reasonCode: requestReasonCodeSchema,
+  })
+  .strict();
+export type AttachReasonCode = z.infer<typeof attachReasonCodeSchema>;
+
+/**
+ * **What a SCHEDULER sends to append a comment to a request in their queue.**
+ *
+ * Bounded free text of exactly the class `decisionReasonSchema` above is —
+ * scheduler-authored, administrative, never clinical, not an ingestion path
+ * (non-bypass rule 8) — with the same bound and the same trimming, so a comment
+ * of pure whitespace is refused on the wire rather than at a constraint.
+ *
+ * **It never enters an audit payload, an outbox payload, or a notification**
+ * (I-07, ADR-0019, rule 9). The closed-payload rule would reject it anyway: a
+ * payload string may not contain a space. And FAD-58.5 enqueues nothing at all
+ * on this surface, so there is no notification for it to reach.
+ */
+export const appendSchedulerCommentSchema = z
+  .object({
+    body: z
+      .string()
+      .trim()
+      .min(1, 'a comment says something')
+      .max(1000, 'a comment is at most 1000 characters'),
+  })
+  .strict();
+export type AppendSchedulerComment = z.infer<typeof appendSchedulerCommentSchema>;
+
+/**
+ * **One comment, as a client reads it back.**
+ *
+ * A discriminated union would be the natural shape, and it is deliberately NOT
+ * used: a client rendering a thread iterates one list and reads `channel`, and
+ * the two content fields are nullable-and-exclusive exactly as the row is. The
+ * exclusivity is enforced where enforcement belongs — migration 0026's two
+ * CHECKs and the domain's `commentContentIsWellFormed`, both written in both
+ * directions — rather than by a wire schema that a server could satisfy while
+ * writing a row the database refuses.
+ *
+ * `authorMembershipId` is §4's "author recorded", and it is the acting
+ * membership by construction: 0026's write policies require the stored author to
+ * BE the caller, so this field cannot name somebody who did not write it.
+ */
+export const requestCommentSchema = z
+  .object({
+    id: uuidSchema,
+    requestId: uuidSchema,
+    channel: commentChannelSchema,
+    /** Present exactly on the `requester` channel. */
+    reasonCode: requestReasonCodeSchema.nullable(),
+    /** Present exactly on the `scheduler` channel. */
+    body: z.string().min(1).max(1000).nullable(),
+    authorMembershipId: uuidSchema,
+    createdAt: z.string().datetime(),
+  })
+  .strict();
+export type RequestCommentWire = z.infer<typeof requestCommentSchema>;
+
+/**
+ * A request's comment thread, OLDEST first.
+ *
+ * The opposite ordering to the decision history beside it, and deliberately: a
+ * decision history answers "what is the current decision", a thread answers "how
+ * did this conversation go".
+ */
+export const requestCommentThreadSchema = z
+  .object({
+    comments: z.array(requestCommentSchema),
+  })
+  .strict();
+export type RequestCommentThread = z.infer<typeof requestCommentThreadSchema>;
+
+/** What appending one comment returns. The row, and nothing about the request. */
+export const requestCommentResultSchema = z
+  .object({
+    comment: requestCommentSchema,
+  })
+  .strict();
+export type RequestCommentResult = z.infer<typeof requestCommentResultSchema>;
+
+/**
+ * The refusal for a comment that could not be appended.
+ *
+ * A closed `code`, because a caller must be able to branch, and each member has
+ * a different remedy. `COMMENT_CONTENT_REFUSED` is the domain's exactly-one-of
+ * rule — the shape that would have made a requester row carry prose, or a
+ * scheduler row carry a code — and it is a `422` because it is a statement about
+ * the body. There is deliberately **no version conflict code**: a comment is an
+ * append and conflicts with nothing, which is what append-only buys.
+ */
+export const commentRefusalBodySchema = z
+  .object({
+    error: z
+      .object({
+        code: z.literal('COMMENT_CONTENT_REFUSED'),
+        message: z.string().min(1),
+        correlationId: z.string().min(1),
+      })
+      .strict(),
+  })
+  .strict();
+export type CommentRefusalBody = z.infer<typeof commentRefusalBodySchema>;
+
 /**
  * One request in full, as the queue's detail read returns it: the aggregate, its
  * subtype record, and every decision ever made about it.
@@ -843,6 +1055,22 @@ export const requestDetailSchema = z
   .object({
     request: requestSchema,
     approvals: z.array(approvalSchema),
+    /**
+     * §4's comment thread, OLDEST first (OPUS-M5-00C, FAD-58).
+     *
+     * **This is where a DECIDER reads comments**, and it is a field on the
+     * existing detail read rather than a route of its own, because the ratified
+     * reader table says a comment is visible exactly where the REQUEST it is on
+     * is visible and no wider — so the key that already decides this read
+     * (`requests.read_any`) is the key that decides the thread, and a second
+     * route would be a second place for that to drift. FAD-58.4's "deciders see
+     * the queue's" is this line.
+     *
+     * The REQUESTER's half of the same table is `GET …/requests/:requestId/
+     * comments`, which is self-scoped and rides `requests.own.read`; it needs
+     * its own route because a requester cannot reach this one at all.
+     */
+    comments: z.array(requestCommentSchema),
   })
   .strict();
 export type RequestDetail = z.infer<typeof requestDetailSchema>;
