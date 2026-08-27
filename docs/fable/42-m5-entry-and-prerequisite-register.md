@@ -840,6 +840,72 @@ the two condition files with deletions unchanged at 159).
   by the orchestrator, on the M5-H implementer's declared observation — rendering
   only, zero content change.
 
+### 5f. M5-003 — FINALIZED 2026-08-27 (issues against `origin/main` at `befe116`, the PR #11 merge)
+
+**Scope: SPEC-08 §5's vacation submission side — grants, selections, quota vs open
+modes, the §5.3 status mapping, and the staff-facing selection surfaces.** M5-000b
+laid the schema (0021/0022: grants, selections, carriers, D-18..D-27 in-database);
+M5-002 built the APPROVAL side (§5.4/§5.5, the two-step, D-26, the R-05 race);
+M5-004 owns commit/reverse and the solver projection; comments stay M5-00C.
+
+**Part A — vacation roots and selections (the write side).** Vacation request roots
+become creatable through the M5-001 lifecycle (the creation union and route gain the
+vacation subtype; the 422 refusal retires), with selections as the subtype record
+per 0022's shape. Quota mode consumes grant units under D-21's CHECKs; open mode
+carries no grant (V-30's branch, already proven from the approval side — this packet
+proves it from the submission side). Selection create/update guarded per R-18/R-19
+(status `pending` + `expected_selection_version`); the §5.4 mode-stability guard's
+submission-side counterpart holds. **The §5.3 status-mapping invariant (R-15): the
+selection's displayed status is DERIVED from the root's SPEC-08 §2 status by the
+§5.3 table — never stored separately, never divergent** — with the agreement proven
+in the transition-matrix-agreement style (both layers, mutation-killed). R-13/R-16
+per their SPEC-08 §7 rows. **The selection ORDERING matrix (the M5-001 forward
+obligation):** the ordering the selection list presents (deadline, then submission
+instant, then stable id — or as SPEC-08 §5.3 rules) is written as a matrix test,
+not left to the query's accident.
+- **FU-23 comes due and MUST be closed here** (its register row binds it to
+  M5-003): this packet makes the vacation-null replay seam reachable. Choose per
+  the row — split the root read from the record read on the replay path, or scope
+  the idempotency namespace per subtype — with the reasoning written; a 409 posing
+  as a replay is the failure to kill.
+- **FU-20's period-shrink half comes due**: 0022 grants UPDATE on
+  `vacation_periods.start_date`/`end_date`, so shrinking a period can strand
+  selections and weekly-capacity grants outside it. Decide per the row — a
+  period-side guard (the §5.5 mode-stability pattern, which already exists for
+  mode) or a recorded ruling that drift is acceptable with the readers named — and
+  prove whichever lands.
+
+**Part B — the staff surfaces.** The selection UX (list, create/update within the
+window, status display per §5.3) and the variance display, per the pre-declaration
+row and doc 07's vocabulary. Every new surface carries axe coverage (I-12), the
+request budget (I-10, one action one request), and I-13 (no Add/New/Create control
+persists before a completed form and explicit Save). Client talks to NO third
+party (CAP-068). Member access rides FAD-57's role-implication — the surfaces are
+driven over HTTP as a grantless member (FU-29's pattern, now the house standard for
+new routes: at least one HTTP-driven success shape and one refusal per route
+family).
+
+**Constraints carried:** X-11 under the NARROWED name-independent exemption (any
+new unique key carries `organization_id`; a caller-named PK must satisfy the rule
+on its columns); additive migrations only, 0021/0022/0023/0024 never weakened; the
+R-01 cross-product extends to any new operation in BOTH layers; reason/free-text
+posture unchanged (I-07: no new free text anywhere; the §4 comments remain
+M5-00C's); every store port takes the unit of work; deny-by-default on every new
+route.
+
+**Acceptance battery (doc 42 §6, as amended by §5e's environment):** validators ·
+`corepack pnpm check` 17/17 · red cases at census 69 (a new arm only under the
+four-conjunct bar, reasoning written either way; serial local proof limited to
+changed/new arms via isolated `SP_RED_SHARD`, never a full serial battery on this
+container; sharded CI on the PR is the primary form) · populated cycle per any new
+migration · one composed seeded `api` run at a fresh seed with the invocation of
+record · axe + request-budget green with the new surfaces · CI green before merge
+consideration. Delivery: worktree + patch from `befe116`; fresh Opus implementer;
+fresh Opus reviewer; delta by the reviewer; orchestrator lands and commits on the
+next PR. The §5c/§5e environment discipline binds in full (tree-not-source-of-truth
+during arms; per-arm two-assertion gate + `debris.mjs`; exact-`ps`-text waiters;
+`SP_SOLVER_WORKER_COMMAND` must now be SET for any gate run — FAD-56).
+
 ## 6. Standing acceptance battery (every packet, per 24 §G and the M4 form)
 
 Validators (36/36 · 95/95 · research PASS) · `corepack pnpm check` 17/17 · the full
