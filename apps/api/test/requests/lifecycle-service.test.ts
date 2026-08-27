@@ -401,6 +401,12 @@ describe('R-22 / R-10 — withdrawal through the service', () => {
         withdrawRequest(uow, {
           requestId: id,
           expectedVersion: await versionOf(id),
+          /* OPUS-M5-003: §4's requester-initiated-only rule is decided on the
+           * ACTING membership, so the service takes it. These cases are the
+           * OWNER's own withdrawals and pass their own membership; the refusal
+           * for a colleague's row is proven over HTTP in
+           * `own-write-ownership.test.ts`. */
+          membershipId,
           now: new Date('2046-06-02T09:00:00Z'),
         }),
       ),
@@ -422,6 +428,12 @@ describe('R-22 / R-10 — withdrawal through the service', () => {
       withdrawRequest(uow, {
         requestId: id,
         expectedVersion: await versionOf(id),
+        /* OPUS-M5-003: §4's requester-initiated-only rule is decided on the
+         * ACTING membership, so the service takes it. These cases are the
+         * OWNER's own withdrawals and pass their own membership; the refusal
+         * for a colleague's row is proven over HTTP in
+         * `own-write-ownership.test.ts`. */
+        membershipId,
         now: new Date('2046-06-02T09:00:00Z'),
       }),
     );
@@ -446,6 +458,12 @@ describe('R-22 / R-10 — withdrawal through the service', () => {
         withdrawRequest(uow, {
           requestId: id,
           expectedVersion: await versionOf(id),
+          /* OPUS-M5-003: §4's requester-initiated-only rule is decided on the
+           * ACTING membership, so the service takes it. These cases are the
+           * OWNER's own withdrawals and pass their own membership; the refusal
+           * for a colleague's row is proven over HTTP in
+           * `own-write-ownership.test.ts`. */
+          membershipId,
           now: new Date('2046-06-02T09:00:00Z'),
         }),
       ),
@@ -510,6 +528,12 @@ describe('R-22 / R-10 — withdrawal through the service', () => {
         withdrawRequest(uow, {
           requestId: id,
           expectedVersion: await versionOf(id),
+          /* OPUS-M5-003: §4's requester-initiated-only rule is decided on the
+           * ACTING membership, so the service takes it. These cases are the
+           * OWNER's own withdrawals and pass their own membership; the refusal
+           * for a colleague's row is proven over HTTP in
+           * `own-write-ownership.test.ts`. */
+          membershipId,
           now: new Date('2046-06-02T09:00:00Z'),
         }),
       ),
@@ -525,6 +549,12 @@ describe('R-22 / R-10 — withdrawal through the service', () => {
       withdrawRequest(uow, {
         requestId: id,
         expectedVersion: current - 1,
+        /* OPUS-M5-003: §4's requester-initiated-only rule is decided on the
+         * ACTING membership, so the service takes it. These cases are the
+         * OWNER's own withdrawals and pass their own membership; the refusal
+         * for a colleague's row is proven over HTTP in
+         * `own-write-ownership.test.ts`. */
+        membershipId,
         now: new Date('2046-06-02T09:00:00Z'),
       }),
     );
@@ -542,6 +572,12 @@ describe('R-22 / R-10 — withdrawal through the service', () => {
       withdrawRequest(uow, {
         requestId: randomUUID(),
         expectedVersion: 1,
+        /* OPUS-M5-003: §4's requester-initiated-only rule is decided on the
+         * ACTING membership, so the service takes it. These cases are the
+         * OWNER's own withdrawals and pass their own membership; the refusal
+         * for a colleague's row is proven over HTTP in
+         * `own-write-ownership.test.ts`. */
+        membershipId,
         now: new Date('2046-06-02T09:00:00Z'),
       }),
     );

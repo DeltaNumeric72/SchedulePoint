@@ -333,7 +333,12 @@ export const CAPABILITIES: readonly CapabilityDefinition[] = [
     scope: 'group',
     module: 'requests_vacation',
     description:
-      "CAP-021: submit one's OWN request (ON, OFF, No Call, shift preference, shift-group off). " +
+      "CAP-021: submit one's OWN request — all SIX subtypes (ON, OFF, No Call, shift preference, " +
+      'shift-group off, and, from OPUS-M5-003, vacation selection). The vacation half is doc 08 ' +
+      '§6\'s "Submit requests/**vacation**" row honoured rather than a scope widened: FAD-57 made ' +
+      'this key role-implied for member and scheduler on exactly that row, and inventing a ' +
+      'separate vacation key would be the other half of rule 11 — never narrow a capability, and ' +
+      'never invent one either. ' +
       'Self-scoped through SPEC-06 L5.1 with ownership required and **no ownership override** — ' +
       'submitting a request on a named colleague\'s behalf is not a power anybody holds, because ' +
       'a request is a statement about that person\'s own availability.',

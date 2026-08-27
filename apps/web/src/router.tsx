@@ -31,6 +31,7 @@ import { PublishedSchedulePage } from './publication/PublishedSchedulePage.js';
 import { VersionComparisonPage } from './publication/VersionComparisonPage.js';
 import { VersionHistoryPage } from './publication/VersionHistoryPage.js';
 import { ShellPage } from './shell/ShellPage.js';
+import { VacationRoundPage } from './vacation/VacationRoundPage.js';
 import { GroupSettingsPage as SettingsGroupPage } from './settings/GroupSettingsPage.js';
 import { LocationsPage } from './settings/LocationsPage.js';
 
@@ -325,6 +326,34 @@ const buildComparisonRoute = createRoute({
   component: BuildComparisonPage,
 });
 
+/**
+ * The staff vacation round (OPUS-M5-003).
+ *
+ * A SIBLING tree rather than a child of `schedule` or of `my-schedule`, for the
+ * reason `builds` and `publication` are siblings: a vacation round is its own
+ * act under its own lifecycle — SPEC-08 §5's quota and commitment, "linked but
+ * distinct" from the request aggregate — and nesting it under the authoring or
+ * the personal-schedule frame would make `aria-current` say a member is
+ * somewhere they are not.
+ *
+ * The PERIOD is a path segment: a round is the thing being looked at, so a
+ * bookmark and a shared link both name it, and the declared tenant context
+ * travels in the same URL (SPEC-01 §2.2/§3). The segments mirror the API's
+ * `/organizations/:o/groups/:g/vacation/rounds/:periodId`, so the client route
+ * tree and the server's policy-checked route table stay reconcilable rather than
+ * compared by eye.
+ */
+const vacationRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/organizations/$organizationId/groups/$groupId/vacation',
+  component: RootLayout,
+});
+const vacationRoundRoute = createRoute({
+  getParentRoute: () => vacationRoute,
+  path: 'rounds/$periodId',
+  component: VacationRoundPage,
+});
+
 const routeTree = rootRoute.addChildren([
   myScheduleRoute,
   dailySheetRoute,
@@ -344,6 +373,7 @@ const routeTree = rootRoute.addChildren([
     rulesRoute,
   ]),
   settingsRoute.addChildren([settingsGroupRoute, settingsLocationsRoute]),
+  vacationRoute.addChildren([vacationRoundRoute]),
   scheduleRoute.addChildren([schedulePeriodsRoute, scheduleVersionRoute]),
   buildsRoute.addChildren([buildsPeriodRoute, buildRunRoute, buildComparisonRoute]),
   publicationRoute.addChildren([

@@ -274,6 +274,30 @@
       "note": "I-10. The write that creates the NEW build (SPEC-04 \u00a72 forbids an in-place retry), plus ONE re-read of this build from the invalidation. Measured 2 at both viewports. It was authored as 3 on the assumption that the period-list query would also re-read; it does not \u2014 that query is not mounted on the detail route, so its invalidation marks it stale without fetching. The delta review measured 2 independently. A budget with headroom nobody measured is a budget that stops detecting amplification (FAD-45(2), D-4)."
     },
     {
+      "id": "vacation-open-select-week",
+      "description": "User clicks 'Select a week\u2026' to open the vacation selection form.",
+      "maxRequests": 0,
+      "note": "I-13, in the same strict form as catalogue-open-new-shift-type and rules-open-new-rule, and this is the invariant's own scenario: a control that claimed a vacation week on click would put a person's leave into a quota ledger (SPEC-08 \u00a75.4's D-21 accounting) before they had finished thinking about it. ZERO is the only correct number and this budget can never be raised without the invariant changing first. Measured 0 at both viewports (OPUS-M5-003)."
+    },
+    {
+      "id": "vacation-fill-select-week",
+      "description": "User chooses a week in the open vacation form and does not submit.",
+      "maxRequests": 0,
+      "note": "The other half of I-13: not only does opening the form write nothing, filling it issues nothing either. A field that checked the week's availability on change would put a half-considered week on the wire and would also breach I-10. Measured 0 at both viewports (OPUS-M5-003)."
+    },
+    {
+      "id": "vacation-save-selection-accepted",
+      "description": "User clicks 'Save selection' and the server accepts the vacation week (201).",
+      "maxRequests": 2,
+      "note": "TWO, under the PO-DEC-18 ruling every accepted-save budget here carries: the POST plus ONE re-read of what the SERVER says the round is. The read-back is load-bearing rather than cosmetic \u2014 it is how the client learns the selection's new VERSION (V-29), which the next withdrawal must present, so a client that patched its own cache would withdraw against a version the server never issued. Measured 2 at both viewports (OPUS-M5-003)."
+    },
+    {
+      "id": "vacation-save-selection-refused",
+      "description": "User clicks 'Save selection' and the server refuses it with a 409.",
+      "maxRequests": 1,
+      "note": "One Save, one request. A refused save does NOT refetch, because nothing changed \u2014 which is what makes the two-request success budget a property of the success path rather than of Save in general. Measured 1 at both viewports (OPUS-M5-003)."
+    },
+    {
       "id": "builds-toggle-deterministic",
       "description": "Tick the deterministic-mode checkbox in the build configuration form",
       "maxRequests": 0,

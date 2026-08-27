@@ -8,6 +8,7 @@ import type {
   VacationPeriod,
   VacationSelectionRecord,
   VacationSelectionStatus,
+  VacationSelectionView,
   VacationStore,
 } from '@schedulepoint/domain';
 import { sql, type Kysely } from 'kysely';
@@ -265,6 +266,19 @@ export class PgVacationStore implements VacationStore {
       .selectFrom('vacation_selections')
       .select([...SELECTION_COLUMNS, dateText('week_start')])
       .where('id', '=', selectionId)
+      .executeTakeFirst();
+    return row === undefined ? null : toSelection(row as unknown as SelectionRow);
+  }
+
+  /** §5.1's linkage, from the root. `null` for a request that carries no selection. */
+  async findSelectionByRequest(
+    uow: Uow,
+    requestId: string,
+  ): Promise<VacationSelectionRecord | null> {
+    const row = await uow.query
+      .selectFrom('vacation_selections')
+      .select([...SELECTION_COLUMNS, dateText('week_start')])
+      .where('request_id', '=', requestId)
       .executeTakeFirst();
     return row === undefined ? null : toSelection(row as unknown as SelectionRow);
   }
@@ -581,6 +595,287 @@ export class PgVacationStore implements VacationStore {
       .executeTakeFirst();
     return row?.version ?? null;
   }
+
+  /* ──────────────────────────────────────────────────────────────────────────
+   * OPUS-M5-003 — §5's SUBMISSION side (doc 42 §5f Part A)
+   *
+   * The member's half of the same lifecycle, HERE for the reason the five above
+   * are here: §5.3's "**One writer.** Only the vacation module updates either
+   * status … and the vacation module never writes one without the other."
+   * Every root write for a `vacation-selection` row is in this file, and
+   * `PgRequestStore` still has no verb that can produce one.
+   * ────────────────────────────────────────────────────────────────────────── */
+
+  /**
+   * **The vacation ROOT, at the status 0023 names for this subtype.**
+   *
+   * `app_request_initial_status('vacation-selection')` is `'submitted'`, and
+   * `requests_guard_initial_status` refuses anything else — so this insert names
+   * the function rather than the literal, exactly as `PgRequestStore.create`
+   * does. A literal here would be a second copy of the ruling in the one place
+   * nobody compares it to the first.
+   *
+   * `submitted_at` is stamped in the same statement, because for this subtype
+   * the creation IS the submission: there is no `draft` to move out of, so there
+   * is no later statement to stamp it in.
+   *
+   * **No subtype row is inserted.** The `vacation_selections` row already exists
+   * in `available`; `linkSelectionToRoot` attaches it in the same transaction and
+   * D-18's deferred zero-row guard counts exactly one at commit.
+   */
+  async createRoot(
+    uow: Uow,
+    command: {
+      readonly membershipId: string;
+      readonly expiresAt: Date;
+      readonly idempotencyKey: string;
+      readonly submittedAt: Date;
+    },
+  ): Promise<string> {
+    const { organizationId, groupId } = uow.context;
+    const inserted = await sql<{ id: string }>`
+      insert into requests
+        (organization_id, group_id, membership_id, subtype, status, expires_at,
+         idempotency_key, submitted_at)
+      values (${organizationId}::uuid, ${groupId}::uuid, ${command.membershipId}::uuid,
+              'vacation-selection', app_request_initial_status('vacation-selection'),
+              ${command.expiresAt}::timestamptz, ${command.idempotencyKey},
+              ${command.submittedAt}::timestamptz)
+      returning id
+    `.execute(uow.query);
+
+    const id = inserted.rows[0]?.id;
+    if (id === undefined) {
+      throw new Error('VACATION_ROOT_INSERT_PRODUCED_NO_ROW: the root insert returned no id.');
+    }
+    return id;
+  }
+
+  /**
+   * §3's late marker, as the SECOND statement 0023's creation guard forces.
+   *
+   * `requests_guard_initial_status` refuses a row born with either lifecycle flag
+   * true — "§3's late marker is a fact about a SUBMISSION measured against a
+   * server-computed deadline, and a row created with it has been measured against
+   * nothing". A vacation root is born `submitted`, so unlike the five there is no
+   * submission UPDATE to carry the flag, and this is that statement.
+   *
+   * Same status, so `app_guard_request_transition`'s early return admits it, and
+   * `app_guard_request_revision_requested` is satisfied because
+   * `revision_requested` does not move.
+   */
+  async markRootLate(uow: Uow, requestId: string): Promise<void> {
+    await uow.query
+      .updateTable('requests')
+      .set({ is_late: true, version: sql<number>`version + 1` })
+      .where('id', '=', requestId)
+      .execute();
+  }
+
+  /**
+   * **§5.3's `available → pending`, guarded.**
+   *
+   * The guard is R-18/R-19's shape with `available` in its place: without the
+   * status predicate a second delivery of the same submission would link a SECOND
+   * root to a selection that already has one, and `UNIQUE (request_id,
+   * organization_id)` would then refuse the transaction from a long way from the
+   * caller that caused it. Without the version predicate two tabs would both
+   * succeed and one member would hold two requests for one week.
+   */
+  async linkSelectionToRoot(
+    uow: Uow,
+    command: {
+      readonly selectionId: string;
+      readonly expectedSelectionVersion: number;
+      readonly requestId: string;
+    },
+  ): Promise<number | null> {
+    const row = await uow.query
+      .updateTable('vacation_selections')
+      .set({
+        request_id: command.requestId,
+        status: 'pending',
+        version: sql<number>`version + 1`,
+        updated_at: sql<Date>`now()`,
+      })
+      .where('id', '=', command.selectionId)
+      .where('status', '=', 'available')
+      .where('version', '=', command.expectedSelectionVersion)
+      .returning('version')
+      .executeTakeFirst();
+    return row?.version ?? null;
+  }
+
+  /**
+   * **§5.3's `pending | approved → withdrawn`, guarded (R-18, R-19).**
+   *
+   * The source status is a PARAMETER rather than an `IN` list, because the two
+   * cases differ outside this statement: a withdrawal from `approved` releases
+   * the quota unit the approval consumed, and a store verb that inferred which
+   * case it was in would be deciding that on its own. The caller has already
+   * asked the domain which edge it is walking.
+   */
+  async withdrawSelection(
+    uow: Uow,
+    command: {
+      readonly selectionId: string;
+      readonly expectedSelectionVersion: number;
+      readonly expectedStatus: VacationSelectionStatus;
+    },
+  ): Promise<number | null> {
+    const row = await uow.query
+      .updateTable('vacation_selections')
+      .set({
+        status: 'withdrawn',
+        version: sql<number>`version + 1`,
+        updated_at: sql<Date>`now()`,
+      })
+      .where('id', '=', command.selectionId)
+      .where('status', '=', command.expectedStatus)
+      .where('version', '=', command.expectedSelectionVersion)
+      .returning('version')
+      .executeTakeFirst();
+    return row?.version ?? null;
+  }
+
+  /**
+   * **§5.3's derived root status for a WITHDRAWAL, same transaction.**
+   *
+   * One statement, because `submitted → withdrawn` and `approved → withdrawn` are
+   * both cells §2's vacation column carries directly — the two-step is a property
+   * of DECISIONS, which have no `submitted → approved` cell, and a withdrawal is
+   * not one.
+   *
+   * `withdrawn_at` and not `decided_at`: §4 is explicit that an administrator
+   * "withdrawing" for somebody is a denial instead, so a withdrawn request that
+   * named a decider would record the confusion §4 exists to prevent.
+   *
+   * `revision_requested` is not written and must not be: R-10's flag belongs to a
+   * withdrawal from `reflected_in_version`, which vacation reaches as
+   * §5.6's REVERSAL instead (FAD-55 excludes vacation from the withdrawal cell
+   * deliberately), and 0023's guard refuses the flag on any other transition.
+   */
+  async writeRootWithdrawal(
+    uow: Uow,
+    command: { readonly requestId: string; readonly withdrawnAt: Date },
+  ): Promise<number | null> {
+    const row = await uow.query
+      .updateTable('requests')
+      .set({
+        status: 'withdrawn',
+        withdrawn_at: command.withdrawnAt,
+        updated_at: command.withdrawnAt,
+        version: sql<number>`version + 1`,
+      })
+      .where('id', '=', command.requestId)
+      .returning('version')
+      .executeTakeFirst();
+    return row?.version ?? null;
+  }
+
+  async listSelectionsForMembership(
+    uow: Uow,
+    membershipId: string,
+  ): Promise<readonly VacationSelectionView[]> {
+    return this.selectionViews(uow, { membershipId });
+  }
+
+  async listSelectionsInPeriod(
+    uow: Uow,
+    periodId: string,
+  ): Promise<readonly VacationSelectionView[]> {
+    return this.selectionViews(uow, { periodId });
+  }
+
+  /**
+   * The selection rows with the root facts a display needs, in ONE query.
+   *
+   * A `left join`, not an inner one: §5.3's `available` selection has no root and
+   * an inner join would drop exactly the state the round's grid is mostly made
+   * of. Every root column therefore comes back nullable, and
+   * `vacationStatusPairAgrees` is what the read model uses to check the pair
+   * rather than trusting either half.
+   *
+   * **No `ORDER BY`.** The order a selection list is presented in is
+   * `compareSelectionsForDisplay` in the domain, which is a stated rule with a
+   * matrix test behind it; an ordering here would be a second copy drifting in
+   * the direction a surface reads.
+   */
+  private async selectionViews(
+    uow: Uow,
+    filter: { readonly membershipId?: string; readonly periodId?: string },
+  ): Promise<readonly VacationSelectionView[]> {
+    let query = uow.query
+      .selectFrom('vacation_selections as v')
+      .leftJoin('requests as r', 'r.id', 'v.request_id')
+      .select([
+        'v.id as id',
+        'v.request_id as request_id',
+        'v.membership_id as membership_id',
+        'v.vacation_period_id as vacation_period_id',
+        sql<string>`v.week_start::text`.as('week_start'),
+        'v.status as status',
+        'v.version as version',
+        'v.grant_id as grant_id',
+        'v.is_override as is_override',
+        'v.override_reason as override_reason',
+        'v.approval_idempotency_key as approval_idempotency_key',
+        'v.committed_to_version_id as committed_to_version_id',
+        'v.commit_idempotency_key as commit_idempotency_key',
+        'r.status as root_status',
+        'r.version as root_version',
+        'r.submitted_at as submitted_at',
+        'r.expires_at as expires_at',
+        'r.is_late as is_late',
+      ]);
+
+    if (filter.membershipId !== undefined) {
+      query = query.where('v.membership_id', '=', filter.membershipId);
+    }
+    if (filter.periodId !== undefined) {
+      query = query.where('v.vacation_period_id', '=', filter.periodId);
+    }
+
+    const rows = await query.execute();
+    return (rows as unknown as SelectionViewRow[]).map((row) => ({
+      selection: toSelection(row),
+      rootStatus: row.root_status,
+      rootVersion: row.root_version,
+      submittedAt: row.submitted_at,
+      expiresAt: row.expires_at,
+      /* A selection with no root is not late; `is_late` comes back null from the
+       * outer join and `false` is the fact rather than a default. */
+      isLate: row.is_late ?? false,
+    }));
+  }
+
+  /** The group's rounds, newest first. RLS scopes them to the caller's group. */
+  async listPeriods(uow: Uow): Promise<readonly VacationPeriod[]> {
+    const rows = await uow.query
+      .selectFrom('vacation_periods')
+      .select([
+        'id',
+        'organization_id',
+        'group_id',
+        dateText('start_date'),
+        dateText('end_date'),
+        'mode',
+        'state',
+        'version',
+      ])
+      .orderBy('start_date', 'desc')
+      .execute();
+    return rows.map((row) => toPeriod(row as PeriodRow));
+  }
+}
+
+/** The joined row `selectionViews` reads. Every root column is nullable — see the outer join. */
+interface SelectionViewRow extends SelectionRow {
+  readonly root_status: RequestStatus | null;
+  readonly root_version: number | null;
+  readonly submitted_at: Date | null;
+  readonly expires_at: Date | null;
+  readonly is_late: boolean | null;
 }
 
 export const vacationStore = new PgVacationStore();

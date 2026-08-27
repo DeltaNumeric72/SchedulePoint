@@ -275,6 +275,41 @@ export class PgRequestStore implements RequestStore {
   }
 
   /**
+   * **FU-23's split — the ROOT alone, by key** (OPUS-M5-003).
+   *
+   * `findByIdempotencyKey` above composes two reads and answers `null` if either
+   * misses. For a `vacation-selection` the second one misses BY DESIGN —
+   * `loadRecord` does not read `vacation_selections`, because §5.3 gives that
+   * lifecycle one reader and it is not this store — so the composition says "no
+   * request holds this key" about a request that does.
+   *
+   * That was harmless while no vacation root could exist. This packet creates
+   * them, and then the composition sends a member who reuses their own key across
+   * subtypes past the replay read and into `UNIQUE (membership_id,
+   * idempotency_key, organization_id)`, whose `23505` the route maps to a bare
+   * `409` — FU-23's "a 409 posing as a replay".
+   *
+   * This read stops at the root, which is where D-7's uniqueness lives and the
+   * only place it lives. What the caller does with the answer is
+   * `submitRequest`'s: the same subtype is a replay, a different subtype is
+   * `IDEMPOTENCY_KEY_REUSED`, and neither is a constraint surfacing as an
+   * accident.
+   */
+  async findRootByIdempotencyKey(
+    uow: Uow,
+    membershipId: string,
+    idempotencyKey: string,
+  ): Promise<RequestAggregate | null> {
+    const rows = await sql<RootRow>`
+      select ${ROOT_COLUMNS} from requests
+       where membership_id = ${membershipId}::uuid
+         and idempotency_key = ${idempotencyKey}
+    `.execute(uow.query);
+    const root = rows.rows[0];
+    return root === undefined ? null : toAggregate(root);
+  }
+
+  /**
    * The root and its subtype record, in ONE unit of work.
    *
    * The port's own words for why the two are one argument: D-18's zero-row half
