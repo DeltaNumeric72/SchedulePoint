@@ -1017,6 +1017,73 @@ transaction is M5-004's" was true when written; as of M5-003, J1's
 approved→withdrawn quota release is its first production caller, and (per C-1) that
 composed path is now proven by execution. The original §5d text stands unedited.
 
+### 5g. M5-00C — FINALIZED 2026-08-27 (issues against `origin/main` at `f85510f`, the PR #12 merge)
+
+**Scope: SPEC-08 §4's fifth row — comments — under the FAD-58 ruling below, which
+resolves the M5-002 escalation.** The question list and working default were
+recorded at M5-002 in `requests.route.ts`'s header; the packet implements the
+ruling, never re-litigates it, and ESCALATES if §4's text cannot be satisfied
+within it.
+
+**FAD-58 (ruled 2026-08-27 under the delegated mandate; recorded in
+ARCHITECTURE-DECISIONS at this finalization):**
+1. **The requester-side channel is a CONTROLLED VOCABULARY, permanently — no
+   requester-authored free text enters the system on the request aggregate.**
+   I-07's sentence is not patient-scoped ("no patient-identifying information OR
+   CLINICAL FREE TEXT"), and in this product the honest answer to "why that
+   Friday?" is frequently a medical one; a length bound bounds size, not kind.
+   The requester attaches at most one reason CODE per comment turn from a curated
+   non-clinical vocabulary (I-17; the code list is a SCHEDULEPOINT-REQUIREMENT
+   artifact in contracts, extensible only by decision; NO "other, specify" text
+   field exists — "other" is a terminal code). One turn, one accepted code, one
+   transaction (I-16).
+2. **The scheduler-side channel joins the existing scheduler-authored
+   administrative bounded-text class** (`change_summary` / `override_reason` /
+   `approvals.reason` — the precedents the M5-002 header enumerates): bounded
+   free text, author and instant recorded, on the request aggregate.
+3. **The store is APPEND-ONLY by privilege** (the `approvals` pattern: GRANT
+   SELECT, INSERT and nothing else — no edit, no delete, ever; correction is a
+   new comment); organization-scoped RLS in the same migration; X-11-conformant
+   keys under the narrowed exemption.
+4. **Visibility is per capability with an explicit table in the packet**, derived
+   from §4's own text and doc 08 §6 under narrower-never-wider: the packet writes
+   the reader table (requester sees their own request's comments; deciders see
+   the queue's) and proves each cell positively AND negatively over HTTP; any
+   cell §4 does not force is ruled by escalation, not filled by convenience.
+5. **No notification work** — comment events may enqueue nothing in this packet
+   (I-11 posture untouched); any outbound surface is a later packet against
+   SPEC-07.
+
+**The packet:** migration (comments table per FAD-58.3); domain comment module
+(vocabulary, bounds, append-only port); contracts (the code list as the
+SCHEDULEPOINT-REQUIREMENT artifact, comment shapes); api service + routes
+(four-layer policies; deny-by-default; the by-id-write ownership class rule from
+M5-003's register entry applies to any by-id write this surface adds); the
+visibility table proven per cell; audit event names per the M5-002 naming rule;
+UI is OUT of scope (M5-005 owns surfaces — this packet is API/store only, so no
+axe/budget deltas are expected). Bounds: reuse the house bounded-text validator
+for the scheduler channel; the wire refuses any text field on the requester
+channel STRUCTURALLY (`.strict()` with no such field), proven by a test that
+posts one and reads the refusal.
+
+**Constraints carried:** additive migrations only (0021–0025 untouched);
+R-01 cross-product extends to any new operation in both layers; I-07 — the
+scheduler text passes the same non-clinical posture the precedents carry, and
+the audit/outbox payload closure (reason-closure pattern) is proven for comment
+bodies (a comment body NEVER enters an audit payload, an outbox row, or a log —
+rule 9); every store port takes the unit of work.
+
+**Acceptance battery:** validators · `corepack pnpm check` 17/17 · red cases at
+census 69 under the four-conjunct bar (reasoning written either way; isolated
+`SP_RED_SHARD` proofs for changed/new arms only; sharded CI primary) · populated
+cycle for the new migration (with the `-- Up Migration` marker) · one composed
+seeded `api` run at a fresh seed with the invocation of record · CI green before
+merge consideration. Delivery: worktree + patch from `f85510f`; fresh Opus
+implementer; fresh Opus reviewer; delta by the reviewer; orchestrator lands on
+the next PR. The §5e/§5f environment discipline binds in full (tree gate +
+debris check; exact-`ps` waiters; `SP_SOLVER_WORKER_COMMAND` set for gate runs;
+restore ADDED files by cp + recorded md5, never `git checkout --`).
+
 ## 6. Standing acceptance battery (every packet, per 24 §G and the M4 form)
 
 Validators (36/36 · 95/95 · research PASS) · `corepack pnpm check` 17/17 · the full
