@@ -9,13 +9,16 @@
   "worktree": "/home/user/SchedulePoint (Claude Code web workspace, ephemeral)",
   "latestPushedCommit": "branch tip on origin (this commit)",
   "pullRequestNumber": 14,
-  "implementer": null,
+  "implementer": "M5-004 implementer SUSPENDED at the weekly Opus usage limit (resets 2026-08-31T14:00Z; resume armed); its 17-gate check passed on the packet tree before termination; work preserved on branch claude/m5004-wip-preserve-a4ns2p (3a004a9, PR #15, NOT FOR MERGE; wip patch md5 7c8f12eb10fe596028bc050dd2c3440a)",
   "reviewer": null,
   "activeProcessesAndPorts": [],
-  "lastCommand": "PR #13 MERGED at 6769319; branch reset; doc 42 s6 heading restored (header-splice third instance, RISK-REGISTER amended); FAD-59/FAD-60 ruled; M5-004 finalized in doc 42 5h; twins updated; committing then opening draft PR #14",
+  "lastCommand": "M5-004 work preserved to GitHub (branch + PR #15); FU-32 row amended with the 5-red-nightly evidence; twins updated; resume trigger armed for the limit reset",
   "lastExitCode": 0,
   "openFindings": "Moved to docs/fable/40-post-gate-follow-ups.md (FU-01..FU-32; closed to date: 01/03/04/06/07/08/19/20/23/24/25/27/28; FU-13 at 7/9; FU-17 owner action; FU-31/FU-32 opened at M5-00C). This field points, it does not duplicate",
-  "externalBlockers": [],
-  "exactNextAction": "Open draft PR #14 with this push; issue M5-004 to a fresh Opus implementer (worktree+patch from 6769319); read the first post-M5-003 nightly (2026-08-28, read armed 05:30Z); then M5-005",
-  "lastUpdateUtc": "2026-08-27T14:05:00Z"
+  "externalBlockers": [
+    "Weekly Opus usage limit until 2026-08-31T14:00Z (executor lane only)",
+    "Nightly fixture-regression matrix uniformly red since the M5-00C merge on FU-32's order-dependent file (runs 33087065429/33191181018/33249459567/33305335974/33384560069, all 14 seed jobs, one test at line 1036); FU-32 corrective packet lands immediately after M5-004 per FAD-15 ruling 3"
+  ],
+  "exactNextAction": "At 2026-08-31T14:00Z: resume the M5-004 implementer (remaining legs: 8 isolated arm proofs, seeded run, patch, report), fresh reviewer, delta, land on PR #14; then the FU-32 corrective packet; then M5-005",
+  "lastUpdateUtc": "2026-08-31T11:20:00Z"
 }
