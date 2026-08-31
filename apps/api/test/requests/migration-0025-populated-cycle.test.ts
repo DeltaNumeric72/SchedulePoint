@@ -174,8 +174,18 @@ async function createSelection(
       selectionStatus: string,
       rootPath: readonly string[],
     ): Promise<void> => {
+      /* OPUS-M5-004: migration 0027's
+       * `vacation_selections_committed_version_coherent` is an EQUALITY, so the
+       * version column moves WITH the status — set on the way into `committed`
+       * and NULL for every other status, which is what it already was. Nothing
+       * this file asserts about the period-shrink guard changes. */
+      const committedVersionId =
+        selectionStatus === 'committed' ? await draftVersionForCommit(query) : null;
       await sql`
-        update vacation_selections set status = ${selectionStatus}, version = version + 1
+        update vacation_selections
+           set status = ${selectionStatus},
+               committed_to_version_id = ${committedVersionId}::uuid,
+               version = version + 1
          where id = ${selectionId}::uuid
       `.execute(query);
       for (const hop of rootPath) {
@@ -435,3 +445,27 @@ describe('migration 0025 over a populated database', () => {
     await moveBounds(periodId, start, 6);
   }, 240_000);
 });
+
+/**
+ * A DRAFT schedule version, for the one fixture statement that needs one.
+ *
+ * OPUS-M5-004: see the note at its call site. Created inside the caller's own
+ * transaction so the fixture stays one unit of work, and named for what it is
+ * for rather than for what it is.
+ */
+async function draftVersionForCommit(query: PgUnitOfWork['query']): Promise<string> {
+  const schedulePeriodId = randomUUID();
+  await sql`
+    insert into schedule_periods (id, organization_id, group_id, name, start_date, end_date)
+    values (${schedulePeriodId}::uuid, ${context.organizationId}::uuid, ${context.groupId}::uuid,
+            ${`c25 commit ${randomUUID().slice(0, 8)}`}, ${'2053-01-02'}::date,
+            ${'2053-03-06'}::date)
+  `.execute(query);
+  const versionId = randomUUID();
+  await sql`
+    insert into schedule_versions (id, organization_id, group_id, period_id, state)
+    values (${versionId}::uuid, ${context.organizationId}::uuid, ${context.groupId}::uuid,
+            ${schedulePeriodId}::uuid, ${'draft'})
+  `.execute(query);
+  return versionId;
+}

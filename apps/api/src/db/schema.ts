@@ -760,7 +760,7 @@ export interface AssignmentIdentitiesTable {
   organization_id: string;
   group_id: string;
   period_id: string;
-  origin: Generated<'manual' | 'clone' | 'solver' | 'picklist'>;
+  origin: Generated<'manual' | 'clone' | 'solver' | 'picklist' | 'vacation_commit'>;
   created_at: Generated<Date>;
 }
 
@@ -775,7 +775,7 @@ export interface AssignmentSnapshotsTable {
   date: string;
   starts_at: Date;
   ends_at: Date;
-  origin: Generated<'manual' | 'clone' | 'solver' | 'picklist'>;
+  origin: Generated<'manual' | 'clone' | 'solver' | 'picklist' | 'vacation_commit'>;
   pick_position: number | null;
   is_pinned: Generated<boolean>;
   status: Generated<'active' | 'cancelled'>;
@@ -1365,6 +1365,30 @@ export interface RequestCommentsTable {
   created_at: Generated<Date>;
 }
 
+/**
+ * **FAD-59's commit-command ledger** (OPUS-M5-004, migration 0027).
+ *
+ * **No column of this table is ever updated**, and unlike
+ * {@link VacationApprovalCommandsTable} that is true of `outcome` as well: FAD-59
+ * grants `SELECT, INSERT` and nothing else, so the row is written once, at the
+ * end of the commit transaction, complete. There is no in-flight NULL state to
+ * model here, which is why `outcome` is not nullable and why its type has one
+ * member — migration 0027's header §2 records why the shape is honest rather
+ * than a stub.
+ */
+export interface VacationCommitCommandsTable {
+  id: Generated<string>;
+  organization_id: string;
+  group_id: string;
+  vacation_period_id: string;
+  target_version_id: string;
+  acting_membership_id: string;
+  idempotency_key: string;
+  received_at: Generated<Date>;
+  outcome: 'committed';
+  created_at: Generated<Date>;
+}
+
 export interface Database {
   organizations: OrganizationsTable;
   groups: GroupsTable;
@@ -1435,6 +1459,9 @@ export interface Database {
 
   /* OPUS-M5-00C — migration 0026 (SPEC-08 §4's fifth row, FAD-58). */
   request_comments: RequestCommentsTable;
+
+  /* OPUS-M5-004 — migration 0027 (SPEC-08 §5.6's commit, FAD-59). */
+  vacation_commit_commands: VacationCommitCommandsTable;
 }
 
 /**
@@ -1824,4 +1851,11 @@ export const TENANT_TABLES: readonly TenantTable[] = [
    * where deciding is not) and BOTH write arms pinning the channel and the
    * author. */
   { name: 'request_comments', scope: 'organization-and-group' },
+
+  /* OPUS-M5-004 — migration 0027 (SPEC-08 §5.6's commit, FAD-59). Two policy
+   * arms and NO own-arm: committing a vacation round is not a self-scoped act,
+   * so this table's write side follows `approvals`'s shape rather than
+   * `request_comments`'s. The administration arm's `WITH CHECK` pins the acting
+   * membership, so the recorded actor cannot be forged. */
+  { name: 'vacation_commit_commands', scope: 'organization-and-group' },
 ] as const;

@@ -195,7 +195,7 @@ export const snapshotFixedAssignmentSchema = z
     shiftTypeId: uuidSchema,
     locationId: uuidSchema.nullable(),
     isPinned: z.boolean(),
-    origin: z.enum(['manual', 'clone', 'solver', 'picklist']),
+    origin: z.enum(['manual', 'clone', 'solver', 'picklist', 'vacation_commit']),
     creditedMembershipId: uuidSchema.nullable(),
     creditWeight: z.string().nullable(),
   })
@@ -260,6 +260,63 @@ export const snapshotQualificationSchema = z
   })
   .strict();
 
+/* ── v3 (OPUS-M5-004) — SPEC-08 §6's projection ──────────────────────────────
+ *
+ * Four row kinds, one schema each, all `.strict()`. The membership RULE — which
+ * (subtype, status) pairs produce which row — is
+ * `packages/domain/src/requests/solver-projection.ts`; these are the WIRE
+ * shapes, and they carry no status and no subtype at all. That absence is §6's
+ * design working: *"The solver reads a projection, never the raw tables, so a
+ * status whose meaning is subtype-dependent cannot leak into the model."* A
+ * `status` field here would be exactly the leak §6 forbids, and `.strict()` is
+ * what makes its absence a refusal rather than a convention.
+ *
+ * **`SoftPreference.strength` is the request's own three-value UNSIGNED
+ * vocabulary, VERBATIM (FAD-60)** — never the rules AST's four-value SIGNED one.
+ * The enum is spelled here rather than imported from the rules module for that
+ * exact reason: they are two vocabularies about two different things, and the
+ * day one file imports the other is the day a request can express `avoid`. */
+
+export const snapshotHardOffSchema = z
+  .object({ membershipId: uuidSchema, date: calendarDate })
+  .strict();
+
+export const snapshotHardOnSchema = z
+  .object({ membershipId: uuidSchema, date: calendarDate })
+  .strict();
+
+export const snapshotSoftPreferenceSchema = z
+  .object({
+    membershipId: uuidSchema,
+    date: calendarDate,
+    shiftTypeId: uuidSchema,
+    /** FAD-60: `low | medium | high`, verbatim. Not the AST's signed vocabulary. */
+    strength: z.enum(['low', 'medium', 'high']),
+  })
+  .strict();
+
+export const snapshotShiftGroupOffSchema = z
+  .object({ membershipId: uuidSchema, date: calendarDate, shiftGroupId: uuidSchema })
+  .strict();
+
+/**
+ * §6's projection: one array per kind, all four REQUIRED.
+ *
+ * Required for v2's reason, restated because it is the one that makes R-14 hold:
+ * an optional array would make "this period has no approved absences" and "the
+ * assembly forgot to project them" the same document, and a rebuild reading the
+ * second as the first is precisely the R-14 failure — a person scheduled on
+ * their approved day off, with nothing objecting.
+ */
+export const snapshotRequestProjectionSchema = z
+  .object({
+    hardOff: z.array(snapshotHardOffSchema),
+    hardOn: z.array(snapshotHardOnSchema),
+    softPreference: z.array(snapshotSoftPreferenceSchema),
+    shiftGroupOff: z.array(snapshotShiftGroupOffSchema),
+  })
+  .strict();
+
 /** **The whole document.** What the hash covers and what the worker receives. */
 export const solverInputSnapshotSchema = z
   .object({
@@ -294,6 +351,12 @@ export const solverInputSnapshotSchema = z
     staffGroups: z.array(snapshotStaffGroupSchema),
     validGroups: z.array(snapshotValidGroupSchema),
     qualifications: z.array(snapshotQualificationSchema),
+
+    /* v3 (OPUS-M5-004) — SPEC-08 §6, "part of the pinned `solver_inputs`
+     * snapshot". Appended, required, never optional; `snapshotSchemaVersion` 3
+     * is what lets it be required, because a v2 document is refused by version
+     * rather than read as a v3 document with no absences in it. */
+    requestProjection: snapshotRequestProjectionSchema,
 
     constituents: z.array(snapshotConstituentSchema),
   })

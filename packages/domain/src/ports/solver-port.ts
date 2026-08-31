@@ -70,8 +70,17 @@ export const SUPPORTED_SOLVER_PROTOCOL_VERSIONS: readonly number[] = [1];
  * document that happens to be missing three vocabularies. `SPEC-04 §1.2`'s rule
  * — reject outside the window, never guess — applied to the document as well as
  * to the envelope.
+ *
+ * **`3` since OPUS-M5-004 (doc 42 §5h).** v3 APPENDS one field,
+ * `requestProjection` — SPEC-08 §6's four rows, whose closing line requires them
+ * to be "part of the pinned `solver_inputs` snapshot". Nothing was removed or
+ * reshaped, and the bump carries the same meaning it did at v2: the field is
+ * REQUIRED, so a v2 document must be refused by version rather than read as a v3
+ * document with no absences in it — which would be the R-14 failure exactly,
+ * a rebuild that schedules somebody on their approved day off because the
+ * absences were missing rather than absent.
  */
-export const SOLVER_SNAPSHOT_SCHEMA_VERSION = 2;
+export const SOLVER_SNAPSHOT_SCHEMA_VERSION = 3;
 
 /* ────────────────────────────────────────────────────────────────────────────
  * 2. Outcome vocabulary (SPEC-04 §2)

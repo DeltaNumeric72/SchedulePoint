@@ -45,6 +45,7 @@
  * write and what a surface consults to know what to show.
  */
 
+import { addDays, type CalendarDate } from '../calendar/calendar-date.js';
 import type { RequestStatus, VacationSelectionStatus } from './subtypes.js';
 import { VACATION_STATUS_TO_REQUEST_STATUS } from './subtypes.js';
 import { transitionIsLegal } from './transitions.js';
@@ -142,16 +143,30 @@ export function selectionEdgeRootPath(
  * ──────────────────────────────────────────────────────────────────────────── */
 
 /**
- * The selection operations this packet implements.
+ * The selection operations implemented so far.
  *
- * `approve`, `deny`, `commit` and `reverse` are deliberately absent, exactly as
- * `REQUEST_OPERATIONS` in `./lifecycle.ts` grew with its implementations:
- * approval and denial are M5-002's `APPROVE-VACATION` and already have their
- * own module; commit and reversal are M5-004's. **The absences are the point** —
- * a list containing a verb nobody has written makes the cross-product assert
- * something about a design that does not exist yet.
+ * `approve` and `deny` are deliberately absent, exactly as `REQUEST_OPERATIONS`
+ * in `./lifecycle.ts` grew with its implementations: they are M5-002's
+ * `APPROVE-VACATION` and already have their own module and their own guarded
+ * writer. **The absences are the point** — a list containing a verb nobody has
+ * written makes the cross-product assert something about a design that does not
+ * exist yet.
+ *
+ * **OPUS-M5-004 added `commit` and `reverse`** with §5.6's transaction, its
+ * routes and its capability keys, in the same change — the discipline this
+ * comment describes, applied rather than only stated. They are the SELECTION's
+ * vocabulary for the two acts (`approved → committed`, `committed → reversed`);
+ * `REQUEST_OPERATIONS` carries the ROOT's (`approved → reflected_in_version`,
+ * `reflected_in_version → reversed`), and `selectionEdgeRootPath` is the
+ * relation between them, asserted by test rather than assumed.
  */
-export const VACATION_SELECTION_OPERATIONS = ['submit', 'withdraw'] as const;
+export const VACATION_SELECTION_OPERATIONS = [
+  'submit',
+  'withdraw',
+  /* OPUS-M5-004 — §5.6. */
+  'commit',
+  'reverse',
+] as const;
 
 export type VacationSelectionOperation = (typeof VACATION_SELECTION_OPERATIONS)[number];
 
@@ -162,6 +177,22 @@ export const VACATION_SELECTION_REFUSAL_REASONS = [
 ] as const;
 
 export type VacationSelectionRefusalReason = (typeof VACATION_SELECTION_REFUSAL_REASONS)[number];
+
+/**
+ * Where each operation would move a selection.
+ *
+ * A total record rather than a conditional expression, because a conditional
+ * with two arms silently mis-answers the third verb the day one is added — which
+ * is exactly what would have happened here when M5-004 added two.
+ */
+const SELECTION_OPERATION_TARGET: {
+  readonly [O in VacationSelectionOperation]: VacationSelectionStatus;
+} = {
+  submit: 'pending',
+  withdraw: 'withdrawn',
+  commit: 'committed',
+  reverse: 'reversed',
+};
 
 export type VacationSelectionVerdict =
   | { readonly allowed: true; readonly to: VacationSelectionStatus }
@@ -182,13 +213,22 @@ export type VacationSelectionVerdict =
  * is the write path §5.5 describes for a reversal and which
  * `VacationStore.releaseGrantUnits` already implements. It is NOT §5.6's
  * reversal: that is `committed → reversed`, a different act on a week a
- * published version already carries, and it stays M5-004's.
+ * published version already carries, and it is `commit`/`reverse` below.
+ *
+ * **`commit` is legal from `approved` and from nowhere else** (§5.6, and §5.3's
+ * `approved → committed` edge). **`reverse` is legal from `committed` and from
+ * nowhere else** — so a selection that was never committed cannot be reversed,
+ * and a committed one cannot be committed twice. That second refusal is the
+ * per-selection half of D-23 that FAD-59 names: `committed → committed` is not
+ * an edge in this matrix, it is not an edge in §2's root matrix either, and
+ * migration 0027's CHECK pins the correspondence between `committed` and
+ * `committed_to_version_id` from the third side.
  */
 export function selectionOperationVerdict(
   status: VacationSelectionStatus,
   operation: VacationSelectionOperation,
 ): VacationSelectionVerdict {
-  const to: VacationSelectionStatus = operation === 'submit' ? 'pending' : 'withdrawn';
+  const to = SELECTION_OPERATION_TARGET[operation];
   if (!selectionTransitionIsLegal(status, to)) {
     return { allowed: false, reason: 'operation-not-legal-from-status' };
   }
@@ -201,6 +241,38 @@ export function selectionOperationIsLegal(
   operation: VacationSelectionOperation,
 ): boolean {
   return selectionOperationVerdict(status, operation).allowed;
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * OPUS-M5-004 — what DATES a selected week covers
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * **The working days a selected vacation week covers — Monday to Friday.**
+ *
+ * ONE rule with two readers, deliberately: §5.6's commit creates an OFF
+ * assignment snapshot per date, and §6's projection produces a `HardOff` row per
+ * date, and if those two lists could differ then a committed week could be off
+ * in the schedule and available to the solver, or the reverse. A second spelling
+ * of "which days is that week" is the S-01 scanner class doc 35 §6a names.
+ *
+ * **Five days, and it is §5.2's arithmetic rather than a convention.** Migration
+ * 0022 pins `vacation_periods.start_date` to a Monday
+ * (`vacation_periods_starts_monday`) and `end_date` to a Friday
+ * (`vacation_periods_ends_friday`), and `vacation_selections.week_start` to a
+ * Monday (`vacation_selections_week_is_monday`) inside that period
+ * (`app_guard_vacation_week_in_period`). So the working week this product means
+ * by "a vacation week" runs Monday to Friday, and every such week lies wholly
+ * inside its period: the last Monday a period can contain is the Monday of the
+ * week its Friday ends, whose Friday IS that end date.
+ *
+ * A weekend day is deliberately NOT produced. A period that does not schedule
+ * Saturdays has nothing to mark off on one, and a `HardOff` row for a day with
+ * no shifts is a row that constrains nothing while implying the product has an
+ * opinion about the person's weekend.
+ */
+export function vacationWeekDates(weekStart: CalendarDate): readonly CalendarDate[] {
+  return [0, 1, 2, 3, 4].map((offset) => addDays(weekStart, offset));
 }
 
 /* ────────────────────────────────────────────────────────────────────────────

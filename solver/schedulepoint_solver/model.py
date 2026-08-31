@@ -347,6 +347,26 @@ class Problem(object):
                     )
                 )
 
+        # SPEC-08 6's projection (OPUS-M5-004, snapshot v3). Only `HardOff` is
+        # consumed by this model; `hardOn`, `softPreference` and `shiftGroupOff`
+        # travel in the pinned snapshot and are read by nothing yet, which is
+        # stated rather than left to be discovered. The CP-SAT term for
+        # `softPreference` is a later packet's (FAD-60 records the weight table
+        # it will apply); `HardOff` is here because SPEC-08 R-14's required
+        # outcome is BEHAVIOURAL — "a time-off request already honoured in a
+        # published version is still HardOff on the rebuild ... the rebuild
+        # cannot schedule the person on their approved day off" — and a row
+        # nothing reads cannot produce that.
+        #
+        # This is doc 08 3.2's "Availability (approved absence, vacation) |
+        # Candidate unavailability window" reaching an implementation. It is a
+        # CANDIDATE FILTER, not an objective term: nothing about the objective,
+        # its tiers, its weights or its digest is touched by this.
+        projection = snapshot.get("requestProjection") or {}
+        self.hard_off = set()  # type: Set[Tuple[str, str]]
+        for row in projection.get("hardOff", []):
+            self.hard_off.add((str(row["membershipId"]), str(row["date"])))
+
         self.fixed = sorted(
             snapshot.get("fixedAssignments", []),
             key=lambda f: (
@@ -388,6 +408,23 @@ class Problem(object):
         out = []
         for membership_id in self.membership_ids:
             for date in self.dates:
+                # SPEC-08 6 / R-14 (OPUS-M5-004). A `HardOff` day is dropped from
+                # the grid rather than posted as `== 0` in the adapter, and the
+                # difference is structural: a cell that does not EXIST cannot be
+                # referenced by any later constraint, so no rule, pin or fixed
+                # input can put the person back on a day they are off. A `== 0`
+                # constraint could be contradicted by a pin and would surface as
+                # an infeasibility rather than as a refusal to schedule them.
+                #
+                # Consequence, owned: demand is a HARD equality, so removing
+                # cells can make a period INFEASIBLE. That is the correct
+                # behaviour and it is what "the rebuild cannot schedule the
+                # person on their approved day off" means when nobody else is
+                # eligible — `infeasible` is its own build state, distinct from
+                # `failed` (doc 08 4), so the outcome is reported honestly
+                # rather than solved around.
+                if (membership_id, date) in self.hard_off:
+                    continue
                 for shift_type_id in self.shift_type_ids:
                     if (membership_id, shift_type_id) in self.eligible:
                         out.append((membership_id, date, shift_type_id))

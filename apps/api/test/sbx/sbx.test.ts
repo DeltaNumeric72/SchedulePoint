@@ -344,7 +344,7 @@ beforeAll(async () => {
   log(
     `      · OPUS-M5-000b: seeded ${String(
       seededRequests.reduce((total, one) => total + one.requests, 0),
-    )} request(s) across three groups for SBX-004 — twelve tables, sweep floor raised 54 -> 66` +
+    )} request(s) across three groups for SBX-004 — thirteen tables, sweep floor raised 54 -> 67` +
       ` (shift preference in ${String(
         seededRequests.filter((one) => one.shiftPreference).length,
       )}, shift-group-off in ${String(
@@ -889,7 +889,17 @@ describe('the G-ARCH tenancy subset', () => {
     // of either arm fails the seed rather than passing quietly. The floor rises
     // for the reason it always rises: a floor that lags the registry stops
     // noticing a removal, which is the only thing it is for.
-    expect(expectedTables.length, 'the tenant registry shrank').toBeGreaterThanOrEqual(66);
+    //
+    // 66 -> 67 by OPUS-M5-004: migration 0027 adds `vacation_commit_commands`,
+    // FAD-59's commit-command ledger, kept non-vacuous by the same
+    // `seedRequestsForSweep` — which now also creates the DRAFT schedule version
+    // the ledger row names, because the schedule seed is opt-in and a ledger row
+    // that depended on it would be absent from every fixture that did not ask.
+    // The table has NO own-arm, so the seed's INSERT goes through the
+    // administration arm and its author pin; a loosening or tightening of either
+    // fails the seed rather than passing quietly. The floor rises for the reason
+    // it always rises.
+    expect(expectedTables.length, 'the tenant registry shrank').toBeGreaterThanOrEqual(67);
     expect(
       [...(sweep?.tables ?? [])].sort(),
       `tables exercised: ${sweep?.tables.join(', ')}`,

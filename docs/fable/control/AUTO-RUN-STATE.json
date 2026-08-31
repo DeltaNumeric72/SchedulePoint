@@ -2,23 +2,22 @@
   "runId": "RUN-20260822-GHRECON-01",
   "orchestrator": "Claude Fable (Claude Code on the web; continuous GitHub master authorization 2026-08-22)",
   "currentMilestone": "M5 ENTERED 2026-08-25 (doc 42) under the prototype-enablement checkpoint (doc 41); M1-M4 COMPLETE and tagged; M3R CLOSED (doc 39)",
-  "currentPacket": "M5-004 FINALIZED 2026-08-27 (doc 42 5h: SPEC-08 5.6 commit/reverse + the 6 solver projection + M4 build-pipeline integration; FAD-59 the D-23 commit-command-ledger enforcing shape; FAD-60 the preference-strength mapping). Issues against origin/main 6769319. M5-00C ACCEPTED and MERGED (PR #13, CI 15/15 on cc45026)",
+  "currentPacket": "M5-004 ACCEPTED 2026-08-31 (doc 42 5h ACCEPTED record: fresh implementer - suspended mid-run by the weekly usage limit, resumed with integrity proven - + fresh reviewer; ACCEPT WITH CONDITIONS C1..C7 -> delta -> CONFIRM unconditional; patch v2 md5 a28cc640dc2d73e5f084a92f06c21522, 40 files +6296/-52; FAD-61 recorded; arm 70 not added). LANDING on PR #14; merge at CI 15/15; then the FU-32 corrective packet",
   "lifecycleState": "REPLACEMENT GATE PASSED 2026-08-25 (doc 39): the doc 38 internal review complete end to end — three reviewers (REV-A/B/C) filed; 28/28 findings ACCEPTED at filed severity (FAD-53); repair packets R-1..R-13 all landed with fresh implementers, independent reviews, and deltas by the original finder or a recorded surrogate; the §7 battery passed in full (EV-DOC38-GATE: validators, check 17/17, sbx 9/9, migration cycles, red-cases 67 arms in the sharded-CI primary form per FAD-54 with three green executions, fixture-regression 14/14 on the repaired tip, real-stack e2e 2/2 both viewports); REV-C's final ACCEPT issued by a recorded continuation surrogate; fresh-clone validation of origin/main green (17/17); CI on main fully green for the first time (run 32798497944, 15/15, attempt 1); PR #6 MERGED at be7399b with all 15 checks green. M3R CLOSED by substitution (owner §C). Codex review NOT PERFORMED; Codex-specific requirement SUPERSEDED BY OWNER DECISION; replacement gate FABLE-PLANNED, MULTI-OPUS-EXECUTED INTERNAL REVIEW (internal, never external). New registered risks NR-22/NR-23 (correctness intact); post-gate follow-ups in doc 40 (FU-01..FU-17). The detailed packet-by-packet history lives in FAD-53/FAD-54, the RISK-REGISTER's dated entries, and EV-DOC38-GATE — this cell no longer duplicates it",
   "originMainCommit": "6769319f4663d9a7516e2bf9f4c373f033bdee46",
   "taskBranch": "claude/schedulepoint-github-auth-a4ns2p",
   "worktree": "/home/user/SchedulePoint (Claude Code web workspace, ephemeral)",
   "latestPushedCommit": "branch tip on origin (this commit)",
   "pullRequestNumber": 14,
-  "implementer": "M5-004 implementer SUSPENDED at the weekly Opus usage limit (resets 2026-08-31T14:00Z; resume armed); its 17-gate check passed on the packet tree before termination; work preserved on branch claude/m5004-wip-preserve-a4ns2p (3a004a9, PR #15, NOT FOR MERGE; wip patch md5 7c8f12eb10fe596028bc050dd2c3440a)",
+  "implementer": null,
   "reviewer": null,
   "activeProcessesAndPorts": [],
-  "lastCommand": "M5-004 work preserved to GitHub (branch + PR #15); FU-32 row amended with the 5-red-nightly evidence; twins updated; resume trigger armed for the limit reset",
+  "lastCommand": "M5-004 patch v2 applied at branch tip (md5-identical regeneration); 5h ACCEPTED record + FAD-61 + FU-33..36 + register entries authored; committing, pushing, merging PR #14 at green",
   "lastExitCode": 0,
-  "openFindings": "Moved to docs/fable/40-post-gate-follow-ups.md (FU-01..FU-32; closed to date: 01/03/04/06/07/08/19/20/23/24/25/27/28; FU-13 at 7/9; FU-17 owner action; FU-31/FU-32 opened at M5-00C). This field points, it does not duplicate",
+  "openFindings": "Moved to docs/fable/40-post-gate-follow-ups.md (FU-01..FU-36; closed: 01/03/04/06/07/08/19/20/23/24/25/27/28; FU-13 at 7/9; FU-17 owner action; FU-33..36 opened at M5-004). This field points, it does not duplicate",
   "externalBlockers": [
-    "Weekly Opus usage limit until 2026-08-31T14:00Z (executor lane only)",
-    "Nightly fixture-regression matrix uniformly red since the M5-00C merge on FU-32's order-dependent file (runs 33087065429/33191181018/33249459567/33305335974/33384560069, all 14 seed jobs, one test at line 1036); FU-32 corrective packet lands immediately after M5-004 per FAD-15 ruling 3"
+    "Nightly fixture-regression matrix uniformly red since the M5-00C merge on FU-32's order-dependent file - the FU-32 corrective packet is NEXT, before M5-005"
   ],
-  "exactNextAction": "At 2026-08-31T14:00Z: resume the M5-004 implementer (remaining legs: 8 isolated arm proofs, seeded run, patch, report), fresh reviewer, delta, land on PR #14; then the FU-32 corrective packet; then M5-005",
-  "lastUpdateUtc": "2026-08-31T11:20:00Z"
+  "exactNextAction": "Push landing commit; CI 15/15 on PR #14; merge; close PR #15 + delete the preservation branch (explained); finalize the FU-32 corrective packet and issue to a fresh Opus implementer; then M5-005",
+  "lastUpdateUtc": "2026-08-31T23:20:00Z"
 }

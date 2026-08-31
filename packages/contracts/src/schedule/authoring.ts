@@ -359,7 +359,18 @@ export type CloneVersionRequest = z.infer<typeof cloneVersionRequestSchema>;
  * The grid
  * ──────────────────────────────────────────────────────────────────────────── */
 
-export const ASSIGNMENT_ORIGINS = ['manual', 'solver', 'clone', 'picklist', 'import'] as const;
+export const ASSIGNMENT_ORIGINS = [
+  'manual',
+  'solver',
+  'clone',
+  'picklist',
+  'import',
+  /* OPUS-M5-004: SPEC-08 §5.6's commit places OFF assignment snapshots, and
+   * migration 0009's four mechanisms did not name it. A snapshot's origin is
+   * frozen the moment its version publishes (I-18), so the value lands with the
+   * writer that creates the rows rather than after some of them are unfixable. */
+  'vacation_commit',
+] as const;
 
 /**
  * One assignment as the grid renders it.

@@ -196,11 +196,20 @@ describe('the three NEGATIVE claims FAD-58 rests on', () => {
     expect(parsed.success).toBe(true);
   });
 
-  it('`comment` is NOT a lifecycle operation — REQUEST_OPERATIONS still has its six', () => {
+  it('`comment` is NOT a lifecycle operation — the list is pinned BY NAME', () => {
     /* Pinned BY NAME rather than by count, so a swap would fail as loudly as an
      * addition. See this file's header for why extending the list would have
      * falsified `OperationVerdict`, and what discharges the both-layers
-     * obligation instead. */
+     * obligation instead.
+     *
+     * ── OPUS-M5-004 extended the list to EIGHT, and the extension is this pin
+     * working rather than being worked around. `commit` and `reverse` are
+     * STATUS-MOVING (`approved → reflected_in_version`,
+     * `reflected_in_version → reversed`, both §2's vacation column), which is
+     * D-1's own criterion — the same criterion that kept `comment` OUT and keeps
+     * it out below. A comment moves nothing: `request-comments.test.ts` proves
+     * the root is byte-identical across an append, and migration 0026's header
+     * §7 says there is no trigger that could. */
     expect([...REQUEST_OPERATIONS]).toEqual([
       'submit',
       'withdraw',
@@ -208,6 +217,8 @@ describe('the three NEGATIVE claims FAD-58 rests on', () => {
       'approve',
       'deny',
       'reverse_decision',
+      'commit',
+      'reverse',
     ]);
     expect(REQUEST_OPERATIONS as readonly string[]).not.toContain('comment');
   });

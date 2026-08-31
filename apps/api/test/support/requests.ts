@@ -21,8 +21,12 @@ import { sql } from 'kysely';
  * and the floor 65. **OPUS-M5-00C**: migration 0026's `request_comments` makes
  * it twelve and the floor 66, with one row per CHANNEL because the two channels
  * are admitted by two different policy arms and a single row would leave one of
- * them unexercised. The paragraph above is kept unedited because it is the RULE
- * both amendments follow.)*
+ * them unexercised. **OPUS-M5-004**: migration 0027's `vacation_commit_commands`
+ * makes it thirteen and the floor 67 — and this seed now also creates the DRAFT
+ * schedule version that ledger row names, because the schedule seed is opt-in
+ * and a row that depended on it would be missing from every fixture that did not
+ * ask for it. The paragraph above is kept unedited because it is the RULE all
+ * three amendments follow.)*
  *
  * Same arrangement as `seedRulesForSweep`, `seedLocationsForSweep`,
  * `seedSolverSnapshotsForSweep` and `seedBuildLifecycleForSweep`: seeded HERE
@@ -454,6 +458,61 @@ export async function seedRequestsForSweep(
                   ${decidedId}::uuid, ${'scheduler'}, ${null},
                   ${'Approved after checking the cover for that week.'},
                   ${target.membershipId}::uuid)
+        `.execute(db);
+
+        /* ── OPUS-M5-004: `vacation_commit_commands`, the THIRTEENTH table
+         *    (migration 0027, FAD-59)
+         *
+         * The sweep floor moves 66 → 67, and the row exists for exactly the
+         * reason the twelve above do: the tenancy probes fail a REGISTERED
+         * tenant table that is never seen with a visible row, so a table with no
+         * fixture row makes every one of them vacuous about it.
+         *
+         * **It needs a DRAFT schedule version, so this seed makes one.** FAD-59's
+         * ledger names the version its OFF snapshots landed in, and the schedule
+         * seed is opt-in (`MultiSeedOptions.schedule`), so a ledger row that
+         * depended on it would be absent from every fixture that did not ask.
+         * The period below is far-future and derived from this target's own
+         * `periodStart`, so it cannot overlap another target's under
+         * `schedule_periods_no_overlap` and cannot collide on
+         * `schedule_periods_name_unique_in_group`.
+         *
+         * **The tenant context is what authorises it, and nothing else.** This
+         * table has NO own-arm (committing a round is not a self-scoped act), so
+         * the INSERT meets `vacation_commit_commands_group_administration`, which
+         * requires `requests.administer` — role-implied for `scheduler` — and
+         * whose `WITH CHECK` additionally pins `acting_membership_id` to the
+         * acting membership. Every target of this helper is a scheduler
+         * membership and is named as its own actor here, so nothing is forged and
+         * no privilege is invented; if the role map or either predicate changed,
+         * this INSERT would fail rather than quietly writing a row no production
+         * path could produce.
+         *
+         * The row names the round this target already seeded, so it is a ledger
+         * entry about a real period rather than about an id nothing else knows. */
+        const commitSchedulePeriodId = randomUUID();
+        await sql`
+          insert into schedule_periods
+            (id, organization_id, group_id, name, start_date, end_date)
+          values (${commitSchedulePeriodId}::uuid, ${target.organizationId}::uuid,
+                  ${target.groupId}::uuid, ${`sweep commit ${target.label}`},
+                  ${plusDays(target.periodStart, 400)}::date,
+                  ${plusDays(target.periodStart, 430)}::date)
+        `.execute(db);
+        const commitVersionId = randomUUID();
+        await sql`
+          insert into schedule_versions
+            (id, organization_id, group_id, period_id, state)
+          values (${commitVersionId}::uuid, ${target.organizationId}::uuid,
+                  ${target.groupId}::uuid, ${commitSchedulePeriodId}::uuid, ${'draft'})
+        `.execute(db);
+        await sql`
+          insert into vacation_commit_commands
+            (organization_id, group_id, vacation_period_id, target_version_id,
+             acting_membership_id, idempotency_key, outcome)
+          values (${target.organizationId}::uuid, ${target.groupId}::uuid, ${periodId}::uuid,
+                  ${commitVersionId}::uuid, ${target.membershipId}::uuid,
+                  ${`${keyPrefix}.commit`}, ${'committed'})
         `.execute(db);
 
         return {

@@ -40,6 +40,7 @@
  */
 
 import { compareCalendarDates, isCalendarDate } from '../calendar/calendar-date.js';
+import type { RequestProjection } from '../requests/solver-projection.js';
 
 /* ────────────────────────────────────────────────────────────────────────────
  * 1. The document
@@ -231,7 +232,7 @@ export interface SnapshotFixedAssignment {
   readonly shiftTypeId: string;
   readonly locationId: string | null;
   readonly isPinned: boolean;
-  readonly origin: 'manual' | 'clone' | 'solver' | 'picklist';
+  readonly origin: 'manual' | 'clone' | 'solver' | 'picklist' | 'vacation_commit';
   readonly creditedMembershipId: string | null;
   readonly creditWeight: string | null;
 }
@@ -395,6 +396,29 @@ export interface SolverInputSnapshotDocument {
   readonly validGroups: readonly SnapshotValidGroup[];
   /** The id↔key↔lifecycle triple `RequiresQualification` resolves against. */
   readonly qualifications: readonly SnapshotQualification[];
+
+  /* ── v3 (OPUS-M5-004) — SPEC-08 §6's projection ────────────────────────────
+   *
+   * **§6's own sentence is why this is a document field and not a query the
+   * worker could make:** *"The solver reads a projection, never the raw tables,
+   * so a status whose meaning is subtype-dependent cannot leak into the model"*
+   * — and its closing line, *"The projection is part of the pinned
+   * `solver_inputs` snapshot."* A projection assembled anywhere but here would
+   * not be pinned, would not be covered by `input_hash`, and a re-solve would
+   * re-derive it against whatever the request tables said at the time of the
+   * re-run rather than at the time of the build.
+   *
+   * APPENDED, exactly as v2's three were: nothing above is reshaped and nothing
+   * is renumbered. Required rather than optional for v2's reason — an optional
+   * field would make "this period has no approved absences" and "the assembly
+   * forgot to project them" the same document, and those two answers disagree
+   * about every date in the period. `snapshotSchemaVersion = 3` is what makes
+   * the requirement safe: a v2 document is refused by version, not misread.
+   *
+   * The membership RULE lives in `packages/domain/src/requests/solver-projection.ts`
+   * so it can be laid beside §6 and checked; this is only its SHAPE. */
+  /** §6's four rows, one array per kind. Every array required; empty means none. */
+  readonly requestProjection: RequestProjection;
 
   /** Every constituent revision, sorted. The configuration-revision record. */
   readonly constituents: readonly SnapshotConstituent[];
