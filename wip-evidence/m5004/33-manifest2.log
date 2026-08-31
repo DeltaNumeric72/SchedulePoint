@@ -1,0 +1,33 @@
+
+ RUN  v3.2.4 /tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004
+
+[core] INFO: Failed to read crontab file '/tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-6ef0bf9843a4131ea4)] INFO: Completed task 1 (outbox.dispatch, 28.36ms) with success
+[worker(worker-6ef0bf9843a4131ea4)] INFO: Completed task 2 (outbox.dispatch, 13.27ms) with success
+[worker(worker-6ef0bf9843a4131ea4)] INFO: Completed task 3 (outbox.dispatch, 13.37ms) with success
+[worker(worker-6ef0bf9843a4131ea4)] INFO: Completed task 4 (outbox.dispatch, 17.83ms) with success
+[worker(worker-6ef0bf9843a4131ea4)] INFO: Completed task 5 (outbox.dispatch, 15.77ms) with success
+[worker(worker-6ef0bf9843a4131ea4)] INFO: Completed task 6 (outbox.dispatch, 16.42ms) with success
+[worker(worker-6ef0bf9843a4131ea4)] INFO: Completed task 7 (outbox.dispatch, 12.75ms) with success
+[worker(worker-6ef0bf9843a4131ea4)] INFO: Completed task 8 (outbox.dispatch, 16.11ms) with success
+[worker(worker-6ef0bf9843a4131ea4)] INFO: Completed task 9 (outbox.dispatch, 16.31ms) with success
+[worker(worker-6ef0bf9843a4131ea4)] INFO: Completed task 10 (outbox.dispatch, 15.98ms) with success
+[worker(worker-6ef0bf9843a4131ea4)] INFO: Completed task 11 (outbox.dispatch, 14.47ms) with success
+stdout | test/solver/corpus/corpus-manifest.test.ts > the E1 corpus manifest > 1. covers every §6d class, exactly once
+      ·       · 15 fixtures across 15 classes
+
+stdout | test/solver/corpus/corpus-manifest.test.ts > the E1 corpus manifest > 2. regenerates byte-identically within one process
+      ·       · 14 generated fixtures reproduced byte for byte
+
+stdout | test/solver/corpus/corpus-manifest.test.ts > the E1 corpus manifest > 3. matches the committed manifest, hash for hash
+      ·       · manifest REWRITTEN
+      ·       · 15 committed hashes all matched
+
+ ✓ |api| test/solver/corpus/corpus-manifest.test.ts (8 tests) 153ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  15:37:48
+   Duration  6.54s (transform 1.00s, setup 487ms, collect 130ms, tests 153ms, environment 0ms, prepare 82ms)
+

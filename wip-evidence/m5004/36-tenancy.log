@@ -1,0 +1,213 @@
+
+ RUN  v3.2.4 /tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004
+
+[core] INFO: Failed to read crontab file '/tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-94271008d7023d1754)] INFO: Completed task 1 (outbox.dispatch, 23.80ms) with success
+[worker(worker-94271008d7023d1754)] INFO: Completed task 2 (outbox.dispatch, 10.58ms) with success
+[worker(worker-94271008d7023d1754)] INFO: Completed task 3 (outbox.dispatch, 9.29ms) with success
+[worker(worker-94271008d7023d1754)] INFO: Completed task 4 (outbox.dispatch, 10.05ms) with success
+[worker(worker-94271008d7023d1754)] INFO: Completed task 5 (outbox.dispatch, 13.81ms) with success
+[worker(worker-94271008d7023d1754)] INFO: Completed task 6 (outbox.dispatch, 10.60ms) with success
+[worker(worker-94271008d7023d1754)] INFO: Completed task 7 (outbox.dispatch, 9.82ms) with success
+[worker(worker-94271008d7023d1754)] INFO: Completed task 8 (outbox.dispatch, 10.55ms) with success
+[worker(worker-94271008d7023d1754)] INFO: Completed task 9 (outbox.dispatch, 14.33ms) with success
+[worker(worker-94271008d7023d1754)] INFO: Completed task 10 (outbox.dispatch, 11.88ms) with success
+[worker(worker-94271008d7023d1754)] INFO: Completed task 11 (outbox.dispatch, 12.57ms) with success
+stdout | test/tenancy/unit-of-work.test.ts > the wrapper establishes and confines context > X-01 transaction affinity: one backend, one transaction, for the whole unit of work
+      · backend 10665, transaction 936, both statements
+
+stdout | test/tenancy/unit-of-work.test.ts > the wrapper establishes and confines context > the startup pooler-mode assertion passes against the real pool
+      · affinity probe: backend 10665, setting survived within the transaction and expired after it
+
+stdout | test/tenancy/unit-of-work.test.ts > the wrapper establishes and confines context > the startup pooler-mode assertion REFUSES a pool that drops set_config
+      · assertTransactionAffinity threw POOLER_MODE_UNSUPPORTED on a pooler that drops set_config
+
+stdout | test/tenancy/unit-of-work.test.ts > the wrapper establishes and confines context > X-03 pool reuse across organizations: the same backend serves Alpha then Beta, cleanly
+      · backend 10677 served Alpha (4 rows) then Beta (1 rows), no bleed
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 — injected faults > T-07 exception mid-transaction: rollback, and the next checkout sees no setting
+      · backend 10665: insert rolled back, 0 rows named t07-9f3c04a9-f6cc-4a21-8513-4af76970d944
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 — injected faults > T-08 statement cancellation: 57014, rollback, no lingering setting
+      · cancelled: SQLSTATE 57014, transaction rolled back
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 — injected faults > T-08b a client-side deadline abandons the wait; the rollback still holds
+      · client-side deadline surfaced with no SQLSTATE; transaction rolled back
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 — injected faults > T-09 server statement_timeout: 57014, rollback, and the timeout itself expires
+      · server timeout: 57014, rolled back, statement_timeout back to 0 afterwards
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 — injected faults > T-10 connection killed mid-transaction: the pool discards it and never re-issues it
+      · killed backend 10686; pool now holds 10685,10684,10665,10714
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 — injected faults > T-11 nested unit of work, SAME tenant: permitted, and behaves as a savepoint
+      · same backend 10685; outer committed, inner rolled back to savepoint
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 — injected faults > T-12 nested unit of work, DIFFERENT tenant: throws, and the outer is untouched
+      · cross-organization and cross-group re-tenanting both refused; outer still sees 4 correctly-tenanted rows
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 — injected faults > T-13 outside any unit of work: zero rows, and every write rejected (fail-closed)
+      · app_runtime: 0 rows readable on all 67 tenant tables, INSERT 42501, UPDATE affected 0 rows, DELETE 42501 (no grant)
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 — injected faults > T-13 outside any unit of work: zero rows, and every write rejected (fail-closed)
+      · app_worker: 0 rows readable on all 67 tenant tables, INSERT 42501, UPDATE affected 0 rows, DELETE 42501 (no grant)
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 — injected faults > T-13b Group One context cannot see or write Group Two, in the SAME organization
+      · Group Two rows invisible, unaddressable and unwritable under a Group One context; DELETE refused 42501 by grant; target unmodified
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 T-14 — the prohibited pooling mode is detected > T-14 total context loss: transaction aborted, connection discarded, page alert emitted
+      · (a) aborted, body never ran · (b) backend 10716 destroyed, 12 later checkouts used 10717,10718,10719 · (c) severity=page
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 T-14 — the prohibited pooling mode is detected > T-14 total context loss: transaction aborted, connection discarded, page alert emitted
+      · control: the identical unit of work succeeds once the pooler preserves set_config
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 T-14 — the prohibited pooling mode is detected > T-14b PARTIAL loss — only app.group_id — which a single-setting read-back would miss
+      · only app.group_id lost; exactly one mismatch reported; backend 10720 poisoned and paged
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 T-15 — two-organization concurrency storm > runs both roles against every tenant table under injected faults with zero wrong-tenant rows
+      · R-13 precondition: one 67-table probe pass costs 20.83 ms in this process right now; the storm makes 1800 of them, so its ceiling is 150000 ms (floor 120000 ms, safety ×4)
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 T-15 — two-organization concurrency storm > runs both roles against every tenant table under injected faults with zero wrong-tenant rows
+      · 900 iterations · 3600 units of work · 3087 committed · 513 injected faults
+      · 1800 probe passes × 67 tables = 120600 in-wrapper reads, 60300 outside-wrapper reads
+      · 127800 tenant-table statements (protocol overhead counted separately)
+      · census: 27 partitions, 0 impossible · WRONG-TENANT ROWS: 0
+      · storm 37607 ms against a measured ceiling of 150000 ms (0.25 of budget; 20.89 ms per probe pass observed against 20.83 ms calibrated)
+
+stdout | test/tenancy/unit-of-work.test.ts > SPEC-01 §7.2 T-15 — two-organization concurrency storm > R-13 — the measured ceiling can only ever ADD budget to the old fixed deadline
+      · ceiling floor 120000 ms; the scaled term takes over at 16.67 ms/pass; hard cap 900000 ms
+
+stdout | test/tenancy/unit-of-work.test.ts > R-15 — a nested unit of work may not change the acting membership > re-tenanting the ACTOR throws before any statement, and the outer commits
+      · nested actor change refused before any statement; outer transaction unaffected
+
+ ✓ |api| test/tenancy/unit-of-work.test.ts (18 tests) 41841ms
+   ✓ SPEC-01 §7.2 — injected faults > T-08 statement cancellation: 57014, rollback, no lingering setting  313ms
+   ✓ SPEC-01 §7.2 — injected faults > T-08b a client-side deadline abandons the wait; the rollback still holds  946ms
+   ✓ SPEC-01 §7.2 — injected faults > T-10 connection killed mid-transaction: the pool discards it and never re-issues it  343ms
+   ✓ SPEC-01 §7.2 T-15 — two-organization concurrency storm > runs both roles against every tenant table under injected faults with zero wrong-tenant rows  38021ms
+stdout | test/sbx/sbx.test.ts
+      ·       · OPUS-M3-002: seeded 3 rule row(s) across three groups for SBX-004
+
+stdout | test/sbx/sbx.test.ts
+      ·       · OPUS-M3-007: seeded 6 location row(s) across three groups for SBX-004 (sweep floor raised)
+
+stdout | test/sbx/sbx.test.ts
+      ·       · OPUS-M4-001: seeded 2 solver input snapshot(s) across two groups for SBX-004 (sweep floor raised)
+
+stdout | test/sbx/sbx.test.ts
+      ·       · OPUS-M4-003: seeded 2 complete build(s) across two groups for SBX-004 — six tables, sweep floor raised 48 -> 54
+
+stdout | test/sbx/sbx.test.ts
+      ·       · OPUS-M5-000b: seeded 18 request(s) across three groups for SBX-004 — thirteen tables, sweep floor raised 54 -> 67 (shift preference in 2, shift-group-off in 1)
+
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > every declared scenario carries all nine fields and a falsifiability probe
+      · 9 scenario(s), every contract complete
+
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > RED: a scenario missing a field is NOT RUNNABLE, and the validator says which
+      · a blank contract field makes a scenario NOT_RUNNABLE, naming the field
+
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > RED: a scenario whose probe cannot fail is reported VACUOUS, not PASS
+      · the vacuity detector catches a scenario whose probe cannot fail
+
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > RED: EVIDENCE_BLOCKED is never a pass and never a silent skip
+      · a fully blocked scenario reports EVIDENCE_BLOCKED with its dependency named
+
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > RED: a reading refused with anything but 42501 is a HARNESS DEFECT
+      · only 42501 counts as a refusal; 08006, 25P02 and 57P01 are harness defects
+
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > RED: a probe that throws a TypeError is PROBE_ERROR, not FALSIFIABLE
+      · a probe throwing TypeError is PROBE_ERROR and fails the run
+
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > RED: a probe repointed at an ABSENT subject is never FALSIFIABLE
+      · a probe repointed at an absent subject is VACUOUS, never FALSIFIABLE
+
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > RED: a probe that throws a SQL error is PROBE_ERROR, not FALSIFIABLE
+      · a probe throwing a SQL error is PROBE_ERROR and fails the run
+
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > RED: EVIDENCE_BLOCKED on a GATE-REQUIRED scenario makes the run exit non-zero
+      · EVIDENCE_BLOCKED is tolerated when no gate claims it and FAILS the run when one does — the same scenario, both ways
+
+stdout | test/sbx/sbx.test.ts > SPEC-16 §1 — the contract validator > RED: a blocked scenario with an UNNAMED dependency is NOT RUNNABLE
+      · SPEC-16 §6: a dependency must be named, not absorbed
+
+stdout | test/sbx/sbx.test.ts > red case — SBX-004 fails when an RLS control is removed > RED: with FORCE RLS off inside a rolled-back transaction, the sweep sees foreign rows
+      · RED: FORCE RLS off -> 25 foreign membership rows became visible to the owner; SBX-004 would fail, as it must
+
+stdout | test/sbx/sbx.test.ts > red case — SBX-004 fails when an RLS control is removed > RED: with FORCE RLS off inside a rolled-back transaction, the sweep sees foreign rows
+      · the rollback restored FORCE RLS — verified from a fresh connection
+
+stdout | test/sbx/sbx.test.ts > the G-ARCH tenancy subset > runs every scenario under its contract
+[core] INFO: Failed to read crontab file '/tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004/crontab'; cron is disabled
+
+stdout | test/sbx/sbx.test.ts > the G-ARCH tenancy subset > runs every scenario under its contract
+[core] INFO: Worker connected and looking for jobs... (task names: 'build.solve')
+
+stdout | test/sbx/sbx.test.ts > the G-ARCH tenancy subset > runs every scenario under its contract
+[worker(worker-8681371941415cbb0c)] INFO: Completed task 59 (build.solve, 4.59ms) with success
+
+stdout | test/sbx/sbx.test.ts > the G-ARCH tenancy subset > runs every scenario under its contract
+[worker(worker-8681371941415cbb0c)] INFO: Completed task 60 (build.solve, 3.65ms) with success
+
+stdout | test/sbx/sbx.test.ts > the G-ARCH tenancy subset > runs every scenario under its contract
+[worker(worker-8681371941415cbb0c)] INFO: Completed task 61 (build.solve, 3.63ms) with success
+
+stdout | test/sbx/sbx.test.ts > the G-ARCH tenancy subset > runs every scenario under its contract
+[core] INFO: Failed to read crontab file '/tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004/crontab'; cron is disabled
+
+stdout | test/sbx/sbx.test.ts > the G-ARCH tenancy subset > runs every scenario under its contract
+[core] INFO: Worker connected and looking for jobs... (task names: 'build.solve')
+
+stdout | test/sbx/sbx.test.ts > the G-ARCH tenancy subset > runs every scenario under its contract
+[worker(worker-66ffa7fb0c0233ac63)] INFO: Completed task 62 (build.solve, 3.37ms) with success
+
+stdout | test/sbx/sbx.test.ts > the G-ARCH tenancy subset > runs every scenario under its contract
+[worker(worker-66ffa7fb0c0233ac63)] INFO: Completed task 63 (build.solve, 5.92ms) with success
+
+stdout | test/sbx/sbx.test.ts > the G-ARCH tenancy subset > runs every scenario under its contract
+      · SBX-001 PASS             probe=FALSIFIABLE 11952ms
+      · SBX-002 PASS             probe=FALSIFIABLE 220ms
+      · SBX-004 PASS             probe=FALSIFIABLE 1421ms
+      · SBX-005 PASS             probe=FALSIFIABLE 53ms
+      · SBX-006 PASS             probe=FALSIFIABLE 298ms
+      · SBX-018 PASS             probe=FALSIFIABLE 305ms
+      · SBX-015 PASS             probe=FALSIFIABLE 1475ms
+      · SBX-016 PASS             probe=FALSIFIABLE 6ms
+      · SBX-017 PASS             probe=FALSIFIABLE 1419ms
+
+stdout | test/sbx/sbx.test.ts > the G-ARCH tenancy subset > the audit chain verifies clean after the run (the 0 / N / 0 shape)
+      · audit chain after the SBX run — 3992798b: 0 / 1 / 0
+
+stdout | test/sbx/sbx.test.ts > the G-ARCH tenancy subset > the audit chain verifies clean after the run (the 0 / N / 0 shape)
+      · audit chain after the SBX run — d294e4ca: 0 / 1 / 0
+
+stdout | test/sbx/sbx.test.ts > the G-ARCH tenancy subset > the audit chain verifies clean after the run (the 0 / N / 0 shape)
+      · audit chain after the SBX run — 4fbf4552: 0 / 1 / 0
+
+stdout | test/sbx/sbx.test.ts > the G-ARCH tenancy subset > writes the evidence bundle, including EVERY declared retained artifact
+      · scenario report + 9 per-scenario artifact(s) written
+
+stdout | test/sbx/sbx.test.ts > the G-ARCH tenancy subset > SPEC-16 §7 meta-test: every DECLARED artifact exists and is non-empty
+      · 9 declared artifact(s), each produced by this run and non-empty
+
+stdout | test/sbx/sbx.test.ts > the G-ARCH tenancy subset > RED: a scenario declaring a PHANTOM artifact is caught
+      · a declared-but-never-written artifact is detected by the meta-test
+
+ ✓ |api| test/sbx/sbx.test.ts (17 tests) 19107ms
+   ✓ the G-ARCH tenancy subset > runs every scenario under its contract  17150ms
+stdout | test/red-cases/probe-is-not-vacuous.test.ts > the wrong-tenant probe reports a violation when one is expected > RED: probing Group One's rows against Group Two's expectation reports wrong > 0
+      · probe against a deliberately wrong expectation: [["organizations",0],["groups",1],["users",3],["memberships",4],["roles",0],["role_capabilities",0],["capability_grants",5],["entitlements",0],["group_module_availability",3],["audit_events",29],["audit_checkpoints",0],["outbox_events",3],["outbox_effects",1],["membership_work_profiles",1],["membership_weekday_fte",8],["qualifications",2],["qualification_holdings",1],["shift_types",2],["shift_type_weekday_demand",6],["shift_groups",1],["shift_group_members",2],["staff_groups",1],["staff_group_members",1],["valid_groups",1],["valid_group_shift_types",2],["group_holidays",1],["shift_type_qualifications",1],["sessions",0],["invitations",0],["password_reset_tokens",0],["user_mfa",0],["rules",1],["rule_sets",1],["schedule_periods",4],["schedule_requirements",3],["schedule_versions",5],["shifts",2],["assignment_identities",2],["assignment_snapshots",4],["credits",1],["schedule_conflicts",1],["publication_records",2],["version_supersessions",1],["current_published_assignments",2],["locations",2],["staffing_set_versions",6],["rule_revisions",1],["solver_input_snapshots",1],["build_configurations",1],["build_runs",1],["build_run_events",7],["build_run_results",1],["build_run_violations",1],["build_run_candidate_assignments",1],["requests",7],["request_availability",2],["request_time_off",1],["request_no_call",1],["request_shift_preference",1],["request_shift_group_off",1],["vacation_periods",1],["vacation_grants",1],["vacation_selections",2],["vacation_approval_commands",1],["approvals",1],["request_comments",2],["vacation_commit_commands",1]]
+
+stdout | test/red-cases/probe-is-not-vacuous.test.ts > the wrong-tenant probe reports a violation when one is expected > RED: probing Alpha's rows against Beta's expectation reports wrong > 0 on every table
+      · every tenant table reports wrong > 0 when probed against the other organization
+
+stdout | test/red-cases/probe-is-not-vacuous.test.ts > the ground-truth census reports a violation when one is planted > RED: a row in a partition that does not exist is flagged
+      · census flagged 1 impossible partition(s) when one was withheld
+
+ ✓ |api| test/red-cases/probe-is-not-vacuous.test.ts (5 tests) 1453ms
+
+ Test Files  3 passed (3)
+      Tests  40 passed (40)
+   Start at  16:12:16
+   Duration  68.74s (transform 1.83s, setup 790ms, collect 797ms, tests 62.40s, environment 0ms, prepare 76ms)
+

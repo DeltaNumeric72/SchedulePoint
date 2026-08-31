@@ -1,0 +1,42 @@
+
+ RUN  v3.2.4 /tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004
+
+[core] INFO: Failed to read crontab file '/tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-227b06b7736943af9d)] INFO: Completed task 1 (outbox.dispatch, 26.57ms) with success
+[worker(worker-227b06b7736943af9d)] INFO: Completed task 2 (outbox.dispatch, 13.26ms) with success
+[worker(worker-227b06b7736943af9d)] INFO: Completed task 3 (outbox.dispatch, 9.98ms) with success
+[worker(worker-227b06b7736943af9d)] INFO: Completed task 4 (outbox.dispatch, 17.95ms) with success
+[worker(worker-227b06b7736943af9d)] INFO: Completed task 5 (outbox.dispatch, 19.66ms) with success
+[worker(worker-227b06b7736943af9d)] INFO: Completed task 6 (outbox.dispatch, 17.81ms) with success
+[worker(worker-227b06b7736943af9d)] INFO: Completed task 7 (outbox.dispatch, 9.94ms) with success
+[worker(worker-227b06b7736943af9d)] INFO: Completed task 8 (outbox.dispatch, 8.81ms) with success
+[worker(worker-227b06b7736943af9d)] INFO: Completed task 9 (outbox.dispatch, 12.09ms) with success
+[worker(worker-227b06b7736943af9d)] INFO: Completed task 10 (outbox.dispatch, 11.27ms) with success
+[worker(worker-227b06b7736943af9d)] INFO: Completed task 11 (outbox.dispatch, 9.51ms) with success
+stdout | test/profiles/granted-while-retiring-inertness.test.ts
+      · race established: grant backend 31457 blocked on Lock/advisory held by retirement backend 31456
+
+stdout | test/profiles/granted-while-retiring-inertness.test.ts > the granted-while-retiring interleaving is admitted, and its credential is inert > (a) ADMITTED: the grant committed AFTER the retirement, and the holding row exists
+      · admitted: one committed holding of a now-retired qualification, status valid
+
+stdout | test/profiles/granted-while-retiring-inertness.test.ts > the granted-while-retiring interleaving is admitted, and its credential is inert > (b) MANUAL PATH: listMembershipEligibility answers retired — and satisfied for the control
+      · manual path: raced=retired, control=satisfied
+
+stdout | test/profiles/granted-while-retiring-inertness.test.ts > the granted-while-retiring interleaving is admitted, and its credential is inert > (c) PUBLICATION PATH: the gate reports retired and BLOCKS the publish
+      · publication path: retired finding reported, and the step-06 prerequisite refused
+
+stdout | test/profiles/granted-while-retiring-inertness.test.ts > the granted-while-retiring interleaving is admitted, and its credential is inert > (d) SOLVER INPUT: the canonical snapshot marks the qualification retired for that membership
+      · solver input: raced pair retired/ineligible, control pair satisfied/eligible
+
+stdout | test/profiles/granted-while-retiring-inertness.test.ts > the granted-while-retiring interleaving is admitted, and its credential is inert > (e) E1 CORPUS: the capture this race produces is current, and the validator REJECTS staffing it
+      · corpus capture REWRITTEN at /tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004/apps/api/test/solver/corpus/fixtures/race-retired-holding.captured.json
+      · E1 corpus: capture current, and the validator refused the raced staffing with 1 rejection(s)
+
+ ✓ |api| test/profiles/granted-while-retiring-inertness.test.ts (5 tests) 914ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  15:37:34
+   Duration  6.05s (transform 974ms, setup 442ms, collect 105ms, tests 914ms, environment 0ms, prepare 63ms)
+

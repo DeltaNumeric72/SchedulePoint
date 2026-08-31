@@ -1,0 +1,25 @@
+
+ RUN  v3.2.4 /tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004
+
+[core] INFO: Failed to read crontab file '/tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-e9b96aa7d9dee7f6de)] INFO: Completed task 1 (outbox.dispatch, 23.87ms) with success
+[worker(worker-e9b96aa7d9dee7f6de)] INFO: Completed task 2 (outbox.dispatch, 11.90ms) with success
+[worker(worker-e9b96aa7d9dee7f6de)] INFO: Completed task 3 (outbox.dispatch, 10.96ms) with success
+[worker(worker-e9b96aa7d9dee7f6de)] INFO: Completed task 4 (outbox.dispatch, 9.80ms) with success
+[worker(worker-e9b96aa7d9dee7f6de)] INFO: Completed task 5 (outbox.dispatch, 9.96ms) with success
+[worker(worker-e9b96aa7d9dee7f6de)] INFO: Completed task 6 (outbox.dispatch, 10.76ms) with success
+[worker(worker-e9b96aa7d9dee7f6de)] INFO: Completed task 7 (outbox.dispatch, 8.59ms) with success
+[worker(worker-e9b96aa7d9dee7f6de)] INFO: Completed task 8 (outbox.dispatch, 9.17ms) with success
+[worker(worker-e9b96aa7d9dee7f6de)] INFO: Completed task 9 (outbox.dispatch, 11.16ms) with success
+[worker(worker-e9b96aa7d9dee7f6de)] INFO: Completed task 10 (outbox.dispatch, 8.83ms) with success
+[worker(worker-e9b96aa7d9dee7f6de)] INFO: Completed task 11 (outbox.dispatch, 9.21ms) with success
+ ✓ |api| test/requests/migration-0027-populated-cycle.test.ts (12 tests) 828ms
+ ✓ |api| test/requests/migration-0026-populated-cycle.test.ts (5 tests) 988ms
+   ✓ migration 0026 over a populated database > up → down → up, resolved and asserted BY NAME  318ms
+
+ Test Files  2 passed (2)
+      Tests  17 passed (17)
+   Start at  15:31:12
+   Duration  7.23s (transform 1.05s, setup 557ms, collect 110ms, tests 1.82s, environment 0ms, prepare 71ms)
+

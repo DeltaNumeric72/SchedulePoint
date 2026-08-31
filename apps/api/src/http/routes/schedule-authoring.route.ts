@@ -1,4 +1,5 @@
 import {
+  ASSIGNMENT_ORIGINS,
   addAssignmentRequestSchema,
   candidateListSchema,
   cellResultSchema,
@@ -644,7 +645,7 @@ async function readCells(uow: Uow, versionId: string): Promise<Map<string, GridA
       startsAt: row.starts_at.toISOString(),
       endsAt: row.ends_at.toISOString(),
       status: row.status === 'cancelled' ? 'cancelled' : 'active',
-      origin: (['manual', 'solver', 'clone', 'picklist', 'import'] as const).includes(
+      origin: ([...ASSIGNMENT_ORIGINS] as readonly string[]).includes(
         row.origin as 'manual',
       )
         ? (row.origin as GridAssignment['origin'])

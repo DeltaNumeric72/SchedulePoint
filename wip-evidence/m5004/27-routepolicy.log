@@ -1,0 +1,65 @@
+
+ RUN  v3.2.4 /tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004
+
+[core] INFO: Failed to read crontab file '/tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-5711d83bc2b15a1eb2)] INFO: Completed task 1 (outbox.dispatch, 52.02ms) with success
+[worker(worker-5711d83bc2b15a1eb2)] INFO: Completed task 2 (outbox.dispatch, 10.30ms) with success
+[worker(worker-5711d83bc2b15a1eb2)] INFO: Completed task 3 (outbox.dispatch, 8.81ms) with success
+[worker(worker-5711d83bc2b15a1eb2)] INFO: Completed task 4 (outbox.dispatch, 9.95ms) with success
+[worker(worker-5711d83bc2b15a1eb2)] INFO: Completed task 5 (outbox.dispatch, 17.80ms) with success
+[worker(worker-5711d83bc2b15a1eb2)] INFO: Completed task 6 (outbox.dispatch, 13.92ms) with success
+[worker(worker-5711d83bc2b15a1eb2)] INFO: Completed task 7 (outbox.dispatch, 12.82ms) with success
+[worker(worker-5711d83bc2b15a1eb2)] INFO: Completed task 8 (outbox.dispatch, 13.93ms) with success
+[worker(worker-5711d83bc2b15a1eb2)] INFO: Completed task 9 (outbox.dispatch, 11.40ms) with success
+[worker(worker-5711d83bc2b15a1eb2)] INFO: Completed task 10 (outbox.dispatch, 20.45ms) with success
+[worker(worker-5711d83bc2b15a1eb2)] INFO: Completed task 11 (outbox.dispatch, 10.95ms) with success
+ ❯ |api| test/requests/vacation-status-mapping-agreement.test.ts (7 tests | 1 failed) 658ms
+   ✓ R-15 — the §5.3 table, held to itself across three layers > the DOMAIN constant and the DATABASE function agree, row for row 12ms
+   ✓ R-15 — the §5.3 table, held to itself across three layers > the CONTRACTS inverse and the DOMAIN inverse agree over every root status 1ms
+   ✓ R-15 — the §5.3 table, held to itself across three layers > the CONTRACTS inverse round-trips through the DATABASE function 3ms
+   × R-15 — the mapping holds after EVERY §5.3 transition > walks every selection edge and finds the pair mapped at each commit 136ms
+     → new row for relation "vacation_selections" violates check constraint "vacation_selections_committed_version_coherent"
+   ✓ R-15 — a deliberately desynchronised write RAISES (D-27) > moving the SELECTION and leaving the root behind is refused at commit 16ms
+   ✓ R-15 — a deliberately desynchronised write RAISES (D-27) > moving the ROOT and leaving the selection behind is refused at commit 16ms
+   ✓ R-15 — a deliberately desynchronised write RAISES (D-27) > an `available` selection with no root is NOT a violation — §5.3 says so 10ms
+ ✓ |api| test/requests/route-policy.test.ts (15 tests) 794ms
+ ✓ |api| test/requests/transition-matrix-agreement.test.ts (4 tests) 443ms
+ ✓ |api| test/requests/comment-vocabulary-agreement.test.ts (11 tests) 89ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |api| test/requests/vacation-status-mapping-agreement.test.ts > R-15 — the mapping holds after EVERY §5.3 transition > walks every selection edge and finds the pair mapped at each commit
+error: new row for relation "vacation_selections" violates check constraint "vacation_selections_committed_version_coherent"
+ ❯ ../../node_modules/.pnpm/pg@8.16.3/node_modules/pg/lib/client.js:545:17
+ ❯ PostgresConnection.executeQuery ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:90:49
+ ❯ ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ DefaultConnectionProvider.provideConnection ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ DefaultQueryExecutor.executeQuery ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ test/requests/vacation-status-mapping-agreement.test.ts:309:9
+    307|       if (path === null) throw new Error(`no §2 path for ${from} → ${t…
+    308|       await run(async ({ query }) => {
+    309|         await sql`
+       |         ^
+    310|           update vacation_selections set status = ${to}, version = ver…
+    311|            where id = ${selectionId}::uuid
+ ❯ PgUnitOfWorkRunner.#runOutermost src/db/unit-of-work.ts:262:22
+ ❯ step test/requests/vacation-status-mapping-agreement.test.ts:308:7
+ ❯ test/requests/vacation-status-mapping-agreement.test.ts:358:7
+ ❯ PostgresConnection.executeQuery ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:102:41
+ ❯ ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ DefaultConnectionProvider.provideConnection ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ DefaultQueryExecutor.executeQuery ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ test/requests/vacation-status-mapping-agreement.test.ts:309:9
+ ❯ PgUnitOfWorkRunner.#runOutermost src/db/unit-of-work.ts:262:22
+ ❯ step test/requests/vacation-status-mapping-agreement.test.ts:308:7
+ ❯ test/requests/vacation-status-mapping-agreement.test.ts:358:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 3 passed (4)
+      Tests  1 failed | 36 passed (37)
+   Start at  15:32:30
+   Duration  8.61s (transform 1.55s, setup 924ms, collect 298ms, tests 1.98s, environment 0ms, prepare 113ms)
+

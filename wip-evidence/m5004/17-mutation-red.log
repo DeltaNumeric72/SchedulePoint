@@ -1,0 +1,72 @@
+
+ RUN  v3.2.4 /tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004
+
+[core] INFO: Failed to read crontab file '/tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-0c2ce6942a82bd4a65)] INFO: Completed task 1 (outbox.dispatch, 23.50ms) with success
+[worker(worker-0c2ce6942a82bd4a65)] INFO: Completed task 2 (outbox.dispatch, 11.33ms) with success
+[worker(worker-0c2ce6942a82bd4a65)] INFO: Completed task 3 (outbox.dispatch, 12.91ms) with success
+[worker(worker-0c2ce6942a82bd4a65)] INFO: Completed task 4 (outbox.dispatch, 11.55ms) with success
+[worker(worker-0c2ce6942a82bd4a65)] INFO: Completed task 5 (outbox.dispatch, 14.97ms) with success
+[worker(worker-0c2ce6942a82bd4a65)] INFO: Completed task 6 (outbox.dispatch, 8.78ms) with success
+[worker(worker-0c2ce6942a82bd4a65)] INFO: Completed task 7 (outbox.dispatch, 9.07ms) with success
+[worker(worker-0c2ce6942a82bd4a65)] INFO: Completed task 8 (outbox.dispatch, 9.58ms) with success
+[worker(worker-0c2ce6942a82bd4a65)] INFO: Completed task 9 (outbox.dispatch, 11.26ms) with success
+[worker(worker-0c2ce6942a82bd4a65)] INFO: Completed task 10 (outbox.dispatch, 11.42ms) with success
+[worker(worker-0c2ce6942a82bd4a65)] INFO: Completed task 11 (outbox.dispatch, 9.97ms) with success
+ ❯ |api| test/solver/request-projection.test.ts (9 tests | 2 failed) 2790ms
+   ✓ SPEC-08 §6 — the projection assembly > expands a time-off RANGE into one row per date, and clips to the window 2ms
+   ✓ SPEC-08 §6 — the projection assembly > expands a committed vacation WEEK into Monday..Friday — the commit's own five 1ms
+   ✓ SPEC-08 §6 — the projection assembly > DEDUPLICATES and SORTS — two sources naming one day produce one row 1ms
+   ✓ SPEC-08 §6 — the projection assembly > §6's `HardOn` qualifier: BOTH branches of "where group policy makes it binding" 0ms
+   ✓ SPEC-08 §6 — the projection assembly > FAD-60 — the strength travels VERBATIM, and the strongest wins a collision 0ms
+   ✓ SPEC-08 §6 — the projection assembly > I-07 — the emitted rows carry ONLY ids and dates: no status, no subtype, no text 1ms
+   × SPEC-08 R-14 — a HardOff day is not schedulable, on the real worker > the model cannot place the person on their approved day off 937ms
+     → R-14: the rebuild must not schedule the person on their approved day off: expected [ { …(4) } ] to have a length of +0 but got 1
+   × SPEC-08 R-14 — a HardOff day is not schedulable, on the real worker > when NOBODY else is eligible the outcome is INFEASIBLE, reported honestly 858ms
+     → expected 'OPTIMAL' to be 'INFEASIBLE' // Object.is equality
+   ✓ SPEC-08 R-14 — a HardOff day is not schedulable, on the real worker > the OBJECTIVE is byte-untouched by v3 — the worker echoes the same digest  893ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |api| test/solver/request-projection.test.ts > SPEC-08 R-14 — a HardOff day is not schedulable, on the real worker > the model cannot place the person on their approved day off
+AssertionError: R-14: the rebuild must not schedule the person on their approved day off: expected [ { …(4) } ] to have a length of +0 but got 1
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 0[39m
+[31m+ 1[39m
+
+ ❯ test/solver/request-projection.test.ts:297:7
+    295|       placedOnOffDate,
+    296|       'R-14: the rebuild must not schedule the person on their approve…
+    297|     ).toHaveLength(0);
+       |       ^
+    298| 
+    299|     /* And the person is still usable on the OTHER days — the row is a…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  |api| test/solver/request-projection.test.ts > SPEC-08 R-14 — a HardOff day is not schedulable, on the real worker > when NOBODY else is eligible the outcome is INFEASIBLE, reported honestly
+AssertionError: expected 'OPTIMAL' to be 'INFEASIBLE' // Object.is equality
+
+Expected: [32m"INFEASIBLE"[39m
+Received: [31m"OPTIMAL"[39m
+
+ ❯ test/solver/request-projection.test.ts:337:28
+    335|       }),
+    336|     );
+    337|     expect(blocked.status).toBe('INFEASIBLE');
+       |                            ^
+    338|   }, 240_000);
+    339| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 7 passed (9)
+   Start at  14:46:10
+   Duration  8.57s (transform 930ms, setup 430ms, collect 56ms, tests 2.79s, environment 0ms, prepare 68ms)
+

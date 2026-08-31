@@ -1,0 +1,68 @@
+
+ RUN  v3.2.4 /tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004
+
+[core] INFO: Failed to read crontab file '/tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-6c1c934c7f29b91c7f)] INFO: Completed task 1 (outbox.dispatch, 27.06ms) with success
+[worker(worker-6c1c934c7f29b91c7f)] INFO: Completed task 2 (outbox.dispatch, 12.23ms) with success
+[worker(worker-6c1c934c7f29b91c7f)] INFO: Completed task 3 (outbox.dispatch, 12.47ms) with success
+[worker(worker-6c1c934c7f29b91c7f)] INFO: Completed task 4 (outbox.dispatch, 12.00ms) with success
+[worker(worker-6c1c934c7f29b91c7f)] INFO: Completed task 5 (outbox.dispatch, 10.71ms) with success
+[worker(worker-6c1c934c7f29b91c7f)] INFO: Completed task 6 (outbox.dispatch, 10.18ms) with success
+[worker(worker-6c1c934c7f29b91c7f)] INFO: Completed task 7 (outbox.dispatch, 8.14ms) with success
+[worker(worker-6c1c934c7f29b91c7f)] INFO: Completed task 8 (outbox.dispatch, 10.52ms) with success
+[worker(worker-6c1c934c7f29b91c7f)] INFO: Completed task 9 (outbox.dispatch, 12.59ms) with success
+[worker(worker-6c1c934c7f29b91c7f)] INFO: Completed task 10 (outbox.dispatch, 11.29ms) with success
+[worker(worker-6c1c934c7f29b91c7f)] INFO: Completed task 11 (outbox.dispatch, 10.78ms) with success
+ ❯ |api| test/solver/request-projection.test.ts (8 tests | 2 failed) 1015ms
+   ✓ SPEC-08 §6 — the projection assembly > expands a time-off RANGE into one row per date, and clips to the window 3ms
+   ✓ SPEC-08 §6 — the projection assembly > expands a committed vacation WEEK into Monday..Friday — the commit's own five 1ms
+   ✓ SPEC-08 §6 — the projection assembly > DEDUPLICATES and SORTS — two sources naming one day produce one row 1ms
+   ✓ SPEC-08 §6 — the projection assembly > §6's `HardOn` qualifier: BOTH branches of "where group policy makes it binding" 1ms
+   ✓ SPEC-08 §6 — the projection assembly > FAD-60 — the strength travels VERBATIM, and the strongest wins a collision 0ms
+   ✓ SPEC-08 §6 — the projection assembly > I-07 — the emitted rows carry ONLY ids and dates: no status, no subtype, no text 1ms
+   × SPEC-08 R-14 — a HardOff day is not schedulable, on the real worker > the model cannot place the person on their approved day off 457ms
+     → expected 'OPTIMAL' to be 'FEASIBLE' // Object.is equality
+   × SPEC-08 R-14 — a HardOff day is not schedulable, on the real worker > when NOBODY else is eligible the outcome is INFEASIBLE, reported honestly 460ms
+     → the control must be solvable, or the case proves nothing: expected 'OPTIMAL' to be 'FEASIBLE' // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |api| test/solver/request-projection.test.ts > SPEC-08 R-14 — a HardOff day is not schedulable, on the real worker > the model cannot place the person on their approved day off
+AssertionError: expected 'OPTIMAL' to be 'FEASIBLE' // Object.is equality
+
+Expected: [32m"FEASIBLE"[39m
+Received: [31m"OPTIMAL"[39m
+
+ ❯ test/solver/request-projection.test.ts:274:28
+    272|      * the assertion pass while proving nothing (FAD-15 red case 4). */
+    273|     const control = await solveOnWorker(specFor(base));
+    274|     expect(control.status).toBe('FEASIBLE');
+       |                            ^
+    275| 
+    276|     const withHardOff = await solveOnWorker(
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  |api| test/solver/request-projection.test.ts > SPEC-08 R-14 — a HardOff day is not schedulable, on the real worker > when NOBODY else is eligible the outcome is INFEASIBLE, reported honestly
+AssertionError: the control must be solvable, or the case proves nothing: expected 'OPTIMAL' to be 'FEASIBLE' // Object.is equality
+
+Expected: [32m"FEASIBLE"[39m
+Received: [31m"OPTIMAL"[39m
+
+ ❯ test/solver/request-projection.test.ts:321:88
+    319| 
+    320|     const control = await solveOnWorker(specFor(base));
+    321|     expect(control.status, 'the control must be solvable, or the case …
+       |                                                                                        ^
+    322|       'FEASIBLE',
+    323|     );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 6 passed (8)
+   Start at  14:44:24
+   Duration  6.84s (transform 1.10s, setup 425ms, collect 61ms, tests 1.01s, environment 0ms, prepare 66ms)
+

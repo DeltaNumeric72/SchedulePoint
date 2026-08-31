@@ -867,6 +867,169 @@ export class PgVacationStore implements VacationStore {
       .execute();
     return rows.map((row) => toPeriod(row as PeriodRow));
   }
+
+  /* ──────────────────────────────────────────────────────────────────────────
+   * OPUS-M5-004 — §5.6's commit and reversal (doc 42 §5h, FAD-59)
+   *
+   * Here for the reason every other selection writer is: §5.3's "**One writer.**
+   * Only the vacation module updates either status, and the vacation module
+   * never writes one without the other."
+   * ────────────────────────────────────────────────────────────────────────── */
+
+  /**
+   * **FAD-59's replay read.** The recorded outcome for a commit key, or `null`.
+   *
+   * The FAST path of R-12, and the reason it is a SELECT rather than an
+   * insert-and-see: migration 0027 grants `SELECT, INSERT` and nothing else, so
+   * the ledger row is written once, at the END, complete — there is no
+   * in-flight row to conflict with at step 0. The UNIQUE key is what makes the
+   * race safe; this read is what makes the ordinary replay cheap and silent.
+   */
+  async findCommitCommand(
+    uow: Uow,
+    idempotencyKey: string,
+  ): Promise<{
+    readonly id: string;
+    readonly targetVersionId: string;
+    readonly vacationPeriodId: string;
+    readonly outcome: 'committed';
+  } | null> {
+    const row = await uow.query
+      .selectFrom('vacation_commit_commands')
+      .select(['id', 'target_version_id', 'vacation_period_id', 'outcome'])
+      .where('idempotency_key', '=', idempotencyKey)
+      .executeTakeFirst();
+    return row === undefined
+      ? null
+      : {
+          id: row.id,
+          targetVersionId: row.target_version_id,
+          vacationPeriodId: row.vacation_period_id,
+          outcome: row.outcome,
+        };
+  }
+
+  /**
+   * **FAD-59's ledger row, written once at the end of the commit.**
+   *
+   * `outcome` is `'committed'` and cannot be anything else: a refused commit
+   * rolls the whole transaction back and leaves NO row, so the key stays
+   * retryable — the discipline M5-002 recorded for every non-approved
+   * `APPROVE-VACATION` outcome, and for the same reason (a recorded failure
+   * would make the key permanently unusable). Migration 0027's header §2 carries
+   * the argument.
+   *
+   * `null` when the UNIQUE key already holds a row — the loser of a genuine
+   * race. The caller converges to the recorded outcome rather than surfacing a
+   * `23505`, so a concurrent duplicate and a sequential replay give a caller the
+   * same answer, which is what R-12's "one commit" means from outside.
+   */
+  async recordCommitCommand(
+    uow: Uow,
+    command: {
+      readonly vacationPeriodId: string;
+      readonly targetVersionId: string;
+      readonly actingMembershipId: string;
+      readonly idempotencyKey: string;
+      readonly receivedAt: Date;
+    },
+  ): Promise<string | null> {
+    const { organizationId, groupId } = uow.context;
+    const row = await uow.query
+      .insertInto('vacation_commit_commands')
+      .values({
+        organization_id: organizationId,
+        group_id: groupId as string,
+        vacation_period_id: command.vacationPeriodId,
+        target_version_id: command.targetVersionId,
+        acting_membership_id: command.actingMembershipId,
+        idempotency_key: command.idempotencyKey,
+        received_at: command.receivedAt,
+        outcome: 'committed',
+      })
+      .onConflict((oc) => oc.columns(['organization_id', 'idempotency_key']).doNothing())
+      .returning('id')
+      .executeTakeFirst();
+    return row?.id ?? null;
+  }
+
+  /**
+   * **§5.6's selection half of the commit**, guarded exactly as §5.4's approval
+   * update is.
+   *
+   * `status = 'approved'` in the WHERE is the per-selection half of D-23 that
+   * FAD-59 names: a second commit of a committed selection matches zero rows,
+   * which is the same refusal the domain matrix gives (`committed → committed`
+   * is not an edge) and the same one migration 0027's CHECK would give from the
+   * third side. `null` is `COMMIT_SELECTION_NOT_APPROVED` and the caller rolls
+   * the whole transaction back — a partial commit is not a state this system
+   * has.
+   *
+   * `commit_idempotency_key` is stamped here so a reader of the selection can
+   * find the ledger row without a scan, exactly as `approval_idempotency_key` is
+   * for the approval command.
+   */
+  async commitSelection(
+    uow: Uow,
+    command: {
+      readonly selectionId: string;
+      readonly committedToVersionId: string;
+      readonly commitIdempotencyKey: string;
+    },
+  ): Promise<number | null> {
+    const row = await uow.query
+      .updateTable('vacation_selections')
+      .set({
+        status: 'committed',
+        committed_to_version_id: command.committedToVersionId,
+        commit_idempotency_key: command.commitIdempotencyKey,
+        version: sql<number>`version + 1`,
+        updated_at: sql<Date>`now()`,
+      })
+      .where('id', '=', command.selectionId)
+      .where('status', '=', 'approved')
+      .returning('version')
+      .executeTakeFirst();
+    return row?.version ?? null;
+  }
+
+  /**
+   * **§5.6's selection half of the REVERSAL.** `committed → reversed`.
+   *
+   * **`committed_to_version_id` is cleared, and that is migration 0027's CHECK
+   * rather than a choice made here:** `(status = 'committed') = (committed_to_version_id
+   * IS NOT NULL)` is an equality, so a row leaving `committed` must leave the
+   * column behind. The version the week was committed to is not lost — the
+   * ledger row, the reversal's audit event and the OFF snapshots all still name
+   * it — and **the published version is never touched** (I-18, non-bypass rule
+   * 5). 0027's header §5 carries the consequence in full.
+   *
+   * The reason is stored on the selection, in the column §5.5 already gives to
+   * scheduler-authored administrative text, and it goes nowhere else: not into
+   * an audit payload, not into an outbox row, not into a log (I-07, non-bypass
+   * rule 9).
+   */
+  async reverseSelection(
+    uow: Uow,
+    command: { readonly selectionId: string; readonly reason: string },
+  ): Promise<number | null> {
+    const row = await uow.query
+      .updateTable('vacation_selections')
+      .set({
+        status: 'reversed',
+        committed_to_version_id: null,
+        is_override: true,
+        override_reason: command.reason,
+        version: sql<number>`version + 1`,
+        updated_at: sql<Date>`now()`,
+      })
+      .where('id', '=', command.selectionId)
+      .where('status', '=', 'committed')
+      .returning('version')
+      .executeTakeFirst();
+    return row?.version ?? null;
+  }
+
 }
 
 /** The joined row `selectionViews` reads. Every root column is nullable — see the outer join. */

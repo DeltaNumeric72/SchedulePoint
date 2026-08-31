@@ -1,0 +1,25 @@
+
+ RUN  v3.2.4 /tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004
+
+[core] INFO: Failed to read crontab file '/tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-c930fb2aac2a866040)] INFO: Completed task 1 (outbox.dispatch, 24.31ms) with success
+[worker(worker-c930fb2aac2a866040)] INFO: Completed task 2 (outbox.dispatch, 10.95ms) with success
+[worker(worker-c930fb2aac2a866040)] INFO: Completed task 3 (outbox.dispatch, 9.71ms) with success
+[worker(worker-c930fb2aac2a866040)] INFO: Completed task 4 (outbox.dispatch, 10.15ms) with success
+[worker(worker-c930fb2aac2a866040)] INFO: Completed task 5 (outbox.dispatch, 15.48ms) with success
+[worker(worker-c930fb2aac2a866040)] INFO: Completed task 6 (outbox.dispatch, 11.15ms) with success
+[worker(worker-c930fb2aac2a866040)] INFO: Completed task 7 (outbox.dispatch, 10.41ms) with success
+[worker(worker-c930fb2aac2a866040)] INFO: Completed task 8 (outbox.dispatch, 11.02ms) with success
+[worker(worker-c930fb2aac2a866040)] INFO: Completed task 9 (outbox.dispatch, 12.39ms) with success
+[worker(worker-c930fb2aac2a866040)] INFO: Completed task 10 (outbox.dispatch, 10.44ms) with success
+[worker(worker-c930fb2aac2a866040)] INFO: Completed task 11 (outbox.dispatch, 8.94ms) with success
+ ✓ |api| test/requests/vacation-commit-http.test.ts (12 tests) 3894ms
+   ✓ SPEC-08 §5.6 — the commit > R-12 — a replayed key commits ONCE and the replay writes nothing  348ms
+   ✓ SPEC-08 §5.6 — the commit > I-02 — `vacation.commit` is grant-only; without it the scheduler is refused  320ms
+
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+   Start at  14:41:51
+   Duration  9.89s (transform 1.43s, setup 480ms, collect 257ms, tests 3.89s, environment 0ms, prepare 64ms)
+

@@ -37,6 +37,9 @@ import { categoryOf, listRules } from '../rules/service.js';
 import { instantOfDate } from '../schedule/hard-rule-revalidation.js';
 import { resolveRenderTimezone, timezoneBasisState } from '../schedule/timezone.js';
 
+import { calendarText } from './calendar-text.js';
+import { assembleRequestProjection } from './request-projection.js';
+
 /**
  * **Canonical input assembly** — one immutable snapshot of everything a build
  * consumes (OPUS-M4-001; doc 35 §6a, SPEC-04 §3.4).
@@ -573,7 +576,7 @@ export async function assembleCanonicalInput(
     shift_type_id: string;
     location_id: string | null;
     is_pinned: boolean;
-    origin: 'manual' | 'clone' | 'solver' | 'picklist';
+    origin: 'manual' | 'clone' | 'solver' | 'picklist' | 'vacation_commit';
     credited_membership_id: string | null;
     weight: string | null;
   }>`
@@ -755,6 +758,17 @@ export async function assembleCanonicalInput(
     a.kind.localeCompare(b.kind) || a.key.localeCompare(b.key),
   );
 
+  /* SPEC-08 §6 (OPUS-M5-004). `availabilityIsBinding` is `false` because §6's
+   * qualifier — "where group policy makes it binding" — names a group policy
+   * this schema does not have; `request-projection.ts`'s docblock carries the
+   * verification and the narrower-never-wider reasoning, and this is the one
+   * line that changes when the policy lands. */
+  const requestProjection = await assembleRequestProjection(uow, {
+    startDate,
+    endDate,
+    availabilityIsBinding: false,
+  });
+
   const document: SolverInputSnapshotDocument = {
     snapshotSchemaVersion: SOLVER_SNAPSHOT_SCHEMA_VERSION,
     compilerVersion: COMPILER_VERSION,
@@ -786,6 +800,11 @@ export async function assembleCanonicalInput(
     staffGroups,
     validGroups,
     qualifications,
+    /* v3 (OPUS-M5-004) — SPEC-08 §6: "The projection is part of the pinned
+     * `solver_inputs` snapshot." Assembled on THIS unit of work, so the
+     * absences the document carries are the absences that were true when the
+     * participants and the demand were read. */
+    requestProjection,
     constituents,
   };
 
@@ -830,21 +849,6 @@ async function loadHoldingsForEnforcement(
   return byMembership;
 }
 
-/**
- * `YYYY-MM-DD` from whatever the driver produced.
- *
- * node-postgres parses `date` (OID 1082) into a **`Date` at LOCAL midnight**, so
- * `toISOString()` west of UTC renders the PREVIOUS day — the same measured fact
- * `render.ts` records for the same reason. The local components are the right
- * ones and reconstruct the calendar date the database holds wherever this runs.
- */
-function calendarText(value: string | Date): string {
-  if (typeof value === 'string') return value.slice(0, 10);
-  const year = String(value.getFullYear()).padStart(4, '0');
-  const month = String(value.getMonth() + 1).padStart(2, '0');
-  const day = String(value.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
 
 /**
  * Every date in the period, or an empty list when either bound is not a real

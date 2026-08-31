@@ -1,0 +1,27 @@
+
+ RUN  v3.2.4 /tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004
+
+[core] INFO: Failed to read crontab file '/tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-1322e64fa112362bd9)] INFO: Completed task 1 (outbox.dispatch, 24.45ms) with success
+[worker(worker-1322e64fa112362bd9)] INFO: Completed task 2 (outbox.dispatch, 10.52ms) with success
+[worker(worker-1322e64fa112362bd9)] INFO: Completed task 3 (outbox.dispatch, 11.20ms) with success
+[worker(worker-1322e64fa112362bd9)] INFO: Completed task 4 (outbox.dispatch, 14.62ms) with success
+[worker(worker-1322e64fa112362bd9)] INFO: Completed task 5 (outbox.dispatch, 10.52ms) with success
+[worker(worker-1322e64fa112362bd9)] INFO: Completed task 6 (outbox.dispatch, 10.89ms) with success
+[worker(worker-1322e64fa112362bd9)] INFO: Completed task 7 (outbox.dispatch, 10.01ms) with success
+[worker(worker-1322e64fa112362bd9)] INFO: Completed task 8 (outbox.dispatch, 10.61ms) with success
+[worker(worker-1322e64fa112362bd9)] INFO: Completed task 9 (outbox.dispatch, 11.00ms) with success
+[worker(worker-1322e64fa112362bd9)] INFO: Completed task 10 (outbox.dispatch, 11.65ms) with success
+[worker(worker-1322e64fa112362bd9)] INFO: Completed task 11 (outbox.dispatch, 8.25ms) with success
+ ✓ |api| test/requests/migration-0022-populated-cycle.test.ts (17 tests) 1311ms
+   ✓ migration 0022 over a populated database > up → down → up, resolved and asserted BY NAME  381ms
+ ✓ |api| test/requests/migration-0025-populated-cycle.test.ts (10 tests) 698ms
+ ✓ |api| test/requests/route-policy.test.ts (15 tests) 688ms
+ ✓ |api| test/requests/vacation-status-mapping-agreement.test.ts (7 tests) 569ms
+
+ Test Files  4 passed (4)
+      Tests  49 passed (49)
+   Start at  15:34:07
+   Duration  9.70s (transform 1.42s, setup 885ms, collect 312ms, tests 3.27s, environment 0ms, prepare 62ms)
+

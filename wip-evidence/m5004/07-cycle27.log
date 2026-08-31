@@ -1,0 +1,50 @@
+
+ RUN  v3.2.4 /tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004
+
+[core] INFO: Failed to read crontab file '/tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-cfb34d00e57b357977)] INFO: Completed task 1 (outbox.dispatch, 31.68ms) with success
+[worker(worker-cfb34d00e57b357977)] INFO: Completed task 2 (outbox.dispatch, 13.15ms) with success
+[worker(worker-cfb34d00e57b357977)] INFO: Completed task 3 (outbox.dispatch, 13.42ms) with success
+[worker(worker-cfb34d00e57b357977)] INFO: Completed task 4 (outbox.dispatch, 11.88ms) with success
+[worker(worker-cfb34d00e57b357977)] INFO: Completed task 5 (outbox.dispatch, 12.97ms) with success
+[worker(worker-cfb34d00e57b357977)] INFO: Completed task 6 (outbox.dispatch, 12.97ms) with success
+[worker(worker-cfb34d00e57b357977)] INFO: Completed task 7 (outbox.dispatch, 10.92ms) with success
+[worker(worker-cfb34d00e57b357977)] INFO: Completed task 8 (outbox.dispatch, 10.51ms) with success
+[worker(worker-cfb34d00e57b357977)] INFO: Completed task 9 (outbox.dispatch, 14.60ms) with success
+[worker(worker-cfb34d00e57b357977)] INFO: Completed task 10 (outbox.dispatch, 10.38ms) with success
+[worker(worker-cfb34d00e57b357977)] INFO: Completed task 11 (outbox.dispatch, 10.89ms) with success
+ ❯ |api| test/requests/migration-0027-populated-cycle.test.ts (11 tests | 1 failed) 792ms
+   ✓ migration 0027 over a populated database > up → down → up, resolved and asserted BY NAME 136ms
+   ✓ migration 0027 over a populated database > the ledger comes back ENFORCING — every constraint refuses 22ms
+   ✓ migration 0027 over a populated database > "append-only" is a PRIVILEGE — UPDATE and DELETE are 42501, not a rule 9ms
+   × migration 0027 over a populated database > the administration arm pins the ACTING membership — an author cannot be forged 9ms
+     → expected undefined to be defined
+   ✓ migration 0027 over a populated database > a MEMBER cannot write the ledger at all — there is no own-arm 4ms
+   ✓ migration 0027 over a populated database > FAD-59's per-selection CHECK refuses BOTH directions 6ms
+   ✓ migration 0027 over a populated database > the assignment ORIGIN domain admits `vacation_commit` and still refuses an invented one 11ms
+   ✓ migration 0027 §6 — the solver-projection read plane > is CLOSED without the token, and OPEN with it — the same read, twice 8ms
+   ✓ migration 0027 §6 — the solver-projection read plane > is CLEARED after the reads — the `finally` is load-bearing 5ms
+   ✓ migration 0027 §6 — the solver-projection read plane > the two purpose tokens are MUTUALLY isolated — both directions 12ms
+   ✓ migration 0027 §6 — the solver-projection read plane > every projection arm carries the SAME tenant predicate its siblings do 5ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |api| test/requests/migration-0027-populated-cycle.test.ts > migration 0027 over a populated database > the administration arm pins the ACTING membership — an author cannot be forged
+AssertionError: expected undefined to be defined
+ ❯ test/requests/migration-0027-populated-cycle.test.ts:329:5
+    327|     /* FAD-15's positive control: the SAME insert with the scheduler's…
+    328|      * membership succeeds, so the refusal above can only be the pinne…
+    329|     await expect(insertLedgerRow(key('cycle27.honest'))).resolves.toBe…
+       |     ^
+    330|   });
+    331| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 10 passed (11)
+   Start at  14:33:33
+   Duration  9.01s (transform 989ms, setup 409ms, collect 96ms, tests 792ms, environment 0ms, prepare 60ms)
+

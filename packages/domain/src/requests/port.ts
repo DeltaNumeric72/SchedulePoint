@@ -917,6 +917,68 @@ export interface VacationStore {
 
   /** The group's vacation periods, newest first. The round a member selects in. */
   listPeriods(uow: UnitOfWork): Promise<readonly VacationPeriod[]>;
+
+  /* ──────────────────────────────────────────────────────────────────────────
+   * OPUS-M5-004 — §5.6's commit and reversal (doc 42 §5h, FAD-59)
+   *
+   * Five verbs, on this port for §5.3's reason: "**One writer.** Only the
+   * vacation module updates either status." The implementations are
+   * `apps/api/src/requests/vacation-store.ts`; the transaction that composes
+   * them is `apps/api/src/requests/vacation-commit.ts`.
+   * ────────────────────────────────────────────────────────────────────────── */
+
+  /**
+   * FAD-59's replay read — the recorded outcome for a commit key, or `null`.
+   * R-12's fast path; migration 0027's UNIQUE key is what makes the race safe.
+   */
+  findCommitCommand(
+    uow: UnitOfWork,
+    idempotencyKey: string,
+  ): Promise<{
+    readonly id: string;
+    readonly targetVersionId: string;
+    readonly vacationPeriodId: string;
+    readonly outcome: 'committed';
+  } | null>;
+
+  /**
+   * FAD-59's ledger row, written ONCE at the end of the commit, complete.
+   * `null` when the key already holds a row — the loser of a genuine race,
+   * which converges to the recorded outcome rather than surfacing a `23505`.
+   */
+  recordCommitCommand(
+    uow: UnitOfWork,
+    command: {
+      readonly vacationPeriodId: string;
+      readonly targetVersionId: string;
+      readonly actingMembershipId: string;
+      readonly idempotencyKey: string;
+      readonly receivedAt: Date;
+    },
+  ): Promise<string | null>;
+
+  /**
+   * `approved → committed`, guarded on `status = 'approved'` — the per-selection
+   * half of D-23 FAD-59 names. `null` is `COMMIT_SELECTION_NOT_APPROVED`.
+   */
+  commitSelection(
+    uow: UnitOfWork,
+    command: {
+      readonly selectionId: string;
+      readonly committedToVersionId: string;
+      readonly commitIdempotencyKey: string;
+    },
+  ): Promise<number | null>;
+
+  /**
+   * `committed → reversed`, clearing `committed_to_version_id` (migration
+   * 0027's CHECK is an equality) and recording §5.6's mandatory reason on the
+   * selection. `null` is `REVERSAL_SELECTION_NOT_COMMITTED`.
+   */
+  reverseSelection(
+    uow: UnitOfWork,
+    command: { readonly selectionId: string; readonly reason: string },
+  ): Promise<number | null>;
 }
 
 /**

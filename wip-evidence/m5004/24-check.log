@@ -1,0 +1,206 @@
+$ node scripts/check.mjs
+evidence: scratch — writing under .evidence-scratch/ (tracked artifacts untouched; pass --refresh to update them)
+
+[1m=== lint — lint (eslint) ===[0m
+$ eslint .
+
+[1m=== typecheck — typecheck (tsc -b) ===[0m
+$ tsc -b --force
+
+[1m=== unit — unit tests (vitest) ===[0m
+
+ RUN  v3.2.4 /tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004
+
+JSON report written to /tmp/sp-vitest-must-run-puZ8rv/run.json
+[ELIFECYCLE] Command failed with exit code 1.
+$ node scripts/gates/vitest-must-run.mjs
+VITEST-MUST-RUN-REPORT-DIR: /tmp/sp-vitest-must-run-puZ8rv
+No test files found, exiting with code 1
+
+
+ contracts  
+
+include: test/**/*.test.ts
+exclude:  **/node_modules/**, **/dist/**, **/cypress/**, **/.{idea,git,cache,output,temp}/**, **/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*
+
+ domain  
+
+include: test/**/*.test.ts
+exclude:  **/node_modules/**, **/dist/**, **/cypress/**, **/.{idea,git,cache,output,temp}/**, **/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*
+
+ api  
+
+include: test/**/*.test.ts
+exclude:  **/node_modules/**, **/dist/**, **/cypress/**, **/.{idea,git,cache,output,temp}/**, **/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*
+
+ web  
+
+include: test/**/*.test.ts, test/**/*.test.tsx
+exclude:  **/node_modules/**, **/dist/**, **/cypress/**, **/.{idea,git,cache,output,temp}/**, **/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*
+
+ gates  
+
+include: test/**/*.test.ts
+exclude:  **/node_modules/**, **/dist/**, **/cypress/**, **/.{idea,git,cache,output,temp}/**, **/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*
+
+
+⎯⎯⎯⎯⎯⎯ Unhandled Error ⎯⎯⎯⎯⎯⎯⎯
+Error: the cluster daemon exited with code 1
+stderr: 
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+undefined
+(Use `node --trace-uncaught ...` to show where the exception was thrown)
+
+Node.js v22.22.2
+
+
+STALE CLUSTER? A previous run may have been killed before teardown.
+  port           : 55744
+  data directory : /tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004/apps/api/.pgdata-test-55744
+  orphan process : pid 8329 is still listening on 55744
+  data directory : present (this run may have created it, or a killed run left it)
+
+  Recover with:
+    lsof -nP -i:55744 -t | xargs -r kill -9
+    rm -rf /tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004/apps/api/.pgdata-test-55744
+
+ ❯ ChildProcess.<anonymous> apps/api/test/support/cluster-process.ts:88:9
+ ❯ ChildProcess.emit node:events:519:28
+ ❯ ChildProcess._handle.onexit node:internal/child_process:293:12
+
+
+
+
+
+[1m=== import-boundary — import boundary (dependency-cruiser) ===[0m
+
+✔ no dependency violations found (283 modules, 796 dependencies cruised)
+
+$ depcruise --config .dependency-cruiser.cjs packages apps
+
+[1m=== route-policy — route-without-policy (I-02) ===[0m
+PASS  route-policy-check (I-02) — 133 registered route(s)
+$ node scripts/gates/route-policy-check.mjs
+
+[1m=== migration-rls — migration + RLS pairing (I-15) ===[0m
+PASS  migration-rls-pairing (I-15) — 27 migration file(s) in apps/api/migrations
+$ node scripts/gates/migration-rls-check.mjs
+
+[1m=== invariant-ids — invariant-ID uniqueness (CAR-023) ===[0m
+PASS  invariant-id-uniqueness (CAR-023) — 64 document(s), 22 invariant definition(s), 22 distinct ID(s) referenced
+$ node scripts/gates/invariant-id-uniqueness.mjs
+
+[1m=== rule-node-mapping — rule-node → compiler-mapping closure (SPEC-04 §3.2) ===[0m
+PASS  rule-node → compiler-mapping closure — 30 declared node(s) in packages/domain/src/rules/ast.ts, 30 compiler mapping(s) in packages/domain/src/rules/compile.ts
+$ node scripts/gates/rule-node-mapping-check.mjs
+
+[1m=== rule-kind-registry — rule-kind registry is generated (doc 34 §4-D) ===[0m
+PASS  rule-kind registry is generated (doc 34 §4-D) — 30 unique kind(s), 22 evaluated / 8 not-evaluable, 0 one ruling away, artifact packages/domain/src/rules/rule-kind-registry.generated.md
+$ tsc -b packages/domain && node scripts/gates/rule-kind-registry-check.mjs
+
+[1m=== provider-boundary — provider outside unit of work (SPEC-12 U-07) ===[0m
+PASS  provider outside unit of work (SPEC-12 U-07) — 168 module(s) under apps/api/src, apps/api/test/support, 2 declared @provider-port module(s)
+$ node scripts/gates/provider-boundary-check.mjs
+
+[1m=== solver-kind-parity — solver/checker HARD-kind parity (doc 35 §6d) ===[0m
+PASS  solver/checker HARD-kind parity (§6d) — 22 HARD kind(s) in solver/schedulepoint_solver/model.py, 22 in packages/domain/src/rules/hard-rule-check.ts
+$ node scripts/gates/solver-kind-parity-check.mjs
+
+[1m=== secret-scan — secret scan ===[0m
+PASS  secret-scan — 2382 file(s) under /tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004, 11 detectors
+$ node scripts/gates/secret-scan.mjs
+
+[1m=== raw-nul — raw U+0000 scan (FAD-45(1)) ===[0m
+PASS  raw-nul-scan (FAD-45(1)) — 1420 text file(s) scanned, 273 binary file(s) skipped by extension AND magic bytes, 0 known violation(s) held at their pinned counts
+$ node scripts/gates/raw-nul-scan.mjs
+
+[1m=== build — production build (vite build) ===[0m
+vite v7.1.7 building for production...
+transforming...
+✓ 253 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.40 kB │ gzip:   0.27 kB
+dist/assets/index--70pYkb4.css   14.56 kB │ gzip:   3.92 kB
+dist/assets/index-BeriEvym.js   637.97 kB │ gzip: 167.61 kB
+✓ built in 3.15s
+$ node scripts/run-in-workspace.mjs apps/web vite build
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+
+[1m=== network-guard — network-assertion guard (SP-HR-1) ===[0m
+      vendor string (bundle only): www.w3.org — XML/SVG/MathML namespace identifiers emitted by react-dom (createElementNS). Namespace URIs are identifiers, never fetched.
+      vendor string (bundle only): reactjs.org — react-dom production error decoder link, embedded as message text in invariant errors.
+      vendor string (bundle only): tanstack.com — @tanstack/react-router migration-guidance link, embedded as message text in a development warning.
+      vendor string (bundle only): tailwindcss.com — Attribution comment in the Tailwind preflight stylesheet. A CSS comment issues no request.
+      vendor string (bundle only): localhost — @tanstack/react-router uses 'http://localhost' as an inert base when parsing relative paths with the URL constructor.
+PASS  network-assertion-guard (SP-HR-1) — 57 source file(s), 3 built file(s); requestHosts allowlist: 0 (must be 0)
+$ node scripts/gates/network-assertion-guard.mjs
+
+[1m=== axe — axe-core via Playwright (CAP-066) ===[0m
+Error: http://127.0.0.1:41838 is already used, make sure that nothing is running on the port/url or set reuseExistingServer:true in config.webServer.
+
+[ELIFECYCLE] Command failed with exit code 1.
+$ node scripts/run-in-workspace.mjs apps/web playwright test
+
+[1m=== request-budget — requests per interaction (SP-HR-2) ===[0m
+FAIL  request-budget (SP-HR-2 / I-10) — 25 violation(s)
+  scripts/gates/request-budget/budgets.json:0  no recording for budgeted interaction "shell-initial-load" — run the e2e gate (a missing recording is a failure, not a skip)
+  scripts/gates/request-budget/budgets.json:0  no recording for budgeted interaction "health-retry-click" — run the e2e gate (a missing recording is a failure, not a skip)
+  scripts/gates/request-budget/budgets.json:0  no recording for budgeted interaction "rules-open-new-rule" — run the e2e gate (a missing recording is a failure, not a skip)
+  scripts/gates/request-budget/budgets.json:0  no recording for budgeted interaction "rules-save-refused" — run the e2e gate (a missing recording is a failure, not a skip)
+  scripts/gates/request-budget/budgets.json:0  no recording for budgeted interaction "rules-save-accepted" — run the e2e gate (a missing recording is a failure, not a skip)
+  scripts/gates/request-budget/budgets.json:0  no recording for budgeted interaction "schedule-open-new-period" — run the e2e gate (a missing recording is a failure, not a skip)
+  scripts/gates/request-budget/budgets.json:0  no recording for budgeted interaction "schedule-fill-period-form" — run the e2e gate (a missing recording is a failure, not a skip)
+  scripts/gates/request-budget/budgets.json:0  no recording for budgeted interaction "schedule-save-period-refused" — run the e2e gate (a missing recording is a failure, not a skip)
+  scripts/gates/request-budget/budgets.json:0  no recording for budgeted interaction "schedule-open-cell-editor" — run the e2e gate (a missing recording is a failure, not a skip)
+  scripts/gates/request-budget/budgets.json:0  no recording for budgeted interaction "schedule-open-assign-picker" — run the e2e gate (a missing recording is a failure, not a skip)
+  scripts/gates/request-budget/budgets.json:0  no recording for budgeted interaction "schedule-save-assignment" — run the e2e gate (a missing recording is a failure, not a skip)
+  scripts/gates/request-budget/budgets.json:0  no recording for budgeted interaction "schedule-create-draft-version" — run the e2e gate (a missing recording is a failure, not a skip)
+  scripts/gates/request-budget/budgets.json:0  no recording for budgeted interaction "schedule-save-requirement" — run the e2e gate (a missing recording is a failure, not a skip)
+  scripts/gates/request-budget/budgets.json:0  no recording for budgeted interaction "schedule-pin-assignment" — run the e2e gate (a missing recording is a failure, not a skip)
+  scripts/gates/request-budget/budgets.json:0  no recording for budgeted interaction "schedule-remove-assignment" — run the e2e gate (a missing recording is a failure, not a skip)
+  scripts/gates/request-budget/budgets.json:0  no recording for budgeted interaction "rules-open-edit" — run the e2e gate (a missing recording is a failure, not a skip)
+  scripts/gates/request-budget/budgets.json:0  no recording for budgeted interaction "rules-save-edit" — run the e2e gate (a missing recording is a failure, not a skip)
+  scripts/gates/request-budget/budgets.json:0  no recording for budgeted interaction "settings-open-new-location" — run the e2e gate (a missing recording is a failure, not a skip)
+  scripts/gates/request-budget/budgets.json:0  no recording for budgeted interaction "settings-save-location-accepted" — run the e2e gate (a missing recording is a failure, not a skip)
+  scripts/gates/request-budget/budgets.json:0  no recording for budgeted interaction "settings-save-timezone-accepted" — run the e2e gate (a missing recording is a failure, not a skip)
+  scripts/gates/request-budget/budgets.json:0  no recording for budgeted interaction "settings-save-timezone-refused" — run the e2e gate (a missing recording is a failure, not a skip)
+  scripts/gates/request-budget/budgets.json:0  no recording for budgeted interaction "vacation-open-select-week" — run the e2e gate (a missing recording is a failure, not a skip)
+  scripts/gates/request-budget/budgets.json:0  no recording for budgeted interaction "vacation-fill-select-week" — run the e2e gate (a missing recording is a failure, not a skip)
+  scripts/gates/request-budget/budgets.json:0  no recording for budgeted interaction "vacation-save-selection-accepted" — run the e2e gate (a missing recording is a failure, not a skip)
+  scripts/gates/request-budget/budgets.json:0  no recording for budgeted interaction "vacation-save-selection-refused" — run the e2e gate (a missing recording is a failure, not a skip)
+      scanned: 48 budgeted interaction(s), 23 recording(s) [authn-fill-activation-form.desktop.json, authn-submit-activation-refused-by-client.desktop.json, authn-submit-password-reset-request.desktop.json, builds-launch-accepted.desktop.json, builds-open-cancel-confirm.desktop.json, builds-open-launch-form.desktop.json, builds-open-new-configuration.desktop.json, builds-retry.desktop.json, builds-toggle-deterministic.desktop.json, catalogue-open-new-shift-type.desktop.json, catalogue-save-shift-type-refused.desktop.json, catalogue-save-shift-type.desktop.json, daily-sheet-next-day.desktop.json, daily-sheet-open-from-calendar.desktop.json, my-schedule-next-window.desktop.json, my-schedule-switch-view.desktop.json, publication-change-comparison.desktop.json, publication-fill-confirm.desktop.json, publication-open-clone-confirm.desktop.json, publication-open-confirm.desktop.json, publication-open-revert-confirm.desktop.json, publication-publish-accepted.desktop.json, publication-publish-refused.desktop.json]
+[ELIFECYCLE] Command failed with exit code 1.
+$ node scripts/gates/request-budget.mjs
+
+GATE                     RESULT   TIME
+------------------------ -------- --------
+lint                     PASS      12394ms
+typecheck                PASS      29149ms
+unit                     FAIL       3902ms
+import-boundary          PASS       2581ms
+route-policy             PASS       1688ms
+migration-rls            PASS        589ms
+invariant-ids            PASS        610ms
+rule-node-mapping        PASS        659ms
+rule-kind-registry       PASS        701ms
+provider-boundary        PASS        599ms
+solver-kind-parity       PASS        572ms
+secret-scan              PASS       1835ms
+raw-nul                  PASS        853ms
+build                    PASS       4060ms
+network-guard            PASS        566ms
+axe                      FAIL       1600ms
+request-budget           FAIL        639ms
+------------------------ -------- --------
+17 gate(s): 14 passed, 3 failed
+evidence: scratch — writing under .evidence-scratch/ (tracked artifacts untouched; pass --refresh to update them)
+/tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004/.evidence-scratch/scripts/check-output.txt
+[ELIFECYCLE] Command failed with exit code 1.
+CHECK_EXIT=1

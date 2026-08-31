@@ -1,0 +1,658 @@
+$ node scripts/check.mjs
+evidence: scratch — writing under .evidence-scratch/ (tracked artifacts untouched; pass --refresh to update them)
+
+[1m=== lint — lint (eslint) ===[0m
+
+/tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004/apps/api/test/requests/vacation-commit-http.test.ts
+  66:5  error  'entitlementGrantId' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+✖ 1 problem (1 error, 0 warnings)
+
+[ELIFECYCLE] Command failed with exit code 1.
+$ eslint .
+
+[1m=== typecheck — typecheck (tsc -b) ===[0m
+apps/api/src/requests/vacation-commit.ts(233,11): error TS2322: Type '"vacation_commit"' is not assignable to type '"manual" | "solver"'.
+apps/api/test/requests/vacation-commit-http.test.ts(66,5): error TS6133: 'entitlementGrantId' is declared but its value is never read.
+apps/api/test/requests/vacation-commit-http.test.ts(150,5): error TS2345: Argument of type '(uow: (uow: PgUnitOfWork) => Promise<unknown>) => Promise<T>' is not assignable to parameter of type '(uow: PgUnitOfWork) => Promise<T>'.
+  Types of parameters 'uow' and 'uow' are incompatible.
+    Type 'PgUnitOfWork' is not assignable to type '(uow: PgUnitOfWork) => Promise<unknown>'.
+      Type 'PgUnitOfWork' provides no match for the signature '(uow: PgUnitOfWork): Promise<unknown>'.
+apps/api/test/requests/vacation-commit-http.test.ts(202,31): error TS2339: Property 'query' does not exist on type '(uow: PgUnitOfWork) => Promise<unknown>'.
+apps/api/test/requests/vacation-commit-http.test.ts(253,31): error TS2339: Property 'query' does not exist on type '(uow: PgUnitOfWork) => Promise<unknown>'.
+apps/api/test/requests/vacation-commit-http.test.ts(403,14): error TS2339: Property 'query' does not exist on type '(uow: PgUnitOfWork) => Promise<unknown>'.
+apps/api/test/requests/vacation-commit-http.test.ts(426,47): error TS2339: Property 'query' does not exist on type '(uow: PgUnitOfWork) => Promise<unknown>'.
+apps/api/test/requests/vacation-commit-http.test.ts(448,30): error TS2339: Property 'query' does not exist on type '(uow: PgUnitOfWork) => Promise<unknown>'.
+apps/api/test/requests/vacation-commit-http.test.ts(692,18): error TS2339: Property 'query' does not exist on type '(uow: PgUnitOfWork) => Promise<unknown>'.
+[ELIFECYCLE] Command failed with exit code 2.
+$ tsc -b --force
+
+[1m=== unit — unit tests (vitest) ===[0m
+
+ RUN  v3.2.4 /tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004
+
+[core] INFO: Failed to read crontab file '/tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-c3ef5627ad2cbb1131)] INFO: Completed task 1 (outbox.dispatch, 27.95ms) with success
+[worker(worker-c3ef5627ad2cbb1131)] INFO: Completed task 2 (outbox.dispatch, 14.28ms) with success
+[worker(worker-c3ef5627ad2cbb1131)] INFO: Completed task 3 (outbox.dispatch, 11.13ms) with success
+[worker(worker-c3ef5627ad2cbb1131)] INFO: Completed task 4 (outbox.dispatch, 11.08ms) with success
+[worker(worker-c3ef5627ad2cbb1131)] INFO: Completed task 5 (outbox.dispatch, 15.08ms) with success
+[worker(worker-c3ef5627ad2cbb1131)] INFO: Completed task 6 (outbox.dispatch, 14.98ms) with success
+[worker(worker-c3ef5627ad2cbb1131)] INFO: Completed task 7 (outbox.dispatch, 15.07ms) with success
+[worker(worker-c3ef5627ad2cbb1131)] INFO: Completed task 8 (outbox.dispatch, 12.06ms) with success
+[worker(worker-c3ef5627ad2cbb1131)] INFO: Completed task 9 (outbox.dispatch, 12.84ms) with success
+[worker(worker-c3ef5627ad2cbb1131)] INFO: Completed task 10 (outbox.dispatch, 11.41ms) with success
+[worker(worker-c3ef5627ad2cbb1131)] INFO: Completed task 11 (outbox.dispatch, 9.82ms) with success
+stdout | test/authz/named-cases.test.ts > SPEC-06 §8.2 coverage ledger > prints the ledger, so the evidence bundle can quote it verbatim
+      · A-01: here — explicit deny + role allow
+      · A-02: here — explicit allow + unentitled module
+      · A-03: here — two-level dependency chain
+      · A-04: here — suspended membership + valid grant
+      · A-05: here (two instants) and apps/api/test/authz/http-authorization.test.ts (mid-session)
+      · A-06: DEFERRED — no WebSocket surface exists (SPEC-01 §5 / SPEC-02 milestone)
+      · A-07: DEFERRED (partial) — the job surface re-authorizes, but on OPUS-M1-001's role allow-list; apps/api/src/jobs/** is OPUS-M1-003's file scope. See EV-M1-AUTHZ §5 escalation 1
+      · A-08: DEFERRED — no report or artifact surface exists (SPEC-09 milestone)
+      · A-09: apps/api/test/authz/http-authorization.test.ts — disable, deny, re-enable, data intact
+      · A-10: here — PROXY_GRANTOR_DENIED
+      · A-11: here — credential surface, and the intersection rule
+      · A-12: apps/api/test/authz/schema.test.ts — the EXCLUDE constraint rejects the overlap
+      · A-13: DEFERRED — nothing caches an authorization decision in this milestone (see EV-M1-AUTHZ §5)
+      · A-14: apps/api/test/http/route-declarations.test.ts — `routeActionProblems` over the registered table
+      · A-15: packages/domain/test/authz/cross-product.test.ts — allow/deny pair per capability
+      · A-16: here — overlapping and duplicate capability keys
+      · A-17: here — organization role satisfies an organization-scoped action
+      · A-18: here — P-9: a group role never satisfies an organization-scoped action
+      · A-19: here — P-8: an organization role never reaches into a group
+      · A-20: here — organization membership suspended / expired / roleless
+      · A-21: DEFERRED — picklist fan-out does not exist (SPEC-02 milestone)
+      · A-22: DEFERRED — picklist fan-out does not exist (SPEC-02 milestone)
+      · A-23: DEFERRED — picklist fan-out does not exist (SPEC-02 milestone)
+      · 7 of 23 deferred, each with a named reason
+
+ ✓  domain  test/authz/named-cases.test.ts (54 tests) 24ms
+ ✓  domain  test/rules/hard-rule-check.test.ts (40 tests) 17ms
+ ✓  domain  test/rules/ruled-kinds.test.ts (48 tests) 19ms
+ ✓  domain  test/ports/result-reproducibility.test.ts (45 tests) 16ms
+ ✓  domain  test/requests/transitions.test.ts (24 tests) 63ms
+ ✓  domain  test/rules/e2-objective-and-quality.test.ts (32 tests) 27ms
+ ✓  domain  test/context-verification.test.ts (44 tests) 19ms
+ ✓  domain  test/requests/vacation-selection.test.ts (26 tests) 20ms
+ ✓  domain  test/rules/registry-and-bounds.test.ts (15 tests) 23ms
+ ✓  domain  test/requests/deadlines.test.ts (25 tests) 17ms
+ ✓  domain  test/eligibility/verdict.test.ts (25 tests) 9ms
+ ✓  domain  test/requests/solver-projection.test.ts (14 tests) 13ms
+ ✓  domain  test/profiles/in-force.test.ts (36 tests) 13ms
+ ✓  domain  test/calendar/calendar-date.test.ts (45 tests) 506ms
+   ✓ epoch arithmetic > round-trips every date across four centuries of month boundaries  491ms
+ ✓  domain  test/catalogue/rules.test.ts (22 tests) 14ms
+ ✓  domain  test/rules/ast-validate.test.ts (15 tests) 21ms
+      · S-01 verbatim — whichever row the database returned last
+          caught by: instant of change — the exact start instant belongs to the NEW row
+      · S-01 tidied up — the first row
+          caught by: instant of change — one millisecond earlier still belongs to the OLD row
+      · the latest-starting row — `ORDER BY effective_from DESC LIMIT 1`
+          caught by: instant of change — the exact start instant belongs to the NEW row
+      · the open-ended row — "the one with no end date is the current one"
+          caught by: instant of change — the exact start instant belongs to the NEW row
+      · closed upper bound — `[from, to]` instead of `[from, to)`
+          caught by: future-dated row present — and it governs once its instant arrives
+ ✓  domain  test/profiles/s01-defective-loader.test.ts (8 tests) 11ms
+ ✓  gates  test/secret-scan.test.ts (22 tests) 13ms
+ ✓  contracts  test/schedule/calendar-date.test.ts (31 tests) 9ms
+ ✓  gates  test/network-assertion-guard.test.ts (26 tests) 11ms
+ ✓  gates  test/request-budget.test.ts (8 tests) 6ms
+ ✓  gates  test/invariant-id-uniqueness.test.ts (7 tests) 25ms
+ ✓  gates  test/migration-rls-check.test.ts (15 tests) 12ms
+ ✓  domain  test/ports/provider-boundary.test.ts (5 tests) 5ms
+ ✓  domain  test/rules/compile.test.ts (7 tests) 11ms
+ ✓  gates  test/route-policy-check.test.ts (6 tests) 6ms
+ ✓  contracts  test/health.test.ts (4 tests) 9ms
+ ✓  domain  test/time/zoned-time.test.ts (47 tests) 7388ms
+   ✓ overnight shifts and the DST-day durations > R-B4a: NO (start, end) pair in any gap zone resolves to a non-positive interval  7296ms
+ ✓  domain  test/layering.test.ts (2 tests) 9ms
+ ✓  web  test/context-declaration.test.ts (10 tests) 22ms
+ ✓  web  test/build-vocabulary.test.ts (14 tests) 13ms
+ ✓  web  test/eligibility-offer.test.ts (11 tests) 7ms
+ ✓  web  test/node-editors.test.ts (64 tests) 20ms
+ ✓  web  test/design-tokens.test.ts (7 tests) 24ms
+ ✓  web  test/client.test.ts (5 tests) 10ms
+[ELIFECYCLE] Command failed.
+$ node scripts/gates/vitest-must-run.mjs
+VITEST-MUST-RUN-REPORT-DIR: /tmp/sp-vitest-must-run-0ZgdCE
+
+[1m=== import-boundary — import boundary (dependency-cruiser) ===[0m
+[ELIFECYCLE] Command failed.
+
+✔ no dependency violations found (283 modules, 796 dependencies cruised)
+
+$ depcruise --config .dependency-cruiser.cjs packages apps
+
+[1m=== route-policy — route-without-policy (I-02) ===[0m
+PASS  route-policy-check (I-02) — 133 registered route(s)
+$ node scripts/gates/route-policy-check.mjs
+
+[1m=== migration-rls — migration + RLS pairing (I-15) ===[0m
+PASS  migration-rls-pairing (I-15) — 27 migration file(s) in apps/api/migrations
+$ node scripts/gates/migration-rls-check.mjs
+
+[1m=== invariant-ids — invariant-ID uniqueness (CAR-023) ===[0m
+PASS  invariant-id-uniqueness (CAR-023) — 64 document(s), 22 invariant definition(s), 22 distinct ID(s) referenced
+$ node scripts/gates/invariant-id-uniqueness.mjs
+
+[1m=== rule-node-mapping — rule-node → compiler-mapping closure (SPEC-04 §3.2) ===[0m
+PASS  rule-node → compiler-mapping closure — 30 declared node(s) in packages/domain/src/rules/ast.ts, 30 compiler mapping(s) in packages/domain/src/rules/compile.ts
+$ node scripts/gates/rule-node-mapping-check.mjs
+
+[1m=== rule-kind-registry — rule-kind registry is generated (doc 34 §4-D) ===[0m
+PASS  rule-kind registry is generated (doc 34 §4-D) — 30 unique kind(s), 22 evaluated / 8 not-evaluable, 0 one ruling away, artifact packages/domain/src/rules/rule-kind-registry.generated.md
+$ tsc -b packages/domain && node scripts/gates/rule-kind-registry-check.mjs
+
+[1m=== provider-boundary — provider outside unit of work (SPEC-12 U-07) ===[0m
+PASS  provider outside unit of work (SPEC-12 U-07) — 168 module(s) under apps/api/src, apps/api/test/support, 2 declared @provider-port module(s)
+$ node scripts/gates/provider-boundary-check.mjs
+
+[1m=== solver-kind-parity — solver/checker HARD-kind parity (doc 35 §6d) ===[0m
+PASS  solver/checker HARD-kind parity (§6d) — 22 HARD kind(s) in solver/schedulepoint_solver/model.py, 22 in packages/domain/src/rules/hard-rule-check.ts
+$ node scripts/gates/solver-kind-parity-check.mjs
+
+[1m=== secret-scan — secret scan ===[0m
+PASS  secret-scan — 3613 file(s) under /tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004, 11 detectors
+$ node scripts/gates/secret-scan.mjs
+
+[1m=== raw-nul — raw U+0000 scan (FAD-45(1)) ===[0m
+PASS  raw-nul-scan (FAD-45(1)) — 1420 text file(s) scanned, 273 binary file(s) skipped by extension AND magic bytes, 0 known violation(s) held at their pinned counts
+$ node scripts/gates/raw-nul-scan.mjs
+
+[1m=== build — production build (vite build) ===[0m
+vite v7.1.7 building for production...
+transforming...
+✓ 253 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.40 kB │ gzip:   0.27 kB
+dist/assets/index--70pYkb4.css   14.56 kB │ gzip:   3.92 kB
+dist/assets/index-BeriEvym.js   637.97 kB │ gzip: 167.61 kB
+✓ built in 3.70s
+$ node scripts/run-in-workspace.mjs apps/web vite build
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+
+[1m=== network-guard — network-assertion guard (SP-HR-1) ===[0m
+      vendor string (bundle only): www.w3.org — XML/SVG/MathML namespace identifiers emitted by react-dom (createElementNS). Namespace URIs are identifiers, never fetched.
+      vendor string (bundle only): reactjs.org — react-dom production error decoder link, embedded as message text in invariant errors.
+      vendor string (bundle only): tanstack.com — @tanstack/react-router migration-guidance link, embedded as message text in a development warning.
+      vendor string (bundle only): tailwindcss.com — Attribution comment in the Tailwind preflight stylesheet. A CSS comment issues no request.
+      vendor string (bundle only): localhost — @tanstack/react-router uses 'http://localhost' as an inert base when parsing relative paths with the URL constructor.
+PASS  network-assertion-guard (SP-HR-1) — 57 source file(s), 3 built file(s); requestHosts allowlist: 0 (must be 0)
+$ node scripts/gates/network-assertion-guard.mjs
+
+[1m=== axe — axe-core via Playwright (CAP-066) ===[0m
+
+Running 474 tests using 1 worker
+
+  ✓    1 [desktop] › e2e/authn.spec.ts:78:5 › authentication surfaces › sign in: renders, and axe finds nothing (1.6s)
+  ✓    2 [desktop] › e2e/authn.spec.ts:78:5 › authentication surfaces › MFA challenge: renders, and axe finds nothing (937ms)
+  ✓    3 [desktop] › e2e/authn.spec.ts:78:5 › authentication surfaces › MFA enrolment: renders, and axe finds nothing (684ms)
+  ✓    4 [desktop] › e2e/authn.spec.ts:78:5 › authentication surfaces › activation: renders, and axe finds nothing (810ms)
+  ✓    5 [desktop] › e2e/authn.spec.ts:78:5 › authentication surfaces › password reset request: renders, and axe finds nothing (750ms)
+  ✓    6 [desktop] › e2e/authn.spec.ts:78:5 › authentication surfaces › password reset completion: renders, and axe finds nothing (775ms)
+  ✓    7 [desktop] › e2e/authn.spec.ts:95:3 › authentication surfaces › I-13: filling every field on a form writes NOTHING (1.7s)
+  ✓    8 [desktop] › e2e/authn.spec.ts:122:3 › authentication surfaces › I-10: one submit produces exactly one request (1.3s)
+  ✓    9 [desktop] › e2e/authn.spec.ts:143:3 › authentication surfaces › the failure state is announced, not swallowed (791ms)
+  ✓   10 [desktop] › e2e/authn.spec.ts:158:3 › authentication surfaces › the validation summary appears once, takes focus, and links to the field (1.7s)
+  ✓   11 [desktop] › e2e/authn.spec.ts:186:3 › authentication surfaces › sign in is completable from the KEYBOARD alone (409ms)
+  ✓   12 [desktop] › e2e/authn.spec.ts:220:3 › authentication surfaces › activation is completable from the KEYBOARD alone (863ms)
+  ✓   13 [desktop] › e2e/builds.spec.ts:271:3 › the period build list › AC-01: the list renders, and the scope note states what a build is not (854ms)
+  ✓   14 [desktop] › e2e/builds.spec.ts:284:3 › the period build list › AC-02 (I-13): "New configuration" issues ZERO requests (1.9s)
+  ✓   15 [desktop] › e2e/builds.spec.ts:302:3 › the period build list › AC-03 (I-13): "Start a build" issues ZERO requests (1.3s)
+  ✓   16 [desktop] › e2e/builds.spec.ts:319:3 › the period build list › AC-04 (I-10): an accepted launch is ONE write and ONE re-read (1.3s)
+  ✓   17 [desktop] › e2e/builds.spec.ts:343:3 › the period build list › AC-05: D-4a is stated in the interface when a build is already in flight (989ms)
+  ✓   18 [desktop] › e2e/builds.spec.ts:362:3 › the period build list › AC-06: the empty state names what to do next (795ms)
+  ✓   19 [desktop] › e2e/builds.spec.ts:376:3 › the period build list › AC-07: a 403 renders "no permission" and never says why (837ms)
+  -   20 [desktop] › e2e/builds.spec.ts:392:3 › the period build list › AC-08: no page-level horizontal scroll at 320px
+  ✓   21 [desktop] › e2e/builds.spec.ts:413:3 › the sixteen states, in words › AC-09: `infeasible` and `failed` render DIFFERENT words (982ms)
+  ✓   22 [desktop] › e2e/builds.spec.ts:467:3 › the sixteen states, in words › AC-10: a timeout renders as a deadline, never as infeasible (803ms)
+  ✓   23 [desktop] › e2e/builds.spec.ts:495:3 › the sixteen states, in words › AC-11: a cancelled build says a scheduler cancelled it (713ms)
+  ✓   24 [desktop] › e2e/builds.spec.ts:518:3 › the sixteen states, in words › AC-12: a refused candidate says it can NEVER become a schedule (1.1s)
+  ✓   25 [desktop] › e2e/builds.spec.ts:571:3 › the sixteen states, in words › AC-13: `EXPLANATION_BUDGET_EXCEEDED` is rendered, not hidden (1.1s)
+  ✓   26 [desktop] › e2e/builds.spec.ts:626:3 › the sixteen states, in words › AC-14: readiness failures are itemised on the way back to configuration (821ms)
+  ✓   27 [desktop] › e2e/builds.spec.ts:655:3 › the sixteen states, in words › AC-15: a quality panel states that the bands are not established (963ms)
+  ✓   28 [desktop] › e2e/builds.spec.ts:704:3 › the sixteen states, in words › AC-16: the recovery states are visible on the timeline (977ms)
+  ✓   29 [desktop] › e2e/builds.spec.ts:766:3 › actions › AC-17 (I-13 discipline): opening the cancel confirmation issues ZERO requests (2.0s)
+  ✓   30 [desktop] › e2e/builds.spec.ts:792:3 › actions › AC-18: `BUILD_STATE_MOVED` renders explicitly with one reload control (928ms)
+  ✓   31 [desktop] › e2e/builds.spec.ts:819:3 › actions › AC-19: `STALE_BUILD_SOURCE` renders explicitly and nothing was applied (1.1s)
+  ✓   32 [desktop] › e2e/builds.spec.ts:845:3 › actions › AC-20: a successful selection names the NEW draft and never claims a publication (1.0s)
+  ✓   33 [desktop] › e2e/builds.spec.ts:870:3 › actions › AC-21: exhausted retries surface with the LAST termination reason (843ms)
+  ✓   34 [desktop] › e2e/builds.spec.ts:897:3 › actions › AC-25 (R-2): a failed build offers a retry, and it is a NEW build (1.9s)
+  ✓   35 [desktop] › e2e/builds.spec.ts:943:3 › actions › AC-26 (R-2): an exhausted chain shows the control DISABLED, not hidden (856ms)
+  ✓   36 [desktop] › e2e/builds.spec.ts:972:3 › actions › AC-27 (R-2): an infeasible build may also be retried (854ms)
+  ✓   37 [desktop] › e2e/builds.spec.ts:999:5 › actions › AC-28 (D-2): an exhausted infeasible chain states its reason (895ms)
+  ✓   38 [desktop] › e2e/builds.spec.ts:999:5 › actions › AC-28 (D-2): an exhausted cancelled chain states its reason (923ms)
+  ✓   39 [desktop] › e2e/builds.spec.ts:1028:3 › actions › AC-22: a 404 renders "not found", not "no permission" (842ms)
+  ✓   40 [desktop] › e2e/builds.spec.ts:1045:3 › candidate comparison (D-4c) › AC-23: differences are shown and nothing is ranked (935ms)
+  ✓   41 [desktop] › e2e/builds.spec.ts:1087:3 › candidate comparison (D-4c) › AC-24: fewer than two candidates is refused with words, not an empty table (744ms)
+  ✓   42 [desktop] › e2e/builds.spec.ts:1110:3 › E2 quality, conflicts, explanations and reproducibility › AC-29: the quality panel reports fairness with its basis, and the unmeasurable rates as unmeasured (977ms)
+  ✓   43 [desktop] › e2e/builds.spec.ts:1160:3 › E2 quality, conflicts, explanations and reproducibility › AC-30: a FEASIBLE result is never described as optimal (1.0s)
+  ✓   44 [desktop] › e2e/builds.spec.ts:1209:3 › E2 quality, conflicts, explanations and reproducibility › AC-31b: a wall-clock-truncated run is NOT called reproducible, and the reason is named (1.7s)
+  ✓   45 [desktop] › e2e/builds.spec.ts:1296:3 › E2 quality, conflicts, explanations and reproducibility › AC-31: PO-DEC-13 classes are grouped by severity, and the fairness class is advisory (1.0s)
+  ✓   46 [desktop] › e2e/builds.spec.ts:1351:3 › E2 quality, conflicts, explanations and reproducibility › AC-32: EXPLAINED_MINIMAL states what was narrowed, and the degraded state states what was not (1.0s)
+  ✓   47 [desktop] › e2e/builds.spec.ts:1408:3 › E2 quality, conflicts, explanations and reproducibility › AC-33: the deterministic toggle discloses its measured cost, and costs no request (2.0s)
+  ✓   48 [desktop] › e2e/builds.spec.ts:1439:3 › E2 quality, conflicts, explanations and reproducibility › AC-34: the configuration list says what best-effort reproducibility does not give (856ms)
+  ✓   49 [desktop] › e2e/builds.spec.ts:1450:3 › E2 quality, conflicts, explanations and reproducibility › AC-35: a cross-snapshot comparison is REFUSED in words, not shown as an empty table (935ms)
+  ✓   50 [desktop] › e2e/builds.spec.ts:1514:3 › E2 quality, conflicts, explanations and reproducibility › AC-36: a weights-differ comparison is refused with its own reason (957ms)
+  ✓   51 [desktop] › e2e/catalogue.spec.ts:176:3 › catalogue — shift types › LOADING: the list announces itself while it is being fetched (783ms)
+  ✓   52 [desktop] › e2e/catalogue.spec.ts:200:3 › catalogue — shift types › EMPTY: the empty state says what to do next, not "no data" (773ms)
+  ✓   53 [desktop] › e2e/catalogue.spec.ts:212:3 › catalogue — shift types › POPULATED: all six palettes render, and colour is never the only carrier (986ms)
+  ✓   54 [desktop] › e2e/catalogue.spec.ts:241:3 › catalogue — shift types › PERMISSION DENIED: a 403 says so, and does not say why (807ms)
+  ✓   55 [desktop] › e2e/catalogue.spec.ts:260:3 › catalogue — shift types › ERROR: a 404 renders "not found", never "no access" (775ms)
+  ✓   56 [desktop] › e2e/catalogue.spec.ts:278:3 › catalogue — shift types › I-13: opening the New form persists NOTHING — zero requests (1.8s)
+  ✓   57 [desktop] › e2e/catalogue.spec.ts:317:3 › catalogue — shift types › AC-11: an empty form is refused by the CLIENT — focus to the summary, zero requests (1.7s)
+  ✓   58 [desktop] › e2e/catalogue.spec.ts:359:3 › catalogue — shift types › I-10: a SERVER 422 issues exactly one request and renders the same summary (2.0s)
+  ✓   59 [desktop] › e2e/catalogue.spec.ts:413:3 › catalogue — shift types › AC-02: the form is completable by keyboard alone (2.1s)
+  ✓   60 [desktop] › e2e/catalogue.spec.ts:472:3 › catalogue — shift types › AC-08 and AC-09: 320px reflow, and every target is at least 44px (1.5s)
+  ✓   61 [desktop] › e2e/catalogue.spec.ts:538:3 › catalogue — the other surfaces › shift groups: populated and empty, both accessible (1.1s)
+  ✓   62 [desktop] › e2e/catalogue.spec.ts:586:3 › catalogue — the other surfaces › staff groups: empty state and form (967ms)
+  ✓   63 [desktop] › e2e/catalogue.spec.ts:598:3 › catalogue — the other surfaces › valid combinations: the ceiling is explained before the user hits it (1.1s)
+  ✓   64 [desktop] › e2e/catalogue.spec.ts:630:3 › catalogue — the other surfaces › group settings: the irreversible control warns BEFORE the click (985ms)
+  ✓   65 [desktop] › e2e/catalogue.spec.ts:661:3 › catalogue — the other surfaces › group settings: a 403 on one panel does not hide the other (784ms)
+  -   66 [desktop] › e2e/critical-path.spec.ts:297:3 › the critical path, end to end, against the real stack › STEP 0 the join, then the workflow: period -> demand -> rules -> build
+  ✓   67 [desktop] › e2e/my-schedule.spec.ts:263:3 › my schedule — states › LOADING: the surface announces itself while it is being fetched (849ms)
+  ✓   68 [desktop] › e2e/my-schedule.spec.ts:284:3 › my schedule — states › EMPTY: a window with no shifts says so, in words (855ms)
+  ✓   69 [desktop] › e2e/my-schedule.spec.ts:303:3 › my schedule — states › ERROR: a 500 renders the fixed message and a reference, and nothing else (819ms)
+  ✓   70 [desktop] › e2e/my-schedule.spec.ts:321:3 › my schedule — states › DENIED: a 403 says "no permission" and never says why (893ms)
+  ✓   71 [desktop] › e2e/my-schedule.spec.ts:341:3 › my schedule — states › NOT FOUND: a 404 is rendered as not found, not as a permission problem (831ms)
+  ✓   72 [desktop] › e2e/my-schedule.spec.ts:366:3 › my schedule — calendar and list › the calendar is an ARIA grid with weekday headers and labelled days (1.4s)
+  ✓   73 [desktop] › e2e/my-schedule.spec.ts:390:3 › my schedule — calendar and list › the list is a real table with row and column headers (968ms)
+  ✓   74 [desktop] › e2e/my-schedule.spec.ts:406:3 › my schedule — calendar and list › the calendar and the alternative render the SAME entries (334ms)
+  -   75 [desktop] › e2e/my-schedule.spec.ts:427:3 › my schedule — calendar and list › below 640px the alternative is a LIST carrying the same entries
+  ✓   76 [desktop] › e2e/my-schedule.spec.ts:447:3 › an overnight shift › appears on BOTH days, and the two days say different things (976ms)
+  ✓   77 [desktop] › e2e/my-schedule.spec.ts:469:3 › an overnight shift › the calendar marks the two days differently too (344ms)
+  ✓   78 [desktop] › e2e/my-schedule.spec.ts:484:3 › keyboard and status › arrow keys move between days and Enter opens the daily sheet (354ms)
+  ✓   79 [desktop] › e2e/my-schedule.spec.ts:512:3 › keyboard and status › the status is a live region and names the zone (230ms)
+  ✓   80 [desktop] › e2e/my-schedule.spec.ts:525:3 › keyboard and status › the page states that drafts are not shown (183ms)
+  ✓   81 [desktop] › e2e/my-schedule.spec.ts:537:3 › requests per interaction › switching between the calendar and the list issues ZERO requests (1.3s)
+  ✓   82 [desktop] › e2e/my-schedule.spec.ts:561:3 › requests per interaction › moving the window issues exactly one request (1.3s)
+  ✓   83 [desktop] › e2e/my-schedule.spec.ts:583:3 › requests per interaction › opening a day from the calendar issues exactly one request (1.3s)
+  ✓   84 [desktop] › e2e/my-schedule.spec.ts:604:3 › requests per interaction › moving to the next day on the sheet issues exactly one request (1.3s)
+  ✓   85 [desktop] › e2e/my-schedule.spec.ts:629:3 › the daily assignment sheet › shows everyone working, including a shift that began yesterday (899ms)
+  ✓   86 [desktop] › e2e/my-schedule.spec.ts:646:3 › the daily assignment sheet › EMPTY: a date nobody is working says so (876ms)
+  ✓   87 [desktop] › e2e/my-schedule.spec.ts:660:3 › the daily assignment sheet › DENIED: a 403 is a permission state, not an empty sheet (862ms)
+  -   88 [desktop] › e2e/my-schedule.spec.ts:681:3 › AC-08 — 320px › my schedule reflows with no page-level horizontal scroll
+  -   89 [desktop] › e2e/my-schedule.spec.ts:697:3 › AC-08 — 320px › the daily sheet reflows too
+  ✓   90 [desktop] › e2e/publication.spec.ts:409:3 › publication review — states › LOADING: the review announces itself while it is being fetched (708ms)
+  ✓   91 [desktop] › e2e/publication.spec.ts:431:3 › publication review — states › ERROR: a 500 renders the fixed message verbatim, never expanded (843ms)
+  ✓   92 [desktop] › e2e/publication.spec.ts:447:3 › publication review — states › DENIAL: a 403 says "no permission"; a 404 says "not found" — different messages (906ms)
+  ✓   93 [desktop] › e2e/publication.spec.ts:472:3 › publication review — states › EMPTY: a period that has never been published says so, and is not an error (900ms)
+  ✓   94 [desktop] › e2e/publication.spec.ts:498:3 › I-13 — nothing is published before an explicit confirmation › opening the confirmation issues ZERO requests (2.6s)
+  ✓   95 [desktop] › e2e/publication.spec.ts:513:3 › I-13 — nothing is published before an explicit confirmation › filling the confirmation issues ZERO requests (1.3s)
+  ✓   96 [desktop] › e2e/publication.spec.ts:526:3 › I-13 — nothing is published before an explicit confirmation › the typed confirmation is demanded BEFORE any request is made (1.4s)
+  ✓   97 [desktop] › e2e/publication.spec.ts:573:3 › publish once › a DOUBLE-CLICK issues exactly one publication request (1.3s)
+  ✓   98 [desktop] › e2e/publication.spec.ts:620:3 › publish once › a RETRY carries the same idempotency key, and the replay is rendered honestly (1.4s)
+  ✓   99 [desktop] › e2e/publication.spec.ts:665:3 › publish once › BUDGET: an accepted publication is the write plus one server-authoritative re-read (1.4s)
+  ✓  100 [desktop] › e2e/publication.spec.ts:705:3 › publish once › BUDGET: a refused publication is ONE request and does not refetch (1.4s)
+  ✓  101 [desktop] › e2e/publication.spec.ts:742:3 › refusals the interface must render truthfully › CAS LOSER: another publication won the period — rendered, with one reload control (1.2s)
+  ✓  102 [desktop] › e2e/publication.spec.ts:780:3 › refusals the interface must render truthfully › STALE REVIEW: the draft changed while it was being read — rendered, never merged (1.3s)
+  ✓  103 [desktop] › e2e/publication.spec.ts:811:3 › refusals the interface must render truthfully › GRANT DENY STATE: without the publish grant the control is absent and the reason is written (1.0s)
+  ✓  104 [desktop] › e2e/publication.spec.ts:832:3 › refusals the interface must render truthfully › a version that IS current does not claim it would supersede itself (1.0s)
+  ✓  105 [desktop] › e2e/publication.spec.ts:868:3 › refusals the interface must render truthfully › BLOCKED: a breached HARD rule blocks publication and NAMES the rule (1.0s)
+  ✓  106 [desktop] › e2e/publication.spec.ts:914:3 › refusals the interface must render truthfully › BLOCKED: an open hard breach blocks publication and the control is not offered (1.0s)
+  ✓  107 [desktop] › e2e/publication.spec.ts:950:3 › the rendered difference is the served difference › every change in the response is rendered, one row each, and nothing else is (1.0s)
+  ✓  108 [desktop] › e2e/publication.spec.ts:981:3 › the rendered difference is the served difference › BUDGET: changing the comparison target re-reads BOTH the comparison and the affected staff (1.4s)
+  ✓  109 [desktop] › e2e/publication.spec.ts:1034:3 › the rendered difference is the served difference › the comparison page renders the same change set and the affected-staff read agrees (1.0s)
+  ✓  110 [desktop] › e2e/publication.spec.ts:1054:3 › version history › IMMUTABILITY: no edit affordance in any immutable row — and a draft row HAS one (1.0s)
+  ✓  111 [desktop] › e2e/publication.spec.ts:1081:3 › version history › FORWARD CORRECTION: cloning a published version writes nothing until an explicit confirm (2.3s)
+  ✓  112 [desktop] › e2e/publication.spec.ts:1124:3 › version history › REVERT: its own typed confirmation, refused before any request is made (2.9s)
+  ✓  113 [desktop] › e2e/publication.spec.ts:1176:3 › version history › a revert is not offered on the CURRENT version, only on superseded ones (293ms)
+  ✓  114 [desktop] › e2e/publication.spec.ts:1189:3 › published schedule › renders the current version read-only, with no control that writes (1.1s)
+  ✓  115 [desktop] › e2e/publication.spec.ts:1213:3 › published schedule › TRUNCATION: more history than fits says so, rather than looking complete (1.7s)
+  ✓  116 [desktop] › e2e/publication.spec.ts:1250:3 › published schedule › …and with everything on one page the truncation affordance is ABSENT (269ms)
+  ✓  117 [desktop] › e2e/publication.spec.ts:1259:3 › published schedule › DENIAL: without the audit-read grant the chain is a stated panel, not an error (938ms)
+  ✓  118 [desktop] › e2e/publication.spec.ts:1285:3 › keyboard and narrow viewport › KEYBOARD: review → confirm → publish, without a mouse (616ms)
+  ✓  119 [desktop] › e2e/publication.spec.ts:1320:3 › keyboard and narrow viewport › 320px: the review reflows with no page-level horizontal scroll (953ms)
+  ✓  120 [desktop] › e2e/publication.spec.ts:1335:3 › keyboard and narrow viewport › 320px: the history reflows as a list, with the same rows and the same affordance rule (1.0s)
+  ✓  121 [desktop] › e2e/publication.spec.ts:1359:3 › keyboard and narrow viewport › 320px: the published schedule reflows with no page-level horizontal scroll (1.0s)
+  ✓  122 [desktop] › e2e/rule-editors.spec.ts:307:3 › every rule node kind is authorable end to end › the fixture list covers the closed node set exactly (253ms)
+  ✓  123 [desktop] › e2e/rule-editors.spec.ts:330:3 › every rule node kind is authorable end to end › I-13/I-10: opening a rule for editing issues ZERO requests; saving issues two (2.5s)
+  ✓  124 [desktop] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › RequiredCount: author → list → edit round trip (600ms)
+  ✓  125 [desktop] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › MinCoverage: author → list → edit round trip (594ms)
+  ✓  126 [desktop] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › MaxCoverage: author → list → edit round trip (592ms)
+  ✓  127 [desktop] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › RequiresQualification: author → list → edit round trip (603ms)
+  ✓  128 [desktop] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › MemberOfStaffGroup: author → list → edit round trip (511ms)
+  ✓  129 [desktop] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › ValidGroupRestriction: author → list → edit round trip (619ms)
+  ✓  130 [desktop] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › PickPositionRestriction: author → list → edit round trip (593ms)
+  ✓  131 [desktop] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › MaxAssignmentsInWindow: author → list → edit round trip (621ms)
+  ✓  132 [desktop] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › WeekdayFteLimit: author → list → edit round trip (539ms)
+  ✓  133 [desktop] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › WorkPercentageTarget: author → list → edit round trip (605ms)
+  ✓  134 [desktop] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › MaxConsecutive: author → list → edit round trip (604ms)
+  ✓  135 [desktop] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › MinimumRestBetween: author → list → edit round trip (541ms)
+  ✓  136 [desktop] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › CallSpacing: author → list → edit round trip (640ms)
+  ✓  137 [desktop] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › NoAdjacent: author → list → edit round trip (442ms)
+  ✓  138 [desktop] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › ForbiddenSequence: author → list → edit round trip (559ms)
+  ✓  139 [desktop] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › PatternRule: author → list → edit round trip (837ms)
+  ✓  140 [desktop] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › AlternatingWeek: author → list → edit round trip (441ms)
+  ✓  141 [desktop] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › TemplateAdherence: author → list → edit round trip (570ms)
+  ✓  142 [desktop] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › LinkedShifts: author → list → edit round trip (654ms)
+  ✓  143 [desktop] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › ImpliesAssignment: author → list → edit round trip (578ms)
+  ✓  144 [desktop] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › MutuallyExclusive: author → list → edit round trip (572ms)
+  ✓  145 [desktop] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › RequestHonoured: author → list → edit round trip (585ms)
+  ✓  146 [desktop] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › ShiftPreference: author → list → edit round trip (507ms)
+  ✓  147 [desktop] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › AvoidDate: author → list → edit round trip (428ms)
+  ✓  148 [desktop] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › FairnessBalance: author → list → edit round trip (451ms)
+  ✓  149 [desktop] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › CreditDistribution: author → list → edit round trip (542ms)
+  ✓  150 [desktop] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › StaffOverLocumPriority: author → list → edit round trip (489ms)
+  ✓  151 [desktop] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › LocumRestriction: author → list → edit round trip (618ms)
+  ✓  152 [desktop] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › FixedAssignment: author → list → edit round trip (585ms)
+  ✓  153 [desktop] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › ProtectedRange: author → list → edit round trip (523ms)
+  ✓  154 [desktop] › e2e/rules.spec.ts:137:3 › rules — authoring › LOADING: the list announces itself while it is being fetched (857ms)
+  ✓  155 [desktop] › e2e/rules.spec.ts:159:3 › rules — authoring › EMPTY: the empty state says what is missing, not "no data" (805ms)
+  ✓  156 [desktop] › e2e/rules.spec.ts:170:3 › rules — authoring › POPULATED: the rules render as a real table (819ms)
+  ✓  157 [desktop] › e2e/rules.spec.ts:180:3 › rules — authoring › DENIED: a 403 says no permission and never says why (845ms)
+  ✓  158 [desktop] › e2e/rules.spec.ts:195:3 › rules — authoring › NOT FOUND: a 404 is a different message from a 403 (825ms)
+  ✓  159 [desktop] › e2e/rules.spec.ts:207:3 › rules — authoring › I-13: "New rule" persists nothing and issues ZERO requests (2.1s)
+  ✓  160 [desktop] › e2e/rules.spec.ts:229:3 › rules — authoring › the rule-type control offers ONLY the closed node set — no free-text escape hatch (243ms)
+  ✓  161 [desktop] › e2e/rules.spec.ts:248:3 › rules — authoring › I-10: Save issues exactly one request, and a SERVER 422 focuses the summary (2.2s)
+  ✓  162 [desktop] › e2e/rules.spec.ts:300:3 › rules — authoring › the CLIENT pre-check refuses an incomplete body without a request at all (282ms)
+  ✓  163 [desktop] › e2e/rules.spec.ts:325:3 › rules — authoring › I-10: a successful Save issues one write and one refetch (1.3s)
+  ✓  164 [desktop] › e2e/rules.spec.ts:352:3 › rules — authoring › AC-02: the whole form is reachable and submittable by keyboard alone (406ms)
+  -  165 [desktop] › e2e/rules.spec.ts:384:3 › rules — authoring › AC-08: no page-level horizontal scroll at the narrow viewport
+  ✓  166 [desktop] › e2e/schedule.spec.ts:351:3 › periods — states › LOADING: the list announces itself while it is being fetched (751ms)
+  ✓  167 [desktop] › e2e/schedule.spec.ts:373:3 › periods — states › EMPTY: the empty state says what is missing, not "no data" (834ms)
+  ✓  168 [desktop] › e2e/schedule.spec.ts:385:3 › periods — states › DENIED: a 403 says no permission and never says why (818ms)
+  ✓  169 [desktop] › e2e/schedule.spec.ts:401:3 › periods — states › NOT FOUND: a 404 is a different message from a 403 (805ms)
+  ✓  170 [desktop] › e2e/schedule.spec.ts:414:3 › periods — states › POPULATED: the period list renders, and manual authoring is labelled as override (695ms)
+  ✓  171 [desktop] › e2e/schedule.spec.ts:431:3 › periods — states › I-13: "New period" persists nothing and issues ZERO requests (1.8s)
+  ✓  172 [desktop] › e2e/schedule.spec.ts:453:3 › periods — states › I-13: filling every field of the period form still issues zero requests (1.2s)
+  ✓  173 [desktop] › e2e/schedule.spec.ts:473:3 › periods — states › a SERVER 422 focuses the validation summary and links to a real field (2.1s)
+  ✓  174 [desktop] › e2e/schedule.spec.ts:519:3 › periods — states › I-10: creating a draft version issues one write and one re-read (1.4s)
+  ✓  175 [desktop] › e2e/schedule.spec.ts:550:3 › periods — states › I-10: saving a requirement issues one write and one re-read (1.4s)
+  ✓  176 [desktop] › e2e/schedule.spec.ts:596:3 › periods — states › a stale requirement write renders an explicit refusal, never a silent merge (1.2s)
+  ✓  177 [desktop] › e2e/schedule.spec.ts:643:3 › the grid and its accessible alternative › POPULATED: the grid renders with valid virtualized ARIA (1.6s)
+  ✓  178 [desktop] › e2e/schedule.spec.ts:664:3 › the grid and its accessible alternative › the grid and the table render the SAME cells, compared byte for byte (537ms)
+  ✓  179 [desktop] › e2e/schedule.spec.ts:719:3 › the grid and its accessible alternative › the table alternative is axe-clean and is a real table (5.1s)
+  -  180 [desktop] › e2e/schedule.spec.ts:737:3 › the grid and its accessible alternative › below 640px the alternative is a LIST carrying the same cells
+  ✓  181 [desktop] › e2e/schedule.spec.ts:753:3 › the grid and its accessible alternative › validation display is recorded conflicts and counting — and says so (295ms)
+  ✓  182 [desktop] › e2e/schedule.spec.ts:769:3 › the grid and its accessible alternative › AC-02: arrow keys move between cells and Enter opens one (1.6s)
+  ✓  183 [desktop] › e2e/schedule.spec.ts:791:3 › the grid and its accessible alternative › keyboard navigation crosses the virtualization window boundary (317ms)
+  ✓  184 [desktop] › e2e/schedule.spec.ts:805:3 › the grid and its accessible alternative › I-18: a published version is read-only, with no editing affordance (5.1s)
+  ✓  185 [desktop] › e2e/schedule.spec.ts:836:3 › the grid and its accessible alternative › DENIED: the grid surface renders no-permission and never says why (751ms)
+  -  186 [desktop] › e2e/schedule.spec.ts:856:3 › the grid and its accessible alternative › AC-08: no page-level horizontal scroll at the narrow viewport
+  -  187 [desktop] › e2e/schedule.spec.ts:873:3 › the grid and its accessible alternative › AC-08: the periods surface reflows at 320px too
+  ✓  188 [desktop] › e2e/schedule.spec.ts:900:3 › the cell editor › I-13: opening a cell issues ZERO requests and shows provenance (6.1s)
+  ✓  189 [desktop] › e2e/schedule.spec.ts:926:3 › the cell editor › I-10: opening the assign picker issues exactly one request (6.5s)
+  ✓  190 [desktop] › e2e/schedule.spec.ts:944:3 › the cell editor › I-10: a successful Save issues one write and one re-read (1.5s)
+  ✓  191 [desktop] › e2e/schedule.spec.ts:975:3 › the cell editor › PO-DEC-18: a stale cell edit is refused explicitly, with a refetch control (5.8s)
+  ✓  192 [desktop] › e2e/schedule.spec.ts:1007:3 › the cell editor › the eligibility ABSENT arm says it is about permission, not about the person (6.0s)
+  ✓  193 [desktop] › e2e/schedule.spec.ts:1043:3 › the cell editor › the NOBODY-ELIGIBLE arm is a different message from the absent one (5.6s)
+  ✓  194 [desktop] › e2e/schedule.spec.ts:1075:3 › the cell editor › B-4: a KNOWN-ineligible choice blocks Save until a reason is given (5.4s)
+  ✓  195 [desktop] › e2e/schedule.spec.ts:1112:3 › the cell editor › B-4: an ABSENT-eligibility choice demands no reason at all (364ms)
+  ✓  196 [desktop] › e2e/schedule.spec.ts:1137:3 › the cell editor › I-10: pinning issues one write and one re-read (1.5s)
+  ✓  197 [desktop] › e2e/schedule.spec.ts:1165:3 › the cell editor › I-10: removing issues one write and one re-read (1.5s)
+  ✓  198 [desktop] › e2e/schedule.spec.ts:1200:3 › the cell editor › the assign picker offers only ACTIVE locations, and "No location" is a real answer (5.2s)
+  ✓  199 [desktop] › e2e/schedule.spec.ts:1223:3 › the cell editor › the chosen location travels in the save request (406ms)
+  ✓  200 [desktop] › e2e/schedule.spec.ts:1249:3 › the cell editor › an ARCHIVED location on an existing assignment is marked, in WORDS (5.1s)
+  ✓  201 [desktop] › e2e/schedule.spec.ts:1288:3 › the cell editor › a STALE timezone basis is announced, and names the zone to rebuild against (1.7s)
+  ✓  202 [desktop] › e2e/schedule.spec.ts:1308:3 › the cell editor › CONTROL: a FRESH basis shows no staleness alert at all (160ms)
+  ✓  203 [desktop] › e2e/schedule.spec.ts:1316:3 › the cell editor › the grid names WHERE its zone came from, so a fallback is never disguised (460ms)
+  ✓  204 [desktop] › e2e/schedule.spec.ts:1330:3 › the cell editor › the candidate read failing renders an error, not an empty picker (375ms)
+  ✓  205 [desktop] › e2e/settings.spec.ts:171:3 › settings — the group settings page › LOADING: each panel announces itself while the read is in flight (932ms)
+  ✓  206 [desktop] › e2e/settings.spec.ts:193:3 › settings — the group settings page › POPULATED: all three panels render, and the two stored-only ones say so (858ms)
+  ✓  207 [desktop] › e2e/settings.spec.ts:222:3 › settings — the group settings page › the published-schedule warning is on the page BEFORE the administrator acts (858ms)
+  ✓  208 [desktop] › e2e/settings.spec.ts:244:3 › settings — the group settings page › with no published schedules there is no warning and no acknowledgement (914ms)
+  ✓  209 [desktop] › e2e/settings.spec.ts:258:3 › settings — the group settings page › PERMISSION DENIED: a 403 says so, and does not say why (884ms)
+  ✓  210 [desktop] › e2e/settings.spec.ts:275:3 › settings — the group settings page › NOT FOUND: a 404 renders as not found, never as a permission problem (972ms)
+  ✓  211 [desktop] › e2e/settings.spec.ts:291:3 › settings — the group settings page › I-10: an accepted timezone save is one write and one authoritative re-read (1.8s)
+  ✓  212 [desktop] › e2e/settings.spec.ts:328:3 › settings — the group settings page › AC-11: a refused save focuses the summary and issues exactly one request (2.6s)
+  ✓  213 [desktop] › e2e/settings.spec.ts:383:3 › settings — the group settings page › AC-02: the timezone panel is completable by keyboard alone (256ms)
+  ✓  214 [desktop] › e2e/settings.spec.ts:419:3 › settings — locations › EMPTY: the empty state says what a location IS, not "no data" (777ms)
+  ✓  215 [desktop] › e2e/settings.spec.ts:431:3 › settings — locations › POPULATED: the table renders, archived rows are marked in WORDS (790ms)
+  ✓  216 [desktop] › e2e/settings.spec.ts:456:3 › settings — locations › PO-DEC-01: there is no site picker, no site list, and no site link anywhere (253ms)
+  ✓  217 [desktop] › e2e/settings.spec.ts:479:3 › settings — locations › I-13: opening the location form issues ZERO requests (1.8s)
+  ✓  218 [desktop] › e2e/settings.spec.ts:516:3 › settings — locations › a location saves, and the client re-reads what the server says the list is (1.8s)
+  ✓  219 [desktop] › e2e/settings.spec.ts:549:3 › settings — locations › AC-08 / AC-09: no page-level horizontal scroll at 320px, and every target is ≥44×44 (933ms)
+  ✓  220 [desktop] › e2e/settings.spec.ts:611:3 › settings — locations › PERMISSION DENIED on locations renders the denial state (807ms)
+  ✓  221 [desktop] › e2e/shell.spec.ts:22:3 › application shell › renders the shell structure (171ms)
+  ✓  222 [desktop] › e2e/shell.spec.ts:40:3 › application shell › has no axe-core violations (589ms)
+  ✓  223 [desktop] › e2e/shell.spec.ts:61:3 › application shell › keeps the shell within its request budget (2.7s)
+  ✓  224 [desktop] › e2e/vacation.spec.ts:254:3 › vacation — the round › LOADING: the round announces itself while the read is in flight (739ms)
+  ✓  225 [desktop] › e2e/vacation.spec.ts:276:3 › vacation — the round › POPULATED: R-15 — the status is DERIVED from the ROOT, not read off the selection (754ms)
+  ✓  226 [desktop] › e2e/vacation.spec.ts:301:3 › vacation — the round › R-15 DISCRIMINATES: a DIVERGENT pair is read from the ROOT, never from the selection (820ms)
+  ✓  227 [desktop] › e2e/vacation.spec.ts:325:3 › vacation — the round › EMPTY: a round with no selections says so in words, not "no data" (774ms)
+  ✓  228 [desktop] › e2e/vacation.spec.ts:337:3 › vacation — the round › a shut round offers no selection control at all (960ms)
+  ✓  229 [desktop] › e2e/vacation.spec.ts:348:3 › vacation — the round › V-30: an open round shows no allowance and does NOT read that as exhausted (834ms)
+  ✓  230 [desktop] › e2e/vacation.spec.ts:367:3 › vacation — the round › the variance indicator WARNS and blocks nothing (doc 09 §2.1) (917ms)
+  ✓  231 [desktop] › e2e/vacation.spec.ts:385:3 › vacation — the round › PERMISSION DENIED: a 403 says so, and does not say why (790ms)
+  ✓  232 [desktop] › e2e/vacation.spec.ts:396:3 › vacation — the round › NOT FOUND: a 404 renders "not found", never "no permission" (767ms)
+  ✓  233 [desktop] › e2e/vacation.spec.ts:407:3 › vacation — the round › no page-level horizontal scroll at 320px (257ms)
+  ✓  234 [desktop] › e2e/vacation.spec.ts:420:3 › vacation — I-13 and the request budget › I-13: "Select a week…" opens a form and issues ZERO requests (2.5s)
+  ✓  235 [desktop] › e2e/vacation.spec.ts:445:3 › vacation — I-13 and the request budget › I-13: choosing a week in the open form issues ZERO requests (1.7s)
+  ✓  236 [desktop] › e2e/vacation.spec.ts:467:3 › vacation — I-13 and the request budget › I-10: an accepted Save is one write and ONE server-authoritative re-read (1.8s)
+  ✓  237 [desktop] › e2e/vacation.spec.ts:519:3 › vacation — I-13 and the request budget › I-10: a refused Save is one request and re-reads NOTHING (2.5s)
+  ✓  238 [mobile] › e2e/authn.spec.ts:78:5 › authentication surfaces › sign in: renders, and axe finds nothing (759ms)
+  ✓  239 [mobile] › e2e/authn.spec.ts:78:5 › authentication surfaces › MFA challenge: renders, and axe finds nothing (725ms)
+  ✓  240 [mobile] › e2e/authn.spec.ts:78:5 › authentication surfaces › MFA enrolment: renders, and axe finds nothing (586ms)
+  ✓  241 [mobile] › e2e/authn.spec.ts:78:5 › authentication surfaces › activation: renders, and axe finds nothing (613ms)
+  ✓  242 [mobile] › e2e/authn.spec.ts:78:5 › authentication surfaces › password reset request: renders, and axe finds nothing (598ms)
+  ✓  243 [mobile] › e2e/authn.spec.ts:78:5 › authentication surfaces › password reset completion: renders, and axe finds nothing (636ms)
+  ✓  244 [mobile] › e2e/authn.spec.ts:95:3 › authentication surfaces › I-13: filling every field on a form writes NOTHING (1.7s)
+  ✓  245 [mobile] › e2e/authn.spec.ts:122:3 › authentication surfaces › I-10: one submit produces exactly one request (1.2s)
+  ✓  246 [mobile] › e2e/authn.spec.ts:143:3 › authentication surfaces › the failure state is announced, not swallowed (778ms)
+  ✓  247 [mobile] › e2e/authn.spec.ts:158:3 › authentication surfaces › the validation summary appears once, takes focus, and links to the field (1.7s)
+  ✓  248 [mobile] › e2e/authn.spec.ts:186:3 › authentication surfaces › sign in is completable from the KEYBOARD alone (411ms)
+  ✓  249 [mobile] › e2e/authn.spec.ts:220:3 › authentication surfaces › activation is completable from the KEYBOARD alone (849ms)
+  ✓  250 [mobile] › e2e/builds.spec.ts:271:3 › the period build list › AC-01: the list renders, and the scope note states what a build is not (956ms)
+  ✓  251 [mobile] › e2e/builds.spec.ts:284:3 › the period build list › AC-02 (I-13): "New configuration" issues ZERO requests (1.8s)
+  ✓  252 [mobile] › e2e/builds.spec.ts:302:3 › the period build list › AC-03 (I-13): "Start a build" issues ZERO requests (1.3s)
+  ✓  253 [mobile] › e2e/builds.spec.ts:319:3 › the period build list › AC-04 (I-10): an accepted launch is ONE write and ONE re-read (1.3s)
+  ✓  254 [mobile] › e2e/builds.spec.ts:343:3 › the period build list › AC-05: D-4a is stated in the interface when a build is already in flight (1.2s)
+  ✓  255 [mobile] › e2e/builds.spec.ts:362:3 › the period build list › AC-06: the empty state names what to do next (764ms)
+  ✓  256 [mobile] › e2e/builds.spec.ts:376:3 › the period build list › AC-07: a 403 renders "no permission" and never says why (827ms)
+  ✓  257 [mobile] › e2e/builds.spec.ts:392:3 › the period build list › AC-08: no page-level horizontal scroll at 320px (924ms)
+  ✓  258 [mobile] › e2e/builds.spec.ts:413:3 › the sixteen states, in words › AC-09: `infeasible` and `failed` render DIFFERENT words (1.2s)
+  ✓  259 [mobile] › e2e/builds.spec.ts:467:3 › the sixteen states, in words › AC-10: a timeout renders as a deadline, never as infeasible (951ms)
+  ✓  260 [mobile] › e2e/builds.spec.ts:495:3 › the sixteen states, in words › AC-11: a cancelled build says a scheduler cancelled it (885ms)
+  ✓  261 [mobile] › e2e/builds.spec.ts:518:3 › the sixteen states, in words › AC-12: a refused candidate says it can NEVER become a schedule (1.3s)
+  ✓  262 [mobile] › e2e/builds.spec.ts:571:3 › the sixteen states, in words › AC-13: `EXPLANATION_BUDGET_EXCEEDED` is rendered, not hidden (1.2s)
+  ✓  263 [mobile] › e2e/builds.spec.ts:626:3 › the sixteen states, in words › AC-14: readiness failures are itemised on the way back to configuration (925ms)
+  ✓  264 [mobile] › e2e/builds.spec.ts:655:3 › the sixteen states, in words › AC-15: a quality panel states that the bands are not established (1.2s)
+  ✓  265 [mobile] › e2e/builds.spec.ts:704:3 › the sixteen states, in words › AC-16: the recovery states are visible on the timeline (931ms)
+  ✓  266 [mobile] › e2e/builds.spec.ts:766:3 › actions › AC-17 (I-13 discipline): opening the cancel confirmation issues ZERO requests (2.0s)
+  ✓  267 [mobile] › e2e/builds.spec.ts:792:3 › actions › AC-18: `BUILD_STATE_MOVED` renders explicitly with one reload control (989ms)
+  ✓  268 [mobile] › e2e/builds.spec.ts:819:3 › actions › AC-19: `STALE_BUILD_SOURCE` renders explicitly and nothing was applied (1.0s)
+  ✓  269 [mobile] › e2e/builds.spec.ts:845:3 › actions › AC-20: a successful selection names the NEW draft and never claims a publication (984ms)
+  ✓  270 [mobile] › e2e/builds.spec.ts:870:3 › actions › AC-21: exhausted retries surface with the LAST termination reason (908ms)
+  ✓  271 [mobile] › e2e/builds.spec.ts:897:3 › actions › AC-25 (R-2): a failed build offers a retry, and it is a NEW build (2.0s)
+  ✓  272 [mobile] › e2e/builds.spec.ts:943:3 › actions › AC-26 (R-2): an exhausted chain shows the control DISABLED, not hidden (969ms)
+  ✓  273 [mobile] › e2e/builds.spec.ts:972:3 › actions › AC-27 (R-2): an infeasible build may also be retried (962ms)
+  ✓  274 [mobile] › e2e/builds.spec.ts:999:5 › actions › AC-28 (D-2): an exhausted infeasible chain states its reason (956ms)
+  ✓  275 [mobile] › e2e/builds.spec.ts:999:5 › actions › AC-28 (D-2): an exhausted cancelled chain states its reason (920ms)
+  ✓  276 [mobile] › e2e/builds.spec.ts:1028:3 › actions › AC-22: a 404 renders "not found", not "no permission" (828ms)
+  ✓  277 [mobile] › e2e/builds.spec.ts:1045:3 › candidate comparison (D-4c) › AC-23: differences are shown and nothing is ranked (1.0s)
+  ✓  278 [mobile] › e2e/builds.spec.ts:1087:3 › candidate comparison (D-4c) › AC-24: fewer than two candidates is refused with words, not an empty table (770ms)
+  ✓  279 [mobile] › e2e/builds.spec.ts:1110:3 › E2 quality, conflicts, explanations and reproducibility › AC-29: the quality panel reports fairness with its basis, and the unmeasurable rates as unmeasured (1.3s)
+  ✓  280 [mobile] › e2e/builds.spec.ts:1160:3 › E2 quality, conflicts, explanations and reproducibility › AC-30: a FEASIBLE result is never described as optimal (1.2s)
+  ✓  281 [mobile] › e2e/builds.spec.ts:1209:3 › E2 quality, conflicts, explanations and reproducibility › AC-31b: a wall-clock-truncated run is NOT called reproducible, and the reason is named (1.9s)
+  ✓  282 [mobile] › e2e/builds.spec.ts:1296:3 › E2 quality, conflicts, explanations and reproducibility › AC-31: PO-DEC-13 classes are grouped by severity, and the fairness class is advisory (1.2s)
+  ✓  283 [mobile] › e2e/builds.spec.ts:1351:3 › E2 quality, conflicts, explanations and reproducibility › AC-32: EXPLAINED_MINIMAL states what was narrowed, and the degraded state states what was not (1.3s)
+  ✓  284 [mobile] › e2e/builds.spec.ts:1408:3 › E2 quality, conflicts, explanations and reproducibility › AC-33: the deterministic toggle discloses its measured cost, and costs no request (2.1s)
+  ✓  285 [mobile] › e2e/builds.spec.ts:1439:3 › E2 quality, conflicts, explanations and reproducibility › AC-34: the configuration list says what best-effort reproducibility does not give (806ms)
+  ✓  286 [mobile] › e2e/builds.spec.ts:1450:3 › E2 quality, conflicts, explanations and reproducibility › AC-35: a cross-snapshot comparison is REFUSED in words, not shown as an empty table (1.2s)
+  ✓  287 [mobile] › e2e/builds.spec.ts:1514:3 › E2 quality, conflicts, explanations and reproducibility › AC-36: a weights-differ comparison is refused with its own reason (1.1s)
+  ✓  288 [mobile] › e2e/catalogue.spec.ts:176:3 › catalogue — shift types › LOADING: the list announces itself while it is being fetched (908ms)
+  ✓  289 [mobile] › e2e/catalogue.spec.ts:200:3 › catalogue — shift types › EMPTY: the empty state says what to do next, not "no data" (834ms)
+  ✓  290 [mobile] › e2e/catalogue.spec.ts:212:3 › catalogue — shift types › POPULATED: all six palettes render, and colour is never the only carrier (1.2s)
+  ✓  291 [mobile] › e2e/catalogue.spec.ts:241:3 › catalogue — shift types › PERMISSION DENIED: a 403 says so, and does not say why (914ms)
+  ✓  292 [mobile] › e2e/catalogue.spec.ts:260:3 › catalogue — shift types › ERROR: a 404 renders "not found", never "no access" (937ms)
+  ✓  293 [mobile] › e2e/catalogue.spec.ts:278:3 › catalogue — shift types › I-13: opening the New form persists NOTHING — zero requests (1.9s)
+  ✓  294 [mobile] › e2e/catalogue.spec.ts:317:3 › catalogue — shift types › AC-11: an empty form is refused by the CLIENT — focus to the summary, zero requests (1.7s)
+  ✓  295 [mobile] › e2e/catalogue.spec.ts:359:3 › catalogue — shift types › I-10: a SERVER 422 issues exactly one request and renders the same summary (1.8s)
+  ✓  296 [mobile] › e2e/catalogue.spec.ts:413:3 › catalogue — shift types › AC-02: the form is completable by keyboard alone (2.0s)
+  ✓  297 [mobile] › e2e/catalogue.spec.ts:472:3 › catalogue — shift types › AC-08 and AC-09: 320px reflow, and every target is at least 44px (1.7s)
+  ✓  298 [mobile] › e2e/catalogue.spec.ts:538:3 › catalogue — the other surfaces › shift groups: populated and empty, both accessible (1.1s)
+  ✓  299 [mobile] › e2e/catalogue.spec.ts:586:3 › catalogue — the other surfaces › staff groups: empty state and form (953ms)
+  ✓  300 [mobile] › e2e/catalogue.spec.ts:598:3 › catalogue — the other surfaces › valid combinations: the ceiling is explained before the user hits it (1.1s)
+  ✓  301 [mobile] › e2e/catalogue.spec.ts:630:3 › catalogue — the other surfaces › group settings: the irreversible control warns BEFORE the click (1.0s)
+  ✓  302 [mobile] › e2e/catalogue.spec.ts:661:3 › catalogue — the other surfaces › group settings: a 403 on one panel does not hide the other (1.0s)
+  -  303 [mobile] › e2e/critical-path.spec.ts:297:3 › the critical path, end to end, against the real stack › STEP 0 the join, then the workflow: period -> demand -> rules -> build
+  ✓  304 [mobile] › e2e/my-schedule.spec.ts:263:3 › my schedule — states › LOADING: the surface announces itself while it is being fetched (765ms)
+  ✓  305 [mobile] › e2e/my-schedule.spec.ts:284:3 › my schedule — states › EMPTY: a window with no shifts says so, in words (822ms)
+  ✓  306 [mobile] › e2e/my-schedule.spec.ts:303:3 › my schedule — states › ERROR: a 500 renders the fixed message and a reference, and nothing else (920ms)
+  ✓  307 [mobile] › e2e/my-schedule.spec.ts:321:3 › my schedule — states › DENIED: a 403 says "no permission" and never says why (911ms)
+  ✓  308 [mobile] › e2e/my-schedule.spec.ts:341:3 › my schedule — states › NOT FOUND: a 404 is rendered as not found, not as a permission problem (884ms)
+  -  309 [mobile] › e2e/my-schedule.spec.ts:366:3 › my schedule — calendar and list › the calendar is an ARIA grid with weekday headers and labelled days
+  -  310 [mobile] › e2e/my-schedule.spec.ts:390:3 › my schedule — calendar and list › the list is a real table with row and column headers
+  ✓  311 [mobile] › e2e/my-schedule.spec.ts:406:3 › my schedule — calendar and list › the calendar and the alternative render the SAME entries (248ms)
+  ✓  312 [mobile] › e2e/my-schedule.spec.ts:427:3 › my schedule — calendar and list › below 640px the alternative is a LIST carrying the same entries (1.0s)
+  ✓  313 [mobile] › e2e/my-schedule.spec.ts:447:3 › an overnight shift › appears on BOTH days, and the two days say different things (938ms)
+  -  314 [mobile] › e2e/my-schedule.spec.ts:469:3 › an overnight shift › the calendar marks the two days differently too
+  -  315 [mobile] › e2e/my-schedule.spec.ts:484:3 › keyboard and status › arrow keys move between days and Enter opens the daily sheet
+  ✓  316 [mobile] › e2e/my-schedule.spec.ts:512:3 › keyboard and status › the status is a live region and names the zone (164ms)
+  ✓  317 [mobile] › e2e/my-schedule.spec.ts:525:3 › keyboard and status › the page states that drafts are not shown (144ms)
+  ✓  318 [mobile] › e2e/my-schedule.spec.ts:537:3 › requests per interaction › switching between the calendar and the list issues ZERO requests (1.3s)
+  ✓  319 [mobile] › e2e/my-schedule.spec.ts:561:3 › requests per interaction › moving the window issues exactly one request (1.4s)
+  -  320 [mobile] › e2e/my-schedule.spec.ts:583:3 › requests per interaction › opening a day from the calendar issues exactly one request
+  ✓  321 [mobile] › e2e/my-schedule.spec.ts:604:3 › requests per interaction › moving to the next day on the sheet issues exactly one request (1.3s)
+  ✓  322 [mobile] › e2e/my-schedule.spec.ts:629:3 › the daily assignment sheet › shows everyone working, including a shift that began yesterday (1.0s)
+  ✓  323 [mobile] › e2e/my-schedule.spec.ts:646:3 › the daily assignment sheet › EMPTY: a date nobody is working says so (848ms)
+  ✓  324 [mobile] › e2e/my-schedule.spec.ts:660:3 › the daily assignment sheet › DENIED: a 403 is a permission state, not an empty sheet (903ms)
+  ✓  325 [mobile] › e2e/my-schedule.spec.ts:681:3 › AC-08 — 320px › my schedule reflows with no page-level horizontal scroll (1.0s)
+  ✓  326 [mobile] › e2e/my-schedule.spec.ts:697:3 › AC-08 — 320px › the daily sheet reflows too (912ms)
+  ✓  327 [mobile] › e2e/publication.spec.ts:409:3 › publication review — states › LOADING: the review announces itself while it is being fetched (730ms)
+  ✓  328 [mobile] › e2e/publication.spec.ts:431:3 › publication review — states › ERROR: a 500 renders the fixed message verbatim, never expanded (847ms)
+  ✓  329 [mobile] › e2e/publication.spec.ts:447:3 › publication review — states › DENIAL: a 403 says "no permission"; a 404 says "not found" — different messages (917ms)
+  ✓  330 [mobile] › e2e/publication.spec.ts:472:3 › publication review — states › EMPTY: a period that has never been published says so, and is not an error (914ms)
+  ✓  331 [mobile] › e2e/publication.spec.ts:498:3 › I-13 — nothing is published before an explicit confirmation › opening the confirmation issues ZERO requests (2.2s)
+  ✓  332 [mobile] › e2e/publication.spec.ts:513:3 › I-13 — nothing is published before an explicit confirmation › filling the confirmation issues ZERO requests (1.3s)
+  ✓  333 [mobile] › e2e/publication.spec.ts:526:3 › I-13 — nothing is published before an explicit confirmation › the typed confirmation is demanded BEFORE any request is made (1.3s)
+  ✓  334 [mobile] › e2e/publication.spec.ts:573:3 › publish once › a DOUBLE-CLICK issues exactly one publication request (1.4s)
+  ✓  335 [mobile] › e2e/publication.spec.ts:620:3 › publish once › a RETRY carries the same idempotency key, and the replay is rendered honestly (1.8s)
+  ✓  336 [mobile] › e2e/publication.spec.ts:665:3 › publish once › BUDGET: an accepted publication is the write plus one server-authoritative re-read (1.4s)
+  ✓  337 [mobile] › e2e/publication.spec.ts:705:3 › publish once › BUDGET: a refused publication is ONE request and does not refetch (1.4s)
+  ✓  338 [mobile] › e2e/publication.spec.ts:742:3 › refusals the interface must render truthfully › CAS LOSER: another publication won the period — rendered, with one reload control (1.5s)
+  ✓  339 [mobile] › e2e/publication.spec.ts:780:3 › refusals the interface must render truthfully › STALE REVIEW: the draft changed while it was being read — rendered, never merged (1.6s)
+  ✓  340 [mobile] › e2e/publication.spec.ts:811:3 › refusals the interface must render truthfully › GRANT DENY STATE: without the publish grant the control is absent and the reason is written (1.2s)
+  ✓  341 [mobile] › e2e/publication.spec.ts:832:3 › refusals the interface must render truthfully › a version that IS current does not claim it would supersede itself (1.2s)
+  ✓  342 [mobile] › e2e/publication.spec.ts:868:3 › refusals the interface must render truthfully › BLOCKED: a breached HARD rule blocks publication and NAMES the rule (1.2s)
+  ✓  343 [mobile] › e2e/publication.spec.ts:914:3 › refusals the interface must render truthfully › BLOCKED: an open hard breach blocks publication and the control is not offered (1.2s)
+  ✓  344 [mobile] › e2e/publication.spec.ts:950:3 › the rendered difference is the served difference › every change in the response is rendered, one row each, and nothing else is (1.2s)
+  ✓  345 [mobile] › e2e/publication.spec.ts:981:3 › the rendered difference is the served difference › BUDGET: changing the comparison target re-reads BOTH the comparison and the affected staff (1.3s)
+  ✓  346 [mobile] › e2e/publication.spec.ts:1034:3 › the rendered difference is the served difference › the comparison page renders the same change set and the affected-staff read agrees (1.2s)
+  ✓  347 [mobile] › e2e/publication.spec.ts:1054:3 › version history › IMMUTABILITY: no edit affordance in any immutable row — and a draft row HAS one (1.1s)
+  ✓  348 [mobile] › e2e/publication.spec.ts:1081:3 › version history › FORWARD CORRECTION: cloning a published version writes nothing until an explicit confirm (2.7s)
+  ✓  349 [mobile] › e2e/publication.spec.ts:1124:3 › version history › REVERT: its own typed confirmation, refused before any request is made (3.2s)
+  ✓  350 [mobile] › e2e/publication.spec.ts:1176:3 › version history › a revert is not offered on the CURRENT version, only on superseded ones (275ms)
+  ✓  351 [mobile] › e2e/publication.spec.ts:1189:3 › published schedule › renders the current version read-only, with no control that writes (1.1s)
+  ✓  352 [mobile] › e2e/publication.spec.ts:1213:3 › published schedule › TRUNCATION: more history than fits says so, rather than looking complete (2.2s)
+  ✓  353 [mobile] › e2e/publication.spec.ts:1250:3 › published schedule › …and with everything on one page the truncation affordance is ABSENT (269ms)
+  ✓  354 [mobile] › e2e/publication.spec.ts:1259:3 › published schedule › DENIAL: without the audit-read grant the chain is a stated panel, not an error (1.1s)
+  ✓  355 [mobile] › e2e/publication.spec.ts:1285:3 › keyboard and narrow viewport › KEYBOARD: review → confirm → publish, without a mouse (800ms)
+  ✓  356 [mobile] › e2e/publication.spec.ts:1320:3 › keyboard and narrow viewport › 320px: the review reflows with no page-level horizontal scroll (1.1s)
+  ✓  357 [mobile] › e2e/publication.spec.ts:1335:3 › keyboard and narrow viewport › 320px: the history reflows as a list, with the same rows and the same affordance rule (1.1s)
+  ✓  358 [mobile] › e2e/publication.spec.ts:1359:3 › keyboard and narrow viewport › 320px: the published schedule reflows with no page-level horizontal scroll (1.1s)
+  ✓  359 [mobile] › e2e/rule-editors.spec.ts:307:3 › every rule node kind is authorable end to end › the fixture list covers the closed node set exactly (208ms)
+  ✓  360 [mobile] › e2e/rule-editors.spec.ts:330:3 › every rule node kind is authorable end to end › I-13/I-10: opening a rule for editing issues ZERO requests; saving issues two (2.4s)
+  ✓  361 [mobile] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › RequiredCount: author → list → edit round trip (563ms)
+  ✓  362 [mobile] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › MinCoverage: author → list → edit round trip (560ms)
+  ✓  363 [mobile] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › MaxCoverage: author → list → edit round trip (575ms)
+  ✓  364 [mobile] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › RequiresQualification: author → list → edit round trip (591ms)
+  ✓  365 [mobile] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › MemberOfStaffGroup: author → list → edit round trip (589ms)
+  ✓  366 [mobile] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › ValidGroupRestriction: author → list → edit round trip (525ms)
+  ✓  367 [mobile] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › PickPositionRestriction: author → list → edit round trip (525ms)
+  ✓  368 [mobile] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › MaxAssignmentsInWindow: author → list → edit round trip (606ms)
+  ✓  369 [mobile] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › WeekdayFteLimit: author → list → edit round trip (609ms)
+  ✓  370 [mobile] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › WorkPercentageTarget: author → list → edit round trip (573ms)
+  ✓  371 [mobile] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › MaxConsecutive: author → list → edit round trip (568ms)
+  ✓  372 [mobile] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › MinimumRestBetween: author → list → edit round trip (572ms)
+  ✓  373 [mobile] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › CallSpacing: author → list → edit round trip (508ms)
+  ✓  374 [mobile] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › NoAdjacent: author → list → edit round trip (624ms)
+  ✓  375 [mobile] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › ForbiddenSequence: author → list → edit round trip (665ms)
+  ✓  376 [mobile] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › PatternRule: author → list → edit round trip (694ms)
+  ✓  377 [mobile] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › AlternatingWeek: author → list → edit round trip (555ms)
+  ✓  378 [mobile] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › TemplateAdherence: author → list → edit round trip (590ms)
+  ✓  379 [mobile] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › LinkedShifts: author → list → edit round trip (657ms)
+  ✓  380 [mobile] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › ImpliesAssignment: author → list → edit round trip (525ms)
+  ✓  381 [mobile] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › MutuallyExclusive: author → list → edit round trip (635ms)
+  ✓  382 [mobile] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › RequestHonoured: author → list → edit round trip (595ms)
+  ✓  383 [mobile] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › ShiftPreference: author → list → edit round trip (436ms)
+  ✓  384 [mobile] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › AvoidDate: author → list → edit round trip (524ms)
+  ✓  385 [mobile] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › FairnessBalance: author → list → edit round trip (504ms)
+  ✓  386 [mobile] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › CreditDistribution: author → list → edit round trip (584ms)
+  ✓  387 [mobile] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › StaffOverLocumPriority: author → list → edit round trip (479ms)
+  ✓  388 [mobile] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › LocumRestriction: author → list → edit round trip (583ms)
+  ✓  389 [mobile] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › FixedAssignment: author → list → edit round trip (570ms)
+  ✓  390 [mobile] › e2e/rule-editors.spec.ts:369:5 › every rule node kind is authorable end to end › ProtectedRange: author → list → edit round trip (577ms)
+  ✓  391 [mobile] › e2e/rules.spec.ts:137:3 › rules — authoring › LOADING: the list announces itself while it is being fetched (960ms)
+  ✓  392 [mobile] › e2e/rules.spec.ts:159:3 › rules — authoring › EMPTY: the empty state says what is missing, not "no data" (873ms)
+  ✓  393 [mobile] › e2e/rules.spec.ts:170:3 › rules — authoring › POPULATED: the rules render as a real table (1.1s)
+  ✓  394 [mobile] › e2e/rules.spec.ts:180:3 › rules — authoring › DENIED: a 403 says no permission and never says why (793ms)
+  ✓  395 [mobile] › e2e/rules.spec.ts:195:3 › rules — authoring › NOT FOUND: a 404 is a different message from a 403 (884ms)
+  ✓  396 [mobile] › e2e/rules.spec.ts:207:3 › rules — authoring › I-13: "New rule" persists nothing and issues ZERO requests (2.3s)
+  ✓  397 [mobile] › e2e/rules.spec.ts:229:3 › rules — authoring › the rule-type control offers ONLY the closed node set — no free-text escape hatch (256ms)
+  ✓  398 [mobile] › e2e/rules.spec.ts:248:3 › rules — authoring › I-10: Save issues exactly one request, and a SERVER 422 focuses the summary (2.4s)
+  ✓  399 [mobile] › e2e/rules.spec.ts:300:3 › rules — authoring › the CLIENT pre-check refuses an incomplete body without a request at all (278ms)
+  ✓  400 [mobile] › e2e/rules.spec.ts:325:3 › rules — authoring › I-10: a successful Save issues one write and one refetch (1.3s)
+  ✓  401 [mobile] › e2e/rules.spec.ts:352:3 › rules — authoring › AC-02: the whole form is reachable and submittable by keyboard alone (410ms)
+  ✓  402 [mobile] › e2e/rules.spec.ts:384:3 › rules — authoring › AC-08: no page-level horizontal scroll at the narrow viewport (265ms)
+  ✓  403 [mobile] › e2e/schedule.spec.ts:351:3 › periods — states › LOADING: the list announces itself while it is being fetched (783ms)
+  ✓  404 [mobile] › e2e/schedule.spec.ts:373:3 › periods — states › EMPTY: the empty state says what is missing, not "no data" (856ms)
+  ✓  405 [mobile] › e2e/schedule.spec.ts:385:3 › periods — states › DENIED: a 403 says no permission and never says why (899ms)
+  ✓  406 [mobile] › e2e/schedule.spec.ts:401:3 › periods — states › NOT FOUND: a 404 is a different message from a 403 (784ms)
+  ✓  407 [mobile] › e2e/schedule.spec.ts:414:3 › periods — states › POPULATED: the period list renders, and manual authoring is labelled as override (942ms)
+  ✓  408 [mobile] › e2e/schedule.spec.ts:431:3 › periods — states › I-13: "New period" persists nothing and issues ZERO requests (1.9s)
+  ✓  409 [mobile] › e2e/schedule.spec.ts:453:3 › periods — states › I-13: filling every field of the period form still issues zero requests (1.2s)
+  ✓  410 [mobile] › e2e/schedule.spec.ts:473:3 › periods — states › a SERVER 422 focuses the validation summary and links to a real field (2.2s)
+  ✓  411 [mobile] › e2e/schedule.spec.ts:519:3 › periods — states › I-10: creating a draft version issues one write and one re-read (1.4s)
+  ✓  412 [mobile] › e2e/schedule.spec.ts:550:3 › periods — states › I-10: saving a requirement issues one write and one re-read (1.5s)
+  ✓  413 [mobile] › e2e/schedule.spec.ts:596:3 › periods — states › a stale requirement write renders an explicit refusal, never a silent merge (1.3s)
+  ✓  414 [mobile] › e2e/schedule.spec.ts:643:3 › the grid and its accessible alternative › POPULATED: the grid renders with valid virtualized ARIA (1.9s)
+  ✓  415 [mobile] › e2e/schedule.spec.ts:664:3 › the grid and its accessible alternative › the grid and the table render the SAME cells, compared byte for byte (384ms)
+  -  416 [mobile] › e2e/schedule.spec.ts:719:3 › the grid and its accessible alternative › the table alternative is axe-clean and is a real table
+  ✓  417 [mobile] › e2e/schedule.spec.ts:737:3 › the grid and its accessible alternative › below 640px the alternative is a LIST carrying the same cells (10.0s)
+  ✓  418 [mobile] › e2e/schedule.spec.ts:753:3 › the grid and its accessible alternative › validation display is recorded conflicts and counting — and says so (307ms)
+  ✓  419 [mobile] › e2e/schedule.spec.ts:769:3 › the grid and its accessible alternative › AC-02: arrow keys move between cells and Enter opens one (1.9s)
+  ✓  420 [mobile] › e2e/schedule.spec.ts:791:3 › the grid and its accessible alternative › keyboard navigation crosses the virtualization window boundary (347ms)
+  ✓  421 [mobile] › e2e/schedule.spec.ts:805:3 › the grid and its accessible alternative › I-18: a published version is read-only, with no editing affordance (10.1s)
+  ✓  422 [mobile] › e2e/schedule.spec.ts:836:3 › the grid and its accessible alternative › DENIED: the grid surface renders no-permission and never says why (843ms)
+  ✓  423 [mobile] › e2e/schedule.spec.ts:856:3 › the grid and its accessible alternative › AC-08: no page-level horizontal scroll at the narrow viewport (9.0s)
+  ✓  424 [mobile] › e2e/schedule.spec.ts:873:3 › the grid and its accessible alternative › AC-08: the periods surface reflows at 320px too (404ms)
+  ✓  425 [mobile] › e2e/schedule.spec.ts:900:3 › the cell editor › I-13: opening a cell issues ZERO requests and shows provenance (12.1s)
+  ✓  426 [mobile] › e2e/schedule.spec.ts:926:3 › the cell editor › I-10: opening the assign picker issues exactly one request (12.1s)
+  ✓  427 [mobile] › e2e/schedule.spec.ts:944:3 › the cell editor › I-10: a successful Save issues one write and one re-read (1.5s)
+  ✓  428 [mobile] › e2e/schedule.spec.ts:975:3 › the cell editor › PO-DEC-18: a stale cell edit is refused explicitly, with a refetch control (10.9s)
+  ✘  429 [mobile] › e2e/schedule.spec.ts:1007:3 › the cell editor › the eligibility ABSENT arm says it is about permission, not about the person (1.1s)
+  ✘  430 [mobile] › e2e/schedule.spec.ts:1043:3 › the cell editor › the NOBODY-ELIGIBLE arm is a different message from the absent one (1.1s)
+  ✘  431 [mobile] › e2e/schedule.spec.ts:1075:3 › the cell editor › B-4: a KNOWN-ineligible choice blocks Save until a reason is given (1.1s)
+  ✘  432 [mobile] › e2e/schedule.spec.ts:1112:3 › the cell editor › B-4: an ABSENT-eligibility choice demands no reason at all (1.1s)
+$ node scripts/run-in-workspace.mjs apps/web playwright test
+[WebServer] Killed
+
+[1m=== request-budget — requests per interaction (SP-HR-2) ===[0m
+PASS  request-budget (SP-HR-2 / I-10) — 48 budgeted interaction(s), 83 recording(s) [authn-fill-activation-form.desktop.json, authn-fill-activation-form.mobile.json, authn-submit-activation-refused-by-client.desktop.json, authn-submit-activation-refused-by-client.mobile.json, authn-submit-password-reset-request.desktop.json, authn-submit-password-reset-request.mobile.json, builds-launch-accepted.desktop.json, builds-launch-accepted.mobile.json, builds-open-cancel-confirm.desktop.json, builds-open-cancel-confirm.mobile.json, builds-open-launch-form.desktop.json, builds-open-launch-form.mobile.json, builds-open-new-configuration.desktop.json, builds-open-new-configuration.mobile.json, builds-retry.desktop.json, builds-retry.mobile.json, builds-toggle-deterministic.desktop.json, builds-toggle-deterministic.mobile.json, catalogue-open-new-shift-type.desktop.json, catalogue-open-new-shift-type.mobile.json, catalogue-save-shift-type-refused.desktop.json, catalogue-save-shift-type-refused.mobile.json, catalogue-save-shift-type.desktop.json, catalogue-save-shift-type.mobile.json, daily-sheet-next-day.desktop.json, daily-sheet-next-day.mobile.json, daily-sheet-open-from-calendar.desktop.json, health-retry-click.desktop.json, my-schedule-next-window.desktop.json, my-schedule-next-window.mobile.json, my-schedule-switch-view.desktop.json, my-schedule-switch-view.mobile.json, publication-change-comparison.desktop.json, publication-change-comparison.mobile.json, publication-fill-confirm.desktop.json, publication-fill-confirm.mobile.json, publication-open-clone-confirm.desktop.json, publication-open-clone-confirm.mobile.json, publication-open-confirm.desktop.json, publication-open-confirm.mobile.json, publication-open-revert-confirm.desktop.json, publication-open-revert-confirm.mobile.json, publication-publish-accepted.desktop.json, publication-publish-accepted.mobile.json, publication-publish-refused.desktop.json, publication-publish-refused.mobile.json, rules-open-edit.desktop.json, rules-open-edit.mobile.json, rules-open-new-rule.desktop.json, rules-open-new-rule.mobile.json, rules-save-accepted.desktop.json, rules-save-accepted.mobile.json, rules-save-edit.desktop.json, rules-save-edit.mobile.json, rules-save-refused.desktop.json, rules-save-refused.mobile.json, schedule-create-draft-version.desktop.json, schedule-create-draft-version.mobile.json, schedule-fill-period-form.desktop.json, schedule-fill-period-form.mobile.json, schedule-open-assign-picker.desktop.json, schedule-open-assign-picker.mobile.json, schedule-open-cell-editor.desktop.json, schedule-open-cell-editor.mobile.json, schedule-open-new-period.desktop.json, schedule-open-new-period.mobile.json, schedule-pin-assignment.desktop.json, schedule-remove-assignment.desktop.json, schedule-save-assignment.desktop.json, schedule-save-assignment.mobile.json, schedule-save-period-refused.desktop.json, schedule-save-period-refused.mobile.json, schedule-save-requirement.desktop.json, schedule-save-requirement.mobile.json, settings-open-new-location.desktop.json, settings-save-location-accepted.desktop.json, settings-save-timezone-accepted.desktop.json, settings-save-timezone-refused.desktop.json, shell-initial-load.desktop.json, vacation-fill-select-week.desktop.json, vacation-open-select-week.desktop.json, vacation-save-selection-accepted.desktop.json, vacation-save-selection-refused.desktop.json]
+$ node scripts/gates/request-budget.mjs
+
+GATE                     RESULT   TIME
+------------------------ -------- --------
+lint                     FAIL      12227ms
+typecheck                FAIL      30773ms
+unit                     FAIL      68049ms
+import-boundary          PASS       2841ms
+route-policy             PASS       2175ms
+migration-rls            PASS        641ms
+invariant-ids            PASS        676ms
+rule-node-mapping        PASS        585ms
+rule-kind-registry       PASS        750ms
+provider-boundary        PASS        749ms
+solver-kind-parity       PASS        629ms
+secret-scan              PASS       3050ms
+raw-nul                  PASS        861ms
+build                    PASS       4576ms
+network-guard            PASS        794ms
+axe                      FAIL     544052ms
+request-budget           PASS        571ms
+------------------------ -------- --------
+17 gate(s): 13 passed, 4 failed
+evidence: scratch — writing under .evidence-scratch/ (tracked artifacts untouched; pass --refresh to update them)
+/tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004/.evidence-scratch/scripts/check-output.txt

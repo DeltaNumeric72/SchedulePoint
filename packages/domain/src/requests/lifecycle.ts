@@ -25,7 +25,8 @@
  * | `withdraw` | M5-001 | ✓ Part C |
  * | `expire` | M5-001 | ✓ Part B's sweeper |
  * | `approve` / `deny` / `reverse_decision` | **M5-002** | ✓ — see below |
- * | `consume` / `reflect` / `mark_unsatisfied` | M5-004 | absent, deliberately |
+ * | `commit` / `reverse` | **M5-004** | ✓ — see below |
+ * | `consume` / `reflect` / `mark_unsatisfied` | M5-006 or later | absent, deliberately |
  *
  * **The absences are the point.** A `REQUEST_OPERATIONS` list containing
  * `approve` with no implementation would make the cross-product test assert
@@ -45,6 +46,21 @@
  * `REQUEST_OPERATIONS`, so every (subtype × status) pair now gets a verdict for
  * six operations rather than three, and the database half — 0021's transition
  * predicate — answers on the same edges.
+ *
+ * ## OPUS-M5-004 — §5.6's two, added with their transaction
+ *
+ * `commit` and `reverse` land here for the same reason the decisions did: doc 42
+ * §5h lands their transaction, their routes and their capability keys in the
+ * same change. They are **status-moving operations** — by D-1's own criterion,
+ * the one that kept M5-00C's `comment` OUT of this list — so they join it and
+ * the R-01 cross-product widens to eight operations in BOTH layers.
+ *
+ * Both are `vacation-selection`'s alone, and that is §2's arithmetic rather than
+ * a policy: `approved → reflected_in_version` and
+ * `reflected_in_version → reversed` are the two cells §2 marks for the vacation
+ * column and for no other. The five non-vacation subtypes reach
+ * `reflected_in_version` by a BUILD (`consumed_by_build → reflected_in_version`)
+ * and leave it by FAD-55's withdrawal, and neither of those is this operation.
  *
  * ## Nothing here decides WHO may act
  *
@@ -83,6 +99,9 @@ export const REQUEST_OPERATIONS = [
   'approve',
   'deny',
   'reverse_decision',
+  /* OPUS-M5-004 — §5.6's commit and reversal, likewise. */
+  'commit',
+  'reverse',
 ] as const;
 
 export type RequestOperation = (typeof REQUEST_OPERATIONS)[number];
@@ -389,6 +408,91 @@ function reverseDecisionVerdict(subtype: RequestSubtype, from: RequestStatus): O
   return { allowed: true, to: 'superseded_by_revision' };
 }
 
+/* ────────────────────────────────────────────────────────────────────────────
+ * OPUS-M5-004 — §5.6's commit and reversal
+ *
+ * ## Why these are ONE subtype's operations and are still in THIS list
+ *
+ * `commit` and `reverse` are legal for `vacation-selection` and refused for the
+ * other five. That is not a narrowing anybody chose: §2's matrix carries
+ * `approved → reflected_in_version` and `reflected_in_version → reversed` in the
+ * vacation column and nowhere else, and §2's own note says why —
+ * *"A vacation week is committed to a version; a request is consumed by a build
+ * and then honoured by the version that build produced. Collapsing them would
+ * make 'how did this reach the schedule' unanswerable."*
+ *
+ * They belong in `REQUEST_OPERATIONS` rather than only in
+ * `VACATION_SELECTION_OPERATIONS` because R-01's cross-product is over the ROOT
+ * — *(subtype × status × operation)* — and a root operation absent from it is a
+ * root operation nothing asserts about. Both lists gain both verbs; the two
+ * layers are held to each other by the agreement tests, and the selection-side
+ * list answers the selection-side question (`approved → committed`,
+ * `committed → reversed`) which is a different vocabulary about the same act.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * **`commit` — §5.6's commit to a DRAFT version, at the ROOT.**
+ *
+ * `approved → reflected_in_version`, vacation only. Everything that makes the
+ * commit correct — the target version being a draft (SPEC-05, I-18), the OFF
+ * snapshots, FAD-59's ledger row, the one transaction — is the SERVICE's, for
+ * the reason this module's header gives: those are facts about a version, a
+ * command and a clock, and this file has none of the three. What it decides is
+ * whether the ROW may move.
+ *
+ * **There is deliberately no commit verdict that depends on the deadline.**
+ * SPEC-08 §3's "re-validated at every transition" was ruled at M5-001 and ships
+ * as `deadlineBindsInStatus` in `./deadlines.ts`, which binds in `submitted`,
+ * `under_review` and `accepted_as_input` and in nothing else — the three
+ * undecided states, which are exactly V-31's three legal expiry sources. Commit
+ * acts FROM `approved`, so the request-until deadline has nothing to say about
+ * it, and §2 forecloses the only consequence §3 names in any case: `approved →
+ * expired` is not an edge (R-23). The commit service consults that same shipped
+ * predicate rather than restating the rule here.
+ */
+function commitVerdict(subtype: RequestSubtype, from: RequestStatus): OperationVerdict {
+  if (subtype !== 'vacation-selection') {
+    return { allowed: false, reason: 'operation-not-available-for-subtype' };
+  }
+  if (!transitionIsLegal(subtype, from, 'reflected_in_version')) {
+    return { allowed: false, reason: 'operation-not-legal-from-status' };
+  }
+  return { allowed: true, to: 'reflected_in_version' };
+}
+
+/**
+ * **`reverse` — §5.6's reversal, at the ROOT.**
+ *
+ * `reflected_in_version → reversed`, vacation only. §5.6: it requires the
+ * override capability and a reason, decrements the quota counters, and **raises
+ * a revision request against the schedule rather than editing a published
+ * version** (I-18, non-bypass rule 5). None of those three is a question about a
+ * status, so none of them is answered here — the capability is SPEC-06's, the
+ * reason is the command's, and the revision request is the service's.
+ *
+ * **This is not `reverse_decision`, and the two must not be confused.**
+ * `reverse_decision` moves an `approved` NON-vacation request to
+ * `superseded_by_revision` and writes a second `approvals` row (§4's reversal
+ * row). This moves a COMMITTED vacation week off a published version (§5.6's
+ * reversal). They share a word and nothing else — different subtypes, different
+ * source statuses, different targets — which is why they are two members of this
+ * list rather than one verb with a branch.
+ *
+ * **Vacation has no `reflected_in_version → withdrawn` cell**, deliberately
+ * (FAD-55's own exclusion, restated in `./transitions.ts`): a committed week's
+ * undo is THIS operation, and a second spelling would leave §5.3's mapping
+ * unable to say which one a `withdrawn` selection meant.
+ */
+function reverseVerdict(subtype: RequestSubtype, from: RequestStatus): OperationVerdict {
+  if (subtype !== 'vacation-selection') {
+    return { allowed: false, reason: 'operation-not-available-for-subtype' };
+  }
+  if (!transitionIsLegal(subtype, from, 'reversed')) {
+    return { allowed: false, reason: 'operation-not-legal-from-status' };
+  }
+  return { allowed: true, to: 'reversed' };
+}
+
 /**
  * **R-01's cell.** Whether `operation` is legal on a `subtype` request standing
  * in `status`, and where it would move it.
@@ -420,6 +524,10 @@ export function operationVerdict(
       return denyVerdict(subtype, status);
     case 'reverse_decision':
       return reverseDecisionVerdict(subtype, status);
+    case 'commit':
+      return commitVerdict(subtype, status);
+    case 'reverse':
+      return reverseVerdict(subtype, status);
   }
 }
 

@@ -190,6 +190,7 @@ export {
   selectionStatusForRootStatus,
   selectionTransitionIsLegal,
   vacationStatusPairAgrees,
+  vacationWeekDates,
   type SelectionOrderKey,
   type VacationSelectionOperation,
   type VacationSelectionRefusalReason,
@@ -217,3 +218,44 @@ export {
   type CommentRefusalReason,
   type RequestReasonCode,
 } from './comments.js';
+
+/* ── OPUS-M5-004 — §6's solver projection (doc 42 §5h, FAD-60) ───────────────
+ *
+ * The membership rule the solver's problem is built from, and FAD-60's weight
+ * table. Pure like everything else here: the assembly that reads the rows lives
+ * in `apps/api/src/solver/canonical-input.ts`, and the rule about WHICH rows
+ * exist lives here so it can be checked against §6 without a database. */
+
+export {
+  PROJECTED_STATUSES,
+  PROJECTION_EXCLUDED_STATUSES,
+  PROJECTION_RULE,
+  REQUEST_PROJECTION_KINDS,
+  SOFT_PREFERENCE_WEIGHTS,
+  entersProjection,
+  projectionDisposition,
+  softPreferenceWeight,
+  type HardOffProjectionRow,
+  type HardOnProjectionRow,
+  type RequestProjection,
+  type RequestProjectionKind,
+  type ShiftGroupOffProjectionRow,
+  type SoftPreferenceProjectionRow,
+} from './solver-projection.js';
+
+/* ── OPUS-M5-004 — §5.6's commit and reversal (doc 42 §5h, FAD-59) ───────────
+ *
+ * The two closed failure vocabularies and the draft-only rule, pure. The
+ * transaction is `apps/api/src/requests/vacation-commit.ts`; FAD-59's ledger is
+ * migration 0027. */
+
+export {
+  COMMITTABLE_VERSION_STATES,
+  REVERSAL_REASON_MAX_LENGTH,
+  VACATION_COMMIT_FAILURES,
+  VACATION_REVERSAL_FAILURES,
+  reversalReasonIsWellFormed,
+  versionAcceptsCommit,
+  type VacationCommitFailure,
+  type VacationReversalFailure,
+} from './vacation-commit.js';

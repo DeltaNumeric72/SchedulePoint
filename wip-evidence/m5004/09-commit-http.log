@@ -1,0 +1,64 @@
+
+ RUN  v3.2.4 /tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004
+
+[core] INFO: Failed to read crontab file '/tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-16f6feae2b2991b3fc)] INFO: Completed task 1 (outbox.dispatch, 25.55ms) with success
+[worker(worker-16f6feae2b2991b3fc)] INFO: Completed task 2 (outbox.dispatch, 11.62ms) with success
+[worker(worker-16f6feae2b2991b3fc)] INFO: Completed task 3 (outbox.dispatch, 10.01ms) with success
+[worker(worker-16f6feae2b2991b3fc)] INFO: Completed task 4 (outbox.dispatch, 16.31ms) with success
+[worker(worker-16f6feae2b2991b3fc)] INFO: Completed task 5 (outbox.dispatch, 17.14ms) with success
+[worker(worker-16f6feae2b2991b3fc)] INFO: Completed task 6 (outbox.dispatch, 16.78ms) with success
+[worker(worker-16f6feae2b2991b3fc)] INFO: Completed task 7 (outbox.dispatch, 16.62ms) with success
+[worker(worker-16f6feae2b2991b3fc)] INFO: Completed task 8 (outbox.dispatch, 14.57ms) with success
+[worker(worker-16f6feae2b2991b3fc)] INFO: Completed task 9 (outbox.dispatch, 14.62ms) with success
+[worker(worker-16f6feae2b2991b3fc)] INFO: Completed task 10 (outbox.dispatch, 13.92ms) with success
+[worker(worker-16f6feae2b2991b3fc)] INFO: Completed task 11 (outbox.dispatch, 11.12ms) with success
+ ❯ |api| test/requests/vacation-commit-http.test.ts (12 tests | 12 skipped) 1209ms
+   ↓ SPEC-08 §5.6 — the commit > R-12 — a replayed key commits ONCE and the replay writes nothing
+   ↓ SPEC-08 §5.6 — the commit > the selection and its root move together — §5.3, one transaction
+   ↓ SPEC-08 §5.6 — the commit > committing into a PUBLISHED version is refused BY NAME — I-18
+   ↓ SPEC-08 §5.6 — the commit > a round with no approved selection is refused, not silently successful
+   ↓ SPEC-08 §5.6 — the commit > I-02 — `vacation.commit` is grant-only; without it the scheduler is refused
+   ↓ SPEC-08 §5.6 — the reversal > R-20 + R-10 — an override reversal decrements BOTH counters and raises a revision
+   ↓ SPEC-08 §5.6 — the reversal > R-08 — the floor is the database's: a reversal below zero is a data error
+   ↓ SPEC-08 §5.6 — the reversal > the reversal REQUIRES the override capability, and refuses without it
+   ↓ SPEC-08 §5.6 — the reversal > the mandatory reason is refused at the WIRE — §5.6, three layers, first one
+   ↓ SPEC-08 §5.6 — the reversal > open mode releases NOTHING, by the same branch §5.4 uses (V-30)
+   ↓ SPEC-08 §5.6 — the reversal > a selection that was never committed cannot be reversed
+   ↓ SPEC-08 §5.6 — the reversal > the reversal reason reaches NO audit payload and NO outbox row — I-07
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |api| test/requests/vacation-commit-http.test.ts [ apps/api/test/requests/vacation-commit-http.test.ts ]
+error: the acting membership does not hold group.settings.administer (SPEC-06 L4)
+ ❯ ../../node_modules/.pnpm/pg@8.16.3/node_modules/pg/lib/client.js:545:17
+ ❯ PostgresConnection.executeQuery ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:90:49
+ ❯ ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ DefaultConnectionProvider.provideConnection ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ DefaultQueryExecutor.executeQuery ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ test/requests/vacation-commit-http.test.ts:325:7
+    323|   await asScheduler(
+    324|     async ({ query }) =>
+    325|       await sql`
+       |       ^
+    326|         update groups
+    327|            set request_until_mode = ${'fixed_date'},
+ ❯ PgUnitOfWorkRunner.#runOutermost src/db/unit-of-work.ts:262:22
+ ❯ test/requests/vacation-commit-http.test.ts:323:3
+ ❯ PostgresConnection.executeQuery ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:102:41
+ ❯ ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ DefaultConnectionProvider.provideConnection ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ DefaultQueryExecutor.executeQuery ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ test/requests/vacation-commit-http.test.ts:325:7
+ ❯ PgUnitOfWorkRunner.#runOutermost src/db/unit-of-work.ts:262:22
+ ❯ test/requests/vacation-commit-http.test.ts:323:3
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  12 skipped (12)
+   Start at  14:36:30
+   Duration  7.06s (transform 1.47s, setup 449ms, collect 286ms, tests 1.21s, environment 0ms, prepare 65ms)
+

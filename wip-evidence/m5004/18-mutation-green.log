@@ -1,0 +1,26 @@
+
+ RUN  v3.2.4 /tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004
+
+[core] INFO: Failed to read crontab file '/tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-ecb3615731bcd1a236)] INFO: Completed task 1 (outbox.dispatch, 26.14ms) with success
+[worker(worker-ecb3615731bcd1a236)] INFO: Completed task 2 (outbox.dispatch, 10.56ms) with success
+[worker(worker-ecb3615731bcd1a236)] INFO: Completed task 3 (outbox.dispatch, 10.11ms) with success
+[worker(worker-ecb3615731bcd1a236)] INFO: Completed task 4 (outbox.dispatch, 10.83ms) with success
+[worker(worker-ecb3615731bcd1a236)] INFO: Completed task 5 (outbox.dispatch, 11.76ms) with success
+[worker(worker-ecb3615731bcd1a236)] INFO: Completed task 6 (outbox.dispatch, 11.20ms) with success
+[worker(worker-ecb3615731bcd1a236)] INFO: Completed task 7 (outbox.dispatch, 11.47ms) with success
+[worker(worker-ecb3615731bcd1a236)] INFO: Completed task 8 (outbox.dispatch, 12.30ms) with success
+[worker(worker-ecb3615731bcd1a236)] INFO: Completed task 9 (outbox.dispatch, 12.14ms) with success
+[worker(worker-ecb3615731bcd1a236)] INFO: Completed task 10 (outbox.dispatch, 9.56ms) with success
+[worker(worker-ecb3615731bcd1a236)] INFO: Completed task 11 (outbox.dispatch, 10.27ms) with success
+ ✓ |api| test/solver/request-projection.test.ts (9 tests) 2736ms
+   ✓ SPEC-08 R-14 — a HardOff day is not schedulable, on the real worker > the model cannot place the person on their approved day off  872ms
+   ✓ SPEC-08 R-14 — a HardOff day is not schedulable, on the real worker > when NOBODY else is eligible the outcome is INFEASIBLE, reported honestly  862ms
+   ✓ SPEC-08 R-14 — a HardOff day is not schedulable, on the real worker > the OBJECTIVE is byte-untouched by v3 — the worker echoes the same digest  903ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  14:46:27
+   Duration  7.76s (transform 984ms, setup 448ms, collect 56ms, tests 2.74s, environment 0ms, prepare 63ms)
+

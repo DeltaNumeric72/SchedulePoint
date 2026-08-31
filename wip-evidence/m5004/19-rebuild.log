@@ -1,0 +1,58 @@
+
+ RUN  v3.2.4 /tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004
+
+[core] INFO: Failed to read crontab file '/tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-04fc171b99f6f657db)] INFO: Completed task 1 (outbox.dispatch, 24.24ms) with success
+[worker(worker-04fc171b99f6f657db)] INFO: Completed task 2 (outbox.dispatch, 11.02ms) with success
+[worker(worker-04fc171b99f6f657db)] INFO: Completed task 3 (outbox.dispatch, 9.97ms) with success
+[worker(worker-04fc171b99f6f657db)] INFO: Completed task 4 (outbox.dispatch, 11.27ms) with success
+[worker(worker-04fc171b99f6f657db)] INFO: Completed task 5 (outbox.dispatch, 15.49ms) with success
+[worker(worker-04fc171b99f6f657db)] INFO: Completed task 6 (outbox.dispatch, 10.24ms) with success
+[worker(worker-04fc171b99f6f657db)] INFO: Completed task 7 (outbox.dispatch, 11.45ms) with success
+[worker(worker-04fc171b99f6f657db)] INFO: Completed task 8 (outbox.dispatch, 9.63ms) with success
+[worker(worker-04fc171b99f6f657db)] INFO: Completed task 9 (outbox.dispatch, 11.15ms) with success
+[worker(worker-04fc171b99f6f657db)] INFO: Completed task 10 (outbox.dispatch, 12.54ms) with success
+[worker(worker-04fc171b99f6f657db)] INFO: Completed task 11 (outbox.dispatch, 10.59ms) with success
+ ❯ |api| test/solver/rebuild-hard-off.test.ts (3 tests | 1 failed) 835ms
+   × SPEC-08 R-14 — the rebuild honours what a published version promised > a `reflected_in_version` time-off request is still HardOff on the REBUILD 130ms
+     → invalid input syntax for type uuid: "{"periodId":"12e1871f-5ec1-451b-9574-07ecc8148f40"}"
+   ✓ SPEC-08 R-14 — the rebuild honours what a published version promised > only ELIGIBLE rows appear — a withdrawn request is not projected 45ms
+   ✓ SPEC-08 R-14 — the rebuild honours what a published version promised > the projection is assembled on the BUILDER's transaction and needs no read capability 32ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |api| test/solver/rebuild-hard-off.test.ts > SPEC-08 R-14 — the rebuild honours what a published version promised > a `reflected_in_version` time-off request is still HardOff on the REBUILD
+error: invalid input syntax for type uuid: "{"periodId":"12e1871f-5ec1-451b-9574-07ecc8148f40"}"
+ ❯ ../../node_modules/.pnpm/pg@8.16.3/node_modules/pg/lib/client.js:545:17
+ ❯ PostgresConnection.executeQuery ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:90:49
+ ❯ ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ DefaultConnectionProvider.provideConnection ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ DefaultQueryExecutor.executeQuery ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ InsertQueryBuilder.execute ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/query-builder/insert-query-builder.js:1106:24
+ ❯ createDraftVersion src/schedule/service.ts:450:3
+    448|   const basis = await captureTimezoneBasis(uow);
+    449| 
+    450|   await uow.query
+       |   ^
+    451|     .insertInto('schedule_versions')
+    452|     .values({
+ ❯ PgUnitOfWorkRunner.#runOutermost src/db/unit-of-work.ts:262:22
+ ❯ test/solver/rebuild-hard-off.test.ts:184:30
+ ❯ PostgresConnection.executeQuery ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:102:41
+ ❯ ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ DefaultConnectionProvider.provideConnection ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ DefaultQueryExecutor.executeQuery ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ InsertQueryBuilder.execute ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/query-builder/insert-query-builder.js:1106:24
+ ❯ createDraftVersion src/schedule/service.ts:450:3
+ ❯ PgUnitOfWorkRunner.#runOutermost src/db/unit-of-work.ts:262:22
+ ❯ test/solver/rebuild-hard-off.test.ts:184:30
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+   Start at  14:47:45
+   Duration  6.21s (transform 1.06s, setup 470ms, collect 78ms, tests 835ms, environment 0ms, prepare 58ms)
+

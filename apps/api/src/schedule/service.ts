@@ -852,8 +852,17 @@ export interface AddAssignmentInput {
    * written by `cloneVersion`'s `INSERT … SELECT`, which preserves the source
    * row's origin verbatim and never comes through here; the picklist is M9. A
    * union that admitted values no caller can legitimately pass would invite one.
+   *
+   * **`'vacation_commit'` joins it at OPUS-M5-004**, and it joins for exactly
+   * the reason the other two stay out: it has a legitimate caller. SPEC-08
+   * §5.6's commit places OFF assignment snapshots through THIS function — so
+   * that they meet `assertEditable` (I-18), D-1a's overlap exclusion, D-14 and
+   * the assignment audit event rather than a second writer none of those apply
+   * to — and none of migration 0009's four mechanisms describes it. A snapshot's
+   * origin freezes when its version publishes, so the label has to be true the
+   * first time or it is never true (migration 0027 §5).
    */
-  readonly origin?: 'manual' | 'solver';
+  readonly origin?: 'manual' | 'solver' | 'vacation_commit';
 }
 
 export interface AddedAssignment {

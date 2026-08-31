@@ -1,0 +1,163 @@
+
+ RUN  v3.2.4 /tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004
+
+[core] INFO: Failed to read crontab file '/tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-88d1fa99b8dcdd31d6)] INFO: Completed task 1 (outbox.dispatch, 23.65ms) with success
+[worker(worker-88d1fa99b8dcdd31d6)] INFO: Completed task 2 (outbox.dispatch, 15.94ms) with success
+[worker(worker-88d1fa99b8dcdd31d6)] INFO: Completed task 3 (outbox.dispatch, 14.48ms) with success
+[worker(worker-88d1fa99b8dcdd31d6)] INFO: Completed task 4 (outbox.dispatch, 18.22ms) with success
+[worker(worker-88d1fa99b8dcdd31d6)] INFO: Completed task 5 (outbox.dispatch, 15.95ms) with success
+[worker(worker-88d1fa99b8dcdd31d6)] INFO: Completed task 6 (outbox.dispatch, 10.17ms) with success
+[worker(worker-88d1fa99b8dcdd31d6)] INFO: Completed task 7 (outbox.dispatch, 14.04ms) with success
+[worker(worker-88d1fa99b8dcdd31d6)] INFO: Completed task 8 (outbox.dispatch, 11.52ms) with success
+[worker(worker-88d1fa99b8dcdd31d6)] INFO: Completed task 9 (outbox.dispatch, 12.75ms) with success
+[worker(worker-88d1fa99b8dcdd31d6)] INFO: Completed task 10 (outbox.dispatch, 10.34ms) with success
+[worker(worker-88d1fa99b8dcdd31d6)] INFO: Completed task 11 (outbox.dispatch, 12.51ms) with success
+ ❯ |api| test/requests/vacation-commit-http.test.ts (12 tests | 7 failed) 3307ms
+   × SPEC-08 §5.6 — the commit > R-12 — a replayed key commits ONCE and the replay writes nothing 643ms
+     → expected Set{ 'manual' } to deeply equal Set{ 'vacation_commit' }
+   ✓ SPEC-08 §5.6 — the commit > the selection and its root move together — §5.3, one transaction 263ms
+   ✓ SPEC-08 §5.6 — the commit > committing into a PUBLISHED version is refused BY NAME — I-18  506ms
+   ✓ SPEC-08 §5.6 — the commit > a round with no approved selection is refused, not silently successful 25ms
+   ✓ SPEC-08 §5.6 — the commit > I-02 — `vacation.commit` is grant-only; without it the scheduler is refused 293ms
+   × SPEC-08 §5.6 — the reversal > R-20 + R-10 — an override reversal decrements BOTH counters and raises a revision 260ms
+     → {"error":{"code":"NOT_FOUND","message":"Not found.","correlationId":"e8b74586-022b-433a-a785-558d4e5b7afa"}}: expected 404 to be 200 // Object.is equality
+   ✓ SPEC-08 §5.6 — the reversal > R-08 — the floor is the database's: a reversal below zero is a data error 15ms
+   × SPEC-08 §5.6 — the reversal > the reversal REQUIRES the override capability, and refuses without it 27ms
+     → the fixture submission failed: {"error":{"code":"NOT_FOUND","message":"Not found.","correlationId":"a073aab8-0c24-4255-ab7d-b51ea94106a2"}}
+   × SPEC-08 §5.6 — the reversal > the mandatory reason is refused at the WIRE — §5.6, three layers, first one 23ms
+     → the fixture submission failed: {"error":{"code":"NOT_FOUND","message":"Not found.","correlationId":"12f5e36c-39fd-4b20-8a7e-a1bf45dc80bf"}}
+   × SPEC-08 §5.6 — the reversal > open mode releases NOTHING, by the same branch §5.4 uses (V-30) 16ms
+     → the fixture submission failed: {"error":{"code":"NOT_FOUND","message":"Not found.","correlationId":"cb4737e7-775b-4f83-bd30-f99c1096e4aa"}}
+   × SPEC-08 §5.6 — the reversal > a selection that was never committed cannot be reversed 23ms
+     → the fixture submission failed: {"error":{"code":"NOT_FOUND","message":"Not found.","correlationId":"c7449bd3-c598-47e8-aa0a-cf06d15b29e0"}}
+   × SPEC-08 §5.6 — the reversal > the reversal reason reaches NO audit payload and NO outbox row — I-07 4ms
+     → new row for relation "vacation_periods" violates check constraint "vacation_periods_ends_friday"
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |api| test/requests/vacation-commit-http.test.ts > SPEC-08 §5.6 — the commit > R-12 — a replayed key commits ONCE and the replay writes nothing
+AssertionError: expected Set{ 'manual' } to deeply equal Set{ 'vacation_commit' }
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  Set {[22m
+[32m-   "vacation_commit",[39m
+[31m+   "manual",[39m
+[2m  }[22m
+
+ ❯ test/requests/vacation-commit-http.test.ts:459:41
+    457|     expect(afterFirst.n).toBe(5);
+    458|     /* The fifth origin value, on the rows that made it necessary. */
+    459|     expect(new Set(afterFirst.origins)).toEqual(new Set(['vacation_com…
+       |                                         ^
+    460|     expect(await ledgerRows(idempotencyKey)).toBe(1);
+    461| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+ FAIL  |api| test/requests/vacation-commit-http.test.ts > SPEC-08 §5.6 — the reversal > R-20 + R-10 — an override reversal decrements BOTH counters and raises a revision
+AssertionError: {"error":{"code":"NOT_FOUND","message":"Not found.","correlationId":"e8b74586-022b-433a-a785-558d4e5b7afa"}}: expected 404 to be 200 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 200[39m
+[31m+ 404[39m
+
+ ❯ test/requests/vacation-commit-http.test.ts:599:47
+    597|       { reason: 'The unit is covered by the other rota this week.' },
+    598|     );
+    599|     expect(reversed.statusCode, reversed.raw).toBe(200);
+       |                                               ^
+    600|     expect(reversed.body).toMatchObject({ unitReleased: true, revision…
+    601| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
+
+ FAIL  |api| test/requests/vacation-commit-http.test.ts > SPEC-08 §5.6 — the reversal > the reversal REQUIRES the override capability, and refuses without it
+Error: the fixture submission failed: {"error":{"code":"NOT_FOUND","message":"Not found.","correlationId":"a073aab8-0c24-4255-ab7d-b51ea94106a2"}}
+ ❯ approvedWeek test/requests/vacation-commit-http.test.ts:246:11
+    244|   });
+    245|   if (submitted.statusCode !== 201) {
+    246|     throw new Error(`the fixture submission failed: ${submitted.raw}`);
+       |           ^
+    247|   }
+    248|   const requestId = (submitted.body as { root: { id: string } }).root.…
+ ❯ test/requests/vacation-commit-http.test.ts:655:27
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
+
+ FAIL  |api| test/requests/vacation-commit-http.test.ts > SPEC-08 §5.6 — the reversal > the mandatory reason is refused at the WIRE — §5.6, three layers, first one
+Error: the fixture submission failed: {"error":{"code":"NOT_FOUND","message":"Not found.","correlationId":"12f5e36c-39fd-4b20-8a7e-a1bf45dc80bf"}}
+ ❯ approvedWeek test/requests/vacation-commit-http.test.ts:246:11
+    244|   });
+    245|   if (submitted.statusCode !== 201) {
+    246|     throw new Error(`the fixture submission failed: ${submitted.raw}`);
+       |           ^
+    247|   }
+    248|   const requestId = (submitted.body as { root: { id: string } }).root.…
+ ❯ test/requests/vacation-commit-http.test.ts:695:27
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯
+
+ FAIL  |api| test/requests/vacation-commit-http.test.ts > SPEC-08 §5.6 — the reversal > open mode releases NOTHING, by the same branch §5.4 uses (V-30)
+Error: the fixture submission failed: {"error":{"code":"NOT_FOUND","message":"Not found.","correlationId":"cb4737e7-775b-4f83-bd30-f99c1096e4aa"}}
+ ❯ approvedWeek test/requests/vacation-commit-http.test.ts:246:11
+    244|   });
+    245|   if (submitted.statusCode !== 201) {
+    246|     throw new Error(`the fixture submission failed: ${submitted.raw}`);
+       |           ^
+    247|   }
+    248|   const requestId = (submitted.body as { root: { id: string } }).root.…
+ ❯ test/requests/vacation-commit-http.test.ts:721:27
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯
+
+ FAIL  |api| test/requests/vacation-commit-http.test.ts > SPEC-08 §5.6 — the reversal > a selection that was never committed cannot be reversed
+Error: the fixture submission failed: {"error":{"code":"NOT_FOUND","message":"Not found.","correlationId":"c7449bd3-c598-47e8-aa0a-cf06d15b29e0"}}
+ ❯ approvedWeek test/requests/vacation-commit-http.test.ts:246:11
+    244|   });
+    245|   if (submitted.statusCode !== 201) {
+    246|     throw new Error(`the fixture submission failed: ${submitted.raw}`);
+       |           ^
+    247|   }
+    248|   const requestId = (submitted.body as { root: { id: string } }).root.…
+ ❯ test/requests/vacation-commit-http.test.ts:745:27
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/7]⎯
+
+ FAIL  |api| test/requests/vacation-commit-http.test.ts > SPEC-08 §5.6 — the reversal > the reversal reason reaches NO audit payload and NO outbox row — I-07
+error: new row for relation "vacation_periods" violates check constraint "vacation_periods_ends_friday"
+ ❯ ../../node_modules/.pnpm/pg@8.16.3/node_modules/pg/lib/client.js:545:17
+ ❯ PostgresConnection.executeQuery ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:90:49
+ ❯ ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ DefaultConnectionProvider.provideConnection ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ DefaultQueryExecutor.executeQuery ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ test/requests/vacation-commit-http.test.ts:179:22
+    177|   const alpha = multi().alpha;
+    178|   return asScheduler(async ({ query }) => {
+    179|     const inserted = await sql<{ id: string }>`
+       |                      ^
+    180|       insert into vacation_periods
+    181|         (organization_id, group_id, start_date, end_date, mode, state)
+ ❯ PgUnitOfWorkRunner.#runOutermost src/db/unit-of-work.ts:262:22
+ ❯ test/requests/vacation-commit-http.test.ts:762:19
+ ❯ PostgresConnection.executeQuery ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:102:41
+ ❯ ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ DefaultConnectionProvider.provideConnection ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ DefaultQueryExecutor.executeQuery ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ test/requests/vacation-commit-http.test.ts:179:22
+ ❯ PgUnitOfWorkRunner.#runOutermost src/db/unit-of-work.ts:262:22
+ ❯ test/requests/vacation-commit-http.test.ts:762:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/7]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  7 failed | 5 passed (12)
+   Start at  14:38:06
+   Duration  9.28s (transform 1.44s, setup 514ms, collect 266ms, tests 3.31s, environment 0ms, prepare 59ms)
+

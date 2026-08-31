@@ -633,7 +633,19 @@ describe('§5.3 / D-27 — the derived root status', () => {
       /* The SECOND selection write. This is the statement the case above never
        * makes, and its queued event is the one a NEW-trusting branch gets
        * wrong. */
-      await sql`update vacation_selections set status = 'committed', version = version + 1
+      /* OPUS-M5-004: migration 0027's
+       * `vacation_selections_committed_version_coherent` makes
+       * `(status = 'committed') = (committed_to_version_id IS NOT NULL)` an
+       * EQUALITY, so a fixture that moved a selection to `committed` without
+       * naming a version is refused by the database. The version below is a real
+       * DRAFT one created for this file; nothing about the case is weakened —
+       * the statement it is about, and the deferred event it queues, are
+       * unchanged. */
+      const committedVersionId = await draftVersionForCommit(query);
+      await sql`update vacation_selections
+                   set status = 'committed',
+                       committed_to_version_id = ${committedVersionId}::uuid,
+                       version = version + 1
                  where id = ${selectionId}::uuid`.execute(query);
       await sql`update requests set status = 'reflected_in_version'
                  where id = ${requestId}::uuid`.execute(query);
@@ -867,3 +879,27 @@ describe('D-22, D-26, and §5.5 mode stability', () => {
     expect(mode.rows[0]?.mode).toBe('open');
   }, 240_000);
 });
+
+/**
+ * A DRAFT schedule version, for the one fixture statement that needs one.
+ *
+ * OPUS-M5-004: see the note at its call site. Created inside the caller's own
+ * transaction so the fixture stays one unit of work, and named for what it is
+ * for rather than for what it is.
+ */
+async function draftVersionForCommit(query: PgUnitOfWork['query']): Promise<string> {
+  const schedulePeriodId = randomUUID();
+  await sql`
+    insert into schedule_periods (id, organization_id, group_id, name, start_date, end_date)
+    values (${schedulePeriodId}::uuid, ${context.organizationId}::uuid, ${context.groupId}::uuid,
+            ${`c22 commit ${randomUUID().slice(0, 8)}`}, ${'2052-01-05'}::date,
+            ${'2052-03-05'}::date)
+  `.execute(query);
+  const versionId = randomUUID();
+  await sql`
+    insert into schedule_versions (id, organization_id, group_id, period_id, state)
+    values (${versionId}::uuid, ${context.organizationId}::uuid, ${context.groupId}::uuid,
+            ${schedulePeriodId}::uuid, ${'draft'})
+  `.execute(query);
+  return versionId;
+}

@@ -1,0 +1,23 @@
+
+ RUN  v3.2.4 /tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004
+
+[core] INFO: Failed to read crontab file '/tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-2e7ceb15612487fe29)] INFO: Completed task 1 (outbox.dispatch, 25.91ms) with success
+[worker(worker-2e7ceb15612487fe29)] INFO: Completed task 2 (outbox.dispatch, 11.48ms) with success
+[worker(worker-2e7ceb15612487fe29)] INFO: Completed task 3 (outbox.dispatch, 12.29ms) with success
+[worker(worker-2e7ceb15612487fe29)] INFO: Completed task 4 (outbox.dispatch, 10.31ms) with success
+[worker(worker-2e7ceb15612487fe29)] INFO: Completed task 5 (outbox.dispatch, 10.07ms) with success
+[worker(worker-2e7ceb15612487fe29)] INFO: Completed task 6 (outbox.dispatch, 11.54ms) with success
+[worker(worker-2e7ceb15612487fe29)] INFO: Completed task 7 (outbox.dispatch, 11.81ms) with success
+[worker(worker-2e7ceb15612487fe29)] INFO: Completed task 8 (outbox.dispatch, 11.23ms) with success
+[worker(worker-2e7ceb15612487fe29)] INFO: Completed task 9 (outbox.dispatch, 11.40ms) with success
+[worker(worker-2e7ceb15612487fe29)] INFO: Completed task 10 (outbox.dispatch, 10.01ms) with success
+[worker(worker-2e7ceb15612487fe29)] INFO: Completed task 11 (outbox.dispatch, 10.25ms) with success
+ ✓ |api| test/solver/rebuild-hard-off.test.ts (3 tests) 892ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  14:48:06
+   Duration  6.52s (transform 962ms, setup 439ms, collect 82ms, tests 892ms, environment 0ms, prepare 68ms)
+

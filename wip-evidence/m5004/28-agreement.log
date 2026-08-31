@@ -1,0 +1,111 @@
+
+ RUN  v3.2.4 /tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004
+
+[core] INFO: Failed to read crontab file '/tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-95dc973da646db9b22)] INFO: Completed task 1 (outbox.dispatch, 37.77ms) with success
+[worker(worker-95dc973da646db9b22)] INFO: Completed task 2 (outbox.dispatch, 11.54ms) with success
+[worker(worker-95dc973da646db9b22)] INFO: Completed task 3 (outbox.dispatch, 11.45ms) with success
+[worker(worker-95dc973da646db9b22)] INFO: Completed task 4 (outbox.dispatch, 18.44ms) with success
+[worker(worker-95dc973da646db9b22)] INFO: Completed task 5 (outbox.dispatch, 16.50ms) with success
+[worker(worker-95dc973da646db9b22)] INFO: Completed task 6 (outbox.dispatch, 14.89ms) with success
+[worker(worker-95dc973da646db9b22)] INFO: Completed task 7 (outbox.dispatch, 12.06ms) with success
+[worker(worker-95dc973da646db9b22)] INFO: Completed task 8 (outbox.dispatch, 11.05ms) with success
+[worker(worker-95dc973da646db9b22)] INFO: Completed task 9 (outbox.dispatch, 13.54ms) with success
+[worker(worker-95dc973da646db9b22)] INFO: Completed task 10 (outbox.dispatch, 10.13ms) with success
+[worker(worker-95dc973da646db9b22)] INFO: Completed task 11 (outbox.dispatch, 12.31ms) with success
+ ❯ |api| test/requests/migration-0022-populated-cycle.test.ts (17 tests | 1 failed) 1139ms
+   ✓ migration 0022 over a populated database > up → down → up, resolved and asserted BY NAME  359ms
+   ✓ migration 0022 over a populated database > MUTATION CONTROL: D-21 and D-27 are enforcing again after the cycle 29ms
+   ✓ R-16 — the sixth subtype under D-18 and D-19 > exactly ONE vacation_selections row and ZERO in the other five 20ms
+   ✓ R-16 — the sixth subtype under D-18 and D-19 > D-19: a vacation row MISSING vacation_period_id or week_start is REJECTED 9ms
+   ✓ R-16 — the sixth subtype under D-18 and D-19 > D-19: the PROHIBITED fields are ABSENT, enumerated against §1.2 13ms
+   ✓ R-16 — the sixth subtype under D-18 and D-19 > a week OUTSIDE its period is REJECTED 10ms
+   ✓ §5.3 / D-27 — the derived root status > an `available` selection with a NULL request_id coexists legally 17ms
+   ✓ §5.3 / D-27 — the derived root status > R-15: a deliberately DESYNCHRONISED write raises, from BOTH sides 22ms
+   ✓ §5.3 / D-27 — the derived root status > DEFERRED, both legs — the §5.4-shaped writer commits, a one-sided one does not 33ms
+   × §5.3 / D-27 — the derived root status > DEFERRED on the SELECTION side: the selection moves TWICE in one transaction 14ms
+     → new row for relation "vacation_selections" violates check constraint "vacation_selections_committed_version_coherent"
+   ✓ §5.3 / D-27 — the derived root status > the §5.3 mapping constant and the database function agree, row for row 3ms
+   ✓ D-21 — the two unconditional CHECKs, and the audited override > R-21: a direct UPDATE below zero or above the bound is REJECTED 21ms
+   ✓ D-21 — the two unconditional CHECKs, and the audited override > R-20: the override RAISES the bound, and a reversal decrements BOTH 17ms
+   ✓ D-22, D-26, and §5.5 mode stability > D-22: a second selection for the same (membership, period, week) is REJECTED 7ms
+   ✓ D-22, D-26, and §5.5 mode stability > D-26: the same approval idempotency key twice for one selection is REJECTED 12ms
+   ✓ D-22, D-26, and §5.5 mode stability > R-13: an `open` period has NO grants, and that is not an error 10ms
+   ✓ D-22, D-26, and §5.5 mode stability > §5.5: a period's mode does not change under a live selection 17ms
+ ❯ |api| test/requests/migration-0025-populated-cycle.test.ts (10 tests | 1 failed) 680ms
+   ✓ FU-20 — the period-shrink guard, ENFORCING > REFUSES a shrink that would strand a live selection, and names what it found 45ms
+   × FU-20 — the period-shrink guard, ENFORCING > REFUSES for `approved` and for `committed` too — everything that still claims 32ms
+     → new row for relation "vacation_selections" violates check constraint "vacation_selections_committed_version_coherent"
+   ✓ FU-20 — the period-shrink guard, ENFORCING > PERMITS a shrink when only EXCLUDED rows sit in the removed weeks 28ms
+   ✓ FU-20 — the period-shrink guard, ENFORCING > never refuses a WIDENING — it strands nothing 10ms
+   ✓ FU-20 — the period-shrink guard, ENFORCING > a weekly-capacity grant that ALLOCATES blocks; a zeroed one does not 13ms
+   ✓ FU-20 — the period-shrink guard, ENFORCING > a period whose bounds do NOT move is not this guard’s business 11ms
+   ✓ FU-20 — the facts the exclusion RESTS on > no runtime role holds DELETE on `vacation_selections` or `vacation_grants` 4ms
+   ✓ FU-20 — the facts the exclusion RESTS on > `week_start` is not in the UPDATE grant — a selection cannot be re-pointed 4ms
+   ✓ migration 0025 over a populated database > up → down → up, resolved and asserted BY NAME 157ms
+   ✓ migration 0025 over a populated database > the guard comes back ENFORCING after the round trip, not merely present 26ms
+ ✓ |api| test/requests/vacation-status-mapping-agreement.test.ts (7 tests) 684ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |api| test/requests/migration-0022-populated-cycle.test.ts > §5.3 / D-27 — the derived root status > DEFERRED on the SELECTION side: the selection moves TWICE in one transaction
+error: new row for relation "vacation_selections" violates check constraint "vacation_selections_committed_version_coherent"
+ ❯ ../../node_modules/.pnpm/pg@8.16.3/node_modules/pg/lib/client.js:545:17
+ ❯ PostgresConnection.executeQuery ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:90:49
+ ❯ ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ DefaultConnectionProvider.provideConnection ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ DefaultQueryExecutor.executeQuery ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ test/requests/migration-0022-populated-cycle.test.ts:636:7
+    634|        * makes, and its queued event is the one a NEW-trusting branch …
+    635|        * wrong. */
+    636|       await sql`update vacation_selections set status = 'committed', v…
+       |       ^
+    637|                  where id = ${selectionId}::uuid`.execute(query);
+    638|       await sql`update requests set status = 'reflected_in_version'
+ ❯ PgUnitOfWorkRunner.#runOutermost src/db/unit-of-work.ts:262:22
+ ❯ test/requests/migration-0022-populated-cycle.test.ts:625:5
+ ❯ PostgresConnection.executeQuery ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:102:41
+ ❯ ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ DefaultConnectionProvider.provideConnection ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ DefaultQueryExecutor.executeQuery ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ test/requests/migration-0022-populated-cycle.test.ts:636:7
+ ❯ PgUnitOfWorkRunner.#runOutermost src/db/unit-of-work.ts:262:22
+ ❯ test/requests/migration-0022-populated-cycle.test.ts:625:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  |api| test/requests/migration-0025-populated-cycle.test.ts > FU-20 — the period-shrink guard, ENFORCING > REFUSES for `approved` and for `committed` too — everything that still claims
+error: new row for relation "vacation_selections" violates check constraint "vacation_selections_committed_version_coherent"
+ ❯ ../../node_modules/.pnpm/pg@8.16.3/node_modules/pg/lib/client.js:545:17
+ ❯ PostgresConnection.executeQuery ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:90:49
+ ❯ ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ DefaultConnectionProvider.provideConnection ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ DefaultQueryExecutor.executeQuery ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ walk test/requests/migration-0025-populated-cycle.test.ts:177:7
+    175|       rootPath: readonly string[],
+    176|     ): Promise<void> => {
+    177|       await sql`
+       |       ^
+    178|         update vacation_selections set status = ${selectionStatus}, ve…
+    179|          where id = ${selectionId}::uuid
+ ❯ test/requests/migration-0025-populated-cycle.test.ts:195:33
+ ❯ PgUnitOfWorkRunner.#runOutermost src/db/unit-of-work.ts:262:22
+ ❯ test/requests/migration-0025-populated-cycle.test.ts:276:7
+ ❯ PostgresConnection.executeQuery ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:102:41
+ ❯ ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ DefaultConnectionProvider.provideConnection ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ DefaultQueryExecutor.executeQuery ../../node_modules/.pnpm/kysely@0.28.7/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ walk test/requests/migration-0025-populated-cycle.test.ts:177:7
+ ❯ test/requests/migration-0025-populated-cycle.test.ts:195:33
+ ❯ PgUnitOfWorkRunner.#runOutermost src/db/unit-of-work.ts:262:22
+ ❯ test/requests/migration-0025-populated-cycle.test.ts:276:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  2 failed | 1 passed (3)
+      Tests  2 failed | 32 passed (34)
+   Start at  15:33:15
+   Duration  9.21s (transform 1.13s, setup 1.01s, collect 151ms, tests 2.50s, environment 0ms, prepare 99ms)
+

@@ -1,0 +1,64 @@
+
+ RUN  v3.2.4 /tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004
+
+[core] INFO: Failed to read crontab file '/tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-a61b514c5d415b4960)] INFO: Completed task 1 (outbox.dispatch, 27.73ms) with success
+[worker(worker-a61b514c5d415b4960)] INFO: Completed task 2 (outbox.dispatch, 10.84ms) with success
+[worker(worker-a61b514c5d415b4960)] INFO: Completed task 3 (outbox.dispatch, 10.60ms) with success
+[worker(worker-a61b514c5d415b4960)] INFO: Completed task 4 (outbox.dispatch, 15.50ms) with success
+[worker(worker-a61b514c5d415b4960)] INFO: Completed task 5 (outbox.dispatch, 11.37ms) with success
+[worker(worker-a61b514c5d415b4960)] INFO: Completed task 6 (outbox.dispatch, 10.56ms) with success
+[worker(worker-a61b514c5d415b4960)] INFO: Completed task 7 (outbox.dispatch, 9.88ms) with success
+[worker(worker-a61b514c5d415b4960)] INFO: Completed task 8 (outbox.dispatch, 11.89ms) with success
+[worker(worker-a61b514c5d415b4960)] INFO: Completed task 9 (outbox.dispatch, 14.50ms) with success
+[worker(worker-a61b514c5d415b4960)] INFO: Completed task 10 (outbox.dispatch, 10.64ms) with success
+[worker(worker-a61b514c5d415b4960)] INFO: Completed task 11 (outbox.dispatch, 9.43ms) with success
+stdout | test/solver/corpus/corpus-agreement.test.ts > the E1 corpus, solver against independent checker > records the per-class run summary
+      ·       ┌─ E1 CORPUS RUN SUMMARY ─────────────────────────────────────
+      ·       │ feasible-small                   · B-feasible-small                     · hash b784773ac072 · outcome OPTIMAL/completed      · hardViolations 0     · cause —
+      ·       │ feasible-medium                  · B-feasible-medium                    · hash 55c32b6a48e2 · outcome OPTIMAL/completed      · hardViolations 0     · cause —
+      ·       │ feasible-large                   · B-feasible-large                     · hash f602e4623ac8 · outcome OPTIMAL/completed      · hardViolations 0     · cause —
+      ·       │ multisite                        · B-multisite                          · hash 50d1c0176628 · outcome OPTIMAL/completed      · hardViolations 0     · cause —
+      ·       │ rule-heavy                       · B-ruleheavy                          · hash 7ece3701bc1d · outcome OPTIMAL/completed      · hardViolations 0     · cause —
+      ·       │ progressive-pinned               · B-progressive-pinned                 · hash ca4683082e3c · outcome OPTIMAL/completed      · hardViolations 0     · cause —
+      ·       │ qualifications                   · B-qualifications                     · hash 897eb425cc4d · outcome OPTIMAL/completed      · hardViolations 0     · cause —
+      ·       │ fte                              · B-fte                                · hash 15f8debffa9b · outcome OPTIMAL/completed      · hardViolations 0     · cause —
+      ·       │ locum-shaped                     · B-locum-shaped                       · hash eb6ec00928ac · outcome FAILED/rejected        · hardViolations n/a   · cause —
+      ·       │ fairness-shaped                  · B-fairness-shaped                    · hash 19865024e48e · outcome OPTIMAL/completed      · hardViolations 0     · cause —
+      ·       │ infeasible-contradictory-rules   · B-infeasible-contradictory-rules     · hash 93fa495aad28 · outcome INFEASIBLE/completed   · hardViolations n/a   · cause EXPLAINED_MINIMAL T1[__demand__,ci-implies,ci-mutex]
+      ·       │ infeasible-missing-qualification · B-infeasible-missing-qualification   · hash bfb121f60fa7 · outcome INFEASIBLE/completed   · hardViolations n/a   · cause EXPLAINED_EXACT T0[no_eligible_member,no_eligible_member,no_eligible_member]
+      ·       │ infeasible-over-demand           · B-infeasible-over-demand             · hash c1bc92ae148d · outcome INFEASIBLE/completed   · hardViolations n/a   · cause EXPLAINED_EXACT T0[eligible_capacity_below_demand,eligible_capacity_below_demand,eligible_capacity_below_demand,day_demand_exceeds_participants,day_demand_exceeds_participants,day_demand_exceeds_participants] T1[__demand__]
+      ·       │ infeasible-fixed-conflict        · B-infeasible-fixed-conflict          · hash 7f2bcec87d81 · outcome INFEASIBLE/completed   · hardViolations n/a   · cause EXPLAINED_EXACT T0[conflicting_fixed_assignments] T1[__demand__]
+      ·       │ race-retired-holding             · B-race-retired-holding               · hash c1826784ceaf · outcome INFEASIBLE/completed   · hardViolations n/a   · cause EXPLAINED_EXACT T0[no_eligible_member]
+      ·       └─────────────────────────────────────────────────────────────
+
+stdout | test/solver/corpus/corpus-agreement.test.ts > the E1 corpus, solver against independent checker > EXPLAINED_MINIMAL is EARNED — never claimed without a completed T2 pass
+      ·       · B-infeasible-contradictory-rules: EXPLAINED_MINIMAL after 3 probe(s), 0 rule(s) removed, subset 3
+
+stdout | test/solver/corpus/corpus-agreement.test.ts > the E1 corpus, solver against independent checker > rule-heavy: every M4-evaluable HARD kind is present, and all of them hold at once
+      ·       · rule-heavy: 22 HARD kinds, 30 assignments, 0 hard violations
+
+stdout | test/solver/corpus/corpus-agreement.test.ts > the E1 corpus, solver against independent checker > fairness-shaped: the E1 objective tiers are RECORDED, and SOFT never became HARD
+      ·       · fairness tiers: 1:fairness(2) 2:work-percentage(6) 3:preference(42)
+
+stdout | test/solver/corpus/corpus-agreement.test.ts > the E1 corpus, solver against independent checker > race-retired-holding: the validator REJECTS staffing the raced membership
+      ·       · raced staffing refused; the un-raced control staffing accepted
+
+ ✓ |api| test/solver/corpus/corpus-agreement.test.ts (9 tests) 96817ms
+stdout | test/solver/corpus/corpus-manifest.test.ts > the E1 corpus manifest > 1. covers every §6d class, exactly once
+      ·       · 15 fixtures across 15 classes
+
+stdout | test/solver/corpus/corpus-manifest.test.ts > the E1 corpus manifest > 2. regenerates byte-identically within one process
+      ·       · 14 generated fixtures reproduced byte for byte
+
+stdout | test/solver/corpus/corpus-manifest.test.ts > the E1 corpus manifest > 3. matches the committed manifest, hash for hash
+      ·       · 15 committed hashes all matched
+
+ ✓ |api| test/solver/corpus/corpus-manifest.test.ts (8 tests) 107ms
+
+ Test Files  2 passed (2)
+      Tests  17 passed (17)
+   Start at  15:37:55
+   Duration  103.37s (transform 1.01s, setup 596ms, collect 175ms, tests 96.92s, environment 0ms, prepare 67ms)
+

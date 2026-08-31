@@ -1,0 +1,118 @@
+
+ RUN  v3.2.4 /tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004
+
+[core] INFO: Failed to read crontab file '/tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-a69a09723d6384ee05)] INFO: Completed task 1 (outbox.dispatch, 23.84ms) with success
+[worker(worker-a69a09723d6384ee05)] INFO: Completed task 2 (outbox.dispatch, 11.21ms) with success
+[worker(worker-a69a09723d6384ee05)] INFO: Completed task 3 (outbox.dispatch, 13.53ms) with success
+[worker(worker-a69a09723d6384ee05)] INFO: Completed task 4 (outbox.dispatch, 11.44ms) with success
+[worker(worker-a69a09723d6384ee05)] INFO: Completed task 5 (outbox.dispatch, 13.06ms) with success
+[worker(worker-a69a09723d6384ee05)] INFO: Completed task 6 (outbox.dispatch, 10.70ms) with success
+[worker(worker-a69a09723d6384ee05)] INFO: Completed task 7 (outbox.dispatch, 13.49ms) with success
+[worker(worker-a69a09723d6384ee05)] INFO: Completed task 8 (outbox.dispatch, 11.70ms) with success
+[worker(worker-a69a09723d6384ee05)] INFO: Completed task 9 (outbox.dispatch, 10.24ms) with success
+[worker(worker-a69a09723d6384ee05)] INFO: Completed task 10 (outbox.dispatch, 8.72ms) with success
+[worker(worker-a69a09723d6384ee05)] INFO: Completed task 11 (outbox.dispatch, 9.64ms) with success
+ ❯ |api| test/requests/vacation-commit-http.test.ts (12 tests | 4 failed) 4311ms
+   ✓ SPEC-08 §5.6 — the commit > R-12 — a replayed key commits ONCE and the replay writes nothing  679ms
+   ✓ SPEC-08 §5.6 — the commit > the selection and its root move together — §5.3, one transaction 252ms
+   ✓ SPEC-08 §5.6 — the commit > committing into a PUBLISHED version is refused BY NAME — I-18  401ms
+   ✓ SPEC-08 §5.6 — the commit > a round with no approved selection is refused, not silently successful 16ms
+   ✓ SPEC-08 §5.6 — the commit > I-02 — `vacation.commit` is grant-only; without it the scheduler is refused 266ms
+   × SPEC-08 §5.6 — the reversal > R-20 + R-10 — an override reversal decrements BOTH counters and raises a revision 312ms
+     → {"error":{"code":"NOT_FOUND","message":"Not found.","correlationId":"f23dae04-7198-437a-90e0-9dba5aa67174"}}: expected 404 to be 200 // Object.is equality
+   ✓ SPEC-08 §5.6 — the reversal > R-08 — the floor is the database's: a reversal below zero is a data error 16ms
+   × SPEC-08 §5.6 — the reversal > the reversal REQUIRES the override capability, and refuses without it 280ms
+     → {"error":{"code":"NOT_FOUND","message":"Not found.","correlationId":"ac1cee04-73fb-463f-b5aa-998878a8f25c"}}: expected 404 to be 200 // Object.is equality
+   ✓ SPEC-08 §5.6 — the reversal > the mandatory reason is refused at the WIRE — §5.6, three layers, first one 261ms
+   × SPEC-08 §5.6 — the reversal > open mode releases NOTHING, by the same branch §5.4 uses (V-30) 209ms
+     → {"error":{"code":"NOT_FOUND","message":"Not found.","correlationId":"f2e35527-4908-4a67-82cd-40e7cce019bd"}}: expected 404 to be 200 // Object.is equality
+   ✓ SPEC-08 §5.6 — the reversal > a selection that was never committed cannot be reversed 158ms
+   × SPEC-08 §5.6 — the reversal > the reversal reason reaches NO audit payload and NO outbox row — I-07 251ms
+     → {"error":{"code":"NOT_FOUND","message":"Not found.","correlationId":"994ae19b-ff8d-49b7-aa7d-7770a9a697e7"}}: expected 404 to be 200 // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |api| test/requests/vacation-commit-http.test.ts > SPEC-08 §5.6 — the reversal > R-20 + R-10 — an override reversal decrements BOTH counters and raises a revision
+AssertionError: {"error":{"code":"NOT_FOUND","message":"Not found.","correlationId":"f23dae04-7198-437a-90e0-9dba5aa67174"}}: expected 404 to be 200 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 200[39m
+[31m+ 404[39m
+
+ ❯ test/requests/vacation-commit-http.test.ts:632:47
+    630|       { reason: 'The unit is covered by the other rota this week.' },
+    631|     );
+    632|     expect(reversed.statusCode, reversed.raw).toBe(200);
+       |                                               ^
+    633|     expect(reversed.body).toMatchObject({ unitReleased: true, revision…
+    634| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  |api| test/requests/vacation-commit-http.test.ts > SPEC-08 §5.6 — the reversal > the reversal REQUIRES the override capability, and refuses without it
+AssertionError: {"error":{"code":"NOT_FOUND","message":"Not found.","correlationId":"ac1cee04-73fb-463f-b5aa-998878a8f25c"}}: expected 404 to be 200 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 200[39m
+[31m+ 404[39m
+
+ ❯ test/requests/vacation-commit-http.test.ts:721:45
+    719|       { reason: 'Cover was found on the other rota.' },
+    720|     );
+    721|     expect(allowed.statusCode, allowed.raw).toBe(200);
+       |                                             ^
+    722|     expect((await selectionOf(requestId)).status).toBe('reversed');
+    723|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  |api| test/requests/vacation-commit-http.test.ts > SPEC-08 §5.6 — the reversal > open mode releases NOTHING, by the same branch §5.4 uses (V-30)
+AssertionError: {"error":{"code":"NOT_FOUND","message":"Not found.","correlationId":"f2e35527-4908-4a67-82cd-40e7cce019bd"}}: expected 404 to be 200 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 200[39m
+[31m+ 404[39m
+
+ ❯ test/requests/vacation-commit-http.test.ts:771:47
+    769|       { reason: 'The round was re-planned after the meeting.' },
+    770|     );
+    771|     expect(reversed.statusCode, reversed.raw).toBe(200);
+       |                                               ^
+    772|     expect(reversed.body).toMatchObject({ unitReleased: false, revisio…
+    773|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  |api| test/requests/vacation-commit-http.test.ts > SPEC-08 §5.6 — the reversal > the reversal reason reaches NO audit payload and NO outbox row — I-07
+AssertionError: {"error":{"code":"NOT_FOUND","message":"Not found.","correlationId":"994ae19b-ff8d-49b7-aa7d-7770a9a697e7"}}: expected 404 to be 200 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 200[39m
+[31m+ 404[39m
+
+ ❯ test/requests/vacation-commit-http.test.ts:813:47
+    811|       { reason: distinctive },
+    812|     );
+    813|     expect(reversed.statusCode, reversed.raw).toBe(200);
+       |                                               ^
+    814| 
+    815|     /* Non-vacuity FIRST: the reason IS on the row it belongs on, so t…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 8 passed (12)
+   Start at  14:38:59
+   Duration  10.15s (transform 1.50s, setup 434ms, collect 294ms, tests 4.31s, environment 0ms, prepare 61ms)
+

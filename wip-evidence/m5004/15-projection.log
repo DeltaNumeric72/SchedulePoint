@@ -1,0 +1,25 @@
+
+ RUN  v3.2.4 /tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004
+
+[core] INFO: Failed to read crontab file '/tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004/crontab'; cron is disabled
+[core] INFO: Worker connected and looking for jobs... (task names: 'outbox.dispatch')
+[worker(worker-ba840409cadd1e2758)] INFO: Completed task 1 (outbox.dispatch, 27.87ms) with success
+[worker(worker-ba840409cadd1e2758)] INFO: Completed task 2 (outbox.dispatch, 12.83ms) with success
+[worker(worker-ba840409cadd1e2758)] INFO: Completed task 3 (outbox.dispatch, 10.40ms) with success
+[worker(worker-ba840409cadd1e2758)] INFO: Completed task 4 (outbox.dispatch, 14.75ms) with success
+[worker(worker-ba840409cadd1e2758)] INFO: Completed task 5 (outbox.dispatch, 12.52ms) with success
+[worker(worker-ba840409cadd1e2758)] INFO: Completed task 6 (outbox.dispatch, 13.33ms) with success
+[worker(worker-ba840409cadd1e2758)] INFO: Completed task 7 (outbox.dispatch, 11.95ms) with success
+[worker(worker-ba840409cadd1e2758)] INFO: Completed task 8 (outbox.dispatch, 10.49ms) with success
+[worker(worker-ba840409cadd1e2758)] INFO: Completed task 9 (outbox.dispatch, 12.84ms) with success
+[worker(worker-ba840409cadd1e2758)] INFO: Completed task 10 (outbox.dispatch, 11.35ms) with success
+[worker(worker-ba840409cadd1e2758)] INFO: Completed task 11 (outbox.dispatch, 9.74ms) with success
+ ✓ |api| test/solver/request-projection.test.ts (8 tests) 1893ms
+   ✓ SPEC-08 R-14 — a HardOff day is not schedulable, on the real worker > the model cannot place the person on their approved day off  913ms
+   ✓ SPEC-08 R-14 — a HardOff day is not schedulable, on the real worker > when NOBODY else is eligible the outcome is INFEASIBLE, reported honestly  892ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  14:44:47
+   Duration  7.57s (transform 1.04s, setup 433ms, collect 51ms, tests 1.89s, environment 0ms, prepare 61ms)
+

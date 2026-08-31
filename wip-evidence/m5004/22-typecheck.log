@@ -1,0 +1,4 @@
+$ tsc -b --force
+apps/api/src/requests/vacation-commit.ts(233,11): error TS2322: Type '"vacation_commit"' is not assignable to type '"manual" | "solver"'.
+apps/api/test/requests/vacation-commit-http.test.ts(67,5): error TS6133: 'entitlementGrantId' is declared but its value is never read.
+[ELIFECYCLE] Command failed with exit code 2.

@@ -1,0 +1,11 @@
+
+ RUN  v3.2.4 /tmp/claude-0/-home-user-SchedulePoint/5e0b7af2-58cd-52db-8db9-b2beb39f7480/scratchpad/wt-m5004
+
+ ✓ |domain| test/requests/solver-projection.test.ts (14 tests) 13ms
+ ✓ |domain| test/requests/transitions.test.ts (24 tests) 51ms
+
+ Test Files  2 passed (2)
+      Tests  38 passed (38)
+   Start at  14:30:34
+   Duration  853ms (transform 406ms, setup 0ms, collect 1.02s, tests 64ms, environment 0ms, prepare 149ms)
+
