@@ -45,8 +45,19 @@ SUPPORTED_PROTOCOL_VERSIONS: Tuple[int, ...] = (1,)
 #: carry. v1 is NOT accepted: the window is the SPEC-04 §1.2 rule applied to the
 #: document, and a v1 document read as a v2 one would silently model a group with
 #: no staff groups rather than refusing a problem it cannot pose.
-SNAPSHOT_SCHEMA_VERSION = 2
-SUPPORTED_SNAPSHOT_SCHEMA_VERSIONS: Tuple[int, ...] = (2,)
+#:
+#: **3 since OPUS-M5-004 (doc 42 5h).** v3 appends ONE field,
+#: ``requestProjection`` — SPEC-08 6's four rows, whose closing line requires
+#: them to be "part of the pinned solver_inputs snapshot". ``HardOff`` is
+#: CONSUMED by the model (``model.Problem.cells``): a membership is not a
+#: candidate on a date it is off, which is doc 08 3.2's "Availability (approved
+#: absence, vacation) | Candidate unavailability window" reaching an
+#: implementation for the first time. Without the bump a v2 document — one with
+#: no absences in it — would be read as a v3 document whose group happens to have
+#: none, and the rebuild would schedule people on their approved days off: SPEC-08
+#: R-14's exact failure. So v2 is refused by version rather than misread.
+SNAPSHOT_SCHEMA_VERSION = 3
+SUPPORTED_SNAPSHOT_SCHEMA_VERSIONS: Tuple[int, ...] = (3,)
 
 MESSAGE_TYPE_REQUEST = "SolveRequest"
 MESSAGE_TYPE_RESPONSE = "SolveResponse"
@@ -275,6 +286,11 @@ def validate_snapshot(snapshot: Dict[str, Any]) -> Dict[str, Any]:
         "qualifications",
     ):
         _field(snapshot, name, (list,), "snapshot")
+    # v3 (OPUS-M5-004). SPEC-08 6's projection, and an OBJECT rather than a list
+    # because it carries one array per row kind. Required, not optional: a v3
+    # document without it is a document whose absences are missing rather than
+    # absent, and reading it as "this group has none" is R-14's exact failure.
+    _field(snapshot, "requestProjection", (dict,), "snapshot")
     _require(
         len(snapshot["shiftTypes"]) > 0,
         "bad_value",

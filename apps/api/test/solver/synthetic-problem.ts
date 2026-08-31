@@ -77,6 +77,11 @@ export function syntheticProblem(
   });
 
   return {
+    /* v3 (OPUS-M5-004) — SPEC-08 §6's projection. EMPTY here, and the emptiness
+     * is the fixture's statement rather than an omission: these problems carry
+     * no requests at all, so "no absences" is the truth about them. R-14's
+     * fixture builds a populated one on a real rebuild. */
+    requestProjection: { hardOff: [], hardOn: [], softPreference: [], shiftGroupOff: [] },
     snapshotSchemaVersion: SOLVER_SNAPSHOT_SCHEMA_VERSION,
     compilerVersion: COMPILER_VERSION,
     ruleSchemaVersion: RULE_SCHEMA_VERSION,

@@ -534,6 +534,46 @@ export const AUDIT_EVENT_NAMES = [
   'requests.request.reason_code_attached',
   /** §4 (FAD-58.2): a decider appended a bounded administrative comment to a request. */
   'requests.request.comment_appended',
+
+  /* ── OPUS-M5-004 (SPEC-08 §5.6) — commit and reversal ───────────────────────
+   *
+   * TWO names, and the M5-002 naming rule decides both: a name per act somebody
+   * takes responsibility for, and a second name only where a fact distinguishes
+   * the acts.
+   *
+   * `requests.vacation_round.committed` is the ROUND's event, not a per-selection
+   * one. doc 09 §2.3 calls the commit "the most consequential operation in this
+   * domain" and FAD-59 makes it one COMMAND with one ledger row; emitting one
+   * event per week would make "when was this round committed, and by whom" a
+   * count rather than a row, and a re-run would look like a second commit in the
+   * stream even though R-12 guarantees there was only one. The per-week record
+   * already exists — `schedule.assignment.added`, one per OFF snapshot, through
+   * the shipped assignment writer.
+   *
+   * `requests.vacation_selection.reversed` is materially different from
+   * `requests.vacation_selection.withdrawn` in exactly the way that entry's own
+   * docblock argues for: a withdrawal is the REQUESTER taking back a week nobody
+   * has been promised, and a reversal is a SCHEDULER taking back a week a
+   * PUBLISHED version already carries — an override-capability act with a
+   * mandatory reason that raises a revision request. "Which committed weeks were
+   * reversed, and whose schedule changed as a result" is a question a scheduling
+   * dispute asks directly.
+   *
+   * The reversal is accompanied by `requests.request.revision_requested`, which
+   * already exists (M5-001, R-10) and is emitted UNCHANGED: the act is the same
+   * act §4's withdrawal-after-reflection produces, reached by vacation's own
+   * edge, and a second name for it would make "which published schedules have
+   * outstanding revision requests" two queries.
+   *
+   * **No payload here carries a reason or a date.** The reversal's mandatory
+   * reason is bounded free text on `vacation_selections.override_reason` and
+   * stays there; the payload carries `reasonGiven: true` — THAT one was required
+   * and supplied, never WHICH (I-07, ADR-0019, non-bypass rule 9). */
+
+  /** §5.6: a scheduler committed a vacation round into a DRAFT schedule version. */
+  'requests.vacation_round.committed',
+  /** §5.6: a committed week was reversed — override capability, mandatory reason. */
+  'requests.vacation_selection.reversed',
 ] as const;
 
 export type AuditEventName = (typeof AUDIT_EVENT_NAMES)[number];

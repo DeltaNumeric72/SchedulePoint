@@ -147,7 +147,38 @@ const VACATION_OWN_ROUTES = [
   },
 ] as const;
 
-const EXPECTED_VACATION = [...VACATION_DECISION_ROUTES, ...VACATION_OWN_ROUTES];
+/**
+ * The vacation COMMIT surface — OPUS-M5-004's two (SPEC-08 §5.6, FAD-59).
+ *
+ * Listed apart from the five above for ONE reason and it is the load-bearing
+ * one: these declare **CAP-023** ("Vacation commit to schedule"), where every
+ * other route on this surface declares CAP-021. Folding them into
+ * `EXPECTED_VACATION` would have made the whole-surface capability assertion
+ * below either wrong or weakened to "one of two", and a weakened assertion is
+ * how a route acquires the wrong baseline capability quietly.
+ *
+ * Both are scheduler/administrative and NEITHER is self-scoped: a commit is an
+ * act on the GROUP's round and a reversal an act on a week a published version
+ * carries, so `requiresObjectPolicy` is false and there is no ownership
+ * predicate to override. The M5-003 by-id-write ownership class therefore does
+ * not take them, and the structural test that re-derives that class from the
+ * route table is what checks the claim rather than this comment.
+ */
+const VACATION_COMMIT_ROUTES = [
+  { method: 'POST', url: `${VACATION_ROUNDS}/:periodId/commit`, key: 'vacation.commit' },
+  { method: 'POST', url: `${VACATION_BASE}/:selectionId/reverse`, key: 'vacation.commit' },
+] as const;
+
+const EXPECTED_VACATION = [
+  ...VACATION_DECISION_ROUTES,
+  ...VACATION_OWN_ROUTES,
+  ...VACATION_COMMIT_ROUTES,
+];
+
+/** Which baseline capability each vacation route declares. */
+function expectedCapabilityFor(url: string): 'CAP-021' | 'CAP-023' {
+  return VACATION_COMMIT_ROUTES.some((route) => route.url === url) ? 'CAP-023' : 'CAP-021';
+}
 
 let app: FastifyInstance;
 let routeTable: readonly RouteTableEntry[];
@@ -504,7 +535,7 @@ describe('OPUS-M5-002 — the scheduler half, and the §5c binding note at the r
     }
   });
 
-  it('the vacation surface registers exactly FIVE routes: two decisions and three member routes', () => {
+  it('the vacation surface registers exactly SEVEN routes: two decisions, three member, two commit', () => {
     const registered = vacationRoutes()
       .map((entry) => `${entry.method} ${entry.url}`)
       .sort();
@@ -514,7 +545,9 @@ describe('OPUS-M5-002 — the scheduler half, and the §5c binding note at the r
     for (const expected of EXPECTED_VACATION) {
       const config = capabilityRouteConfig(entryFor(expected.method, expected.url)?.config);
       expect(config?.action.key, `${expected.method} ${expected.url}`).toBe(expected.key);
-      expect(config?.policy.capability).toBe('CAP-021');
+      expect(config?.policy.capability, `${expected.method} ${expected.url}`).toBe(
+        expectedCapabilityFor(expected.url),
+      );
       expect(config?.actionScope).toBe('group');
     }
   });

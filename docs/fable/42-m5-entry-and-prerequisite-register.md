@@ -1195,6 +1195,241 @@ now three surfaces wide. Registered rather than fixed here: the barrel is a
 shared control and the M5-H precedent routes shared-control changes through
 their own packet.
 
+### 5h. M5-004 — FINALIZED 2026-08-27 (issues against `origin/main` at `6769319`, the PR #13 merge)
+
+**Scope: SPEC-08 §5.6 commit and reversal, the §6 solver projection, and their
+integration with the M4 build pipeline.** The two questions this packet has owed
+since M5-000b/M5-001 are ruled here (FAD-59, FAD-60, both recorded in
+ARCHITECTURE-DECISIONS at this finalization); the packet implements the rulings,
+never re-litigates them, and ESCALATES if SPEC-08's text cannot be satisfied
+within them. API/store/solver-input only — UI surfaces (including the graduated
+confirmation SURFACE) are M5-005's; this packet ships reversal's API half: the
+override capability, the mandatory reason, and the named refusal without both.
+
+**FAD-59 (the D-23 enforcing shape — answers M5-000b finding (2), "D-23 is
+vacuous as spelled"):** commit idempotency is enforced by a COMMIT-COMMAND
+LEDGER, the D-26/R-17 recorded-outcome pattern lifted from approvals to the
+version level. A new migration (0027) adds the ledger table: one row per commit
+command — organization, period, target DRAFT version, acting membership,
+instant, outcome — UNIQUE on `(organization_id, idempotency_key)`, append-only
+by privilege (GRANT SELECT, INSERT and nothing else; the
+`approvals`/`request_comments` pattern), organization-scoped RLS in the same
+migration, X-11-conformant keys. The ledger row, the OFF assignment snapshots,
+and the selection updates commit in ONE transaction; a replayed command key
+returns the recorded outcome (R-12) and writes nothing. The per-selection half
+of D-23 is the §5.3 matrix itself: `approved → committed` is the only edge that
+writes `committed_to_version_id` (double-enforced per R-01, so a second commit
+of a committed selection is an illegal transition in BOTH layers), plus a CHECK
+making `(status = 'committed') = (committed_to_version_id IS NOT NULL)` — the
+`vacation_selections.request_id` CHECK precedent. D-23's original spelled form
+stays in SPEC-08 unedited; 0027's header records this FAD as the enforcing
+shape, superseding the in-migration honesty statement that the spelled form
+enforces nothing.
+
+**FAD-60 (the preference-strength→weight mapping — answers the M5-000b
+declared-latitude note, "a real decision, not an identity"):** the projection
+NEVER routes `REQUEST_PREFERENCE_STRENGTHS` (`low|medium|high`, unsigned — a
+request states a preference FOR its named shift type) through the rules AST's
+four-value SIGNED vocabulary (`strong_prefer|prefer|avoid|strong_avoid`,
+`packages/domain/src/rules/ast.ts:33`): three unsigned values onto a two-value
+positive arm is lossy, and the avoid arm is UNREACHABLE from a request by
+construction — a mapping that could express it would manufacture a hostile
+preference no one stated. Instead §6's `SoftPreference` row carries the
+request's own three-value strength VERBATIM, and the solver-side objective maps
+it by a TOTAL, STRICTLY MONOTONE, positive weight table recorded in the
+projection module's header and pinned by test (totality over the closed set;
+strict ordering low < medium < high; positivity). The exact weight values are
+declared latitude for the implementer AGAINST doc 08's objective-term structure
+(verify against the file, never from this text — the FU-28 rule); the
+monotonicity and unreachability-of-avoid properties are NOT latitude.
+
+**The packet:**
+- **Commit (§5.6, doc 09 §2.3 — "the most consequential operation in this
+  domain"):** in one transaction against a DRAFT version (SPEC-05; committing
+  to a published version is refused by name — I-18, rule 5): create the OFF
+  assignment snapshots, mark selections `committed` with
+  `committed_to_version_id`, write the FAD-59 ledger row, audit, enqueue outbox
+  events (I-11: a notification failure never rolls back the commit; SPEC-07
+  payload closure — no reason text in any payload). Quota accounting is
+  UNTOUCHED by commit (consumption happened at approval; M5-002's).
+  Re-validation at commit per I-19: selection still `approved`, version still
+  draft, period/mode state admits commitment — the request-until gate's
+  commit-side reading is derived from SPEC-08 §3 + doc 09 §2.3 at
+  implementation; if those texts do not force a reading, ESCALATE, never
+  assume.
+- **Reversal (§5.6):** `committed → reversed`, override capability + mandatory
+  bounded reason (the administrative bounded-text class; kept out of audit
+  payloads/outbox/logs per I-07 rule 9), decrements `units_consumed` — and
+  `override_units` TOGETHER when reversing an override (R-20's write path;
+  M5-000b's proof carries) — respecting the floor (R-08), marks the selection
+  `reversed`, and RAISES A REVISION REQUEST against the schedule rather than
+  editing any published version (I-18; rule 5). Reversal's quota release
+  composes with `releaseGrantUnits` (first production caller was M5-003's J1
+  per the §5d dated correction; this packet adds the reversal caller). Open
+  mode: no grant row, release is a no-op by the same mode branch as §5.4.
+- **Commit and reverse are REQUEST OPERATIONS** (status-moving — unlike
+  M5-00C's comments, by D-1's own criterion): they join `REQUEST_OPERATIONS`
+  and the R-01 cross-product in BOTH layers, with the by-name pin and
+  agreement tests extended and the D-1 byte-identical-root proof updated.
+- **The §6 solver projection:** the four projection rows built EXACTLY per the
+  amended table (`reflected_in_version` INCLUDED per V-31; committed vacation
+  in `HardOff`), the exhaustive never-enters list asserted status-by-status
+  against §2's full set, `SoftPreference` per FAD-60, and the projection
+  emitted into the pinned `solver_inputs` snapshot (M4's pipeline — the solver
+  reads the projection, never the raw tables). R-14: on a REBUILD of the same
+  period, a time-off request already honoured in a published version is still
+  `HardOff` — proven with a real build-pipeline rebuild, not a unit stub.
+- **Routes + policies:** commit, reverse (and any read this surface forces)
+  under four-layer policies, deny-by-default, CAP-023 traceability; these are
+  scheduler/administrative operations — NOT own-scoped; the by-id-write
+  structural test still re-derives its set from the route table.
+
+**Constraints carried:** additive migrations only (0021–0026 untouched);
+0027's populated cycle with the `-- Up Migration` marker; every store port
+takes the unit of work; no capability baseline change; audit event names per
+the M5-002 naming rule; reason bodies never in audit payloads, outbox rows, or
+logs; the §5e/§5f/§5g environment discipline binds in full (tree gate + debris
++ FU-30 in-place sweep; restore ADDED files by cp + recorded md5;
+`SP_SOLVER_WORKER_COMMAND` set for every gate run; solver venv provisioned
+before any solver-touching leg — the M5-000b lesson: solver tests do NOT
+self-skip).
+
+**Acceptance battery:** the standing battery (§6 below) · the SPEC-08 §7 rows
+this packet owns: R-12 (replayed commit, one commit, recorded outcome), R-14
+(the rebuild HardOff invariant on a real rebuild), R-08/R-20 on the reversal
+path, R-10's composition where reversal raises the revision request · the
+projection's never-enters list proven exhaustively · red cases at census 69+
+under the four-conjunct bar (reasoning written either way; the FAD-59 ledger's
+append-only privilege and the published-version commit refusal are candidate
+arms — argue them against the bar, do not assume) · one composed seeded `api`
+run at a fresh seed with the invocation of record (two-attempt cap; base-tree
+replication for any pre-existing failure; FU-32's file is KNOWN
+order-dependent — a failure there replicates on base by expectation: verify
+and cite, do not re-diagnose) · CI 15/15 before merge. Delivery: worktree +
+patch from `6769319`; fresh Opus implementer; fresh Opus reviewer; delta by
+the reviewer; orchestrator lands on PR #14.
+
+**ACCEPTED 2026-08-31.** Fresh implementer (the run SUSPENDED mid-packet by the
+account's weekly usage limit 2026-08-27→31 — its full 17-gate check had already
+passed; the in-flight work was preserved durably on
+`claude/m5004-wip-preserve-a4ns2p`/PR #15 and the resumed tree regenerated the
+preservation md5 byte-identically after 3.5 days); fresh reviewer; verdict
+**ACCEPT WITH CONDITIONS** (round 1, C1..C7) → delta discharging six (C5 is
+discharged by this record, below) → reviewer delta CONFIRM replanting its own
+three mutations: **ACCEPT, unconditional**. Patch chain v1 `cfee3351` → v2
+**`a28cc640dc2d73e5f084a92f06c21522`** (landed), 40 files +6 296/−52, base
+`6769319`; the orchestrator's applied tree regenerated the v2 md5
+byte-identically before any record was written.
+
+- **The two rulings held at every layer.** FAD-59: the ledger's
+  single-INSERT-at-end shape (forced by reading "GRANT SELECT, INSERT and
+  nothing else" strictly — 0022's write-then-UPDATE sibling is foreclosed),
+  UNIQUE-as-race-control with `COMMIT_RACE_LOST` converging invisibly
+  (retry-once, absent from the wire enum), R-12 replay returning the recorded
+  outcome writing nothing, and the per-selection CHECK — after C3, defended by
+  a falsifier that discriminates THREE ways (FAD-59's constraint vs 0022's
+  CHECK vs D-27's trigger: under the one-arm mutation the row sails to commit
+  and D-27 fires). FAD-60: `low|medium|high` verbatim in the snapshot; the
+  1/2/4 table's totality, strict monotonicity, and positivity each
+  INDEPENDENTLY pinned (the reviewer's 1/2/2 mutation reddens exactly the
+  strict-ordering case by name); the CP-SAT term correctly NOT built (→ FU-33).
+- **The escalation chain, all three ruled mid-flight:** (1) HardOff had to be
+  CONSUMED or R-14 was unprovable — measured first (the model's grid is
+  date-independent; nothing named availability existed; fixedAssignments only
+  pin and there is NO per-membership-per-date exclusivity constraint in
+  `build()` — that last finding is register-grade on its own); the two
+  authorized `model.py` edits touch no objective/tier/weight/digest, proven by
+  the worker's own echoed digest equal on empty and populated solves. (2)
+  §5.6's "raises a revision request" collides with 0023's guard
+  (`app_guard_request_revision_requested` admits the flag only on
+  `reflected_in_version → withdrawn` — FAD-55's exclusion from the other
+  side); ruled option (a): the reversal raises the same audit + outbox events
+  as M5-001's withdrawal and writes NO flag; the column-vs-event
+  non-uniformity is owned in the header and routed forward (→ FU-35). (3) **A
+  widened CHECK domain is a one-way door** — the first down migration restored
+  0009's four-value origin CHECK byte-for-byte and THREW over live
+  `vacation_commit` rows, half-reversing the chain (18 files down); ruled
+  option (A): the down leaves the domain widened and says so with the measured
+  error quoted, the three outcomes enumerated (fail / delete rows a published
+  version may carry, I-18-forbidden / `NOT VALID`, which restores the name and
+  not the state), and the cycle asserting the WIDENED definition via
+  `pg_get_constraintdef`. The class rule is in the RISK-REGISTER: every future
+  domain-widening migration states its reversibility at authoring time.
+- **The read plane (FAD-61, recorded at this landing):** seven additive
+  SELECT-only purpose-token arms (0012 §5's mechanism, a distinct token) so
+  the build assembly can see the absences §6 projects — without it a builder
+  lacking `requests.read_any` would project only their OWN absences and the
+  solver would schedule everyone else onto their approved days off with §6
+  silent. After C1 it is defended by THREE falsifiers catching different
+  mutations: sibling IDENTITY (one distinct normalised qual, all seven printed
+  on failure), the shared predicate clause-by-clause with the group EQUALITY
+  quoted (catches a wholesale drop identity would accept), and a behavioural
+  cross-group case whose failure signature IS the leak (`expected 1 to be +0`
+  — a group-two row read from group one under the token). The token half was
+  proven defended in round 1 (weakening it fails "is CLOSED without the
+  token" by name); the reviewer's round-1 group_id-drop mutation had survived
+  the ENTIRE 205-file gate — found before it shipped.
+- **Conditions:** C1/C2/C3 above (each MEDIUM, each cured with the mutation
+  re-killed and restored byte-exact). C2's remedy is the REVIEWER'S
+  construction after its argument superseded the orchestrator's steer
+  (demand-forcing provably collapses into the INFEASIBLE case because the
+  trees differ exactly by the person's cells; the objective route — the only
+  reachable slot plus a rules-side SOFT reward — makes detection structural:
+  1-of-3 became 3-of-3 both directions). C4: the `is_override` overload on
+  reversal (forced by 0022's frozen equality) owned at both sites; separation
+  is a future recorded decision (→ FU-36). C6: 0027's header renumbered — and
+  the renumbering caught the header's own false "six tables" count (seven
+  CREATE POLICY lines; the file disagreed with its opening paragraph);
+  corrected, SQL proven untouched by comment-stripped diff. C7: CENSUS.md
+  corrected — 40 changed paths, not 38; candidate D fails conjunct 3 OUTRIGHT
+  (the STANDING falsifier is `request-projection.test.ts`'s R-14 worker cases
+  themselves, run on every unit gate; the manual mutation was the
+  demonstration of their teeth, a different and lesser thing). **C5,
+  discharged here per the M5-003 precedent — the implementation report's
+  attempt-1 line is superseded by this sentence:** attempt 1 reached its full
+  gate table at 13 passed / 4 failed with FIVE typecheck diagnostics, one in
+  PRODUCTION source (`vacation-commit.ts` TS2322 on the origin union), plus a
+  lint and an axe failure; the INDEX rows were accurate throughout, the
+  report's one-line summary was not.
+- **Arm 70 RULED: not added; census stays 69.** The reviewer's re-derivation
+  adopted in full at C7. The genuine residual — the R-14 cases bind the
+  REPO'S `model.py` through the venv substitution while the deployed worker
+  is a separately built image — is FAD-7's existing obligation, not an arm's.
+- **Acceptance figures, FROM MEASUREMENT (implementer's final check + the
+  reviewer's independent two-run table, cause named — the reviewer's run-1
+  unit FAIL was its own FU-06 catch, the gate's SECOND live production catch
+  and the first against a REVIEWER'S setup):** check **17/17** (implementer,
+  final tree) · unit v2 **205 files (204+1 skipped) / 2 614 tests (2 600 + 14
+  skipped)** — the reviewer's own full-gate re-run after the delta, the +1
+  reconciling exactly (the 0027 cycle 12→13) · route-policy **133** ·
+  migration-rls **27** · axe 458 · request-budget 48/95 · import-boundary
+  283/796 · validators 36/36 · 95/95 · PASS · census **69** (intersection
+  NON-empty for the first time: 3 files / 8 sites / 7 arms — all seven arms
+  PROVEN in isolation, arms 8 and 57 re-proven by the reviewer) · sweep floor
+  **67** (the thirteenth table seeded through the administration arm, no
+  privilege invented) · the reviewer's composed seeded run at **20260902** on
+  the final tree: both cured files GREEN, one failure total in FU-32's file,
+  cited · the implementer's two pre-cure seeded attempts (20260831,
+  20260901) each found a FRESH INSTANCE of FU-32's class in the packet's OWN
+  new files — both cured own-fixture-per-case and falsified across three
+  permutations both directions (the second at 3-of-3-red pre-cure), the
+  discipline working as designed · one observed, non-reproducing R-05
+  occurrence recorded NOT ATTRIBUTED (passes 14/14 in isolation; no
+  approval-path file in the diff; mechanism named as plausible only; →
+  RISK-REGISTER watch item).
+- **Environment record:** the six-attempt check history retained with causes
+  (an orphaned postmaster + vite preview from a killed attempt; the one-way
+  door; the vacuous-probe sweep floor); the pgrep self-match trap's FIFTH
+  instance; the pause-debris class's FIFTH sighting (first across a multi-day
+  pause — `/tmp/claude-0` reverted to 700); a SIGTERMed red-case arm whose
+  restore HELD (the FU-25/FU-30 counter-datum); NR-23 measured again at
+  **210.92 vs 20.83 ms** per probe pass (10×, ceiling scaled to cap, storm
+  green); and a NEW standing rule from the reviewer's own false negative: **a
+  `packages/domain` source mutation is invisible until `tsc -b` rebuilds —
+  verify against the dist, never against a green.**
+
+## 6. Standing acceptance battery (every packet, per 24 §G and the M4 form)
+
 Validators (36/36 · 95/95 · research PASS) · `corepack pnpm check` 17/17 · the full
 red-case battery at the current census · targeted fixture-regression where the packet
 touches suite composition · migration schema cycle + a populated cycle for every new

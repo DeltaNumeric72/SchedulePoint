@@ -1,9 +1,14 @@
 import {
   approveVacationSelectionSchema,
+  commitVacationRoundResultSchema,
+  commitVacationRoundSchema,
   denyVacationSelectionSchema,
   idempotencyKeyReusedBodySchema,
   isUuid,
   requestDeadlineRefusalBodySchema,
+  reverseVacationCommitResultSchema,
+  reverseVacationCommitSchema,
+  vacationCommitRefusalBodySchema,
   vacationDecisionRefusalBodySchema,
   vacationDecisionResultSchema,
   vacationRoundListSchema,
@@ -18,6 +23,8 @@ import {
   type Decision,
   type RequestStatus,
   type VacationApprovalFailure,
+  type VacationCommitFailure,
+  type VacationReversalFailure,
   type VacationSelectionStatus,
 } from '@schedulepoint/domain';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
@@ -34,6 +41,14 @@ import {
   denyVacationSelection,
   type VacationDecisionResult,
 } from '../../requests/vacation-approval.js';
+import {
+  VacationCommitRolledBack,
+  VacationReversalRolledBack,
+  commitVacationRound,
+  reverseVacationCommit,
+  type CommitVacationRoundResult,
+  type ReverseVacationCommitResult,
+} from '../../requests/vacation-commit.js';
 import {
   VacationSelectionRolledBack,
   readVacationRound,
@@ -498,7 +513,23 @@ function roundView(round: VacationRound): unknown {
          * that a week was approved over the allowance is a fact about the
          * member's own week; the REASON is a scheduler's administrative note of
          * the `change_summary` class, and widening who reads that class is a
-         * decision nobody has taken. See `vacationSelectionSummarySchema`. */
+         * decision nobody has taken. See `vacationSelectionSummarySchema`.
+         *
+         * **OPUS-M5-004 OVERLOADED THIS FIELD, and a reader of this projection
+         * needs to know before they trust it.** §5.6's reversal records a
+         * MANDATORY reason on `vacation_selections.override_reason`, and
+         * migration 0022's `vacation_selections_override_reason_coherent` is the
+         * equality `is_override = (override_reason IS NOT NULL)` — so a reversal
+         * necessarily sets this flag, even for a week that was approved well
+         * within its allowance. 0022 is frozen to this packet (additive
+         * migrations only), so the flag could not be left alone.
+         * **`isOverride` therefore means "an override reason is recorded on this
+         * row", which is TWO facts** — approved-over-allowance, and
+         * reversal-recorded. The selection's STATUS tells them apart:
+         * `reversed` is the second. Separating them into their own field is a
+         * future recorded decision, taken when a consumer needs it and not
+         * before; `vacation-store.ts`'s `reverseSelection` carries the full
+         * argument. */
         isOverride: view.selection.isOverride,
         committedToVersionId: view.selection.committedToVersionId,
       },
@@ -522,6 +553,200 @@ function roundView(round: VacationRound): unknown {
       state: row.state,
     })),
   };
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * OPUS-M5-004 — §5.6's commit and reversal (doc 42 §5h, FAD-59)
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * §5.6's commit AND its reversal — `vacation.commit`, CAP-023.
+ *
+ * Not own-scoped: `requiresObjectPolicy: false` and no `ownershipRequired`. A
+ * commit is an act on the group's round and a reversal an act on a week a
+ * published version carries; neither has an owning subject for L5.1 to ask
+ * about. CAP-023 is the baseline capability doc 18 names "Vacation commit to
+ * schedule", and this route is what it traces to.
+ */
+export const COMMIT_VACATION_CONFIG = {
+  policy: { kind: 'capability', capability: 'CAP-023' },
+  actionScope: 'group',
+  action: {
+    key: 'vacation.commit',
+    moduleKey: 'requests_vacation',
+    requiresObjectPolicy: false,
+  },
+} as const satisfies RouteConfigWithPolicy;
+
+type CommitOutcome<T> =
+  | { readonly kind: 'ok'; readonly value: T }
+  | { readonly kind: 'denied'; readonly decision: Decision }
+  | { readonly kind: 'not-found' }
+  | { readonly kind: 'invalid'; readonly message: string }
+  | { readonly kind: 'refused'; readonly failure: VacationCommitFailure | VacationReversalFailure };
+
+/**
+ * One unit of work, one verdict, both rollbacks surfaced as outcomes.
+ *
+ * The `try` is OUTSIDE `runtime.run` for the reason `withVacationDecision`
+ * gives: by the time either typed error arrives the runner has already rolled
+ * back, so a half-committed round does not exist and the FAD-59 ledger row is
+ * gone with it — which is what keeps the same idempotency key retryable after a
+ * failure.
+ */
+async function withVacationCommit<T>(
+  request: FastifyRequest,
+  run: (
+    uow: Parameters<Parameters<FastifyRequest['server']['tenancy']['runtime']['run']>[1]>[0],
+  ) => Promise<CommitOutcome<T>>,
+): Promise<CommitOutcome<T>> {
+  const { context, command, route } = requireTenantContext(request);
+
+  try {
+    return await request.server.tenancy.runtime.run(
+      command,
+      async (uow): Promise<CommitOutcome<T>> => {
+        const { decision } = await evaluateInTransaction(uow.query, {
+          request,
+          context,
+          route,
+          target: null,
+        });
+        if (!decision.allowed) return { kind: 'denied', decision };
+        return await run(uow);
+      },
+    );
+  } catch (error) {
+    if (error instanceof VacationCommitRolledBack || error instanceof VacationReversalRolledBack) {
+      request.log.info(
+        { correlationId: request.correlationId, failure: error.failure },
+        'vacation commit rolled back',
+      );
+      return { kind: 'refused', failure: error.failure };
+    }
+    if (!isPostgresError(error)) throw error;
+    request.log.warn(
+      {
+        correlationId: request.correlationId,
+        sqlstate: error.code,
+        constraint: (error as { constraint?: string }).constraint ?? null,
+      },
+      'vacation commit refused by the database',
+    );
+    return { kind: 'not-found' };
+  }
+}
+
+/** One commit attempt. Separated so R-12's convergence can run it twice. */
+async function runCommit(
+  request: FastifyRequest,
+  periodId: string,
+  parsed: ReturnType<typeof commitVacationRoundSchema.safeParse>,
+): Promise<CommitOutcome<CommitVacationRoundResult>> {
+  return withVacationCommit<CommitVacationRoundResult>(request, async (uow) => {
+    if (!isUuid(periodId)) return { kind: 'not-found' as const };
+    if (!parsed.success) {
+      return { kind: 'invalid' as const, message: 'The commit body is not valid.' };
+    }
+    const membershipId = uow.context.membershipId;
+    if (membershipId === null) return { kind: 'not-found' as const };
+
+    const value = await commitVacationRound(uow, {
+      vacationPeriodId: periodId,
+      targetVersionId: parsed.data.targetVersionId,
+      idempotencyKey: parsed.data.idempotencyKey,
+      actingMembershipId: membershipId,
+      principalUserId: requireTenantContext(request).context.principalUserId,
+      now: new Date(),
+    });
+    return { kind: 'ok' as const, value };
+  });
+}
+
+/**
+ * The refusal's status code.
+ *
+ * `403` for the one that is about AUTHORITY — `REVERSAL_OVERRIDE_REQUIRED` is a
+ * genuine authorization refusal and a `409` would suggest a retry could work —
+ * `422` for the one that is about the BODY, `404` for a period nobody can see,
+ * and `409` for the rest, which all mean "the world is not as you believed".
+ *
+ * Every message is a fixed string carrying no row content: a refusal that echoed
+ * a member's week or a version's state would put one person's schedule into
+ * another's error.
+ */
+function commitRefusalStatus(failure: VacationCommitFailure | VacationReversalFailure): number {
+  if (failure === 'REVERSAL_OVERRIDE_REQUIRED') return 403;
+  if (failure === 'REVERSAL_REASON_REQUIRED') return 422;
+  if (failure === 'COMMIT_PERIOD_NOT_FOUND') return 404;
+  return 409;
+}
+
+const COMMIT_REFUSAL_MESSAGE: Readonly<
+  Record<Exclude<VacationCommitFailure, 'COMMIT_RACE_LOST'> | VacationReversalFailure, string>
+> = {
+  COMMIT_TARGET_NOT_DRAFT:
+    'A vacation round is committed into a draft schedule version. A published version is ' +
+    'immutable — clone it and publish forward instead.',
+  COMMIT_PERIOD_NOT_FOUND: 'No such vacation round.',
+  COMMIT_PERIOD_VERSION_MISMATCH:
+    'That schedule version does not cover this vacation round\'s dates.',
+  COMMIT_NO_OFF_SHIFT_TYPE:
+    'This group has no leave-of-absence shift type, so there is nothing for a vacation day to ' +
+    'be. Add one to the shift catalogue first.',
+  COMMIT_SELECTION_NOT_APPROVED:
+    'A selection in this round moved while it was being committed. Nothing was changed.',
+  COMMIT_NOTHING_TO_COMMIT: 'There is no approved selection in this round to commit.',
+  REVERSAL_SELECTION_NOT_COMMITTED: 'This selection is not committed to a schedule version.',
+  REVERSAL_OVERRIDE_REQUIRED: 'Reversing a committed week requires the override capability.',
+  REVERSAL_REASON_REQUIRED: 'A reversal states its reason.',
+  REVERSAL_GRANT_CONFLICT:
+    'The vacation allowance moved while this reversal was running. Nothing was changed.',
+};
+
+function respondToCommit<T>(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  outcome: CommitOutcome<T>,
+  body: (value: T) => unknown,
+): unknown {
+  switch (outcome.kind) {
+    case 'denied':
+      return respondToDenial(request, reply, outcome.decision);
+    case 'not-found':
+      return sendNotFound(request, reply);
+    case 'invalid':
+      return reply.code(422).send(
+        validationProblemBodySchema.parse({
+          error: {
+            code: 'VALIDATION_FAILED',
+            message: 'The request body is not valid.',
+            correlationId: request.correlationId,
+            problems: [{ field: 'body', message: outcome.message }],
+          },
+        }),
+      );
+    case 'refused': {
+      if (outcome.failure === 'COMMIT_RACE_LOST') {
+        /* Unreachable through the route: the commit handler retries once and the
+         * second attempt replays the winner's ledger row. Written rather than
+         * cast away — if it ever DID surface, answering 409 is the honest thing,
+         * and a `never`-typed lookup would be a 500 instead. */
+        return sendNotFound(request, reply);
+      }
+      return reply.code(commitRefusalStatus(outcome.failure)).send(
+        vacationCommitRefusalBodySchema.parse({
+          error: {
+            code: outcome.failure,
+            message: COMMIT_REFUSAL_MESSAGE[outcome.failure],
+            correlationId: request.correlationId,
+          },
+        }),
+      );
+    }
+    case 'ok':
+      return reply.send(body(outcome.value));
+  }
 }
 
 export default function vacationRoutes(app: FastifyInstance): void {
@@ -696,4 +921,102 @@ export default function vacationRoutes(app: FastifyInstance): void {
       );
     },
   );
+
+  /* ── OPUS-M5-004 — §5.6's commit and reversal (doc 42 §5h, FAD-59) ─────────
+   *
+   * | Route | Is | Key |
+   * |---|---|---|
+   * | `POST …/vacation/rounds/:periodId/commit` | §5.6's commit to a DRAFT version | `vacation.commit` |
+   * | `POST …/vacation/selections/:selectionId/reverse` | §5.6's reversal of one committed week | `vacation.commit` + the override, evaluated inside |
+   *
+   * **Both are scheduler/administrative, NOT own-scoped**, and that is the whole
+   * difference from the three member routes above. `requiresObjectPolicy: false`
+   * and no `ownershipRequired`: a commit is an act on the GROUP's round, and a
+   * reversal is an act on a week a PUBLISHED version carries. Neither is a
+   * statement a person makes about their own circumstances, so L5.1's ownership
+   * question has no subject to ask about — which is exactly the M5-003 finding's
+   * criterion, applied at declaration rather than after a defect.
+   *
+   * The M5-003 by-id-write ownership class does not take either of them, and the
+   * enumeration test re-derives its set from the route table so this claim is
+   * checked rather than asserted: the class is "self-scoped by-id WRITE routes",
+   * and these two declare no ownership at all.
+   *
+   * **No new capability key.** `vacation.commit` already exists (CAP-023, doc 08
+   * §4, grant-only) and has had NO EVALUATOR since M1 — it gains one here, in the
+   * same change as its surface, which is the rule M5-001 recorded and M5-002
+   * applied to `requests.batch_approve` and `vacation.override_quota`.
+   *
+   * **Reversal declares `vacation.commit` too, and the override is a SECOND
+   * evaluation inside the transaction** — the shape §5.5's over-quota override
+   * already uses. §5.6's "requires the override capability" is a condition the
+   * transaction discovers about an act whose route-level power is the commit
+   * surface; splitting it into a third key would invent a capability §5.6 does
+   * not name and rule 11 forbids inventing.
+   * ────────────────────────────────────────────────────────────────────────── */
+
+  app.post(`${rounds}/:periodId/commit`, { config: COMMIT_VACATION_CONFIG }, async (request, reply) => {
+    const { periodId } = request.params as { periodId: string };
+    const parsed = commitVacationRoundSchema.safeParse(request.body);
+
+    /* R-12's convergence, and the reason it is a LOOP of exactly two attempts.
+     * `COMMIT_RACE_LOST` means another transaction recorded this key while this
+     * one was working; everything this one did has rolled back, and the second
+     * attempt's step 0 finds the winner's ledger row and replays it. Two
+     * attempts and no more: the second cannot lose the race, because the row it
+     * would have lost to is already committed and its own step 0 reads it. */
+    let outcome = await runCommit(request, periodId, parsed);
+    if (outcome.kind === 'refused' && outcome.failure === 'COMMIT_RACE_LOST') {
+      outcome = await runCommit(request, periodId, parsed);
+    }
+    return respondToCommit(request, reply, outcome, (value) =>
+      commitVacationRoundResultSchema.parse({
+        vacationPeriodId: value.vacationPeriodId,
+        targetVersionId: value.targetVersionId,
+        committedSelectionIds: [...value.committedSelectionIds],
+        assignmentsCreated: value.assignmentSnapshotIds.length,
+        replayed: value.replayed,
+      }),
+    );
+  });
+
+  app.post(`${base}/:selectionId/reverse`, { config: COMMIT_VACATION_CONFIG }, async (request, reply) => {
+    const outcome = await withVacationCommit<ReverseVacationCommitResult>(request, async (uow) => {
+      const { selectionId } = request.params as { selectionId: string };
+      if (!isUuid(selectionId)) return { kind: 'not-found' as const };
+
+      const parsed = reverseVacationCommitSchema.safeParse(request.body);
+      if (!parsed.success) {
+        /* §5.6's reason is MANDATORY, and a body without one never reaches the
+         * service: the wire refuses it first, the domain refuses it second
+         * (`reversalReasonIsWellFormed`), and 0022's
+         * `vacation_selections_override_reason_len` refuses it third. */
+        return { kind: 'invalid' as const, message: 'A reversal states its reason.' };
+      }
+
+      const membershipId = uow.context.membershipId;
+      if (membershipId === null) return { kind: 'not-found' as const };
+
+      const value = await reverseVacationCommit(uow, {
+        selectionId,
+        reason: parsed.data.reason,
+        actingMembershipId: membershipId,
+        now: new Date(),
+        /* The override's second evaluation reads the VERIFIED tuple, never the
+         * body. Supplying a reason authorises nothing. */
+        actor: evaluationContextOf(requireTenantContext(request).context),
+      });
+      return { kind: 'ok' as const, value };
+    });
+
+    return respondToCommit(request, reply, outcome, (value) =>
+      reverseVacationCommitResultSchema.parse({
+        selectionId: value.selectionId,
+        requestId: value.requestId,
+        selectionVersion: value.selectionVersion,
+        unitReleased: value.unitReleased,
+        revisionRequested: value.revisionRequested,
+      }),
+    );
+  });
 }

@@ -1445,3 +1445,108 @@ export const vacationSelectionRefusalBodySchema = z
   })
   .strict();
 export type VacationSelectionRefusalBody = z.infer<typeof vacationSelectionRefusalBodySchema>;
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * OPUS-M5-004 — §5.6's commit and reversal (doc 42 §5h, FAD-59)
+ *
+ * The scheduler's two most consequential acts on a round: putting it on the
+ * schedule, and taking one week of it back off. Both are `.strict()` like
+ * everything here, and neither body carries a status or a date — the round and
+ * the selection already say those, and a body that repeated them would be a
+ * second authority a client could get wrong.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * What a client sends to COMMIT a vacation round (§5.6).
+ *
+ * `idempotencyKey` is FAD-59's, and it is the ONLY thing that makes a retry
+ * safe: the same key twice commits once (R-12). Same shape as every other key in
+ * this file — migration 0027's `vacation_commit_commands_key_shape` is the
+ * database's independent copy.
+ *
+ * **No `selectionIds`.** A commit is an act on the ROUND: it takes every
+ * `approved` selection in the period, because a commit that took a subset would
+ * make "was this round committed?" a question with a list for an answer, and
+ * FAD-59's ledger row is per COMMAND rather than per selection.
+ */
+export const commitVacationRoundSchema = z
+  .object({
+    /** SPEC-05's DRAFT version. A published one is refused by name (I-18). */
+    targetVersionId: uuidSchema,
+    idempotencyKey: idempotencyKeySchema,
+  })
+  .strict();
+export type CommitVacationRound = z.infer<typeof commitVacationRoundSchema>;
+
+/** What a commit returns. `replayed` is FAD-59's ledger answering (R-12). */
+export const commitVacationRoundResultSchema = z
+  .object({
+    vacationPeriodId: uuidSchema,
+    targetVersionId: uuidSchema,
+    committedSelectionIds: z.array(uuidSchema),
+    /** How many OFF assignment snapshots this call created. Zero on a replay. */
+    assignmentsCreated: z.number().int().nonnegative(),
+    /** The ledger already held this key: nothing was written (R-12). */
+    replayed: z.boolean(),
+  })
+  .strict();
+export type CommitVacationRoundResultWire = z.infer<typeof commitVacationRoundResultSchema>;
+
+/**
+ * What a client sends to REVERSE a committed week (§5.6).
+ *
+ * The reason is MANDATORY — §5.6 says so — and it is bounded administrative text
+ * of exactly the class `approvals.reason` and `override_reason` are: never
+ * clinical, never an ingestion path (non-bypass rule 8), and it reaches no audit
+ * payload, no outbox row and no log (I-07, rule 9). `decisionReasonSchema` is the
+ * house bound, reused rather than respelled.
+ */
+export const reverseVacationCommitSchema = z.object({ reason: decisionReasonSchema }).strict();
+export type ReverseVacationCommit = z.infer<typeof reverseVacationCommitSchema>;
+
+/** What a reversal returns. `revisionRequested` is always true — §5.6 raises one. */
+export const reverseVacationCommitResultSchema = z
+  .object({
+    selectionId: uuidSchema,
+    requestId: uuidSchema,
+    selectionVersion: z.number().int().positive(),
+    /** False in open mode: no grant row, nothing to release (V-30). */
+    unitReleased: z.boolean(),
+    /** §5.6 raises a revision request rather than editing a published version. */
+    revisionRequested: z.literal(true),
+  })
+  .strict();
+export type ReverseVacationCommitResultWire = z.infer<typeof reverseVacationCommitResultSchema>;
+
+/**
+ * §5.6's refusals, as a closed `code`. Each has its own remedy.
+ *
+ * `COMMIT_RACE_LOST` is deliberately ABSENT: it is the service's internal signal
+ * that two commands raced, and the route converges on the recorded outcome
+ * instead of surfacing it (see the domain's `VACATION_COMMIT_FAILURES`). A code
+ * a client can never receive would be a vocabulary member with no meaning to
+ * them.
+ */
+export const vacationCommitRefusalBodySchema = z
+  .object({
+    error: z
+      .object({
+        code: z.enum([
+          'COMMIT_TARGET_NOT_DRAFT',
+          'COMMIT_PERIOD_NOT_FOUND',
+          'COMMIT_PERIOD_VERSION_MISMATCH',
+          'COMMIT_NO_OFF_SHIFT_TYPE',
+          'COMMIT_SELECTION_NOT_APPROVED',
+          'COMMIT_NOTHING_TO_COMMIT',
+          'REVERSAL_SELECTION_NOT_COMMITTED',
+          'REVERSAL_OVERRIDE_REQUIRED',
+          'REVERSAL_REASON_REQUIRED',
+          'REVERSAL_GRANT_CONFLICT',
+        ]),
+        message: z.string().min(1),
+        correlationId: z.string().min(1),
+      })
+      .strict(),
+  })
+  .strict();
+export type VacationCommitRefusalBody = z.infer<typeof vacationCommitRefusalBodySchema>;

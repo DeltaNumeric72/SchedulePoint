@@ -296,6 +296,35 @@ describe('R-15 — the mapping holds after EVERY §5.3 transition', () => {
     );
     const seen = new Set<VacationSelectionStatus>();
 
+    /* A DRAFT schedule version for the `approved → committed` hop.
+     *
+     * Added at OPUS-M5-004: migration 0027's
+     * `vacation_selections_committed_version_coherent` makes
+     * `(status = 'committed') = (committed_to_version_id IS NOT NULL)` an
+     * EQUALITY, so a walk that moved a selection to `committed` without naming a
+     * version is refused by the database — which is the constraint working, not
+     * an obstacle. Nothing about R-15 is weakened: the walk still visits every
+     * §5.3 edge and still reads the pair back after every commit; it now supplies
+     * the one column the new CHECK requires, and CLEARS it again on the
+     * `committed → reversed` hop for the same reason (§5.6's reversal leaves the
+     * status and the column agreeing). */
+    const walkVersionId = await run(async ({ query }) => {
+      const schedulePeriodId = randomUUID();
+      await sql`
+        insert into schedule_periods (id, organization_id, group_id, name, start_date, end_date)
+        values (${schedulePeriodId}::uuid, ${context.organizationId}::uuid,
+                ${context.groupId}::uuid, ${'r15 walk'}, ${WALK_PERIOD_START}::date,
+                (${WALK_PERIOD_START}::date + 200)::date)
+      `.execute(query);
+      const versionId = randomUUID();
+      await sql`
+        insert into schedule_versions (id, organization_id, group_id, period_id, state)
+        values (${versionId}::uuid, ${context.organizationId}::uuid, ${context.groupId}::uuid,
+                ${schedulePeriodId}::uuid, ${'draft'})
+      `.execute(query);
+      return versionId;
+    });
+
     /** Moves a selection one §5.3 edge, both rows, in ONE transaction. */
     const step = async (
       selectionId: string,
@@ -305,9 +334,16 @@ describe('R-15 — the mapping holds after EVERY §5.3 transition', () => {
     ): Promise<void> => {
       const path = selectionEdgeRootPath(from, to);
       if (path === null) throw new Error(`no §2 path for ${from} → ${to}`);
+      /* The CHECK is an equality, so the column moves WITH the status: set on the
+       * way into `committed`, cleared on the way out. Every other edge leaves it
+       * NULL, which is what it already is. */
+      const committedVersion = to === 'committed' ? walkVersionId : null;
       await run(async ({ query }) => {
         await sql`
-          update vacation_selections set status = ${to}, version = version + 1
+          update vacation_selections
+             set status = ${to},
+                 committed_to_version_id = ${committedVersion}::uuid,
+                 version = version + 1
            where id = ${selectionId}::uuid
         `.execute(query);
         for (const hop of path) {
