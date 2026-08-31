@@ -1428,6 +1428,45 @@ byte-identically before any record was written.
   `packages/domain` source mutation is invisible until `tsc -b` rebuilds —
   verify against the dist, never against a green.**
 
+### 5i. M5-F32 — FINALIZED 2026-08-31 (corrective packet; issues against `origin/main` at `b599a7a`, the PR #14 merge)
+
+**Scope: cure FU-32 — the order dependence in
+`apps/api/test/requests/vacation-selection-http.test.ts` — and nothing else.**
+One file, test-only, no production line moves. The nightly fixture-regression
+matrix has been UNIFORMLY red on this defect since the M5-00C merge (runs 3–7,
+all 14 seed jobs, one test at line 1036; three further seeds at M5-004) and is
+BLIND as a regression monitor until this lands — which is why this packet
+precedes M5-005.
+
+**The remedy is the register's own, proven live twice at M5-004:**
+own-fixture-per-case (the R-13/T-15 pattern) — every case creates every
+request, selection, and round it asserts about; every assertion scoped to its
+OWN subject, never to a whole-membership list or a shared setup row; shared
+mutable fixture state across `it()` blocks eliminated. NOTHING WEAKENED (rule
+10): the same behavioural assertions survive — same refusals by name, same
+positive controls — restructured, not reduced; the reviewer verifies by
+assertion-multiset diff (the M5-004 method).
+
+**Acceptance battery (targeted — the corrective-packet form):**
+1. The file green under `--sequence.shuffle.tests` at the KNOWN-failing shuffle
+   orders AND three fresh seeds of the implementer's choosing, with the shuffle
+   proven non-vacuous (executed-order diff, the M5-004 reviewer's method).
+2. THE DECISIVE PROOF: one composed seeded `api` run (invocation of record) at
+   a seed the nightly matrix has FAILED (e.g. seed 1 or 42) — the file green
+   inside the composed run that used to redden it. Pre-cure red / cured green
+   at the same seed is the both-directions form if the run budget allows two;
+   the cured-green run is the minimum.
+3. `gate:typecheck` + `gate:lint` + the file single-file green · tree gate ·
+   debris · FU-30 sweep. Full `pnpm check` NOT required locally (one test
+   file; CI on the PR is the primary form).
+4. Census untouched (no arm, no mutation-target file); state the empty
+   intersection in one line.
+Delivery: worktree + patch from `b599a7a`; fresh Opus implementer; fresh Opus
+reviewer (a LIGHT review — the falsification re-run at its own seeds + the
+assertion-multiset diff + record honesty); delta if conditions; orchestrator
+lands on the next PR. Closing FU-32 requires citing the first ALL-GREEN
+nightly after the merge — the row stays OPEN until that run is read.
+
 ## 6. Standing acceptance battery (every packet, per 24 §G and the M4 form)
 
 Validators (36/36 · 95/95 · research PASS) · `corepack pnpm check` 17/17 · the full

@@ -2,22 +2,23 @@
   "runId": "RUN-20260822-GHRECON-01",
   "orchestrator": "Claude Fable (Claude Code on the web; continuous GitHub master authorization 2026-08-22)",
   "currentMilestone": "M5 ENTERED 2026-08-25 (doc 42) under the prototype-enablement checkpoint (doc 41); M1-M4 COMPLETE and tagged; M3R CLOSED (doc 39)",
-  "currentPacket": "M5-004 ACCEPTED 2026-08-31 (doc 42 5h ACCEPTED record: fresh implementer - suspended mid-run by the weekly usage limit, resumed with integrity proven - + fresh reviewer; ACCEPT WITH CONDITIONS C1..C7 -> delta -> CONFIRM unconditional; patch v2 md5 a28cc640dc2d73e5f084a92f06c21522, 40 files +6296/-52; FAD-61 recorded; arm 70 not added). LANDING on PR #14; merge at CI 15/15; then the FU-32 corrective packet",
+  "currentPacket": "M5-F32 FINALIZED 2026-08-31 (doc 42 5i: the FU-32 corrective packet - own-fixture-per-case in vacation-selection-http.test.ts; the nightly matrix is blind until it lands). Issues against origin/main b599a7a. M5-004 ACCEPTED and MERGED (PR #14, CI 15/15 on 8f689c2, merged b599a7a); PR #15 CLOSED (preservation superseded; remote branch deletion REFUSED by the environment's git proxy after 3 attempts - branch retained, explained)",
   "lifecycleState": "REPLACEMENT GATE PASSED 2026-08-25 (doc 39): the doc 38 internal review complete end to end — three reviewers (REV-A/B/C) filed; 28/28 findings ACCEPTED at filed severity (FAD-53); repair packets R-1..R-13 all landed with fresh implementers, independent reviews, and deltas by the original finder or a recorded surrogate; the §7 battery passed in full (EV-DOC38-GATE: validators, check 17/17, sbx 9/9, migration cycles, red-cases 67 arms in the sharded-CI primary form per FAD-54 with three green executions, fixture-regression 14/14 on the repaired tip, real-stack e2e 2/2 both viewports); REV-C's final ACCEPT issued by a recorded continuation surrogate; fresh-clone validation of origin/main green (17/17); CI on main fully green for the first time (run 32798497944, 15/15, attempt 1); PR #6 MERGED at be7399b with all 15 checks green. M3R CLOSED by substitution (owner §C). Codex review NOT PERFORMED; Codex-specific requirement SUPERSEDED BY OWNER DECISION; replacement gate FABLE-PLANNED, MULTI-OPUS-EXECUTED INTERNAL REVIEW (internal, never external). New registered risks NR-22/NR-23 (correctness intact); post-gate follow-ups in doc 40 (FU-01..FU-17). The detailed packet-by-packet history lives in FAD-53/FAD-54, the RISK-REGISTER's dated entries, and EV-DOC38-GATE — this cell no longer duplicates it",
-  "originMainCommit": "6769319f4663d9a7516e2bf9f4c373f033bdee46",
+  "originMainCommit": "b599a7aeb22ae9c460ae9055609081067c96ea5a",
   "taskBranch": "claude/schedulepoint-github-auth-a4ns2p",
   "worktree": "/home/user/SchedulePoint (Claude Code web workspace, ephemeral)",
   "latestPushedCommit": "branch tip on origin (this commit)",
-  "pullRequestNumber": 14,
+  "pullRequestNumber": 16,
   "implementer": null,
   "reviewer": null,
   "activeProcessesAndPorts": [],
-  "lastCommand": "M5-004 patch v2 applied at branch tip (md5-identical regeneration); 5h ACCEPTED record + FAD-61 + FU-33..36 + register entries authored; committing, pushing, merging PR #14 at green",
+  "lastCommand": "PR #14 MERGED at b599a7a; branch reset; PR #15 closed with explanation (branch deletion refused by the proxy, retained explained); M5-F32 finalized in doc 42 5i; twins updated; committing then opening draft PR #16",
   "lastExitCode": 0,
   "openFindings": "Moved to docs/fable/40-post-gate-follow-ups.md (FU-01..FU-36; closed: 01/03/04/06/07/08/19/20/23/24/25/27/28; FU-13 at 7/9; FU-17 owner action; FU-33..36 opened at M5-004). This field points, it does not duplicate",
   "externalBlockers": [
-    "Nightly fixture-regression matrix uniformly red since the M5-00C merge on FU-32's order-dependent file - the FU-32 corrective packet is NEXT, before M5-005"
+    "Nightly matrix uniformly red on FU-32 until M5-F32 lands (the packet now in flight)",
+    "The git proxy refuses branch-deletion pushes - claude/m5004-wip-preserve-a4ns2p retained, explained in PR #15's closing comment"
   ],
-  "exactNextAction": "Push landing commit; CI 15/15 on PR #14; merge; close PR #15 + delete the preservation branch (explained); finalize the FU-32 corrective packet and issue to a fresh Opus implementer; then M5-005",
-  "lastUpdateUtc": "2026-08-31T23:20:00Z"
+  "exactNextAction": "Open draft PR #16 with this push; issue M5-F32 to a fresh Opus implementer (worktree + patch from b599a7a); light fresh review; land; merge at CI 15/15; read the first post-merge nightly to close FU-32; then M5-005",
+  "lastUpdateUtc": "2026-09-01T00:05:00Z"
 }
