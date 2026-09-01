@@ -1428,6 +1428,82 @@ byte-identically before any record was written.
   `packages/domain` source mutation is invisible until `tsc -b` rebuilds —
   verify against the dist, never against a green.**
 
+### 5i. M5-F32 — FINALIZED 2026-08-31 (corrective packet; issues against `origin/main` at `b599a7a`, the PR #14 merge)
+
+**Scope: cure FU-32 — the order dependence in
+`apps/api/test/requests/vacation-selection-http.test.ts` — and nothing else.**
+One file, test-only, no production line moves. The nightly fixture-regression
+matrix has been UNIFORMLY red on this defect since the M5-00C merge (runs 3–7,
+all 14 seed jobs, one test at line 1036; three further seeds at M5-004) and is
+BLIND as a regression monitor until this lands — which is why this packet
+precedes M5-005.
+
+**The remedy is the register's own, proven live twice at M5-004:**
+own-fixture-per-case (the R-13/T-15 pattern) — every case creates every
+request, selection, and round it asserts about; every assertion scoped to its
+OWN subject, never to a whole-membership list or a shared setup row; shared
+mutable fixture state across `it()` blocks eliminated. NOTHING WEAKENED (rule
+10): the same behavioural assertions survive — same refusals by name, same
+positive controls — restructured, not reduced; the reviewer verifies by
+assertion-multiset diff (the M5-004 method).
+
+**Acceptance battery (targeted — the corrective-packet form):**
+1. The file green under `--sequence.shuffle.tests` at the KNOWN-failing shuffle
+   orders AND three fresh seeds of the implementer's choosing, with the shuffle
+   proven non-vacuous (executed-order diff, the M5-004 reviewer's method).
+2. THE DECISIVE PROOF: one composed seeded `api` run (invocation of record) at
+   a seed the nightly matrix has FAILED (e.g. seed 1 or 42) — the file green
+   inside the composed run that used to redden it. Pre-cure red / cured green
+   at the same seed is the both-directions form if the run budget allows two;
+   the cured-green run is the minimum.
+3. `gate:typecheck` + `gate:lint` + the file single-file green · tree gate ·
+   debris · FU-30 sweep. Full `pnpm check` NOT required locally (one test
+   file; CI on the PR is the primary form).
+4. Census untouched (no arm, no mutation-target file); state the empty
+   intersection in one line.
+Delivery: worktree + patch from `b599a7a`; fresh Opus implementer; fresh Opus
+reviewer (a LIGHT review — the falsification re-run at its own seeds + the
+assertion-multiset diff + record honesty); delta if conditions; orchestrator
+lands on the next PR. Closing FU-32 requires citing the first ALL-GREEN
+nightly after the merge — the row stays OPEN until that run is read.
+
+**ACCEPTED 2026-09-01.** Fresh implementer; fresh light reviewer; verdict
+**CONFIRM/ACCEPT, no conditions** — every measured claim reproduced in the
+reviewer's own worktree, the nothing-weakened check run one level STRICTER
+than asked (whole-assertion-statement multiset: +4 identical 201 positive
+controls, 2 pure subject renames, ZERO removals). Patch md5
+`331d116aa421e6cb64093125710c0f50`, 1 file +232/−71, base `b599a7a`.
+- **Falsification:** pre-cure RED at ten implementer seeds + three fresh
+  reviewer seeds (seed 1 reproducing the nightly's exact line-1036 single
+  signature; one fresh seed passing by luck, noted not forced); cured 19/19
+  GREEN at every seed on both the as-run and delivered bytes; canonical order
+  green on BOTH trees — the honest reason `pnpm check` never saw the defect
+  and the nightly always did. Non-vacuity in the strong form: at every seed
+  the executed order is BYTE-IDENTICAL pre-cure vs cured — the red→green IS
+  the cure.
+- **The decisive proof:** one composed seeded run at seed 1 (the nightly's
+  own first fixed seed) on the cured tree — 168+1 files / 1 786 tests, ZERO
+  failures, the target file green inside it (19 tests), M5-004's two cured
+  files green beside it; adjudicated at review from the transcript with
+  independent totals, zero-×-marker, and duration-arithmetic checks.
+- **Register-grade finding (independently reproduced at review):** the five
+  historical seeds reproduce FU-32's recorded COMPOSED-run failure counts
+  EXACTLY in ~12-second SINGLE-FILE shuffled runs — within-file order alone
+  is the mechanism, and a single-file `--sequence.shuffle.tests` run is the
+  cheap replay key for this defect class.
+- **One process incident, closed not argued:** a docblock-only edit during
+  the live composed run, caught in the same tool round, the gap closed on the
+  BYTES (TypeScript-parser comment-only proof with positive and negative
+  controls; every leg re-run on the delivered bytes; the transcript's own
+  per-file durations placing the target file ~14 minutes after the revert).
+- **Environment record additions:** the single-file filter is the
+  API-project-relative path; a fresh worktree needs `tsc -b` before any api
+  test (the dist rule's other face); and `chmod 777 apps/api` is a
+  prerequisite whose ABSENCE surfaces as a FALSE "STALE CLUSTER?" diagnostic
+  (a permission bit masquerading as an orphan).
+- FU-32 stays OPEN pending the first ALL-GREEN nightly after the merge, per
+  this packet's own text.
+
 ## 6. Standing acceptance battery (every packet, per 24 §G and the M4 form)
 
 Validators (36/36 · 95/95 · research PASS) · `corepack pnpm check` 17/17 · the full
