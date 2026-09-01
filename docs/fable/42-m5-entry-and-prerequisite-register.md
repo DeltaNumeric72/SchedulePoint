@@ -1682,6 +1682,93 @@ reviewer's fresh worktree).
   before M5-006. The full serial 69-arm battery not run locally (sharded CI
   primary per §5f); CI on the PR is the closing evidence.
 
+### 5k. M5-00D — FINALIZED 2026-09-01 (issues against `origin/main` at `6fde05f`, the PR #17 merge)
+
+**OPUS-M5-00D: member-facing directory and vocabulary reads** — the packet §5j's
+amendment items 1 and 5 created: the contacts directory (CAP-042) and the member
+catalogue vocabulary read, plus the two submit forms those reads unblock and the
+queue-names-nobody cure. Both key decisions are recorded HERE, by the
+orchestrator, before any code exists — the M5-001 precedent (a capability key is
+never invented inline by an implementer).
+
+**FAD-62 (the CAP-042 contacts read).** Key: **`directory.read`, role-implied for
+all six shipped roles.** Grounding: doc 08 §6 has no directory row; its closest
+analogue is the on-call board — the matrix's one universal ✓, and the same
+find-and-reach-a-colleague read class. The privacy load is carried NOT by read
+denial but by the two mechanisms CAP-042 names: **(a) inclusion by explicit
+policy** — a `directory_included` boolean set per PO-DEC-20's RESOLVED default
+verbatim (person accounts with an active membership IN by default; functional
+accounts opt-in; placeholders never), never an emergent filter; **(b) field-level
+minimisation per role, server-side** — the SQL projection for the caller's role
+NEVER SELECTS an ungated column (arch doc 11 §8: "the API never returns fields
+the UI hides" — hiding in the client is not minimisation). New nullable contact
+columns land by migration (work email, work phone, and any others the
+implementer's proposal justifies — each named in the FAD-62 ratification at
+interim 1 with its per-role visibility, the M5-005 route-ratification form; the
+migration states its reversibility in the header per the M5-004 class rule).
+Per-role response schemas end `.strict()` (the M5-005 structural-exclusion
+standard) and tests assert raw-response ABSENCE of minimised fields per role.
+I-07 is untouched: contact fields are workforce data, not patient data or
+clinical free text — and NO field beyond the ratified set ships.
+
+**FAD-63 (the member vacation-vocabulary read).** Key:
+**`schedule.catalogue.read_vocabulary`, role-implied for Member and Scheduler —
+exactly the two roles doc 08 §6 marks ✓ for "Submit requests/vacation."** The
+read exists to make those roles' submissions drivable (§5j item 5: the record
+schemas require `shiftTypeId`/`shiftGroupId`; the catalogue reads are gated on
+the WRITE key `schedule.catalogue.administer`, and widening a write key into a
+member read was FAD-25-refused; the incidental identities on published-schedule
+entries were ruled out as a picker source because deriving one would quietly
+redefine what a member may prefer). Projection: **shift types and shift groups
+where `allow_request` is true — ids and names ONLY**, nothing else (no rules, no
+staffing, no membership data). Enforcement at both layers: route policy on the
+new key AND additive SELECT-only RLS arms gated on the same key (the M5-005
+route/predicate-agree-by-design standard), deny-by-default proven in both HTTP
+directions (FU-29).
+
+**Scope (complete enumeration):**
+1. **Migration(s):** `directory_included` + the ratified contact columns + RLS
+   arms for the two reads. Reversibility stated in headers; populated cycle per
+   the standing battery.
+2. **Two API routes:** `GET` directory (FAD-62 minimised projection) and `GET`
+   vacation-vocabulary (FAD-63). Four-layer policy each; route-policy 134→136;
+   entitlement module per L1.1 — the implementer PROPOSES the module mapping
+   (arch doc 11 / M-20 for directory; the catalogue's existing module for
+   vocabulary) at interim 1 for ratification, and escalates if no shipped
+   entitlement fits.
+3. **Web:** the contacts directory surface (CAP-042's UI — searchable list,
+   minimised fields only, both viewports); the two remaining submit forms
+   (shift-preference, shift-group-off) wired to the vocabulary read and plugged
+   into M5-005's prop-pluggable slots (`AWAITING_CATALOGUE_READ` empties;
+   `SUBMITTABLE_HERE` grows to all five non-vacation subtypes; the on-screen
+   sequencing note comes DOWN).
+4. **The queue-names-nobody cure, with a boundary the implementer must keep:**
+   scheduler surfaces (queue, request detail, vacation approval) render member
+   DISPLAY NAMES via a **scheduler-scoped membership read** — NOT the directory.
+   Directory inclusion is an opt-out from colleague search, and it must never
+   hide a member from their own scheduler's queue; conversely the roster read
+   must not leak contact fields the directory minimises. If no shipped
+   scheduler-scoped name read exists, it is proposed at interim 1 (same
+   ratification form). M5-005's honest UUID rendering is the fallback state,
+   never deleted — the sr-only full id stays.
+5. **Tests/evidence:** the standing §6 battery; axe (the new surfaces + their
+   states — the 556 baseline grows, delta attributed); request-budget entries
+   for every new interaction (zero-budget form-opens per I-13/I-10); e2e for
+   directory search + both new submit forms + the named queue; census argued
+   under the four conjuncts; composed seeded run at a fresh seed; CI 15/15.
+   Allowlist stays 0.
+**Out of scope, named:** bulk messaging (CAP-043, beta); group identity
+(CAP-056, PO-DEC-21 pending); any consumer of FU-35/FU-37/FU-38 (M5-006's).
+**Recorded observation carried in:** the only member-readable shift-type
+identities pre-M5-00D are INCIDENTAL (published-schedule entries) — §5j item 5's
+reason this read exists; the packet's tests must show the picker draws from the
+vocabulary route, not from schedule reads.
+
+Delivery: worktree + patch from `6fde05f`; fresh Opus implementer; fresh Opus
+reviewer; delta; orchestrator lands on the next PR. Escalation is success
+behaviour; interims ~25 min; in-round rulings recorded in the orchestrator's
+session log (the M5-001 provenance rule).
+
 ## 6. Standing acceptance battery (every packet, per 24 §G and the M4 form)
 
 Validators (36/36 · 95/95 · research PASS) · `corepack pnpm check` 17/17 · the full
