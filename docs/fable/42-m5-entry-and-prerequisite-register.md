@@ -1623,6 +1623,17 @@ shipped read routes" were the finalization's errors, corrected here):**
    NARROWER than authorised (zero new contract: the member's own
    `vacationRoundSchema` over the period-wide row set, C-3's exclusions
    structural).
+7. **(Ruled at delivery, 2026-09-01)** The acceptance line "e2e primary
+   flows both viewports" is met by the delivered interception-based specs
+   (98 cases, the directory's uniform convention) **except for its
+   real-stack extension, which the implementer handed back short
+   explicitly** — `real-stack.config.ts` was not extended to the three new
+   surfaces, while the new route and the ridden server behaviour ARE
+   real-stack proven. Ruling: the real-stack extension of the three
+   primary flows is ROUTED to M5-006's integration sweep as **FU-37**
+   (doc 40), blocking M5 exit. Nothing subtracted, nothing weakened; the
+   packet's remaining acceptance stands unamended and the reviewer
+   verifies against this settled bar.
 
 ## 6. Standing acceptance battery (every packet, per 24 §G and the M4 form)
 
