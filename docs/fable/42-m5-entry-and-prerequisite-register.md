@@ -1597,6 +1597,32 @@ shipped read routes" were the finalization's errors, corrected here):**
    nobody (membershipId UUIDs only) — rendered honestly, no invented names,
    no reach into another surface's roster; M5-00D is the cure and the UX
    cost is priced here, not overlooked.
+5. **(Added same day, gap 4)** The submit FORMS for the two
+   catalogue-dependent subtypes (shift-preference, shift-group-off) are
+   SEQUENCED OUT to M5-00D: their record schemas require shiftTypeId /
+   shiftGroupId, and no member-readable vocabulary route exists (the
+   catalogue reads are gated on the WRITE key `schedule.catalogue.administer`
+   — widening it to member would be a write implying a read, FAD-25-refused;
+   the eligibility read is grant-only). M5-00D's scope grows accordingly to
+   "member-facing directory and vocabulary reads": the contacts directory
+   (CAP-042) AND a member catalogue vocabulary read (shift types + shift
+   groups where `allow_request` is true, ids and names only), each with its
+   key decision as a doc-08-§6-grounded FAD — the M5-001 precedent governs
+   (a capability key is never invented inline). UI sequencing, not a
+   capability drop: both subtypes' SUBMIT capability is API-real since
+   M5-001; the forms are prop-pluggable and land with the vocabulary read.
+   The three date-only subtypes (availability, time-off, no-call) ship their
+   forms in this packet. Also recorded for M5-00D: the only member-readable
+   shift-type identities today are INCIDENTAL (published-schedule entries),
+   and deriving a picker from them would quietly redefine what a member may
+   prefer — the reason the vocabulary read exists.
+6. **(Ratified at interim 1)** The amended route's key is
+   `requests.read_any` via the existing scheduler-read config verbatim —
+   0023's `vacation_selections_group_read_any` arm already names the same
+   key, so route policy and row predicate agree by design; the route landed
+   NARROWER than authorised (zero new contract: the member's own
+   `vacationRoundSchema` over the period-wide row set, C-3's exclusions
+   structural).
 
 ## 6. Standing acceptance battery (every packet, per 24 §G and the M4 form)
 
