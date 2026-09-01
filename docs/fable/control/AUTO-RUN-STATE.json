@@ -2,22 +2,22 @@
   "runId": "RUN-20260822-GHRECON-01",
   "orchestrator": "Claude Fable (Claude Code on the web; continuous GitHub master authorization 2026-08-22)",
   "currentMilestone": "M5 ENTERED 2026-08-25 (doc 42) under the prototype-enablement checkpoint (doc 41); M1-M4 COMPLETE and tagged; M3R CLOSED (doc 39)",
-  "currentPacket": "M5-F32 ACCEPTED 2026-09-01 (doc 42 5i: light review CONFIRM/ACCEPT no conditions; patch md5 331d116aa421e6cb64093125710c0f50, 1 file +232/-71; composed seed-1 run clean; FU-32 CURED, row open pending the first all-green nightly). LANDING on PR #16; then M5-005",
+  "currentPacket": "M5-005 FINALIZED 2026-09-01 (doc 42 5j: request/vacation UX + contacts, apps/web only; graduated confirmation; comments affordance; accepted-save axe; FU-35 trigger rule). Issues against origin/main 59f2659. M5-F32 MERGED (PR #16); FU-32 awaits the nightly citation",
   "lifecycleState": "REPLACEMENT GATE PASSED 2026-08-25 (doc 39): the doc 38 internal review complete end to end — three reviewers (REV-A/B/C) filed; 28/28 findings ACCEPTED at filed severity (FAD-53); repair packets R-1..R-13 all landed with fresh implementers, independent reviews, and deltas by the original finder or a recorded surrogate; the §7 battery passed in full (EV-DOC38-GATE: validators, check 17/17, sbx 9/9, migration cycles, red-cases 67 arms in the sharded-CI primary form per FAD-54 with three green executions, fixture-regression 14/14 on the repaired tip, real-stack e2e 2/2 both viewports); REV-C's final ACCEPT issued by a recorded continuation surrogate; fresh-clone validation of origin/main green (17/17); CI on main fully green for the first time (run 32798497944, 15/15, attempt 1); PR #6 MERGED at be7399b with all 15 checks green. M3R CLOSED by substitution (owner §C). Codex review NOT PERFORMED; Codex-specific requirement SUPERSEDED BY OWNER DECISION; replacement gate FABLE-PLANNED, MULTI-OPUS-EXECUTED INTERNAL REVIEW (internal, never external). New registered risks NR-22/NR-23 (correctness intact); post-gate follow-ups in doc 40 (FU-01..FU-17). The detailed packet-by-packet history lives in FAD-53/FAD-54, the RISK-REGISTER's dated entries, and EV-DOC38-GATE — this cell no longer duplicates it",
-  "originMainCommit": "b599a7aeb22ae9c460ae9055609081067c96ea5a",
+  "originMainCommit": "59f2659cdbc245ffd9d85b529cd5d61b56d7def2",
   "taskBranch": "claude/schedulepoint-github-auth-a4ns2p",
   "worktree": "/home/user/SchedulePoint (Claude Code web workspace, ephemeral)",
   "latestPushedCommit": "branch tip on origin (this commit)",
-  "pullRequestNumber": 16,
+  "pullRequestNumber": 17,
   "implementer": null,
   "reviewer": null,
   "activeProcessesAndPorts": [],
-  "lastCommand": "m5f32.patch applied; 5i ACCEPTED note + FU-32 amendment + register entries authored; committing, pushing, merging PR #16 at green; arming the nightly read",
+  "lastCommand": "PR #16 merged at 59f2659; branch reset; nightly read armed 12:15Z; M5-005 finalized as 5j; committing then opening draft PR #17",
   "lastExitCode": 0,
   "openFindings": "Moved to docs/fable/40-post-gate-follow-ups.md (FU-01..FU-36; closed: 01/03/04/06/07/08/19/20/23/24/25/27/28; FU-13 at 7/9; FU-17 owner action; FU-33..36 opened at M5-004). This field points, it does not duplicate",
   "externalBlockers": [
     "none active - FU-32 cured in-tree; the confirming all-green nightly still to be read (closes the row on citation)"
   ],
-  "exactNextAction": "Push; CI 15/15 on PR #16; merge; arm the first-post-merge nightly read (~12:00Z) - all-green closes FU-32; then finalize M5-005 as doc 42 5j",
-  "lastUpdateUtc": "2026-09-01T01:35:00Z"
+  "exactNextAction": "Open draft PR #17; issue M5-005 to a fresh Opus implementer; read the 12:15Z nightly (closes FU-32 on green); then M5-006",
+  "lastUpdateUtc": "2026-09-01T02:15:00Z"
 }

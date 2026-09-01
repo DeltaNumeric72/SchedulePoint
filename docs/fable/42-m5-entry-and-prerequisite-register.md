@@ -1504,6 +1504,68 @@ controls, 2 pure subject renames, ZERO removals). Patch md5
 - FU-32 stays OPEN pending the first ALL-GREEN nightly after the merge, per
   this packet's own text.
 
+### 5j. M5-005 — FINALIZED 2026-09-01 (issues against `origin/main` at `59f2659`, the PR #16 merge)
+
+**Scope: the request/vacation UX and the contacts directory — the M5 surfaces'
+UI half, per pre-declaration row 5.** Everything below rides on shipped API
+surfaces (M5-001..004, M5-00C); this packet adds NO route, NO migration, NO
+capability key, NO domain change — `apps/web` + e2e/axe/request-budget
+coverage only. Any gap that seems to need an API change is an ESCALATION, not
+an addition.
+
+**The packet:**
+- **Staff request UI + status history:** submit (the five subtypes + vacation
+  selection through the M5-003 round surface), withdraw, and a status-history
+  view derived from what the shipped read routes already return. I-13 binds
+  every affordance: no control labelled Add/New/Create persists ANYTHING
+  before a completed form, validation, and an explicit Save. I-10: one user
+  action, one request — recorded in the request-budget registry per surface.
+- **The comments affordance (M5-00C's):** the requester side is the
+  controlled vocabulary EXACTLY — a code picker over the nine codes, `other`
+  terminal with NO companion text input (rendering one would be FAD-58's
+  free-text channel under another name — I-17); the scheduler side is bounded
+  text with the shipped 1..1000 bound surfaced honestly. Per-capability
+  visibility per the ratified table; nothing widened.
+- **Scheduler approval surfaces:** the pending-review queue (M5-002's read
+  routes), approve/deny (single + batch with per-item outcomes), the vacation
+  approval with the D-21/D-26 semantics surfaced (idempotent, named
+  refusals), and the M5-004 commit/reverse surfaces — REVERSAL CARRIES THE
+  GRADUATED CONFIRMATION this packet owes (§5h routed it here): an explicit
+  two-step confirm naming the consequence (units restored, revision request
+  raised, snapshots retained) with the mandatory reason field, never a
+  one-click destructive act.
+- **Contacts directory (CAP-042):** minimised PII per I-07's posture — names
+  and work-contact fields the schema already holds, NO clinical free text, no
+  new PII field without a recorded decision; synthetic fixtures only.
+- **Coverage:** axe on EVERY new rendered state at both viewports (I-12 /
+  SP-HR-3..6) — including the M5-003 observation this packet owes: the
+  ACCEPTED-SAVE state gets its own axe sweep; request-budget recordings for
+  every interaction (I-10); e2e over the real stack for the primary flows.
+- **FU-35 trigger rule:** if any surface here displays "outstanding revision
+  requests", THIS packet is FU-35's consumer and must bring the question to
+  the orchestrator for the recorded ruling (read-side union vs guard
+  widening) BEFORE building it; if no surface needs it, say so and FU-35
+  stays routed to M5-006.
+
+**Constraints carried:** the client talks to NO third party (CAP-068/T-23,
+allowlist empty — unconditional); layering (`apps/web` imports contracts
+only); no weakened axe or architecture test (rule 10); terminology per the
+glossary — the ten schedule concepts stay distinct; I-16 on any picklist
+turn; the §5e..§5i environment discipline binds (tree gate, debris, FU-30
+sweep, cp-restores, SP_SOLVER_WORKER_COMMAND for gate runs, `tsc -b` before
+api tests in a fresh worktree, chmod cautions incl. the false-STALE-CLUSTER
+diagnostic, the single-file replay key for any order-dependence).
+
+**Acceptance battery:** the standing battery (§6) · axe with the new states
+enumerated and counted (the 458 baseline grows; quote the delta and attribute
+it per state) · request-budget with the new recordings enumerated (48 grows;
+same discipline) · e2e primary flows both viewports · red cases at census 69
+under the four-conjunct bar (argue, don't assume — UI packets rarely add
+arms) · one composed seeded `api` run at a fresh seed (the matrix is
+unblinded; a red here is a FINDING now, not a citation — FU-32 is cured) ·
+CI 15/15. Delivery: worktree + patch from `59f2659`; fresh Opus implementer;
+fresh Opus reviewer; delta; orchestrator lands on the next PR.
+
 ## 6. Standing acceptance battery (every packet, per 24 §G and the M4 form)
 
 Validators (36/36 · 95/95 · research PASS) · `corepack pnpm check` 17/17 · the full
