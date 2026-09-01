@@ -1566,6 +1566,38 @@ unblinded; a red here is a FINDING now, not a citation — FU-32 is cured) ·
 CI 15/15. Delivery: worktree + patch from `59f2659`; fresh Opus implementer;
 fresh Opus reviewer; delta; orchestrator lands on the next PR.
 
+**Dated amendment 2026-09-01 (ruled at the implementer's pre-build
+escalation, which measured three scope bullets undrivable from shipped
+reads — the original text's "fields the schema already holds" and "riding
+shipped read routes" were the finalization's errors, corrected here):**
+1. **The contacts directory is DROPPED from this packet and RE-ROUTED, not
+   narrowed:** zero contact columns exist across all 27 migrations, and doc
+   11 §8 + PO-DEC-20 make inclusion and field-level minimisation SERVER
+   obligations a UI cannot carry. CAP-042 keeps its baseline seat and gets
+   its own packet — **M5-00D (contacts: the PII-field FAD + migration + read
+   route + minimisation-per-role)** — sequenced before M5-006 closes the
+   milestone. Sequencing, never deletion.
+2. **One additive read route is AUTHORISED into this packet** — exposing
+   `readVacationRound`'s existing, review-proven `'period'` scope (the
+   scheduler's view; today its only caller passes `'own'`) so the scheduler
+   vacation-approval surface and the §5h-routed graduated-confirmation
+   reversal are drivable. Conditions: four-layer policy on the EXISTING key
+   doc 08 §6 forces (proposed at interim, ratified by the orchestrator
+   before registration); the projection carries selectionId,
+   selectionVersion, status, weekStart, membershipId, is_override and
+   NOTHING wider (no reason codes, no comments, no override_reason);
+   route-policy 133→134; deny-by-default and both HTTP directions proven
+   (FU-29); census argued.
+3. **FU-35 ruling:** this packet is NOT the consumer — per-request
+   `revisionRequested` renders on the five non-vacation subtypes only
+   (where 0023's guard gives the flag its one meaning), never on vacation
+   rows (a structural false negative), and consequence-copy in the reversal
+   confirmation is not a query. FU-35 stays routed to M5-006.
+4. **Recorded observation:** the pending queue built on shipped reads names
+   nobody (membershipId UUIDs only) — rendered honestly, no invented names,
+   no reach into another surface's roster; M5-00D is the cure and the UX
+   cost is priced here, not overlooked.
+
 ## 6. Standing acceptance battery (every packet, per 24 §G and the M4 form)
 
 Validators (36/36 · 95/95 · research PASS) · `corepack pnpm check` 17/17 · the full
