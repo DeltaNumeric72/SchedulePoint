@@ -1635,6 +1635,53 @@ shipped read routes" were the finalization's errors, corrected here):**
    packet's remaining acceptance stands unamended and the reviewer
    verifies against this settled bar.
 
+**ACCEPTED 2026-09-01.** Fresh implementer (~4 h build + a definitive re-run
+battery); fresh reviewer; verdict **ACCEPT, ZERO conditions** — the first
+zero-condition full-packet review of the milestone. Patch md5
+`8d7e3b91bd48f3d9e1eb6d1acc8ba384`, 16 files +6824/−2, base `59f2659`;
+verified three ways (implementer's own tree, orchestrator md5 + apply-check,
+reviewer's fresh worktree).
+- **Both batteries independent and green:** implementer 17/17 on the exact
+  delivered tree (unit 2619; axe 556/16 = +98 with zero skips added; budget
+  72/143; route-policy 134; migrations 27; composed seeded run at fresh seed
+  20260907 CLEAN first attempt — the unblinded matrix's first clean composed
+  run); reviewer's OWN 17/17 on a fresh worktree at `59f2659` + patch, with
+  validators 36/36 · 95/95 · PASS re-run by the reviewer.
+- **Adversarial core — four mutations, all killed with precise signatures:**
+  route scope `'period'`→`'own'` (the claimed `expected [] to have a length
+  of 1 but got +0` plus two unclaimed kills); acknowledgement gate removed
+  (`reverse-reason` count assertion); mandatory-reason gate removed
+  (`reverse-submit` disabled assertion); the reviewer's own fourth — third
+  consequence gutted (named-text assertion). All reverted; tree byte-identical
+  to the patch afterwards. Order-dependence: 3 fresh shuffled seeds green on
+  the new api file, 1 on the changed policy file.
+- **Verified beyond the claims:** C-3 exclusions are STRUCTURAL (`.strict()`
+  schemas throw on widening — a future `overrideReason` 500s, never leaks);
+  `roundView` gained a call site, not a projection (zero new contract is
+  literal); the `variance` array is scope-independent, so the only widening is
+  the ratified selections row set, RLS-gated by the same key the route
+  declares; FU-35 non-consumption proven at the SERVER (`loadRecord` returns
+  null for vacation roots — the member list structurally cannot carry the
+  flag); all NINE zero-budget interactions measure 0 at both viewports.
+- **Record correction (reviewer's O1):** the implementer's prose said EIGHT
+  zero-budget entries; the artifact delivers NINE (`vacation-open-deny-week`
+  omitted from the enumeration — two deny-form opens collapsed to one in
+  prose). The delivered state is stricter than claimed; corrected here.
+- **Six implementer self-found defects on the record** (incl. the
+  probe-that-lied — a diagnostic probe reporting "no overflow" three times
+  without ever loading the page — and the patch-self-churn: `prettier --write`
+  reformatting 124 pre-existing lines, rebuilt out by anchor so the route file
+  is additive-only, `166 0` numstat, both remaining deletions the
+  implementer's own).
+- **Routed forward, never dropped:** FU-37 (real-stack e2e extension of the
+  three surfaces → M5-006, blocking M5 exit, per amendment item 7);
+  **FU-38** (reviewer's O2: `vacation_grants` group-scope policy exposes every
+  member's `personal-entitlement` variance rows on the member's own round
+  read since M5-003 — pre-existing, inherited unchanged, routed to M5-006's
+  sweep); M5-00D (contacts + member catalogue vocabulary reads) sequenced
+  before M5-006. The full serial 69-arm battery not run locally (sharded CI
+  primary per §5f); CI on the PR is the closing evidence.
+
 ## 6. Standing acceptance battery (every packet, per 24 §G and the M4 form)
 
 Validators (36/36 · 95/95 · research PASS) · `corepack pnpm check` 17/17 · the full

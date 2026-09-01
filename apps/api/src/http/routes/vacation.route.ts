@@ -58,6 +58,10 @@ import {
   type VacationSelectionWriteResult,
 } from '../../requests/vacation-selection.js';
 import { vacationStore } from '../../requests/vacation-store.js';
+/* OPUS-M5-005: the scheduler's round read declares the SAME policy as the queue
+ * and the request detail. Imported rather than respelled so the scheduler's three
+ * reads over other people's request data cannot drift apart. */
+import { SCHEDULER_READ_CONFIG } from './requests.route.js';
 import { requireTenantContext } from '../context/middleware.js';
 import { sendNotFound } from '../context/responses.js';
 import { MEMBERSHIP_AGGREGATE } from '../context/target-resolution.js';
@@ -93,6 +97,17 @@ import type { RouteConfigWithPolicy } from '../policy.js';
  * the selection grid, the variance display, the grants — is M5-003's, which owns
  * grants and selection UX. What lands here is the decision, because doc 42 §5d
  * Part B lands the transaction and a transaction with no caller is dead code.
+
+ * *(**Corrected by date, not deleted — OPUS-M5-005.** The paragraph above was
+ * true when M5-002 wrote it and is no longer: `GET …/vacation/rounds/:periodId/
+ * selections` now declares `requests.read_any` in this file. It is kept because
+ * it is the reason the route did not exist for three packets, and because the
+ * sentence it got wrong is instructive — M5-003 shipped the round's read surface
+ * for the MEMBER only, so "M5-003 owns it" turned out to leave the SCHEDULER
+ * with no way to obtain a `selectionId` or an `expectedSelectionVersion` for
+ * anybody else's week, and the two decision routes above therefore had no
+ * caller-side way to name their subject. M5-005 found that while building the
+ * approval surface, escalated it, and the route below is the ratified answer.)*
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * ## `:selectionId` names a SELECTION, never a person
@@ -383,6 +398,63 @@ async function withOwnVacation<T>(
     );
     return { kind: 'not-found' };
   }
+}
+
+/**
+ * One unit of work, one verdict — for the SCHEDULER's round read (OPUS-M5-005).
+ *
+ * The sibling of `withOwnVacation` above, and the difference between them is the
+ * whole of the authorization difference between the two reads:
+ *
+ *  * `withOwnVacation` resolves a TARGET — the acting membership — because
+ *    `OWN_VACATION_ROUND_CONFIG` sets `ownershipRequired`, so L5 compares the
+ *    caller to the owner and a member reaches exactly their own rows.
+ *  * this one passes `target: null`, because `SCHEDULER_READ_CONFIG` sets
+ *    `requiresObjectPolicy: false` — there is no single subject to own. Which
+ *    ROWS come back is migration 0023's `vacation_selections_group_read_any`
+ *    predicate, keyed on the same capability the route declares.
+ *
+ * That is the house division stated once more: the route decides whether the
+ * caller may perform the operation, and RLS decides which rows the operation
+ * sees. A caller who somehow reached this handler without the key would read
+ * zero rows rather than everything.
+ *
+ * Modelled on `withScheduler` in `requests.route.ts`, which does the same job for
+ * the queue; it is not imported because the two answer different `Outcome`
+ * shapes, and converting between them would be more code than this is.
+ *
+ * There is no rollback branch and there is nothing to catch beyond the database:
+ * this is a READ, so no service raises a rolled-back error on it. A Postgres
+ * error is answered `404` for the reason the member's read gives — a `409` would
+ * confirm that a row exists and what state it is in.
+ */
+async function withSchedulerRound<T>(
+  request: FastifyRequest,
+  run: (
+    uow: Parameters<Parameters<FastifyRequest['server']['tenancy']['runtime']['run']>[1]>[0],
+  ) => Promise<MemberOutcome<T>>,
+): Promise<MemberOutcome<T>> {
+  const { context, command, route } = requireTenantContext(request);
+
+  return request.server.tenancy.runtime.run(command, async (uow): Promise<MemberOutcome<T>> => {
+    try {
+      const { decision } = await evaluateInTransaction(uow.query, {
+        request,
+        context,
+        route,
+        target: null,
+      });
+      if (!decision.allowed) return { kind: 'denied', decision };
+      return await run(uow);
+    } catch (error) {
+      if (!isPostgresError(error)) throw error;
+      request.log.warn(
+        { correlationId: request.correlationId, sqlstate: error.code },
+        'vacation round read refused by the database',
+      );
+      return { kind: 'not-found' };
+    }
+  });
 }
 
 /** The member routes' replies. One mapping, three routes. */
@@ -870,6 +942,100 @@ export default function vacationRoutes(app: FastifyInstance): void {
       vacationRoundSchema.parse(roundView(round)),
     );
   });
+
+  /* ── ONE round, EVERY member's selections ───────────────── requests.read_any ──
+   *
+   * The scheduler's half of the read above, and the ONLY route this packet adds
+   * (OPUS-M5-005, ratified in-round; doc 42 §5j as amended).
+   *
+   * ## Why it had to exist, stated as the gap it closes
+   *
+   * `readVacationRound`'s `'period'` branch has been written, RLS-narrowed and
+   * review-proven since M5-003 — and until now it had NO caller. Every shipped
+   * read reached `'own'`, so a scheduler could obtain neither a `selectionId`
+   * nor an `expectedSelectionVersion` for anybody else's week; §5.4's approval
+   * and §5.6's reversal were authorized operations with no way to name their
+   * subject. The queue does not close it either, and says so itself: `store.ts`'s
+   * `listPendingReview` skips vacation roots ("the vacation round has its own
+   * surface"), and `requestQueueSchema` carries no selection id and no selection
+   * version. So the delta is a route and a policy — no migration, no new
+   * capability key, no domain change, and (see below) no new contract.
+   *
+   * ## The key is `requests.read_any`, and the ROW PREDICATE already said so
+   *
+   * `SCHEDULER_READ_CONFIG` is imported from `requests.route.ts` rather than
+   * respelled here, so the scheduler's three reads over other people's request
+   * data — the queue, the request detail, and this round — are decided by ONE
+   * declaration. A second spelling is a second thing to drift.
+   *
+   * That key is not a choice made here. Migration 0023's
+   * `vacation_selections_group_read_any` policy is `USING (… AND
+   * app_acting_membership_holds('requests.read_any'))`, so the route's policy and
+   * the row predicate name the same key by construction — the predicate is the
+   * second control, never the only one, exactly as `readVacationRound`'s own
+   * docblock puts it. Doc 08 §6's "Approve requests/vacation" row (Scheduler ✓,
+   * Member —) is the population, and `SYSTEM_ROLE_CAPABILITIES` already carries
+   * the key on `scheduler` and deliberately not on `member`, so the deny case is
+   * inherited rather than arranged. FAD-25 is structural rather than promised:
+   * the catalogue entry for this key is "a READ key with no write power".
+   *
+   * ## No new contract, and that is narrower rather than lazier
+   *
+   * The answer is `vacationRoundSchema` — the SAME body the member's read
+   * returns, over a wider row set. Every field the approval and reversal surfaces
+   * need is already in `vacationSelectionSummarySchema`: `id`, `version`,
+   * `status`, `weekStart`, `membershipId`, `isOverride` and
+   * `committedToVersionId`, with `rootStatus`/`rootVersion` beside them so R-15's
+   * derivation stays checkable at the wire rather than being taken on trust.
+   *
+   * **And the exclusions come with it.** That projection is the one M5-003's
+   * condition C-3 narrowed: it carries `isOverride` and NOT `overrideReason`. It
+   * is left narrowed HERE TOO, for the more privileged reader, because a
+   * scheduler-authored administrative note of the `change_summary` class does not
+   * become readable by every other scheduler merely because a route was added —
+   * widening who reads that class is a decision nobody has taken, and inventing a
+   * wider shape for this route would have been taking it quietly. Reason codes
+   * and comments are likewise absent: they stay behind `requests.own.comment` /
+   * `requests.comment_any` and the detail read, which is where FAD-58's reader
+   * table puts them.
+   *
+   * **FU-36 is satisfied structurally rather than by a note.** `isOverride`
+   * carries two facts (approved-over-allowance, and reversal-reason-recorded),
+   * and `status` is what tells them apart — so any surface that renders the flag
+   * has the disambiguator in the same row it read the flag from, and cannot
+   * render one without the other being available.
+   *
+   * ## One round, one request (I-10)
+   *
+   * Period, selections and variance together, for the reason the member's read
+   * gives: a scheduler opening a round takes one action. */
+
+  app.get(
+    `${rounds}/:periodId/selections`,
+    { config: SCHEDULER_READ_CONFIG },
+    async (request, reply) => {
+      const outcome = await withSchedulerRound(request, async (uow) => {
+        const { periodId } = request.params as { periodId: string };
+        if (!isUuid(periodId)) return { kind: 'not-found' as const };
+
+        /* The acting membership is passed because the signature takes one; the
+         * `'period'` branch does not read it. Passing the caller's own id keeps
+         * the argument honest rather than inventing a placeholder, and a future
+         * branch that DID read it would read the right thing. */
+        const membershipId = uow.context.membershipId;
+        if (membershipId === null) return { kind: 'not-found' as const };
+
+        const round = await readVacationRound(uow, { periodId, scope: 'period', membershipId });
+        return round.ok
+          ? { kind: 'ok' as const, value: round.value }
+          : { kind: 'refused' as const, failure: round.failure };
+      });
+
+      return respondToMember(request, reply, outcome, (round) =>
+        vacationRoundSchema.parse(roundView(round)),
+      );
+    },
+  );
 
   /* ── withdraw one's own selection ─────────────────── requests.own.withdraw ── */
 

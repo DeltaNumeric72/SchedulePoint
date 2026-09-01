@@ -126,10 +126,33 @@ const SCHEDULER_ROUTES = [
 
 const EXPECTED = [...OWN_ROUTES, ...SCHEDULER_ROUTES];
 
-/** The vacation DECISION surface — §5.4/§5.5's two routes. NOT self-scoped. */
+/**
+ * The vacation DECISION surface — §5.4/§5.5's two routes, and OPUS-M5-005's READ.
+ *
+ * NOT self-scoped: none of the three names a person, and which selections a
+ * caller sees at all is migration 0023's policy arms rather than a path
+ * parameter.
+ *
+ * **The read belongs in THIS group and not with `VACATION_OWN_ROUTES`**, which
+ * is the distinction the surface exists to keep: the member's
+ * `GET …/rounds/:periodId` is `requests.own.read` and answers with the caller's
+ * own weeks; this one is `requests.read_any` and answers with everybody's. Both
+ * declare CAP-021, so `expectedCapabilityFor` needs no new branch — the
+ * capability is the module's, and the KEY is what separates the two readers.
+ *
+ * It is a READ with no write power (FAD-25), which is why it sits beside the
+ * decision routes it serves rather than among them: without it, `approve`,
+ * `deny` and `reverse` had no caller-side way to obtain a `selectionId` or an
+ * `expectedSelectionVersion` for anybody else's week.
+ */
 const VACATION_DECISION_ROUTES = [
   { method: 'POST', url: `${VACATION_BASE}/:selectionId/approve`, key: 'requests.approve' },
   { method: 'POST', url: `${VACATION_BASE}/:selectionId/deny`, key: 'requests.deny' },
+  {
+    method: 'GET',
+    url: `${VACATION_ROUNDS}/:periodId/selections`,
+    key: 'requests.read_any',
+  },
 ] as const;
 
 /**

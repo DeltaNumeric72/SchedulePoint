@@ -1,10 +1,20 @@
 import {
+  approveVacationSelectionSchema,
+  commitVacationRoundResultSchema,
+  commitVacationRoundSchema,
+  denyVacationSelectionSchema,
+  reverseVacationCommitResultSchema,
+  reverseVacationCommitSchema,
   submitRequestSchema,
+  vacationDecisionResultSchema,
   vacationRoundListSchema,
   vacationRoundSchema,
   vacationSelectionResultSchema,
   withdrawVacationSelectionSchema,
+  type CommitVacationRoundResultWire,
   type RequestWire,
+  type ReverseVacationCommitResultWire,
+  type VacationDecisionResultWire,
   type VacationRoundList,
   type VacationRoundWire,
   type VacationSelectionResultWire,
@@ -107,6 +117,159 @@ export async function selectWeek(
   try {
     return requestSchema.parse(
       await apiRequest(`${base(scope)}/requests`, {
+        method: 'POST',
+        headers: jsonHeaders,
+        body: JSON.stringify(body),
+      }),
+    );
+  } catch (error) {
+    rethrow(error);
+  }
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * The SCHEDULER's half — OPUS-M5-005
+ *
+ * Four writes that were already shipped (M5-002's approve/deny, M5-004's
+ * commit/reverse) and ONE read that was not: until this packet no route exposed
+ * `readVacationRound`'s `'period'` scope, so a scheduler could obtain neither a
+ * `selectionId` nor an `expectedSelectionVersion` for anybody else's week and
+ * the four writes had no caller-side way to name their subject. The read is the
+ * only route this packet adds, and it rides `requests.read_any` — the same key
+ * the queue and the request detail already ride, and the same key migration
+ * 0023's `vacation_selections_group_read_any` predicate names.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * ONE round, EVERY member's selections — the scheduler's read.
+ *
+ * The answer is `vacationRoundSchema`, the SAME body the member's read returns,
+ * over a wider row set. That is narrower than a bespoke shape rather than lazier:
+ * the projection is the one M5-003 narrowed, so `overrideReason` is absent for
+ * this more privileged reader too, and reason codes and comments stay behind
+ * their own reads. Everything an approval or a reversal must NAME is in it.
+ */
+export async function fetchRoundSelections(
+  scope: GroupScope,
+  periodId: string,
+): Promise<VacationRoundWire> {
+  return vacationRoundSchema.parse(
+    await apiRequest(`${base(scope)}/vacation/rounds/${periodId}/selections`),
+  );
+}
+
+/**
+ * §5.4's approval.
+ *
+ * Four fields, each an amendment's fix: `approvalIdempotencyKey` is D-26's
+ * (without it a retry consumed a second quota unit), `expectedSelectionVersion`
+ * is V-29's (the version §5.4 originally checked was the GRANT's),
+ * `grantId`/`expectedGrantVersion` are optional per §5.4's own signature —
+ * absent in open mode, where there are no grants at all (V-30) — and
+ * `overrideReason` is §5.5's mandatory reason when the approval exceeds the
+ * bound.
+ *
+ * **Supplying `overrideReason` authorises nothing.** The override capability is
+ * evaluated server-side inside the transaction, and without it the approval is
+ * refused (R-06) whatever this body says. The surface states that rather than
+ * implying that filling the box grants the power.
+ */
+export async function approveSelection(
+  scope: GroupScope,
+  selectionId: string,
+  input: {
+    readonly approvalIdempotencyKey: string;
+    readonly expectedSelectionVersion: number;
+    readonly overrideReason?: string;
+  },
+): Promise<VacationDecisionResultWire> {
+  const body = approveVacationSelectionSchema.parse({
+    approvalIdempotencyKey: input.approvalIdempotencyKey,
+    expectedSelectionVersion: input.expectedSelectionVersion,
+    ...(input.overrideReason === undefined ? {} : { overrideReason: input.overrideReason }),
+  });
+  try {
+    return vacationDecisionResultSchema.parse(
+      await apiRequest(`${base(scope)}/vacation/selections/${selectionId}/approve`, {
+        method: 'POST',
+        headers: jsonHeaders,
+        body: JSON.stringify(body),
+      }),
+    );
+  } catch (error) {
+    rethrow(error);
+  }
+}
+
+/** §5.4's denial. A denial consumes nothing, and carries a MANDATORY reason. */
+export async function denySelection(
+  scope: GroupScope,
+  selectionId: string,
+  input: {
+    readonly approvalIdempotencyKey: string;
+    readonly expectedSelectionVersion: number;
+    readonly reason: string;
+  },
+): Promise<VacationDecisionResultWire> {
+  const body = denyVacationSelectionSchema.parse(input);
+  try {
+    return vacationDecisionResultSchema.parse(
+      await apiRequest(`${base(scope)}/vacation/selections/${selectionId}/deny`, {
+        method: 'POST',
+        headers: jsonHeaders,
+        body: JSON.stringify(body),
+      }),
+    );
+  } catch (error) {
+    rethrow(error);
+  }
+}
+
+/**
+ * §5.6's COMMIT — an act on the ROUND, never on a subset.
+ *
+ * There is no `selectionIds` field, deliberately: a commit takes every
+ * `approved` selection in the period, because a commit that took a subset would
+ * make "was this round committed?" a question with a list for an answer. The
+ * idempotency key is FAD-59's and it is the only thing that makes a retry safe —
+ * the same key twice commits once (R-12), and the answer says `replayed`.
+ */
+export async function commitRound(
+  scope: GroupScope,
+  periodId: string,
+  input: { readonly targetVersionId: string; readonly idempotencyKey: string },
+): Promise<CommitVacationRoundResultWire> {
+  const body = commitVacationRoundSchema.parse(input);
+  try {
+    return commitVacationRoundResultSchema.parse(
+      await apiRequest(`${base(scope)}/vacation/rounds/${periodId}/commit`, {
+        method: 'POST',
+        headers: jsonHeaders,
+        body: JSON.stringify(body),
+      }),
+    );
+  } catch (error) {
+    rethrow(error);
+  }
+}
+
+/**
+ * §5.6's REVERSAL of one committed week — the reason is MANDATORY.
+ *
+ * The answer's `revisionRequested` is a literal `true`: §5.6 always raises one,
+ * because the published version is NOT edited. That is the consequence the
+ * surface has to name before it lets anybody do this, and it is why the
+ * confirmation is two steps rather than a button.
+ */
+export async function reverseCommittedWeek(
+  scope: GroupScope,
+  selectionId: string,
+  reason: string,
+): Promise<ReverseVacationCommitResultWire> {
+  const body = reverseVacationCommitSchema.parse({ reason });
+  try {
+    return reverseVacationCommitResultSchema.parse(
+      await apiRequest(`${base(scope)}/vacation/selections/${selectionId}/reverse`, {
         method: 'POST',
         headers: jsonHeaders,
         body: JSON.stringify(body),
