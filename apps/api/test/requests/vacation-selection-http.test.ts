@@ -57,6 +57,69 @@ import { entitleRequestsModule } from '../support/requests.js';
  *
  * Every date is far-future and every label is the fixture's own. No
  * organization, site or person name from the research appears here.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ## FU-32 — OWN FIXTURE PER CASE, and the order dependence it cures
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * **The rule this file keeps (OPUS-M5-F32, doc 42 §5i; the R-13/T-15 pattern):
+ * every `it()` creates every round, grant, request and selection it asserts
+ * about, and every assertion is scoped to its OWN subject.** No case reads a
+ * row another case wrote; no case asserts over a whole round's selection list
+ * it did not fill itself. `beforeAll` carries only IMMUTABLE setup — the module
+ * entitlement, the group's request window and the scheduler's grant-only
+ * `vacation.override_quota` — never a round, never a quota grant, never a
+ * selection.
+ *
+ * Rounds come from `nextRound…()` below, which hands each case its own
+ * far-future 56-day band: the bands are distinct because migration 0022 makes
+ * `vacation_periods` `UNIQUE (organization_id, group_id, start_date)`,
+ * non-overlapping because a six-week round spans 39 days, and Monday-aligned
+ * because `vacation_periods_starts_monday` requires it. Nothing in the file
+ * depends on WHICH band a case draws, so the allocation is correct under every
+ * permutation the shuffle can produce.
+ *
+ * ## What was wrong, and the seeds that exposed it
+ *
+ * Four cases used to read rows that EARLIER cases had written into one shared
+ * quota round, and two more mutated that round underneath them:
+ *
+ *   * R-19's stale-version case read the selection the R-16 case submitted;
+ *   * R-18's already-withdrawn case read the one the R-11 replay case
+ *     submitted, and withdrew it;
+ *   * "a member cannot withdraw a COLLEAGUE's selection" read the one FU-23's
+ *     first case submitted;
+ *   * the round read asserted `pending`/`submitted` over EVERY selection in the
+ *     shared round, which the two withdrawal cases moved to `withdrawn`.
+ *
+ * Under `--sequence.shuffle.tests` those produced, verbatim: `the setup
+ * selection must exist: expected undefined to be defined`, a bare `expected
+ * undefined to be defined` at the colleague case, and `expected 'withdrawn' to
+ * be 'pending'`.
+ *
+ * **The seeds of record** (FU-32's own evidence): composed seeded runs at
+ * 20260920 (3 failures) and 20260921 (4) at M5-00C, both replicated
+ * byte-identically on the unmodified base tree; 20260831 (4), 20260901 (2) and
+ * 20260902 (1) at M5-004; and nightly fixture-regression runs 3–7
+ * (2026-08-27..31), where ALL 14 seed jobs failed on the single case that read
+ * a colleague's selection.
+ *
+ * **All five of those seeds reproduce their recorded failure COUNT in a
+ * twelve-second SINGLE-FILE run at the same seed** (3 / 4 / 4 / 2 / 1
+ * respectively, measured at OPUS-M5-F32) — so the mechanism is the within-file
+ * order ALONE, the file set never entered it, and a single-file
+ * `--sequence.shuffle.tests` run is this class's cheap replay key.
+ *
+ * **Falsified in both directions at ten seeds** — 1, 42, 20260831, 20260901,
+ * 20260902, 20260920, 20260921, 777, 424242, 31337: each RED before this cure
+ * (1–4 failures) and 19/19 GREEN after it, in an executed test order that is
+ * byte-identical between the two runs of each seed, so what changed is the cure
+ * and not the permutation. Canonical order is green on BOTH trees — which is
+ * exactly why `pnpm check` never saw this defect and the nightly always did.
+ *
+ * **Nothing is weakened** (non-bypass rule 10): the same cases, the same
+ * refusals by name, the same positive controls, the same counts. The fixtures
+ * moved; the assertions did not.
  */
 
 const multi = ownedMulti('requests-vacation-http', { profile: 'full' });
@@ -64,17 +127,6 @@ const multi = ownedMulti('requests-vacation-http', { profile: 'full' });
 let harness: HttpHarness;
 let runtime: Runtime;
 let admin: pg.Client;
-/** The quota round, and the open one — V-30's two branches. */
-let quotaPeriodId: string;
-let openPeriodId: string;
-/** A round in `draft`: the period's own window, which is not §3's deadline. */
-let shutPeriodId: string;
-/** §5.5's RELEASE cases (condition C-1): an ordinary quota round, and its grant. */
-let releasePeriodId: string;
-let releaseGrantId: string;
-/** The over-quota round: an entitlement of ZERO, so every approval needs the override. */
-let overridePeriodId: string;
-let overrideGrantId: string;
 /** A SECOND superuser client, used only to hold a row lock in the C-1(c) race. */
 let locker: pg.Client;
 
@@ -334,11 +386,63 @@ function lastDenial(): { step?: unknown; reason?: unknown } | undefined {
   return undefined;
 }
 
-const QUOTA_START = '2061-06-06';
-const OPEN_START = '2062-06-05';
-const SHUT_START = '2063-06-04';
-const RELEASE_START = '2064-06-02';
-const OVERRIDE_START = '2065-06-01';
+/**
+ * ## The per-case round allocator (FU-32)
+ *
+ * The first far-future Monday, and the stride between one case's round and the
+ * next. 56 days is eight weeks: a round created by `createPeriod` spans 39 days
+ * (`7 × (weeks − 1) + 4` at the default six), so consecutive bands cannot touch
+ * even before the `UNIQUE (organization_id, group_id, start_date)` key rules out
+ * two rounds sharing a start.
+ *
+ * The counter is monotonic, never reset, and read by no assertion — so the
+ * SHUFFLE decides which case draws which band and every band is still distinct.
+ */
+const FIRST_ROUND_MONDAY = '2061-06-06';
+const ROUND_STRIDE_DAYS = 56;
+let roundsAllocated = 0;
+
+function nextRoundStart(): string {
+  const index = roundsAllocated;
+  roundsAllocated += 1;
+  return new Date(
+    Date.parse(`${FIRST_ROUND_MONDAY}T00:00:00Z`) + index * ROUND_STRIDE_DAYS * 86_400_000,
+  )
+    .toISOString()
+    .slice(0, 10);
+}
+
+interface Round {
+  /** The round's own id. */
+  readonly periodId: string;
+  /** Its first Monday — `mondayAfter(round.start, n)` is its nth week. */
+  readonly start: string;
+}
+
+interface QuotaRound extends Round {
+  /** The MEMBER's personal entitlement in this round, which no other round shares. */
+  readonly grantId: string;
+}
+
+/** A fresh `open`-state QUOTA round with the member's own entitlement in it. */
+async function nextQuotaRound(units = 3): Promise<QuotaRound> {
+  const start = nextRoundStart();
+  const periodId = await createPeriod(start, 'quota', 'open');
+  const grantId = await createEntitlement(periodId, units);
+  return { periodId, start, grantId };
+}
+
+/** A fresh `open`-state OPEN-mode round — V-30's other branch, and no grants at all. */
+async function nextOpenRound(): Promise<Round> {
+  const start = nextRoundStart();
+  return { periodId: await createPeriod(start, 'open', 'open'), start };
+}
+
+/** A fresh round still in `draft`: the round's own window, which is not §3's deadline. */
+async function nextDraftRound(): Promise<Round> {
+  const start = nextRoundStart();
+  return { periodId: await createPeriod(start, 'quota', 'draft'), start };
+}
 
 beforeAll(async () => {
   harness = await buildHttpHarness();
@@ -389,19 +493,12 @@ beforeAll(async () => {
       `.execute(query),
   );
 
-  quotaPeriodId = await createPeriod(QUOTA_START, 'quota', 'open');
-  openPeriodId = await createPeriod(OPEN_START, 'open', 'open');
-  shutPeriodId = await createPeriod(SHUT_START, 'quota', 'draft');
-  await createEntitlement(quotaPeriodId, 3);
-
-  /* §5.5's release cases (C-1). Two rounds, because the two halves need
-   * different allowances: an ordinary one with headroom, and one with an
-   * entitlement of ZERO so that every approval must take the audited override
-   * path and raise the bound. */
-  releasePeriodId = await createPeriod(RELEASE_START, 'quota', 'open');
-  releaseGrantId = await createEntitlement(releasePeriodId, 2);
-  overridePeriodId = await createPeriod(OVERRIDE_START, 'quota', 'open');
-  overrideGrantId = await createEntitlement(overridePeriodId, 0);
+  /* NO round, NO quota grant and NO selection is created here (FU-32): a round
+   * built in `beforeAll` is shared mutable state, and a case that reads or
+   * moves another case's row is order-dependent by construction. Each case
+   * draws its own from `nextQuotaRound` / `nextOpenRound` / `nextDraftRound`.
+   * What remains below is IMMUTABLE for the whole file — no case writes it, so
+   * no case can see a different value for it than any other. */
 
   /* `vacation.override_quota` is GRANT-ONLY (doc 08 §4's enumeration and §6's
    * "Vacation commit / quota override — G"), so the scheduler does not hold it by
@@ -449,8 +546,9 @@ afterAll(async () => {
 
 describe('the vacation subtype reaches POST …/requests (the §5f retirement)', () => {
   it('R-16: a member submits a week, and the request carries EXACTLY ONE subtype row', async () => {
-    const week = mondayAfter(QUOTA_START, 0);
-    const reply = await submitWeek(quotaPeriodId, week, key('vac.first'));
+    const round = await nextQuotaRound();
+    const week = mondayAfter(round.start, 0);
+    const reply = await submitWeek(round.periodId, week, key('vac.first'));
 
     expect(reply.statusCode, reply.raw).toBe(201);
     const body = reply.body as {
@@ -467,7 +565,7 @@ describe('the vacation subtype reaches POST …/requests (the §5f retirement)',
      * different route. */
     expect(body.record).toEqual({
       subtype: 'vacation-selection',
-      vacationPeriodId: quotaPeriodId,
+      vacationPeriodId: round.periodId,
       weekStart: week,
     });
 
@@ -489,14 +587,15 @@ describe('the vacation subtype reaches POST …/requests (the §5f retirement)',
   }, 180_000);
 
   it('R-11: the SAME key replays — one row, and a 200 rather than a 201', async () => {
-    const week = mondayAfter(QUOTA_START, 1);
+    const round = await nextQuotaRound();
+    const week = mondayAfter(round.start, 1);
     const idempotencyKey = key('vac.replay');
 
-    const first = await submitWeek(quotaPeriodId, week, idempotencyKey);
+    const first = await submitWeek(round.periodId, week, idempotencyKey);
     expect(first.statusCode, first.raw).toBe(201);
     const requestId = (first.body as { root: { id: string } }).root.id;
 
-    const second = await submitWeek(quotaPeriodId, week, idempotencyKey);
+    const second = await submitWeek(round.periodId, week, idempotencyKey);
     expect(second.statusCode, second.raw).toBe(200);
     expect((second.body as { root: { id: string } }).root.id).toBe(requestId);
 
@@ -510,10 +609,11 @@ describe('the vacation subtype reaches POST …/requests (the §5f retirement)',
   }, 180_000);
 
   it('D-22: a SECOND selection of the same week is refused, and says which refusal it is', async () => {
-    const week = mondayAfter(QUOTA_START, 2);
-    expect((await submitWeek(quotaPeriodId, week, key('vac.d22a'))).statusCode).toBe(201);
+    const round = await nextQuotaRound();
+    const week = mondayAfter(round.start, 2);
+    expect((await submitWeek(round.periodId, week, key('vac.d22a'))).statusCode).toBe(201);
 
-    const second = await submitWeek(quotaPeriodId, week, key('vac.d22b'));
+    const second = await submitWeek(round.periodId, week, key('vac.d22b'));
     expect(second.statusCode, second.raw).toBe(409);
     expect((second.body as { error: { code: string } }).error.code).toBe(
       'VACATION_WEEK_ALREADY_SELECTED',
@@ -521,7 +621,8 @@ describe('the vacation subtype reaches POST …/requests (the §5f retirement)',
   }, 180_000);
 
   it("the round's own window: a `draft` round refuses a selection", async () => {
-    const reply = await submitWeek(shutPeriodId, mondayAfter(SHUT_START, 0), key('vac.shut'));
+    const round = await nextDraftRound();
+    const reply = await submitWeek(round.periodId, mondayAfter(round.start, 0), key('vac.shut'));
     expect(reply.statusCode, reply.raw).toBe(409);
     expect((reply.body as { error: { code: string } }).error.code).toBe('VACATION_ROUND_NOT_OPEN');
   }, 180_000);
@@ -546,8 +647,9 @@ describe('FU-23 — a key that names a request of ANOTHER subtype', () => {
    * a plain `CONFLICT` is the old behaviour surviving.
    */
   it('vacation first, then a time-off under the same key: IDEMPOTENCY_KEY_REUSED', async () => {
+    const round = await nextQuotaRound();
     const shared = key('vac.fu23a');
-    const first = await submitWeek(quotaPeriodId, mondayAfter(QUOTA_START, 3), shared);
+    const first = await submitWeek(round.periodId, mondayAfter(round.start, 3), shared);
     expect(first.statusCode, first.raw).toBe(201);
 
     const second = await call('POST', `${scope()}/requests`, multi().alpha.users.member.id, {
@@ -579,6 +681,7 @@ describe('FU-23 — a key that names a request of ANOTHER subtype', () => {
     /* The other direction, and it is not the first case restated: the vacation
      * submission path has its own replay read, added by this packet, and a fix
      * applied to only one of the two would pass the case above and fail here. */
+    const round = await nextQuotaRound();
     const shared = key('vac.fu23b');
     const first = await call('POST', `${scope()}/requests`, multi().alpha.users.member.id, {
       idempotencyKey: shared,
@@ -586,7 +689,7 @@ describe('FU-23 — a key that names a request of ANOTHER subtype', () => {
     });
     expect(first.statusCode, first.raw).toBe(201);
 
-    const second = await submitWeek(quotaPeriodId, mondayAfter(QUOTA_START, 4), shared);
+    const second = await submitWeek(round.periodId, mondayAfter(round.start, 4), shared);
     expect(second.statusCode, second.raw).toBe(409);
     const error = (second.body as { error: { code: string; existingSubtype?: string } }).error;
     expect(error.code).toBe('IDEMPOTENCY_KEY_REUSED');
@@ -600,8 +703,9 @@ describe('FU-23 — a key that names a request of ANOTHER subtype', () => {
 
 describe('R-13 — both modes complete, and quota rules apply only in quota mode', () => {
   it('an OPEN round accepts a selection with NO grant row anywhere (V-30)', async () => {
-    const week = mondayAfter(OPEN_START, 0);
-    const reply = await submitWeek(openPeriodId, week, key('vac.open'));
+    const round = await nextOpenRound();
+    const week = mondayAfter(round.start, 0);
+    const reply = await submitWeek(round.periodId, week, key('vac.open'));
     expect(reply.statusCode, reply.raw).toBe(201);
 
     const requestId = (reply.body as { root: { id: string } }).root.id;
@@ -613,15 +717,22 @@ describe('R-13 — both modes complete, and quota rules apply only in quota mode
 
     const grants = await admin.query<{ n: string }>(
       'select count(*)::text as n from vacation_grants where vacation_period_id = $1::uuid',
-      [openPeriodId],
+      [round.periodId],
     );
     expect(Number(grants.rows[0]?.n ?? '0')).toBe(0);
   }, 180_000);
 
   it('the round read carries an EMPTY variance in open mode, and a populated one in quota', async () => {
+    /* Both rounds are this case's own: the open one so "no grants" is a fact
+     * about a round nothing else touched, and the quota one so `unitsTotal` is
+     * the entitlement created three lines below rather than one a neighbouring
+     * case might have spent. */
+    const openRound = await nextOpenRound();
+    const quotaRound = await nextQuotaRound(3);
+
     const open = await call(
       'GET',
-      `${scope()}/vacation/rounds/${openPeriodId}`,
+      `${scope()}/vacation/rounds/${openRound.periodId}`,
       multi().alpha.users.member.id,
     );
     expect(open.statusCode, open.raw).toBe(200);
@@ -630,7 +741,7 @@ describe('R-13 — both modes complete, and quota rules apply only in quota mode
 
     const quota = await call(
       'GET',
-      `${scope()}/vacation/rounds/${quotaPeriodId}`,
+      `${scope()}/vacation/rounds/${quotaRound.periodId}`,
       multi().alpha.users.member.id,
     );
     expect(quota.statusCode, quota.raw).toBe(200);
@@ -649,9 +760,28 @@ describe('R-13 — both modes complete, and quota rules apply only in quota mode
 
 describe('the round read', () => {
   it('carries BOTH halves of D-27 s pair, and they agree', async () => {
+    /* The round is this case's own and it fills the round itself, which is what
+     * makes both assertions below mean what they say (FU-32): every selection
+     * the read returns is one this case submitted and left `pending`, so
+     * `pending`/`submitted` is a claim about the DERIVATION rather than about
+     * which neighbouring case happened to run first — the shared round used to
+     * arrive here carrying whatever the withdrawal cases had done to it.
+     *
+     * Three weeks, submitted 2 → 0 → 1, so the ordering assertion has teeth: a
+     * route that returned insertion order would answer 2, 0, 1 and fail. */
+    const round = await nextQuotaRound();
+    for (const offset of [2, 0, 1]) {
+      const submitted = await submitWeek(
+        round.periodId,
+        mondayAfter(round.start, offset),
+        key(`vac.read${offset}`),
+      );
+      expect(submitted.statusCode, submitted.raw).toBe(201);
+    }
+
     const reply = await call(
       'GET',
-      `${scope()}/vacation/rounds/${quotaPeriodId}`,
+      `${scope()}/vacation/rounds/${round.periodId}`,
       multi().alpha.users.member.id,
     );
     expect(reply.statusCode, reply.raw).toBe(200);
@@ -684,8 +814,9 @@ describe('the round read', () => {
 
 describe('R-18 / R-19 — withdrawal is guarded on status AND version', () => {
   it('a member withdraws their own pending week, and both rows move together', async () => {
-    const week = mondayAfter(QUOTA_START, 5);
-    const submitted = await submitWeek(quotaPeriodId, week, key('vac.withdraw'));
+    const round = await nextQuotaRound();
+    const week = mondayAfter(round.start, 5);
+    const submitted = await submitWeek(round.periodId, week, key('vac.withdraw'));
     expect(submitted.statusCode, submitted.raw).toBe(201);
     const requestId = (submitted.body as { root: { id: string } }).root.id;
     const selection = await selectionOf(requestId);
@@ -713,14 +844,20 @@ describe('R-18 / R-19 — withdrawal is guarded on status AND version', () => {
   }, 180_000);
 
   it('R-19: a STALE version is refused, and nothing moves', async () => {
-    const week = mondayAfter(QUOTA_START, 0);
-    /* This week was submitted by the first test in this file, so its selection is
-     * already `pending` at some version — and a version one BELOW is stale
-     * whatever that version is. */
+    const round = await nextQuotaRound();
+    const week = mondayAfter(round.start, 0);
+    /* THIS case submits the week it is about (FU-32 — it used to read the one
+     * the R-16 case submitted, in a round both shared), so the selection is
+     * `pending` at some version — and a version five ABOVE is stale whatever
+     * that version is. The read below stays a database read rather than the
+     * submission's own reply, because what R-19 refuses is a version presented
+     * against the ROW's, and the row is the thing that must be looked at. */
+    const submitted = await submitWeek(round.periodId, week, key('vac.stale'));
+    expect(submitted.statusCode, submitted.raw).toBe(201);
     const found = await admin.query<{ id: string; version: number; status: string }>(
       `select v.id, v.version, v.status from vacation_selections v
         where v.vacation_period_id = $1::uuid and v.week_start = $2::date`,
-      [quotaPeriodId, week],
+      [round.periodId, week],
     );
     const row = found.rows[0];
     expect(row, 'the setup selection must exist').toBeDefined();
@@ -744,11 +881,17 @@ describe('R-18 / R-19 — withdrawal is guarded on status AND version', () => {
   }, 180_000);
 
   it('R-18: withdrawing an ALREADY withdrawn selection is refused', async () => {
-    const week = mondayAfter(QUOTA_START, 1);
+    /* Its own round and its own week (FU-32): this case WITHDRAWS the selection
+     * it reads, so reading one another case had submitted both depended on that
+     * case having run and destroyed the state that case's neighbours assumed. */
+    const round = await nextQuotaRound();
+    const week = mondayAfter(round.start, 1);
+    const submitted = await submitWeek(round.periodId, week, key('vac.twice'));
+    expect(submitted.statusCode, submitted.raw).toBe(201);
     const found = await admin.query<{ id: string; version: number }>(
       `select id, version from vacation_selections
         where vacation_period_id = $1::uuid and week_start = $2::date`,
-      [quotaPeriodId, week],
+      [round.periodId, week],
     );
     const row = found.rows[0];
     expect(row).toBeDefined();
@@ -798,12 +941,14 @@ describe('R-18 / R-19 — withdrawal is guarded on status AND version', () => {
 
 describe('§5.5 — a withdrawal from `approved` RELEASES the quota unit', () => {
   it('(a) `unitReleased` is true and `units_consumed` is restored by EXACTLY one', async () => {
-    const before = await grantCounters(releaseGrantId);
-    const approved = await approvedWeek(releasePeriodId, mondayAfter(RELEASE_START, 0));
+    /* Its own round and its own grant, with the headroom this half needs. */
+    const round = await nextQuotaRound(2);
+    const before = await grantCounters(round.grantId);
+    const approved = await approvedWeek(round.periodId, mondayAfter(round.start, 0));
 
     /* The approval consumed one — asserted, so the release below is measured
      * against a unit that was really taken rather than against an assumption. */
-    const consumed = await grantCounters(releaseGrantId);
+    const consumed = await grantCounters(round.grantId);
     expect(consumed.units_consumed).toBe(before.units_consumed + 1);
     expect((await selectionOf(approved.requestId)).status).toBe('approved');
     expect((await rootOf(approved.requestId)).status).toBe('approved');
@@ -827,7 +972,7 @@ describe('§5.5 — a withdrawal from `approved` RELEASES the quota unit', () =>
 
     /* EXACTLY one, not "at least one": a release that decremented twice would
      * satisfy a `toBeLessThan` and corrupt the ledger. */
-    const after = await grantCounters(releaseGrantId);
+    const after = await grantCounters(round.grantId);
     expect(after.units_consumed).toBe(before.units_consumed);
     expect(after.override_units, 'no override was involved').toBe(before.override_units);
     expect((await selectionOf(approved.requestId)).status).toBe('withdrawn');
@@ -841,14 +986,17 @@ describe('§5.5 — a withdrawal from `approved` RELEASES the quota unit', () =>
      * The headroom sentence is what this case measures: a release that dropped
      * only `units_consumed` would leave `override_units` at 1 and hand the next
      * approval a free unit nobody authorised. */
-    const before = await grantCounters(overrideGrantId);
+    /* Its own round, with an entitlement of ZERO so that every approval in it
+     * must take the audited override path and raise the bound. */
+    const round = await nextQuotaRound(0);
+    const before = await grantCounters(round.grantId);
     expect(before.units_total, 'the entitlement is zero, so any approval overrides').toBe(0);
 
-    const approved = await approvedWeek(overridePeriodId, mondayAfter(OVERRIDE_START, 0), {
+    const approved = await approvedWeek(round.periodId, mondayAfter(round.start, 0), {
       overrideReason: 'The rota is covered that week by the relief roster.',
     });
 
-    const consumed = await grantCounters(overrideGrantId);
+    const consumed = await grantCounters(round.grantId);
     expect(consumed.units_consumed).toBe(before.units_consumed + 1);
     expect(consumed.override_units, 'the BOUND rose, the CHECK never moved').toBe(
       before.override_units + 1,
@@ -868,7 +1016,7 @@ describe('§5.5 — a withdrawal from `approved` RELEASES the quota unit', () =>
     expect(reply.statusCode, reply.raw).toBe(200);
     expect((reply.body as { unitReleased: boolean }).unitReleased).toBe(true);
 
-    const after = await grantCounters(overrideGrantId);
+    const after = await grantCounters(round.grantId);
     expect(after.units_consumed).toBe(before.units_consumed);
     /* BOTH counters, together. This is the assertion `countersAfterReversal`
      * exists for, executed at last through a real writer. */
@@ -899,14 +1047,15 @@ describe('§5.5 — a withdrawal from `approved` RELEASES the quota unit', () =>
      * direction that is schedulable rather than hoped for. If the interleave ever
      * failed to happen the withdrawal would answer 200 and this case would FAIL
      * loudly rather than pass having proven nothing. */
-    const approved = await approvedWeek(releasePeriodId, mondayAfter(RELEASE_START, 1));
-    const before = await grantCounters(releaseGrantId);
+    const round = await nextQuotaRound(2);
+    const approved = await approvedWeek(round.periodId, mondayAfter(round.start, 1));
+    const before = await grantCounters(round.grantId);
     expect(before.units_consumed, 'the approval consumed a unit to release').toBeGreaterThan(0);
 
     await locker.query('BEGIN');
     await locker.query(
       'update vacation_grants set version = version + 1, updated_at = now() where id = $1::uuid',
-      [releaseGrantId],
+      [round.grantId],
     );
 
     /* Not awaited: the withdrawal must be in flight and blocked before the lock
@@ -943,7 +1092,7 @@ describe('§5.5 — a withdrawal from `approved` RELEASES the quota unit', () =>
      * without its withdrawal would show `units_consumed` one lower here while the
      * week was still approved — a member holding an approved week whose allowance
      * had been handed back. */
-    const after = await grantCounters(releaseGrantId);
+    const after = await grantCounters(round.grantId);
     expect(after.units_consumed, 'no unit may be released by a rolled-back withdrawal').toBe(
       before.units_consumed,
     );
@@ -984,8 +1133,12 @@ describe('deny-by-default — a VIEWER reaches none of the three new routes', ()
   }, 120_000);
 
   it('the round READ is refused at the capability layer', async () => {
+    /* Its own round, so the refusal is about a round that exists whichever
+     * cases have run — a 403 on a missing round would be the right status for
+     * the wrong reason. */
+    const round = await nextQuotaRound();
     harness.clearLogs();
-    const reply = await call('GET', `${scope()}/vacation/rounds/${quotaPeriodId}`, viewerId());
+    const reply = await call('GET', `${scope()}/vacation/rounds/${round.periodId}`, viewerId());
     expect(reply.statusCode, reply.raw).toBe(403);
     expect(lastDenial()?.['reason']).toBe('NO_CAPABILITY');
   }, 120_000);
@@ -1026,11 +1179,19 @@ describe('deny-by-default — a VIEWER reaches none of the three new routes', ()
      * `requests.own.withdraw` by role, so they REACH the route and are refused on
      * the row rather than at the door — which is the only shape in which this
      * property can be tested at all. */
-    const week = mondayAfter(QUOTA_START, 3);
+    /* The colleague's week is submitted HERE, by the member, in this case's own
+     * round (FU-32): it used to be the one FU-23's first case had submitted into
+     * a shared round, so under a shuffle that placed this case first the read
+     * found nothing and the case failed `expected undefined to be defined` —
+     * the single assertion all 14 nightly seed jobs reddened on. */
+    const round = await nextQuotaRound();
+    const week = mondayAfter(round.start, 3);
+    const submitted = await submitWeek(round.periodId, week, key('vac.colleague'));
+    expect(submitted.statusCode, submitted.raw).toBe(201);
     const found = await admin.query<{ id: string; version: number }>(
       `select id, version from vacation_selections
         where vacation_period_id = $1::uuid and week_start = $2::date`,
-      [quotaPeriodId, week],
+      [round.periodId, week],
     );
     const row = found.rows[0];
     expect(row).toBeDefined();

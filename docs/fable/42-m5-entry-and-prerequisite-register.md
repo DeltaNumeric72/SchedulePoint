@@ -1467,6 +1467,43 @@ assertion-multiset diff + record honesty); delta if conditions; orchestrator
 lands on the next PR. Closing FU-32 requires citing the first ALL-GREEN
 nightly after the merge — the row stays OPEN until that run is read.
 
+**ACCEPTED 2026-09-01.** Fresh implementer; fresh light reviewer; verdict
+**CONFIRM/ACCEPT, no conditions** — every measured claim reproduced in the
+reviewer's own worktree, the nothing-weakened check run one level STRICTER
+than asked (whole-assertion-statement multiset: +4 identical 201 positive
+controls, 2 pure subject renames, ZERO removals). Patch md5
+`331d116aa421e6cb64093125710c0f50`, 1 file +232/−71, base `b599a7a`.
+- **Falsification:** pre-cure RED at ten implementer seeds + three fresh
+  reviewer seeds (seed 1 reproducing the nightly's exact line-1036 single
+  signature; one fresh seed passing by luck, noted not forced); cured 19/19
+  GREEN at every seed on both the as-run and delivered bytes; canonical order
+  green on BOTH trees — the honest reason `pnpm check` never saw the defect
+  and the nightly always did. Non-vacuity in the strong form: at every seed
+  the executed order is BYTE-IDENTICAL pre-cure vs cured — the red→green IS
+  the cure.
+- **The decisive proof:** one composed seeded run at seed 1 (the nightly's
+  own first fixed seed) on the cured tree — 168+1 files / 1 786 tests, ZERO
+  failures, the target file green inside it (19 tests), M5-004's two cured
+  files green beside it; adjudicated at review from the transcript with
+  independent totals, zero-×-marker, and duration-arithmetic checks.
+- **Register-grade finding (independently reproduced at review):** the five
+  historical seeds reproduce FU-32's recorded COMPOSED-run failure counts
+  EXACTLY in ~12-second SINGLE-FILE shuffled runs — within-file order alone
+  is the mechanism, and a single-file `--sequence.shuffle.tests` run is the
+  cheap replay key for this defect class.
+- **One process incident, closed not argued:** a docblock-only edit during
+  the live composed run, caught in the same tool round, the gap closed on the
+  BYTES (TypeScript-parser comment-only proof with positive and negative
+  controls; every leg re-run on the delivered bytes; the transcript's own
+  per-file durations placing the target file ~14 minutes after the revert).
+- **Environment record additions:** the single-file filter is the
+  API-project-relative path; a fresh worktree needs `tsc -b` before any api
+  test (the dist rule's other face); and `chmod 777 apps/api` is a
+  prerequisite whose ABSENCE surfaces as a FALSE "STALE CLUSTER?" diagnostic
+  (a permission bit masquerading as an orphan).
+- FU-32 stays OPEN pending the first ALL-GREEN nightly after the merge, per
+  this packet's own text.
+
 ## 6. Standing acceptance battery (every packet, per 24 §G and the M4 form)
 
 Validators (36/36 · 95/95 · research PASS) · `corepack pnpm check` 17/17 · the full
