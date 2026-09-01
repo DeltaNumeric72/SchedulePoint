@@ -302,6 +302,150 @@
       "description": "Tick the deterministic-mode checkbox in the build configuration form",
       "maxRequests": 0,
       "note": "Measured 0 at both viewports (OPUS-M4-004). I-13 one level down: ticking a box is local form state and nothing is created, validated, or probed. The budget exists so that a later 'let us check what this would cost' request cannot be added without the invariant changing first \u2014 which is exactly the shape a reproducibility toggle invites."
+    },
+    {
+      "id": "requests-open-submit-form",
+      "description": "Member clicks 'Submit a request\u2026' to open the request form.",
+      "maxRequests": 0,
+      "note": "I-13, in the same strict form as catalogue-open-new-shift-type and vacation-open-select-week. A control labelled Submit must persist nothing before a completed form and an explicit Save. ZERO is the only correct number and this budget can never be raised without the invariant changing first. Measured 0 at both viewports (OPUS-M5-005)."
+    },
+    {
+      "id": "requests-fill-submit-form",
+      "description": "Member fills the request form and does not submit.",
+      "maxRequests": 0,
+      "note": "The other half of I-13: filling the form issues nothing either. A field that fetched or saved on change would put a half-entered absence on the wire. Measured 0 at both viewports (OPUS-M5-005)."
+    },
+    {
+      "id": "requests-save-refused",
+      "description": "Member clicks 'Save request' and the server refuses it.",
+      "maxRequests": 1,
+      "note": "One Save, one request. A refused save does NOT refetch, because nothing changed. Measured 1 at both viewports (OPUS-M5-005)."
+    },
+    {
+      "id": "requests-save-accepted",
+      "description": "Member clicks 'Save request' and the server accepts it.",
+      "maxRequests": 2,
+      "note": "The write plus ONE invalidation refetch of the member's own request list. Two is the measured number, not a target: the list must reflect the new request and the client does not synthesise it from the response (PO-DEC-18), which here would also mean inventing the version the next withdrawal has to present. Measured 2 at both viewports (OPUS-M5-005)."
+    },
+    {
+      "id": "requests-withdraw-accepted",
+      "description": "Member takes back one of their own requests.",
+      "maxRequests": 2,
+      "note": "The withdrawal plus ONE re-read. Same reasoning as requests-save-accepted: the root's new version comes from the server, never from the response body. Measured 2 at both viewports (OPUS-M5-005)."
+    },
+    {
+      "id": "requests-open-detail",
+      "description": "Member expands one request to see its reason codes and thread.",
+      "maxRequests": 1,
+      "note": "One action, one read: the comment thread for the request whose row was expanded. Deliberately NOT fetched with the list \u2014 a list of twenty requests would otherwise cost twenty-one reads for threads nobody asked to see. Measured 1 at both viewports (OPUS-M5-005)."
+    },
+    {
+      "id": "requests-attach-reason-accepted",
+      "description": "Member attaches one reason code to their own request.",
+      "maxRequests": 2,
+      "note": "I-16: one turn, ONE accepted reason code, through one transaction. The write plus ONE re-read of the thread. Measured 2 at both viewports (OPUS-M5-005)."
+    },
+    {
+      "id": "queue-select-rows",
+      "description": "Scheduler ticks two rows in the review queue for a batch decision.",
+      "maxRequests": 0,
+      "note": "A checkbox is not a decision. Selecting rows for a batch issues nothing at all; the decision is the separate, explicit act below. Measured 0 at both viewports (OPUS-M5-005)."
+    },
+    {
+      "id": "queue-open-batch",
+      "description": "Scheduler clicks 'Decide these together\u2026' to open the batch form.",
+      "maxRequests": 0,
+      "note": "I-13. A control that decided twenty requests on click is the incident the invariant comes from. ZERO is the only correct number here. Measured 0 at both viewports (OPUS-M5-005)."
+    },
+    {
+      "id": "queue-batch-decision",
+      "description": "Scheduler decides a batch and the server answers per item.",
+      "maxRequests": 2,
+      "note": "ONE request decides the whole batch, plus ONE re-read of the queue. Twenty decisions in twenty requests would be the amplification I-10 forbids, which is why the contract takes a list with per-item outcomes. Measured 2 at both viewports (OPUS-M5-005)."
+    },
+    {
+      "id": "queue-change-filter",
+      "description": "Scheduler changes the queue's kind or status filter.",
+      "maxRequests": 1,
+      "note": "One action, one read. The filters are closed vocabularies and the server parses them again; changing one re-queries and does nothing else. Measured 1 at both viewports (OPUS-M5-005)."
+    },
+    {
+      "id": "detail-approve-accepted",
+      "description": "Scheduler approves one request from its detail surface.",
+      "maxRequests": 2,
+      "note": "The decision plus ONE server-authoritative re-read. The request's new version comes from the server (PO-DEC-18) because the next act has to present it. Measured 2 at both viewports (OPUS-M5-005)."
+    },
+    {
+      "id": "detail-approve-refused",
+      "description": "Scheduler approves one request and the server refuses with a conflict.",
+      "maxRequests": 1,
+      "note": "One decision, one request. A refused decision re-reads nothing, because nothing changed. Measured 1 at both viewports (OPUS-M5-005)."
+    },
+    {
+      "id": "detail-open-deny",
+      "description": "Scheduler clicks 'Deny\u2026' to open the mandatory-reason form.",
+      "maxRequests": 0,
+      "note": "I-13: opening the denial form decides nothing. A denial carries a mandatory reason, so it cannot be a one-click act even if somebody wanted it to be. Measured 0 at both viewports (OPUS-M5-005)."
+    },
+    {
+      "id": "detail-comment-accepted",
+      "description": "Scheduler appends a bounded comment to a request.",
+      "maxRequests": 2,
+      "note": "The append plus ONE re-read of the detail, which carries the thread. Measured 2 at both viewports (OPUS-M5-005)."
+    },
+    {
+      "id": "vacation-approve-accepted",
+      "description": "Scheduler approves one vacation week.",
+      "maxRequests": 2,
+      "note": "\u00a75.4's approval plus ONE re-read of the round. The selection's new version comes from the server; patching the cache would invent it. Measured 2 at both viewports (OPUS-M5-005)."
+    },
+    {
+      "id": "vacation-approve-refused",
+      "description": "Scheduler approves one vacation week and the server refuses by name.",
+      "maxRequests": 1,
+      "note": "One approval attempt, one request. A named refusal (OVERRIDE_REQUIRED, QUOTA_EXHAUSTED, VERSION_CONFLICT) re-reads nothing. Measured 1 at both viewports (OPUS-M5-005)."
+    },
+    {
+      "id": "vacation-open-deny-week",
+      "description": "Scheduler clicks 'Deny\u2026' on a vacation week.",
+      "maxRequests": 0,
+      "note": "I-13: opening the week-denial form denies nothing. Measured 0 at both viewports (OPUS-M5-005)."
+    },
+    {
+      "id": "vacation-open-reverse-confirm",
+      "description": "Scheduler clicks 'Reverse\u2026' to open the graduated confirmation.",
+      "maxRequests": 0,
+      "note": "I-13, on the packet's owed graduated confirmation: opening it reverses nothing. \u00a75.6's reversal takes back a week that is already on a published schedule, so it is the last affordance in this repository that may cost a request to look at. Measured 0 at both viewports (OPUS-M5-005)."
+    },
+    {
+      "id": "vacation-fill-reverse-confirm",
+      "description": "Scheduler completes step one of the reversal confirmation.",
+      "maxRequests": 0,
+      "note": "The second half of I-13 on the same confirmation: completing the acknowledgement \u2014 step one of two \u2014 issues nothing. Only the final submit, after the mandatory reason, reaches the server. Measured 0 at both viewports (OPUS-M5-005)."
+    },
+    {
+      "id": "vacation-reverse-accepted",
+      "description": "Scheduler completes both steps and reverses a committed week.",
+      "maxRequests": 2,
+      "note": "\u00a75.6's reversal plus ONE re-read of the round. Measured 2 at both viewports (OPUS-M5-005)."
+    },
+    {
+      "id": "vacation-open-commit",
+      "description": "Scheduler clicks 'Commit this round\u2026' to open the commit form.",
+      "maxRequests": 0,
+      "note": "I-13. ZERO, and it stays zero because the draft-version read is gated on a schedule period actually being chosen \u2014 opening the form fetches nothing. Measured 0 at both viewports (OPUS-M5-005)."
+    },
+    {
+      "id": "vacation-choose-commit-period",
+      "description": "Scheduler chooses the schedule period to commit into.",
+      "maxRequests": 1,
+      "note": "One action, one read: the versions of the schedule period the scheduler just chose. The same shape as schedule-open-assign-picker \u2014 information the user has now asked for, and not before. Measured 1 at both viewports (OPUS-M5-005)."
+    },
+    {
+      "id": "vacation-commit-accepted",
+      "description": "Scheduler commits the round into a draft schedule version.",
+      "maxRequests": 2,
+      "note": "FAD-59's commit plus ONE re-read of the round. A replayed key (R-12) commits once and the answer says so; the request count is the same either way. Measured 2 at both viewports (OPUS-M5-005)."
     }
   ]
 }

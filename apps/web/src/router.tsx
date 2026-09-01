@@ -30,7 +30,11 @@ import { PublicationReviewPage } from './publication/PublicationReviewPage.js';
 import { PublishedSchedulePage } from './publication/PublishedSchedulePage.js';
 import { VersionComparisonPage } from './publication/VersionComparisonPage.js';
 import { VersionHistoryPage } from './publication/VersionHistoryPage.js';
+import { MyRequestsPage } from './requests/MyRequestsPage.js';
+import { RequestDetailPage } from './requests/RequestDetailPage.js';
+import { RequestQueuePage } from './requests/RequestQueuePage.js';
 import { ShellPage } from './shell/ShellPage.js';
+import { VacationApprovalPage } from './vacation/VacationApprovalPage.js';
 import { VacationRoundPage } from './vacation/VacationRoundPage.js';
 import { GroupSettingsPage as SettingsGroupPage } from './settings/GroupSettingsPage.js';
 import { LocationsPage } from './settings/LocationsPage.js';
@@ -354,6 +358,65 @@ const vacationRoundRoute = createRoute({
   component: VacationRoundPage,
 });
 
+/**
+ * The SCHEDULER's view of the same round (OPUS-M5-005).
+ *
+ * A sibling path under the same tree rather than a mode of the member's page,
+ * and the reason is the one the whole route file keeps repeating: the two are
+ * different acts under different capabilities. The member's page is `requests.
+ * own.read` and shows their own weeks; this one is `requests.read_any` and shows
+ * everybody's, with the decision affordances beside them. One page that changed
+ * shape depending on what the caller happened to hold would make `aria-current`
+ * and the URL agree about the place while disagreeing about the act, and would
+ * put an approval control inside a frame whose whole vocabulary is "your weeks".
+ *
+ * The segment mirrors the API's own `…/vacation/rounds/:periodId/selections`, so
+ * the client route tree and the server's policy-checked route table stay
+ * reconcilable rather than compared by eye.
+ */
+const vacationApprovalRoute = createRoute({
+  getParentRoute: () => vacationRoute,
+  path: 'rounds/$periodId/review',
+  component: VacationApprovalPage,
+});
+
+/**
+ * The request surfaces (OPUS-M5-005).
+ *
+ * TWO sibling trees rather than one, and it is the same seam as everywhere else
+ * in this file: `requests` is a member's own asking (`requests.own.*`) and
+ * `request-queue` is a scheduler's deciding (`requests.read_any`, `.approve`,
+ * `.deny`). Doc 08 §6 puts them on different rows — "Submit requests/vacation"
+ * is Member ✓ / Scheduler ✓, "Approve requests/vacation" is Member — — so a
+ * single tree would nest an act one of the two populations can never perform
+ * inside the section the other lives in.
+ *
+ * The declared tenant context travels as path segments, as it does on every
+ * other surface: SPEC-01 §2.2 requires the client to declare it and §3 requires
+ * switching it to be explicit rather than inferred.
+ */
+const requestsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/organizations/$organizationId/groups/$groupId/requests',
+  component: MyRequestsPage,
+});
+
+const requestQueueRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/organizations/$organizationId/groups/$groupId/request-queue',
+  component: RootLayout,
+});
+const requestQueueIndexRoute = createRoute({
+  getParentRoute: () => requestQueueRoute,
+  path: '/',
+  component: RequestQueuePage,
+});
+const requestDetailRoute = createRoute({
+  getParentRoute: () => requestQueueRoute,
+  path: '$requestId',
+  component: RequestDetailPage,
+});
+
 const routeTree = rootRoute.addChildren([
   myScheduleRoute,
   dailySheetRoute,
@@ -373,7 +436,9 @@ const routeTree = rootRoute.addChildren([
     rulesRoute,
   ]),
   settingsRoute.addChildren([settingsGroupRoute, settingsLocationsRoute]),
-  vacationRoute.addChildren([vacationRoundRoute]),
+  requestsRoute,
+  requestQueueRoute.addChildren([requestQueueIndexRoute, requestDetailRoute]),
+  vacationRoute.addChildren([vacationRoundRoute, vacationApprovalRoute]),
   scheduleRoute.addChildren([schedulePeriodsRoute, scheduleVersionRoute]),
   buildsRoute.addChildren([buildsPeriodRoute, buildRunRoute, buildComparisonRoute]),
   publicationRoute.addChildren([

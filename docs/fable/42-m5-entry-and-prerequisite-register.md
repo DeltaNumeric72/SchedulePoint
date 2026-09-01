@@ -1504,6 +1504,184 @@ controls, 2 pure subject renames, ZERO removals). Patch md5
 - FU-32 stays OPEN pending the first ALL-GREEN nightly after the merge, per
   this packet's own text.
 
+### 5j. M5-005 — FINALIZED 2026-09-01 (issues against `origin/main` at `59f2659`, the PR #16 merge)
+
+**Scope: the request/vacation UX and the contacts directory — the M5 surfaces'
+UI half, per pre-declaration row 5.** Everything below rides on shipped API
+surfaces (M5-001..004, M5-00C); this packet adds NO route, NO migration, NO
+capability key, NO domain change — `apps/web` + e2e/axe/request-budget
+coverage only. Any gap that seems to need an API change is an ESCALATION, not
+an addition.
+
+**The packet:**
+- **Staff request UI + status history:** submit (the five subtypes + vacation
+  selection through the M5-003 round surface), withdraw, and a status-history
+  view derived from what the shipped read routes already return. I-13 binds
+  every affordance: no control labelled Add/New/Create persists ANYTHING
+  before a completed form, validation, and an explicit Save. I-10: one user
+  action, one request — recorded in the request-budget registry per surface.
+- **The comments affordance (M5-00C's):** the requester side is the
+  controlled vocabulary EXACTLY — a code picker over the nine codes, `other`
+  terminal with NO companion text input (rendering one would be FAD-58's
+  free-text channel under another name — I-17); the scheduler side is bounded
+  text with the shipped 1..1000 bound surfaced honestly. Per-capability
+  visibility per the ratified table; nothing widened.
+- **Scheduler approval surfaces:** the pending-review queue (M5-002's read
+  routes), approve/deny (single + batch with per-item outcomes), the vacation
+  approval with the D-21/D-26 semantics surfaced (idempotent, named
+  refusals), and the M5-004 commit/reverse surfaces — REVERSAL CARRIES THE
+  GRADUATED CONFIRMATION this packet owes (§5h routed it here): an explicit
+  two-step confirm naming the consequence (units restored, revision request
+  raised, snapshots retained) with the mandatory reason field, never a
+  one-click destructive act.
+- **Contacts directory (CAP-042):** minimised PII per I-07's posture — names
+  and work-contact fields the schema already holds, NO clinical free text, no
+  new PII field without a recorded decision; synthetic fixtures only.
+- **Coverage:** axe on EVERY new rendered state at both viewports (I-12 /
+  SP-HR-3..6) — including the M5-003 observation this packet owes: the
+  ACCEPTED-SAVE state gets its own axe sweep; request-budget recordings for
+  every interaction (I-10); e2e over the real stack for the primary flows.
+- **FU-35 trigger rule:** if any surface here displays "outstanding revision
+  requests", THIS packet is FU-35's consumer and must bring the question to
+  the orchestrator for the recorded ruling (read-side union vs guard
+  widening) BEFORE building it; if no surface needs it, say so and FU-35
+  stays routed to M5-006.
+
+**Constraints carried:** the client talks to NO third party (CAP-068/T-23,
+allowlist empty — unconditional); layering (`apps/web` imports contracts
+only); no weakened axe or architecture test (rule 10); terminology per the
+glossary — the ten schedule concepts stay distinct; I-16 on any picklist
+turn; the §5e..§5i environment discipline binds (tree gate, debris, FU-30
+sweep, cp-restores, SP_SOLVER_WORKER_COMMAND for gate runs, `tsc -b` before
+api tests in a fresh worktree, chmod cautions incl. the false-STALE-CLUSTER
+diagnostic, the single-file replay key for any order-dependence).
+
+**Acceptance battery:** the standing battery (§6) · axe with the new states
+enumerated and counted (the 458 baseline grows; quote the delta and attribute
+it per state) · request-budget with the new recordings enumerated (48 grows;
+same discipline) · e2e primary flows both viewports · red cases at census 69
+under the four-conjunct bar (argue, don't assume — UI packets rarely add
+arms) · one composed seeded `api` run at a fresh seed (the matrix is
+unblinded; a red here is a FINDING now, not a citation — FU-32 is cured) ·
+CI 15/15. Delivery: worktree + patch from `59f2659`; fresh Opus implementer;
+fresh Opus reviewer; delta; orchestrator lands on the next PR.
+
+**Dated amendment 2026-09-01 (ruled at the implementer's pre-build
+escalation, which measured three scope bullets undrivable from shipped
+reads — the original text's "fields the schema already holds" and "riding
+shipped read routes" were the finalization's errors, corrected here):**
+1. **The contacts directory is DROPPED from this packet and RE-ROUTED, not
+   narrowed:** zero contact columns exist across all 27 migrations, and doc
+   11 §8 + PO-DEC-20 make inclusion and field-level minimisation SERVER
+   obligations a UI cannot carry. CAP-042 keeps its baseline seat and gets
+   its own packet — **M5-00D (contacts: the PII-field FAD + migration + read
+   route + minimisation-per-role)** — sequenced before M5-006 closes the
+   milestone. Sequencing, never deletion.
+2. **One additive read route is AUTHORISED into this packet** — exposing
+   `readVacationRound`'s existing, review-proven `'period'` scope (the
+   scheduler's view; today its only caller passes `'own'`) so the scheduler
+   vacation-approval surface and the §5h-routed graduated-confirmation
+   reversal are drivable. Conditions: four-layer policy on the EXISTING key
+   doc 08 §6 forces (proposed at interim, ratified by the orchestrator
+   before registration); the projection carries selectionId,
+   selectionVersion, status, weekStart, membershipId, is_override and
+   NOTHING wider (no reason codes, no comments, no override_reason);
+   route-policy 133→134; deny-by-default and both HTTP directions proven
+   (FU-29); census argued.
+3. **FU-35 ruling:** this packet is NOT the consumer — per-request
+   `revisionRequested` renders on the five non-vacation subtypes only
+   (where 0023's guard gives the flag its one meaning), never on vacation
+   rows (a structural false negative), and consequence-copy in the reversal
+   confirmation is not a query. FU-35 stays routed to M5-006.
+4. **Recorded observation:** the pending queue built on shipped reads names
+   nobody (membershipId UUIDs only) — rendered honestly, no invented names,
+   no reach into another surface's roster; M5-00D is the cure and the UX
+   cost is priced here, not overlooked.
+5. **(Added same day, gap 4)** The submit FORMS for the two
+   catalogue-dependent subtypes (shift-preference, shift-group-off) are
+   SEQUENCED OUT to M5-00D: their record schemas require shiftTypeId /
+   shiftGroupId, and no member-readable vocabulary route exists (the
+   catalogue reads are gated on the WRITE key `schedule.catalogue.administer`
+   — widening it to member would be a write implying a read, FAD-25-refused;
+   the eligibility read is grant-only). M5-00D's scope grows accordingly to
+   "member-facing directory and vocabulary reads": the contacts directory
+   (CAP-042) AND a member catalogue vocabulary read (shift types + shift
+   groups where `allow_request` is true, ids and names only), each with its
+   key decision as a doc-08-§6-grounded FAD — the M5-001 precedent governs
+   (a capability key is never invented inline). UI sequencing, not a
+   capability drop: both subtypes' SUBMIT capability is API-real since
+   M5-001; the forms are prop-pluggable and land with the vocabulary read.
+   The three date-only subtypes (availability, time-off, no-call) ship their
+   forms in this packet. Also recorded for M5-00D: the only member-readable
+   shift-type identities today are INCIDENTAL (published-schedule entries),
+   and deriving a picker from them would quietly redefine what a member may
+   prefer — the reason the vocabulary read exists.
+6. **(Ratified at interim 1)** The amended route's key is
+   `requests.read_any` via the existing scheduler-read config verbatim —
+   0023's `vacation_selections_group_read_any` arm already names the same
+   key, so route policy and row predicate agree by design; the route landed
+   NARROWER than authorised (zero new contract: the member's own
+   `vacationRoundSchema` over the period-wide row set, C-3's exclusions
+   structural).
+7. **(Ruled at delivery, 2026-09-01)** The acceptance line "e2e primary
+   flows both viewports" is met by the delivered interception-based specs
+   (98 cases, the directory's uniform convention) **except for its
+   real-stack extension, which the implementer handed back short
+   explicitly** — `real-stack.config.ts` was not extended to the three new
+   surfaces, while the new route and the ridden server behaviour ARE
+   real-stack proven. Ruling: the real-stack extension of the three
+   primary flows is ROUTED to M5-006's integration sweep as **FU-37**
+   (doc 40), blocking M5 exit. Nothing subtracted, nothing weakened; the
+   packet's remaining acceptance stands unamended and the reviewer
+   verifies against this settled bar.
+
+**ACCEPTED 2026-09-01.** Fresh implementer (~4 h build + a definitive re-run
+battery); fresh reviewer; verdict **ACCEPT, ZERO conditions** — the first
+zero-condition full-packet review of the milestone. Patch md5
+`8d7e3b91bd48f3d9e1eb6d1acc8ba384`, 16 files +6824/−2, base `59f2659`;
+verified three ways (implementer's own tree, orchestrator md5 + apply-check,
+reviewer's fresh worktree).
+- **Both batteries independent and green:** implementer 17/17 on the exact
+  delivered tree (unit 2619; axe 556/16 = +98 with zero skips added; budget
+  72/143; route-policy 134; migrations 27; composed seeded run at fresh seed
+  20260907 CLEAN first attempt — the unblinded matrix's first clean composed
+  run); reviewer's OWN 17/17 on a fresh worktree at `59f2659` + patch, with
+  validators 36/36 · 95/95 · PASS re-run by the reviewer.
+- **Adversarial core — four mutations, all killed with precise signatures:**
+  route scope `'period'`→`'own'` (the claimed `expected [] to have a length
+  of 1 but got +0` plus two unclaimed kills); acknowledgement gate removed
+  (`reverse-reason` count assertion); mandatory-reason gate removed
+  (`reverse-submit` disabled assertion); the reviewer's own fourth — third
+  consequence gutted (named-text assertion). All reverted; tree byte-identical
+  to the patch afterwards. Order-dependence: 3 fresh shuffled seeds green on
+  the new api file, 1 on the changed policy file.
+- **Verified beyond the claims:** C-3 exclusions are STRUCTURAL (`.strict()`
+  schemas throw on widening — a future `overrideReason` 500s, never leaks);
+  `roundView` gained a call site, not a projection (zero new contract is
+  literal); the `variance` array is scope-independent, so the only widening is
+  the ratified selections row set, RLS-gated by the same key the route
+  declares; FU-35 non-consumption proven at the SERVER (`loadRecord` returns
+  null for vacation roots — the member list structurally cannot carry the
+  flag); all NINE zero-budget interactions measure 0 at both viewports.
+- **Record correction (reviewer's O1):** the implementer's prose said EIGHT
+  zero-budget entries; the artifact delivers NINE (`vacation-open-deny-week`
+  omitted from the enumeration — two deny-form opens collapsed to one in
+  prose). The delivered state is stricter than claimed; corrected here.
+- **Six implementer self-found defects on the record** (incl. the
+  probe-that-lied — a diagnostic probe reporting "no overflow" three times
+  without ever loading the page — and the patch-self-churn: `prettier --write`
+  reformatting 124 pre-existing lines, rebuilt out by anchor so the route file
+  is additive-only, `166 0` numstat, both remaining deletions the
+  implementer's own).
+- **Routed forward, never dropped:** FU-37 (real-stack e2e extension of the
+  three surfaces → M5-006, blocking M5 exit, per amendment item 7);
+  **FU-38** (reviewer's O2: `vacation_grants` group-scope policy exposes every
+  member's `personal-entitlement` variance rows on the member's own round
+  read since M5-003 — pre-existing, inherited unchanged, routed to M5-006's
+  sweep); M5-00D (contacts + member catalogue vocabulary reads) sequenced
+  before M5-006. The full serial 69-arm battery not run locally (sharded CI
+  primary per §5f); CI on the PR is the closing evidence.
+
 ## 6. Standing acceptance battery (every packet, per 24 §G and the M4 form)
 
 Validators (36/36 · 95/95 · research PASS) · `corepack pnpm check` 17/17 · the full
